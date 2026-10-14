@@ -42,6 +42,10 @@ SHORT_EMOTION_DATA_DIR=./short-emotion-data npm run dev   # 改讀本地檢出�
 
 手動跑一次取數（需要 `WIND_API_KEY`）：`WIND_API_KEY=... npm run refresh -- --force --market=all`
 
+## 協作
+
+`main` 是線上版本，受保護規則限制，所有改動都走「分支 → PR → 合併」。流程、分工與衝突處理見 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
 ## 第二階段待辦
 
 - 正式品牌與 Logo（目前 `public/short-emotion/logo.svg` 是臨時標識）
