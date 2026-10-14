@@ -7,5 +7,5 @@
 export const SUPABASE_PUBLIC = {
   url: "https://awrpzbxdhrwbweskgipj.supabase.co",
   // Supabase → Project Settings → API Keys → Publishable key（sb_publishable_ 开头）
-  publishableKey: ""
+  publishableKey: "sb_publishable_qrJ5pPfwyGVpWtqd6SdlHg_DtzOg2hB"
 };
