@@ -1,7 +1,8 @@
-// 本地预览：node scripts/dev-server.mjs（或 npm run dev），打开 http://localhost:3000/cn 、/tw
+// 本地预览：node scripts/dev-server.mjs（或 npm run dev），打开 http://localhost:3000
 //
-// 按 vercel.json 的 redirects / rewrites 提供页面，/api/<名称> 直接调用 api/<名称>.js（同 Vercel 函数）。
-// 登录：默认用 api/_lib/supabase-public.js 的 Supabase 项目；SHORT_EMOTION_AUTH=off 可关闭（见 api/_lib/auth.js）。
+// 与线上相同的顺序：先跑 middleware.js（登录判断），再按 vercel.json 的 redirects / rewrites 提供页面，
+// /api/<名称> 直接调用 api/<名称>.js（同 Vercel 函数）。
+// 登录：默认用 api/_lib/supabase-public.js 的 Supabase 项目；SHORT_EMOTION_AUTH=off 可关闭（看板不需登录）。
 // 数据默认读线上 short-emotion-data 分支（只读，不调用 Wind）；
 // 设 SHORT_EMOTION_DATA_DIR=<目录> 时改读本地检出的数据分支。
 import { createServer } from "node:http";
@@ -15,10 +16,36 @@ const vercel = JSON.parse(await readFile(path.join(root, "vercel.json"), "utf8")
 if (!process.env.SHORT_EMOTION_STORE) process.env.SHORT_EMOTION_STORE = process.env.SHORT_EMOTION_DATA_DIR ? "file" : "github";
 const API_ROUTES = {
   "short-emotion": () => import("../api/short-emotion.js"),
-  "auth-config": () => import("../api/auth-config.js")
+  auth: () => import("../api/auth.js")
 };
+const { default: middleware, config: middlewareConfig } = await import("../middleware.js");
 
-const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".json": "application/json", ".png": "image/png" };
+/** 只支持本项目用到的两种写法：完整路径，以及「/前缀/:path*」。 */
+function middlewareMatches(pathname) {
+  return middlewareConfig.matcher.some((pattern) => {
+    if (!pattern.endsWith("/:path*")) return pathname === pattern;
+    const base = pattern.slice(0, -"/:path*".length);
+    return pathname === base || pathname.startsWith(`${base}/`);
+  });
+}
+
+/** 运行 middleware：返回 null 表示继续处理（以及要附带的 Set-Cookie），否则已直接响应。 */
+async function runMiddleware(req, res, url) {
+  if (!middlewareMatches(url.pathname)) return { setCookies: [] };
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(req.headers)) if (typeof value === "string") headers.set(key, value);
+  const result = await middleware(new Request(url, { method: req.method, headers }));
+  if (!(result instanceof Response)) return { setCookies: [] };
+  const setCookies = result.headers.getSetCookie();
+  if (result.headers.get("x-middleware-next") === "1") return { setCookies };
+  const out = {};
+  for (const [key, value] of result.headers) if (key !== "set-cookie") out[key] = value;
+  if (setCookies.length) out["set-cookie"] = setCookies;
+  res.writeHead(result.status, out).end(await result.text());
+  return null;
+}
+
+const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".json": "application/json", ".png": "image/png", ".webp": "image/webp" };
 const port = Number(process.env.PORT || 3000);
 
 function vercelResponse(res) {
@@ -40,6 +67,9 @@ async function readBody(req) {
 createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${port}`);
   try {
+    const passed = await runMiddleware(req, res, url);
+    if (!passed) return;
+    if (passed.setCookies.length) res.setHeader("Set-Cookie", passed.setCookies);
     const redirect = (vercel.redirects || []).find((r) => r.source === url.pathname);
     if (redirect) {
       res.writeHead(307, { Location: redirect.destination + url.search }).end();
@@ -67,5 +97,5 @@ createServer(async (req, res) => {
     }
   }
 }).listen(port, () => {
-  console.log(`ShortEmotion 本地预览：http://localhost:${port}/cn  （台股 /tw，数据：${process.env.SHORT_EMOTION_STORE}）`);
+  console.log(`ShortEmotion 本地预览：http://localhost:${port}  （介绍页 /about、登录 /login、看板 /shortemotion/cn，数据：${process.env.SHORT_EMOTION_STORE}）`);
 });

@@ -1,16 +1,15 @@
-import { HANT, HANT_FIXES } from "./hant-map.js?v=4";
-import { initAuth, authEnabled, accessToken, clearSession, openLogin, mountAccountButton } from "./auth.js?v=1";
+import { HANT, HANT_FIXES } from "./hant-map.js?v=5";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 let data = null;
 let anomalyData = null;
 let anomalyFilter = "all";
-let timelineMode = /^\/tw(?:-short-emotion)?(?:\/|$)/.test(location.pathname) ? "daily" : "intraday";
+let timelineMode = /^\/(?:shortemotion\/)?tw(?:-short-emotion)?(?:\/|$)/.test(location.pathname) ? "daily" : "intraday";
 let toastTimer = null;
 
-// ── 市场：/cn（A股）与 /tw（台股）共用这一页（旧地址 /cn-short-emotion、/tw-short-emotion 会跳转过来）──
-const MARKET = /^\/tw(?:-short-emotion)?(?:\/|$)/.test(location.pathname) ? "tw" : "cn";
+// ── 市场：/shortemotion/cn（A股）与 /shortemotion/tw（台股）共用这一页（旧地址 /cn、/tw、/cn-short-emotion 等会跳转过来）──
+const MARKET = /^\/(?:shortemotion\/)?tw(?:-short-emotion)?(?:\/|$)/.test(location.pathname) ? "tw" : "cn";
 const MARKETS = {
   cn: {
     label: "A股",
@@ -64,9 +63,6 @@ function toHant(text) {
   for (const [pattern, replacement] of HANT_FIXES) output = output.replace(pattern, replacement);
   return output;
 }
-
-// 只在台股页面转繁体（登录弹窗等后加的界面文字用它）。
-const uiText = (text) => (MARKET === "tw" ? toHant(text) : String(text));
 
 function hantify(root) {
   if (MARKET !== "tw" || !root) return;
@@ -180,8 +176,16 @@ async function api(resource, { fresh = readFresh } = {}) {
   const extra = fresh ? `&fresh=1&t=${Date.now()}` : "";
   const response = await fetch(`${API_BASE}?market=${MARKET}&resource=${encodeURIComponent(resource)}${extra}`, { headers: { Accept: "application/json" }, cache: fresh ? "no-store" : "default" });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw Object.assign(new Error(payload.error || `请求失败 (${response.status})`), { code: payload.code });
+  if (!response.ok) {
+    if (payload.code === "login_required") goLogin();
+    throw Object.assign(new Error(payload.error || `请求失败 (${response.status})`), { code: payload.code });
+  }
   return payload;
+}
+
+// 登录已失效（例如在别的设备退出、或超过 90 天没打开）：回到登录页，登录后回到这里。
+function goLogin() {
+  location.replace(`/login?next=${encodeURIComponent(location.pathname + location.search)}`);
 }
 
 function shanghaiTimeLabel(value) {
@@ -725,13 +729,14 @@ async function runExport(kind) {
 }
 
 function closeExportMenu() {
-  $(".export-menu")?.remove();
+  $(".export-menu:not(.account-menu)")?.remove();
   $("#export-image")?.setAttribute("aria-expanded", "false");
 }
 
 function toggleExportMenu(event) {
   event.stopPropagation();
-  if ($(".export-menu")) return closeExportMenu();
+  closeAccountMenu();
+  if ($(".export-menu:not(.account-menu)")) return closeExportMenu();
   const menu = document.createElement("div");
   menu.className = "export-menu";
   menu.setAttribute("role", "menu");
@@ -744,8 +749,58 @@ function toggleExportMenu(event) {
   $("#export-image").setAttribute("aria-expanded", "true");
 }
 
-document.addEventListener("click", (event) => { if (!event.target.closest(".export-menu")) closeExportMenu(); });
-document.addEventListener("keydown", (event) => { if (event.key === "Escape") { closeExportMenu(); closeGallery(); } });
+// 账号：顶栏右侧显示登录的邮箱与「退出登录」（登录未开启时不显示）。
+const uiText = (text) => (MARKET === "tw" ? toHant(text) : String(text));
+let accountEmail = "";
+
+async function loadAccount() {
+  try {
+    const response = await fetch("/api/auth?action=me", { headers: { Accept: "application/json" }, credentials: "same-origin" });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.enabled === false) return;
+    if (!payload.user) return goLogin();
+    accountEmail = payload.user.email || "";
+    $("#account").hidden = false;
+  } catch {}
+}
+
+function closeAccountMenu() {
+  $(".account-menu")?.remove();
+  $("#account")?.setAttribute("aria-expanded", "false");
+}
+
+function toggleAccountMenu(event) {
+  event.stopPropagation();
+  closeExportMenu();
+  if ($(".account-menu")) return closeAccountMenu();
+  const menu = document.createElement("div");
+  menu.className = "export-menu account-menu";
+  menu.setAttribute("role", "menu");
+  const who = document.createElement("div");
+  who.className = "account-who";
+  who.innerHTML = `<small>${uiText("已登录")}</small><b></b>`;
+  who.querySelector("b").textContent = accountEmail;
+  const logout = document.createElement("button");
+  logout.type = "button";
+  logout.setAttribute("role", "menuitem");
+  logout.innerHTML = `<b>${uiText("退出登录")}</b>`;
+  logout.addEventListener("click", async () => {
+    logout.disabled = true;
+    try { await fetch("/api/auth?action=logout", { method: "POST", credentials: "same-origin" }); } catch {}
+    location.replace("/about");
+  });
+  menu.append(who, logout);
+  $(".nav").append(menu);
+  $("#account").setAttribute("aria-expanded", "true");
+}
+
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".export-menu")) {
+    closeExportMenu();
+    closeAccountMenu();
+  }
+});
+document.addEventListener("keydown", (event) => { if (event.key === "Escape") { closeExportMenu(); closeAccountMenu(); closeGallery(); } });
 
 // 「刷新」每个浏览器每小时只能按一次（打开页面只读快照，不计入、也不触发更新）。
 // 点刷新 = 真实调用 Wind MCP：服务端触发 GitHub Actions 数据任务，页面显示「数据更新中」并轮询进度，
@@ -885,18 +940,10 @@ async function handleManualRefresh() {
     toast("刷新每小时只能使用一次，交易时段每 30 分钟也会自动更新");
     return;
   }
-  // 登录开启时，登录后才能刷新（见 auth.js）；没登录先弹出登录，登录成功后接着刷新。
-  await authReady;
-  let token = null;
-  if (authEnabled()) {
-    token = await accessToken();
-    if (!token && await openLogin({ t: uiText, reason: "登录后即可刷新数据" })) token = await accessToken();
-    if (!token) return;
-  }
   try { localStorage.setItem(REFRESH_KEY, String(Date.now())); } catch {}
   beginRefresh({ step: "submitted", poll: false }); // 先显示「数据更新中」，提交成功后再轮询进度
   try {
-    const response = await fetch(`${API_BASE}?market=${MARKET}&action=refresh`, { method: "POST", headers: { Accept: "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
+    const response = await fetch(`${API_BASE}?market=${MARKET}&action=refresh`, { method: "POST", headers: { Accept: "application/json" } });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw Object.assign(new Error(payload.error || `请求失败 (${response.status})`), { code: payload.code });
     if (payload.dispatched) {
@@ -910,10 +957,8 @@ async function handleManualRefresh() {
   } catch (error) {
     try { localStorage.removeItem(REFRESH_KEY); } catch {} // 没刷新成功不占用每小时一次的额度
     stopRefresh();
-    if (error.code === "login_required") clearSession();
-    toast(error.code === "not_configured" ? "实时刷新服务尚未开通，页面显示的是最近一次定时快照"
-      : error.code === "login_required" ? "登录已失效，请重新登录后再刷新"
-      : `刷新失败：${error.message}`, true);
+    if (error.code === "login_required") return goLogin();
+    toast(error.code === "not_configured" ? "实时刷新服务尚未开通，页面显示的是最近一次定时快照" : `刷新失败：${error.message}`, true);
   }
 }
 
@@ -939,6 +984,7 @@ window.addEventListener("resize", () => {
 function bindEvents() {
   $("#refresh").addEventListener("click", handleManualRefresh);
   $("#export-image").addEventListener("click", toggleExportMenu);
+  $("#account").addEventListener("click", toggleAccountMenu);
 
   $$(".anomaly-filter").forEach((button) => button.addEventListener("click", () => {
     anomalyFilter = button.dataset.anomalyFilter;
@@ -987,5 +1033,5 @@ function watchSections() {
 
 applyMarketCopy();
 bindEvents();
-const authReady = initAuth().then(() => mountAccountButton({ t: uiText, toast }));
+loadAccount();
 loadEmotion().then(resumeRunningRefresh);

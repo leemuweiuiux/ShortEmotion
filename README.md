@@ -6,9 +6,14 @@ A股 / 台股短線情緒看板：**https://lfjmwl.com**（Vercel 預設網址 s
 
 | 網址 | 內容 |
 | --- | --- |
-| `/`、`/cn` | A股 |
-| `/tw` | 台股（盤後快照，繁體） |
-| `/cn-short-emotion`、`/tw-short-emotion`、`/short-emotion` | 舊網址，跳轉到 `/cn`、`/tw` |
+| `/about` | 介紹頁（公開）：產品介紹、今日情緒分數、底部「登录」按鈕 |
+| `/login` | 登入頁：輸入郵箱 → 同一頁填驗證碼，免費註冊 |
+| `/shortemotion/cn` | 短線情緒 · A股（**需登入**） |
+| `/shortemotion/tw` | 短線情緒 · 台股（盤後快照，繁體，**需登入**） |
+| `/` | 已登入 → `/shortemotion/cn`；未登入 → `/about` |
+| `/home`、`/cn`、`/tw`、`/cn-short-emotion`、`/tw-short-emotion`、`/short-emotion` | 舊網址，轉到上面的新網址 |
+
+每個看板放在自己的資料夾（`/看板名/…`），以後新增看板照同樣方式加。
 
 ## 運作方式
 
@@ -17,13 +22,27 @@ GitHub Actions（.github/workflows/short-emotion.yml，工作日 09:00–15:30 �
   └─ scripts/short-emotion/refresh.mjs 呼叫 Wind MCP 計算快照
        └─ 強制推送到 short-emotion-data 分支（A股在根目錄，台股在 tw/）
 Vercel
-  ├─ public/short-emotion/        靜態頁面（auth.js：郵箱驗證碼登入）
-  ├─ api/short-emotion.js         只讀資料分支；POST action=refresh 時觸發上面的工作流（需登入）
-  └─ api/auth-config.js           提供登入設定（Supabase 網址與 Publishable key）
-Supabase Auth                     寄送與驗證郵箱驗證碼（不使用資料表）
+  ├─ middleware.js                打開看板前檢查登入（未登入 → /login?next=原網址）
+  ├─ public/about/、public/login/ 介紹頁、登入頁（共用 public/shared/lang.js 簡繁切換）
+  ├─ public/short-emotion/        短線情緒看板頁面
+  ├─ api/auth.js                  登入：驗證碼通過後把憑證寫進 HttpOnly cookie、查詢登入狀態、退出
+  └─ api/short-emotion.js         只讀資料分支（summary 公開，其餘需登入）；POST action=refresh 觸發上面的工作流
+Supabase Auth                     寄送與驗證郵箱驗證碼（經 Resend 寄出，不使用資料表）
 ```
 
-頁面不直接呼叫 Wind。「刷新」按鈕**登入後才能使用**，每個瀏覽器每小時一次，同一市場 2 分鐘內多人點擊共用同一次任務。
+頁面不直接呼叫 Wind。「刷新」按鈕每個瀏覽器每小時一次，同一市場 2 分鐘內多人點擊共用同一次任務。
+
+## 登入
+
+- 郵箱驗證碼登入，未註冊的郵箱自動註冊。驗證碼由瀏覽器直接向 Supabase 申請與驗證（頻率限制按訪客自己的 IP 計算），
+  通過後交給 `POST /api/auth?action=session`，伺服器寫入兩個 HttpOnly cookie（`se_at`、`se_rt`，SameSite=Lax）。
+- **90 天免登入，滾動延長**：access token 約 1 小時過期，過期後由 middleware / 接口用 refresh token 換新，cookie 重新算 90 天。
+  cookie 由伺服器設定，Safari 不會在 7 天後清掉。
+- Supabase 暫時連不上時，已登入的人照常放行，不會整站無法使用。
+- 設定在 `api/_lib/supabase-public.js`（只放公開的 Publishable key）；本地或測試可用 `SHORT_EMOTION_AUTH=off` 關閉登入。
+- 後台設定（2026-10-14）：Supabase 自訂 SMTP 用 Resend（寄件人 `noreply@lfjmwl.com`），郵件範本改為顯示驗證碼 `{{ .Token }}`；
+  寄信上限 20 封／小時，登入請求 10 次／5 分鐘／IP。Resend 免費版每天 100 封、每月 3000 封。
+- 資料分支本身是公開的（公開倉庫），登入是產品上的門檻，不是資料保密。
 
 ## 部署設定（只需做一次）
 
@@ -32,21 +51,14 @@ Supabase Auth                     寄送與驗證郵箱驗證碼（不使用資�
 2. **Vercel**：匯入本倉庫，Framework 選 Other，其餘保持預設（`vercel.json` 已指定輸出目錄 `public`）。
 3. **Vercel 環境變數** `GITHUB_ACTIONS_TOKEN`：GitHub fine-grained token，只授權本倉庫，
    權限 Actions: Read and write、Contents: Read-only。沒有它頁面照常顯示，只是「刷新」不可用。
-4. **登入（Supabase Auth）**：
-   - Supabase 專案網址與 Publishable key（公開值）寫在 `api/_lib/supabase-public.js`，Vercel 不需要再設定。
-     Publishable key 留空時登入關閉。**不要**放 secret / service_role key（程式會拒絕使用）。
-     需要臨時換專案時，可用 Vercel 環境變數 `SUPABASE_URL`、`SUPABASE_PUBLISHABLE_KEY` 覆蓋。
-   - Supabase → Authentication → Emails：**Magic link** 與 **Confirm signup** 兩個範本都要含 `{{ .Token }}`，
-     郵件裡才會是驗證碼而不是連結。
-   - Supabase 內建寄信只能寄給專案團隊成員、每小時 2 封；正式開放前要在 Authentication → Emails → SMTP Settings
-     接自己的寄信服務（例如 Resend，以 lfjmwl.com 寄出）。
 
 ## 本地開發
 
 ```bash
 npm install
 npm test            # 單元測試
-npm run dev         # http://localhost:3000/cn ，預設讀線上資料分支；登入用正式的 Supabase 專案（SHORT_EMOTION_AUTH=off 可關閉）
+npm run dev         # http://localhost:3000 ，預設讀線上資料分支，登入用真實 Supabase
+SHORT_EMOTION_AUTH=off npm run dev                        # 不登入直接看看板
 SHORT_EMOTION_DATA_DIR=./short-emotion-data npm run dev   # 改讀本地檢出的資料分支
 ```
 

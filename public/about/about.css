@@ -1,0 +1,245 @@
+/* ShortEmotion 介绍页（/about），登录页（/login）也共用这里的顶栏与版面。
+   沿用 TWSVP 与看板的视觉：浅灰底、白色直角描边卡片、黑色强调、Noto Sans SC + Manrope。
+   唯一放大的元素是主视觉里的「今日情绪」实时读数。 */
+:root {
+  --bg: #efefef;
+  --surface: #ffffff;
+  --panel: #f3f3f3;
+  --ink: #121417;
+  --muted: #6b7280;
+  --border: #e0e0e0;
+  --heat: #ff4015;
+  --nav-height: 64px;
+  --drawer-height: 76px;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #0f1115;
+  --surface: #151922;
+  --panel: #1b202c;
+  --ink: #f5f7fb;
+  --muted: #9aa3b2;
+  --border: #2a3140;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: var(--nav-height); }
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  line-height: 1.6;
+}
+h1, h2, h3, p { margin: 0; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* ── 顶栏（同 TWSVP 首页：Logo + 名称 + 标语，右侧简繁切换） ── */
+.nav {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 600px;
+  height: calc(var(--nav-height) + env(safe-area-inset-top, 0px));
+  margin: 0 auto;
+  padding: env(safe-area-inset-top, 0px) 16px 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(15, 20, 25, 0.04);
+}
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.brand-logo { width: 32px; height: 32px; display: block; }
+.brand-text { display: grid; gap: 1px; }
+.brand-text b { font-family: "Manrope", sans-serif; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+.brand-text small { color: var(--muted); font-size: 11px; line-height: 1.3; }
+.lang-toggle { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; }
+.lang-btn {
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.lang-btn[aria-pressed="true"] { color: var(--ink); border-color: var(--border); background: var(--panel); }
+
+/* ── 页面 ── */
+.page {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: calc(var(--nav-height) + env(safe-area-inset-top, 0px) + 16px) 16px calc(var(--drawer-height) + 40px + env(safe-area-inset-bottom, 0px));
+  display: grid;
+  gap: 16px;
+}
+section, .hero { background: var(--surface); border: 1px solid var(--border); padding: 20px; }
+
+/* ── 主视觉 ── */
+.hero { position: relative; overflow: hidden; display: grid; gap: 14px; }
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(18, 20, 23, 0.16) 1px, transparent 1px), radial-gradient(rgba(255, 64, 21, 0.22) 1px, transparent 1px);
+  background-size: 12px 12px, 22px 22px;
+  background-position: 0 0, 40px 30px;
+  opacity: .35;
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 70%);
+  mask-image: linear-gradient(180deg, #000 0%, transparent 70%);
+  pointer-events: none;
+}
+:root[data-theme="dark"] .hero::before { background-image: radial-gradient(rgba(245, 247, 251, 0.16) 1px, transparent 1px), radial-gradient(rgba(255, 64, 21, 0.28) 1px, transparent 1px); }
+.hero > * { position: relative; }
+.hero-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-top: 4px;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+.hero-word { display: inline-block; min-width: 2em; transition: opacity .28s ease, transform .28s ease; }
+.hero-word.swap { opacity: 0; transform: translateY(6px); }
+.hero-lead { color: var(--muted); font-size: 15px; line-height: 1.7; max-width: 34em; }
+
+/* 今日情绪：两个市场的实时分数（与看板同款圆环） */
+.live { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+.live-tile {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: "market market" "ring phase" "time time";
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 6px;
+  padding: 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  text-decoration: none;
+  transition: border-color .15s ease;
+}
+.live-tile:hover { border-color: var(--ink); }
+.live-market { grid-area: market; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.live-ring {
+  grid-area: ring;
+  --size: 60px;
+  width: var(--size);
+  height: var(--size);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background:
+    radial-gradient(closest-side, var(--panel) calc(100% - 6px), transparent calc(100% - 5px)),
+    conic-gradient(var(--ink) calc(var(--score) * 1%), var(--border) 0);
+}
+.live-score { font-family: "Manrope", sans-serif; font-size: 24px; font-weight: 800; letter-spacing: -0.03em; }
+.live-phase { grid-area: phase; font-size: 20px; font-weight: 700; line-height: 1.25; }
+.live-phase small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; font-weight: 500; }
+.live-time { grid-area: time; padding-top: 8px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; line-height: 1.4; }
+.hero-note { padding-top: 12px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; line-height: 1.6; }
+
+/* ── 四步阅读 ── */
+.steps-intro { display: grid; gap: 6px; }
+h2 { font-size: 20px; font-weight: 700; line-height: 1.35; }
+.steps-intro p, .feature-text p, .markets p, .board p, .boards-more { color: var(--muted); font-size: 14px; line-height: 1.7; }
+.feature { display: grid; gap: 16px; }
+.feature-text { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; row-gap: 4px; align-items: baseline; }
+.step-no {
+  grid-row: span 2;
+  align-self: start;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: "Manrope", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+h3 { font-size: 17px; font-weight: 700; line-height: 1.4; }
+.feature-shot { display: block; background: var(--bg); border: 1px solid var(--border); padding: 12px; }
+.feature-shot img { display: block; width: 100%; max-width: 420px; height: auto; margin: 0 auto; }
+.fade-bottom img {
+  -webkit-mask-image: linear-gradient(180deg, #000 72%, transparent);
+  mask-image: linear-gradient(180deg, #000 72%, transparent);
+}
+
+/* ── 两个市场 ── */
+.markets { display: grid; gap: 14px; }
+.market-grid { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--border); }
+.market-grid > div { display: grid; gap: 4px; align-content: start; padding: 14px; }
+.market-grid > div + div { border-left: 1px solid var(--border); }
+
+/* ── 看板 ── */
+.boards { display: grid; gap: 12px; }
+.board { display: grid; gap: 14px; padding: 16px; background: var(--panel); border: 1px solid var(--border); }
+.board > div:first-child { display: grid; gap: 4px; }
+.board-links { display: flex; gap: 8px; }
+.board-link {
+  flex: 1;
+  padding: 10px 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+.board-link:hover { border-color: var(--ink); }
+.boards-more { font-size: 13px; }
+
+/* ── 页脚 ── */
+.footer { display: grid; gap: 2px; padding: 4px 4px 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+
+/* ── 底部单一行动（同 TWSVP 首页的底部抽屉） ── */
+.drawer {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 10;
+  max-width: 600px;
+  margin: 0 auto;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 18px rgba(15, 20, 25, 0.08);
+}
+.drawer-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--drawer-height);
+  padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+}
+.drawer-copy { flex: 1; font-size: 13px; font-weight: 600; line-height: 1.4; }
+.drawer-cta {
+  flex: none;
+  padding: 12px 20px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+@media (max-width: 520px) {
+  .hero-title { font-size: 30px; }
+}
+@media (max-width: 380px) {
+  .hero-title { font-size: 28px; }
+  .live { grid-template-columns: 1fr; }
+  .market-grid { grid-template-columns: 1fr; }
+  .market-grid > div + div { border-left: 0; border-top: 1px solid var(--border); }
+  .drawer-copy { display: none; }
+  .drawer-cta { flex: 1; text-align: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-word, .live-tile, .board-link { transition: none; }
+}

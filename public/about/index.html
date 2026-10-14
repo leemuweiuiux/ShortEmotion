@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <title>ShortEmotion · 看懂A股与台股的短线情绪</title>
+  <meta name="description" content="把涨跌家数、涨跌停、连板、溢价、题材和成交合成一个情绪分，告诉你现在该进攻还是防守。A股盘中每 30 分钟更新，台股盘后更新。">
+  <meta property="og:title" content="ShortEmotion · 看懂A股与台股的短线情绪">
+  <meta property="og:description" content="一个分数看清短线情绪：情绪温度、市场广度、题材雷达、情绪路径。">
+  <meta property="og:image" content="/about/img/pulse-light.webp">
+  <link rel="icon" href="/short-emotion/logo.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/short-emotion/logo.svg">
+  <script>
+    // 与看板共用外观设置：深浅色跟随系统（或 twsvp_theme），语言：简体 / 繁体
+    (function () {
+      var root = document.documentElement;
+      var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
+      var theme = get("twsvp_theme");
+      if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      root.dataset.theme = theme;
+      if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
+      var lang = get("shortemotion:lang");
+      if (lang !== "hans" && lang !== "hant") lang = /^zh-(tw|hk|mo|hant)/i.test(navigator.language || "") ? "hant" : "hans";
+      root.dataset.lang = lang;
+      if (lang === "hant") root.lang = "zh-Hant-TW";
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/about/about.css?v=2">
+</head>
+<body>
+  <nav class="nav">
+    <a class="brand" href="/about" aria-label="ShortEmotion 介绍">
+      <img class="brand-logo" src="/short-emotion/logo.svg" alt="">
+      <span class="brand-text">
+        <b>ShortEmotion</b>
+        <small>看懂A股与台股的短线情绪</small>
+      </span>
+    </a>
+    <div class="lang-toggle" role="group" aria-label="语言">
+      <button type="button" class="lang-btn" data-lang="hans">简体</button>
+      <span aria-hidden="true">｜</span>
+      <button type="button" class="lang-btn" data-lang="hant">繁体</button>
+    </div>
+  </nav>
+
+  <main class="page">
+    <header class="hero">
+      <h1 class="hero-title">
+        <span class="hero-word" aria-live="polite">量化</span>
+        <span>每天的短线情绪</span>
+      </h1>
+      <p class="hero-lead">把涨跌家数、涨跌停、连板、溢价、题材和成交合成一个情绪分，告诉你现在该进攻还是防守。</p>
+
+      <div class="live" aria-label="今日情绪">
+        <a class="live-tile" data-market="cn" href="/shortemotion/cn">
+          <span class="live-market">A股</span>
+          <span class="live-ring" style="--score: 0"><b class="live-score">—</b></span>
+          <span class="live-phase">读取中</span>
+          <small class="live-time">盘中每 30 分钟更新</small>
+        </a>
+        <a class="live-tile" data-market="tw" href="/shortemotion/tw">
+          <span class="live-market">台股</span>
+          <span class="live-ring" style="--score: 0"><b class="live-score">—</b></span>
+          <span class="live-phase">读取中</span>
+          <small class="live-time">收盘后更新</small>
+        </a>
+      </div>
+      <p class="hero-note">数据来自万得 Wind。分数 0–100，越高代表短线情绪越热。</p>
+    </header>
+
+    <section class="steps-intro">
+      <h2>四步读懂今天的情绪</h2>
+      <p>看板按这个顺序排列，从一个分数开始，逐层找到原因和方向。</p>
+    </section>
+
+    <section class="feature">
+      <div class="feature-text">
+        <span class="step-no" aria-hidden="true">01</span>
+        <h3>情绪温度</h3>
+        <p>六个维度合成一个 0–100 的情绪分，标出所处阶段，例如修复、分歧、高潮、退潮，并给出对应的交易姿态。</p>
+      </div>
+      <picture class="feature-shot">
+        <source srcset="/about/img/pulse-dark.webp" media="(prefers-color-scheme: dark)">
+        <img src="/about/img/pulse-light.webp" alt="情绪温度：情绪分、阶段与六个维度" width="776" height="644" loading="lazy">
+      </picture>
+    </section>
+
+    <section class="feature">
+      <div class="feature-text">
+        <span class="step-no" aria-hidden="true">02</span>
+        <h3>市场广度</h3>
+        <p>上涨、下跌家数和涨跌停数量，看赚钱效应是在扩散还是收缩，避免被指数涨跌误导。</p>
+      </div>
+      <picture class="feature-shot">
+        <source srcset="/about/img/breadth-dark.webp" media="(prefers-color-scheme: dark)">
+        <img src="/about/img/breadth-light.webp" alt="市场广度：上涨、平盘、下跌家数" width="776" height="350" loading="lazy">
+      </picture>
+    </section>
+
+    <section class="feature">
+      <div class="feature-text">
+        <span class="step-no" aria-hidden="true">03</span>
+        <h3>题材雷达</h3>
+        <p>按涨停点火、批量拉升和消息催化，找出当天真正在动的题材，并列出带头的个股。</p>
+      </div>
+      <picture class="feature-shot fade-bottom">
+        <source srcset="/about/img/themes-dark.webp" media="(prefers-color-scheme: dark)">
+        <img src="/about/img/themes-light.webp" alt="题材雷达：当日题材异动与个股" width="776" height="1050" loading="lazy">
+      </picture>
+    </section>
+
+    <section class="feature">
+      <div class="feature-text">
+        <span class="step-no" aria-hidden="true">04</span>
+        <h3>情绪路径</h3>
+        <p>盘中每 30 分钟留下一个快照，连成当天的情绪曲线；切换到每日，可以复盘一段时间的情绪周期。</p>
+      </div>
+      <picture class="feature-shot">
+        <source srcset="/about/img/timeline-dark.webp" media="(prefers-color-scheme: dark)">
+        <img src="/about/img/timeline-light.webp" alt="情绪路径：盘中情绪曲线" width="776" height="622" loading="lazy">
+      </picture>
+    </section>
+
+    <section class="markets">
+      <h2>两个市场，各自的节奏</h2>
+      <div class="market-grid">
+        <div>
+          <h3>A股</h3>
+          <p>交易日 09:30–15:00 每 30 分钟更新一次，题材按 Wind 概念归并。</p>
+        </div>
+        <div>
+          <h3>台股</h3>
+          <p>使用收盘数据，开盘前与收盘后更新；题材按证交所产业指数，界面为繁体。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="boards">
+      <h2>看板</h2>
+      <article class="board">
+        <div>
+          <h3>短线情绪</h3>
+          <p>情绪温度、市场广度、题材雷达、情绪路径；可导出长图或小卡分享。</p>
+        </div>
+        <div class="board-links">
+          <a class="board-link" href="/shortemotion/cn">A股</a>
+          <a class="board-link" href="/shortemotion/tw">台股</a>
+        </div>
+      </article>
+      <p class="boards-more">更多看板陆续上线。</p>
+    </section>
+
+    <footer class="footer">
+      <p>数据来源：万得 Wind 金融数据服务。</p>
+      <p>仅用于研究与情绪观察，不构成投资建议。</p>
+      <p>© 2026 ShortEmotion</p>
+    </footer>
+  </main>
+
+  <div class="drawer">
+    <div class="drawer-inner">
+      <span class="drawer-copy">免费注册，邮箱验证码一键登录</span>
+      <a class="drawer-cta" href="/login">登录</a>
+    </div>
+  </div>
+
+  <script type="module" src="/about/about.js?v=2"></script>
+</body>
+</html>

@@ -9,37 +9,89 @@ const vercel = JSON.parse(readFileSync(resolve(root, "vercel.json"), "utf8"));
 const SHORT_EMOTION_CRON = "0,30 1-7 * * 1-5";
 const PAGE = "/short-emotion/index.html";
 
-describe("网址（A股 / 台股）", () => {
+describe("网址：介绍页、登录页与看板", () => {
   const rewrites = Object.fromEntries((vercel.rewrites || []).map((r) => [r.source, r.destination]));
   const redirects = Object.fromEntries((vercel.redirects || []).map((r) => [r.source, r.destination]));
 
-  it("首页、/cn、/tw 都由同一个页面提供", () => {
-    for (const path of ["/", "/cn", "/cn/", "/tw", "/tw/"]) expect(rewrites[path]).toBe(PAGE);
+  it("介绍页 /about、登录页 /login 是独立页面；/ 与旧的 /home 都到 /about（已登录时 middleware 把 / 直接送进看板）", () => {
+    expect(redirects["/"]).toBe("/about");
+    expect(redirects["/home"]).toBe("/about");
+    expect(redirects["/home/"]).toBe("/about");
+    for (const page of ["about", "login"]) {
+      expect(rewrites[`/${page}`]).toBe(`/${page}/index.html`);
+      expect(rewrites[`/${page}/`]).toBe(`/${page}/index.html`);
+      expect(() => readFileSync(resolve(root, `public/${page}/index.html`))).not.toThrow();
+    }
   });
 
-  it("TWSVP 时期的旧网址跳到新网址", () => {
-    expect(redirects["/cn-short-emotion"]).toBe("/cn");
-    expect(redirects["/cn-short-emotion/"]).toBe("/cn");
-    expect(redirects["/tw-short-emotion"]).toBe("/tw");
-    expect(redirects["/tw-short-emotion/"]).toBe("/tw");
-    expect(redirects["/short-emotion"]).toBe("/cn");
+  it("介绍页底部是「登录」按钮，指向 /login", () => {
+    const html = readFileSync(resolve(root, "public/about/index.html"), "utf8");
+    expect(html).toMatch(/<a class="drawer-cta" href="\/login">登录<\/a>/);
   });
 
-  it("页面按路径识别市场：/tw 和旧的 /tw-short-emotion 是台股，其余是 A股", () => {
+  it("短线情绪看板在 /shortemotion/cn、/shortemotion/tw，同一个页面提供", () => {
+    for (const path of ["/shortemotion/cn", "/shortemotion/cn/", "/shortemotion/tw", "/shortemotion/tw/"]) expect(rewrites[path]).toBe(PAGE);
+    expect(redirects["/shortemotion"]).toBe("/shortemotion/cn");
+  });
+
+  it("旧网址都跳到新网址（不经过二次跳转）", () => {
+    const expected = {
+      "/cn": "cn", "/cn/": "cn", "/tw": "tw", "/tw/": "tw",
+      "/cn-short-emotion": "cn", "/cn-short-emotion/": "cn", "/tw-short-emotion": "tw", "/tw-short-emotion/": "tw",
+      "/short-emotion": "cn"
+    };
+    for (const [path, market] of Object.entries(expected)) expect(redirects[path]).toBe(`/shortemotion/${market}`);
+    for (const destination of Object.values(redirects)) expect(redirects[destination]).toBeUndefined();
+  });
+
+  it("页面按路径识别市场：/shortemotion/tw（及旧的 /tw、/tw-short-emotion）是台股，其余是 A股", () => {
     const html = readFileSync(resolve(root, "public/short-emotion/index.html"), "utf8");
     const pattern = new RegExp(html.match(/root\.dataset\.market = \/(.+?)\/\.test/)[1]);
-    for (const path of ["/tw", "/tw/", "/tw-short-emotion", "/tw-short-emotion/"]) expect(pattern.test(path)).toBe(true);
-    for (const path of ["/", "/cn", "/cn/", "/twxyz", "/short-emotion/index.html"]) expect(pattern.test(path)).toBe(false);
+    for (const path of ["/shortemotion/tw", "/shortemotion/tw/", "/tw", "/tw-short-emotion"]) expect(pattern.test(path)).toBe(true);
+    for (const path of ["/shortemotion/cn", "/cn", "/about", "/shortemotion/twxyz", "/short-emotion/index.html"]) expect(pattern.test(path)).toBe(false);
     // app.js 用同一个判断
     const app = readFileSync(resolve(root, "public/short-emotion/app.js"), "utf8");
     expect(app.split(pattern.source).length - 1).toBe(2);
   });
 
+  it("页面里的站内链接都指向存在的网址", () => {
+    const known = new Set([...Object.keys(rewrites), ...Object.keys(redirects)]);
+    for (const file of ["public/short-emotion/index.html", "public/about/index.html", "public/login/index.html"]) {
+      const html = readFileSync(resolve(root, file), "utf8");
+      const links = [...html.matchAll(/<a[^>]+href="(\/[^"#?]*)"/g)].map((m) => m[1]);
+      expect(links.length).toBeGreaterThan(0);
+      for (const link of links) expect(known.has(link), `${file}: ${link}`).toBe(true);
+    }
+  });
+
   it("页面引用的静态文件都存在", () => {
-    const html = readFileSync(resolve(root, "public/short-emotion/index.html"), "utf8");
-    const refs = [...html.matchAll(/(?:href|src)="(\/short-emotion\/[^"?]+)/g)].map((m) => m[1]);
-    expect(refs.length).toBeGreaterThan(3);
-    for (const ref of refs) expect(() => readFileSync(resolve(root, "public", `.${ref}`))).not.toThrow();
+    for (const [file, prefix] of [["public/short-emotion/index.html", "short-emotion"], ["public/about/index.html", "(?:about|short-emotion)"], ["public/login/index.html", "(?:about|login|short-emotion)"]]) {
+      const html = readFileSync(resolve(root, file), "utf8");
+      const refs = [...html.matchAll(new RegExp(`(?:href|src|srcset)="(\\/${prefix}\\/[^"?]+\\.[a-z0-9]+)`, "g"))].map((m) => m[1]);
+      expect(refs.length).toBeGreaterThan(3);
+      for (const ref of refs) expect(() => readFileSync(resolve(root, "public", `.${ref}`)), ref).not.toThrow();
+    }
+  });
+});
+
+describe("页面脚本", () => {
+  it("介绍页、登录页、共用模块 import 的文件都存在，简繁字表版本号一致", () => {
+    const files = ["public/about/about.js", "public/login/login.js", "public/shared/lang.js", "public/short-emotion/app.js"];
+    const versions = new Set();
+    for (const file of files) {
+      const code = readFileSync(resolve(root, file), "utf8");
+      for (const [, path, version] of code.matchAll(/from "(\/[^"?]+|\.\/[^"?]+)(?:\?v=(\d+))?"/g)) {
+        const target = path.startsWith("./") ? resolve(root, file, "..", path) : resolve(root, "public", `.${path}`);
+        expect(() => readFileSync(target), `${file} → ${path}`).not.toThrow();
+        if (path.endsWith("hant-map.js")) versions.add(version);
+      }
+    }
+    expect([...versions]).toHaveLength(1);
+  });
+
+  it("中间件只拦介绍页以外的入口：/、/login、看板", async () => {
+    const { config } = await import("../middleware.js");
+    expect(config.matcher).toEqual(["/", "/login", "/login/", "/shortemotion/:path*"]);
   });
 });
 
