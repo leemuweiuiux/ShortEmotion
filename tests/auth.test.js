@@ -2,7 +2,7 @@
 // 登录（Supabase 邮箱验证码）：服务端只负责校验登录凭证，并在登录开启时要求登录才能刷新。
 import refreshHandler from "../api/short-emotion.js";
 import configHandler from "../api/auth-config.js";
-import { authConfig, bearerToken, verifyUser } from "../api/_lib/auth.js";
+import { authConfig, bearerToken, verifyUser, isPublicKey } from "../api/_lib/auth.js";
 
 const SUPABASE = "https://demo.supabase.co";
 
@@ -39,12 +39,29 @@ function mockFetch({ validToken = "good-token", supabaseStatus = null } = {}) {
   return calls;
 }
 
+const jwt = (role) => `eyJhbGciOiJIUzI1NiJ9.${Buffer.from(JSON.stringify({ role })).toString("base64url")}.sig`;
+const NO_DEFAULTS = { url: "", publishableKey: "" };
+
 describe("登录设置", () => {
-  it("两个环境变量都有才开启，接受 Publishable key 或旧版 anon key", () => {
-    expect(authConfig({})).toBeNull();
-    expect(authConfig({ SUPABASE_URL: SUPABASE })).toBeNull();
-    expect(authConfig({ SUPABASE_URL: `${SUPABASE}/`, SUPABASE_PUBLISHABLE_KEY: "pk" })).toEqual({ url: SUPABASE, key: "pk" });
-    expect(authConfig({ SUPABASE_URL: SUPABASE, SUPABASE_ANON_KEY: "anon" })).toEqual({ url: SUPABASE, key: "anon" });
+  it("地址与 key 齐全才开启；环境变量优先于仓库里的默认值", () => {
+    expect(authConfig({}, NO_DEFAULTS)).toBeNull();
+    expect(authConfig({ SUPABASE_URL: SUPABASE }, NO_DEFAULTS)).toBeNull();
+    expect(authConfig({ SUPABASE_URL: `${SUPABASE}/`, SUPABASE_PUBLISHABLE_KEY: "sb_publishable_pk" }, NO_DEFAULTS)).toEqual({ url: SUPABASE, key: "sb_publishable_pk" });
+    expect(authConfig({ SUPABASE_URL: SUPABASE, SUPABASE_ANON_KEY: jwt("anon") }, NO_DEFAULTS)).toEqual({ url: SUPABASE, key: jwt("anon") });
+    expect(authConfig({}, { url: SUPABASE, publishableKey: "sb_publishable_default" })).toEqual({ url: SUPABASE, key: "sb_publishable_default" });
+    expect(authConfig({ SUPABASE_PUBLISHABLE_KEY: "sb_publishable_env" }, { url: SUPABASE, publishableKey: "sb_publishable_default" }).key).toBe("sb_publishable_env");
+  });
+
+  it("SHORT_EMOTION_AUTH=off 时关闭", () => {
+    expect(authConfig({ SHORT_EMOTION_AUTH: "off" }, { url: SUPABASE, publishableKey: "sb_publishable_default" })).toBeNull();
+  });
+
+  it("误放 secret / service_role key 时拒绝开启", () => {
+    expect(isPublicKey("sb_secret_abc")).toBe(false);
+    expect(isPublicKey(jwt("service_role"))).toBe(false);
+    expect(isPublicKey(jwt("anon"))).toBe(true);
+    expect(isPublicKey("sb_publishable_abc")).toBe(true);
+    expect(authConfig({ SUPABASE_URL: SUPABASE, SUPABASE_PUBLISHABLE_KEY: "sb_secret_abc" }, NO_DEFAULTS)).toBeNull();
   });
 
   it("从 Authorization 头取出登录凭证", () => {
@@ -56,17 +73,19 @@ describe("登录设置", () => {
 
 describe("/api/auth-config", () => {
   afterEach(() => {
+    process.env.SHORT_EMOTION_AUTH = "off";
     delete process.env.SUPABASE_URL;
     delete process.env.SUPABASE_PUBLISHABLE_KEY;
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
   });
 
-  it("未设置时登录关闭", async () => {
+  it("关闭时返回 enabled: false", async () => {
     const result = await call(configHandler, { method: "GET" });
     expect(result.body).toEqual({ enabled: false });
   });
 
   it("只返回公开值，不会带出 service_role 密钥", async () => {
+    delete process.env.SHORT_EMOTION_AUTH;
     process.env.SUPABASE_URL = SUPABASE;
     process.env.SUPABASE_PUBLISHABLE_KEY = "sb_publishable_x";
     process.env.SUPABASE_SERVICE_ROLE_KEY = "secret-should-not-leak";
@@ -79,12 +98,14 @@ describe("/api/auth-config", () => {
 describe("登录后才能刷新", () => {
   const realFetch = globalThis.fetch;
   beforeEach(() => {
+    delete process.env.SHORT_EMOTION_AUTH;
     process.env.SUPABASE_URL = SUPABASE;
     process.env.SUPABASE_PUBLISHABLE_KEY = "sb_publishable_x";
     process.env.GITHUB_ACTIONS_TOKEN = "gh-token";
   });
   afterEach(() => {
     globalThis.fetch = realFetch;
+    process.env.SHORT_EMOTION_AUTH = "off";
     delete process.env.SUPABASE_URL;
     delete process.env.SUPABASE_PUBLISHABLE_KEY;
     delete process.env.GITHUB_ACTIONS_TOKEN;

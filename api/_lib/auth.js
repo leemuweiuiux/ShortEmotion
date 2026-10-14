@@ -1,16 +1,34 @@
 // 登录：Supabase Auth 邮箱验证码（页面直接调用 Supabase 发码、验码，这里只负责校验登录凭证）。
 //
-// 需要 Vercel 环境变量：
-//   SUPABASE_URL              例如 https://xxxx.supabase.co
-//   SUPABASE_PUBLISHABLE_KEY  Supabase 的 Publishable key（或旧版 anon key，也可用 SUPABASE_ANON_KEY）
-// 这两个值本来就是给浏览器用的公开值，不是密钥；千万不要放 service_role / secret key。
-//
-// 两者都设置时登录开启，「刷新」要求登录；未设置时登录关闭，刷新保持原样（本地开发、测试）。
+// Supabase 项目地址与 Publishable key 写在 supabase-public.js（公开值）；
+// 也可用环境变量 SUPABASE_URL、SUPABASE_PUBLISHABLE_KEY（或旧版 SUPABASE_ANON_KEY）覆盖。
+// 两者齐全时登录开启，「刷新」要求登录；SHORT_EMOTION_AUTH=off 时关闭登录（单元测试用）。
+import { SUPABASE_PUBLIC } from "./supabase-public.js";
 
-export function authConfig(env = process.env) {
-  const url = String(env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
-  const key = String(env.SUPABASE_PUBLISHABLE_KEY || env.SUPABASE_ANON_KEY || "").trim();
-  return url && key ? { url, key } : null;
+/** 防呆：只接受可以公开的 key；误放 secret / service_role key 时拒绝使用。 */
+export function isPublicKey(key) {
+  if (!key || key.startsWith("sb_secret_")) return false;
+  if (key.startsWith("eyJ")) {
+    try {
+      const payload = JSON.parse(Buffer.from(key.split(".")[1], "base64url").toString("utf8"));
+      return payload.role === "anon";
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function authConfig(env = process.env, defaults = SUPABASE_PUBLIC) {
+  if (String(env.SHORT_EMOTION_AUTH || "").toLowerCase() === "off") return null;
+  const url = String(env.SUPABASE_URL || defaults.url || "").trim().replace(/\/+$/, "");
+  const key = String(env.SUPABASE_PUBLISHABLE_KEY || env.SUPABASE_ANON_KEY || defaults.publishableKey || "").trim();
+  if (!url || !key) return null;
+  if (!isPublicKey(key)) {
+    console.error("Supabase key 不是可公开的 Publishable / anon key，已关闭登录（不要使用 secret / service_role key）");
+    return null;
+  }
+  return { url, key };
 }
 
 export function bearerToken(req) {

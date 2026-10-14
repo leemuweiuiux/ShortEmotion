@@ -1,7 +1,7 @@
 // 本地预览：node scripts/dev-server.mjs（或 npm run dev），打开 http://localhost:3000/cn 、/tw
 //
 // 按 vercel.json 的 redirects / rewrites 提供页面，/api/<名称> 直接调用 api/<名称>.js（同 Vercel 函数）。
-// 登录：设 SUPABASE_URL、SUPABASE_PUBLISHABLE_KEY 后开启（见 api/_lib/auth.js）。
+// 登录：默认用 api/_lib/supabase-public.js 的 Supabase 项目；SHORT_EMOTION_AUTH=off 可关闭（见 api/_lib/auth.js）。
 // 数据默认读线上 short-emotion-data 分支（只读，不调用 Wind）；
 // 设 SHORT_EMOTION_DATA_DIR=<目录> 时改读本地检出的数据分支。
 import { createServer } from "node:http";

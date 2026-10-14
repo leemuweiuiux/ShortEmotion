@@ -33,9 +33,9 @@ Supabase Auth                     寄送與驗證郵箱驗證碼（不使用資�
 3. **Vercel 環境變數** `GITHUB_ACTIONS_TOKEN`：GitHub fine-grained token，只授權本倉庫，
    權限 Actions: Read and write、Contents: Read-only。沒有它頁面照常顯示，只是「刷新」不可用。
 4. **登入（Supabase Auth）**：
-   - Vercel 環境變數 `SUPABASE_URL`（`https://<專案代號>.supabase.co`）與 `SUPABASE_PUBLISHABLE_KEY`
-     （Supabase → Project Settings → API Keys 的 Publishable key，公開值）。**不要**放 secret / service_role key。
-     兩個都設定才會開啟登入；沒設定時不顯示登入，刷新也不要求登入。
+   - Supabase 專案網址與 Publishable key（公開值）寫在 `api/_lib/supabase-public.js`，Vercel 不需要再設定。
+     Publishable key 留空時登入關閉。**不要**放 secret / service_role key（程式會拒絕使用）。
+     需要臨時換專案時，可用 Vercel 環境變數 `SUPABASE_URL`、`SUPABASE_PUBLISHABLE_KEY` 覆蓋。
    - Supabase → Authentication → Emails：**Magic link** 與 **Confirm signup** 兩個範本都要含 `{{ .Token }}`，
      郵件裡才會是驗證碼而不是連結。
    - Supabase 內建寄信只能寄給專案團隊成員、每小時 2 封；正式開放前要在 Authentication → Emails → SMTP Settings
@@ -46,7 +46,7 @@ Supabase Auth                     寄送與驗證郵箱驗證碼（不使用資�
 ```bash
 npm install
 npm test            # 單元測試
-npm run dev         # http://localhost:3000/cn ，預設讀線上資料分支（未設 SUPABASE_* 時不顯示登入）
+npm run dev         # http://localhost:3000/cn ，預設讀線上資料分支；登入用正式的 Supabase 專案（SHORT_EMOTION_AUTH=off 可關閉）
 SHORT_EMOTION_DATA_DIR=./short-emotion-data npm run dev   # 改讀本地檢出的資料分支
 ```
 
