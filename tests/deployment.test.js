@@ -9,37 +9,58 @@ const vercel = JSON.parse(readFileSync(resolve(root, "vercel.json"), "utf8"));
 const SHORT_EMOTION_CRON = "0,30 1-7 * * 1-5";
 const PAGE = "/short-emotion/index.html";
 
-describe("网址（A股 / 台股）", () => {
+describe("网址：首页与看板", () => {
   const rewrites = Object.fromEntries((vercel.rewrites || []).map((r) => [r.source, r.destination]));
   const redirects = Object.fromEntries((vercel.redirects || []).map((r) => [r.source, r.destination]));
 
-  it("首页、/cn、/tw 都由同一个页面提供", () => {
-    for (const path of ["/", "/cn", "/cn/", "/tw", "/tw/"]) expect(rewrites[path]).toBe(PAGE);
+  it("根目录跳到首页 /home，首页是独立页面", () => {
+    expect(redirects["/"]).toBe("/home");
+    expect(rewrites["/home"]).toBe("/home/index.html");
+    expect(() => readFileSync(resolve(root, "public/home/index.html"))).not.toThrow();
   });
 
-  it("TWSVP 时期的旧网址跳到新网址", () => {
-    expect(redirects["/cn-short-emotion"]).toBe("/cn");
-    expect(redirects["/cn-short-emotion/"]).toBe("/cn");
-    expect(redirects["/tw-short-emotion"]).toBe("/tw");
-    expect(redirects["/tw-short-emotion/"]).toBe("/tw");
-    expect(redirects["/short-emotion"]).toBe("/cn");
+  it("短线情绪看板在 /shortemotion/cn、/shortemotion/tw，同一个页面提供", () => {
+    for (const path of ["/shortemotion/cn", "/shortemotion/cn/", "/shortemotion/tw", "/shortemotion/tw/"]) expect(rewrites[path]).toBe(PAGE);
+    expect(redirects["/shortemotion"]).toBe("/shortemotion/cn");
   });
 
-  it("页面按路径识别市场：/tw 和旧的 /tw-short-emotion 是台股，其余是 A股", () => {
+  it("旧网址都跳到新网址（不经过二次跳转）", () => {
+    const expected = {
+      "/cn": "cn", "/cn/": "cn", "/tw": "tw", "/tw/": "tw",
+      "/cn-short-emotion": "cn", "/cn-short-emotion/": "cn", "/tw-short-emotion": "tw", "/tw-short-emotion/": "tw",
+      "/short-emotion": "cn"
+    };
+    for (const [path, market] of Object.entries(expected)) expect(redirects[path]).toBe(`/shortemotion/${market}`);
+    for (const destination of Object.values(redirects)) expect(redirects[destination]).toBeUndefined();
+  });
+
+  it("页面按路径识别市场：/shortemotion/tw（及旧的 /tw、/tw-short-emotion）是台股，其余是 A股", () => {
     const html = readFileSync(resolve(root, "public/short-emotion/index.html"), "utf8");
     const pattern = new RegExp(html.match(/root\.dataset\.market = \/(.+?)\/\.test/)[1]);
-    for (const path of ["/tw", "/tw/", "/tw-short-emotion", "/tw-short-emotion/"]) expect(pattern.test(path)).toBe(true);
-    for (const path of ["/", "/cn", "/cn/", "/twxyz", "/short-emotion/index.html"]) expect(pattern.test(path)).toBe(false);
+    for (const path of ["/shortemotion/tw", "/shortemotion/tw/", "/tw", "/tw-short-emotion"]) expect(pattern.test(path)).toBe(true);
+    for (const path of ["/shortemotion/cn", "/cn", "/home", "/shortemotion/twxyz", "/short-emotion/index.html"]) expect(pattern.test(path)).toBe(false);
     // app.js 用同一个判断
     const app = readFileSync(resolve(root, "public/short-emotion/app.js"), "utf8");
     expect(app.split(pattern.source).length - 1).toBe(2);
   });
 
+  it("页面里的站内链接都指向存在的网址", () => {
+    const known = new Set([...Object.keys(rewrites), ...Object.keys(redirects)]);
+    for (const file of ["public/short-emotion/index.html", "public/home/index.html"]) {
+      const html = readFileSync(resolve(root, file), "utf8");
+      const links = [...html.matchAll(/<a[^>]+href="(\/[^"#?]*)"/g)].map((m) => m[1]);
+      expect(links.length).toBeGreaterThan(1);
+      for (const link of links) expect(known.has(link), `${file}: ${link}`).toBe(true);
+    }
+  });
+
   it("页面引用的静态文件都存在", () => {
-    const html = readFileSync(resolve(root, "public/short-emotion/index.html"), "utf8");
-    const refs = [...html.matchAll(/(?:href|src)="(\/short-emotion\/[^"?]+)/g)].map((m) => m[1]);
-    expect(refs.length).toBeGreaterThan(3);
-    for (const ref of refs) expect(() => readFileSync(resolve(root, "public", `.${ref}`))).not.toThrow();
+    for (const [file, prefix] of [["public/short-emotion/index.html", "short-emotion"], ["public/home/index.html", "(?:home|short-emotion)"]]) {
+      const html = readFileSync(resolve(root, file), "utf8");
+      const refs = [...html.matchAll(new RegExp(`(?:href|src|srcset)="(\\/${prefix}\\/[^"?]+\\.[a-z0-9]+)`, "g"))].map((m) => m[1]);
+      expect(refs.length).toBeGreaterThan(3);
+      for (const ref of refs) expect(() => readFileSync(resolve(root, "public", `.${ref}`)), ref).not.toThrow();
+    }
   });
 });
 
