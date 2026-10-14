@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="robots" content="noindex">
+  <title>登录 · ShortEmotion</title>
+  <link rel="icon" href="/short-emotion/logo.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/short-emotion/logo.svg">
+  <script>
+    // 与介绍页、看板共用外观设置：深浅色跟随系统（或 twsvp_theme），语言：简体 / 繁体
+    (function () {
+      var root = document.documentElement;
+      var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
+      var theme = get("twsvp_theme");
+      if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      root.dataset.theme = theme;
+      if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
+      var lang = get("shortemotion:lang");
+      if (lang !== "hans" && lang !== "hant") lang = /^zh-(tw|hk|mo|hant)/i.test(navigator.language || "") ? "hant" : "hans";
+      root.dataset.lang = lang;
+      if (lang === "hant") root.lang = "zh-Hant-TW";
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/about/about.css?v=2">
+  <link rel="stylesheet" href="/login/login.css?v=1">
+</head>
+<body>
+  <nav class="nav">
+    <a class="brand" href="/about" aria-label="ShortEmotion 介绍">
+      <img class="brand-logo" src="/short-emotion/logo.svg" alt="">
+      <span class="brand-text">
+        <b>ShortEmotion</b>
+        <small>看懂A股与台股的短线情绪</small>
+      </span>
+    </a>
+    <div class="lang-toggle" role="group" aria-label="语言">
+      <button type="button" class="lang-btn" data-lang="hans">简体</button>
+      <span aria-hidden="true">｜</span>
+      <button type="button" class="lang-btn" data-lang="hant">繁体</button>
+    </div>
+  </nav>
+
+  <main class="page login-page">
+    <section class="login-card" aria-labelledby="login-title">
+      <div class="login-head">
+        <h1 id="login-title">登录 ShortEmotion</h1>
+        <p>免费注册，不用密码。输入邮箱，把收到的验证码填在这里就能登录，90 天内不用再登录。</p>
+      </div>
+
+      <form id="email-form" class="login-form" novalidate>
+        <label class="field">
+          <span>邮箱</span>
+          <input id="email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com" required>
+        </label>
+        <button id="send" class="primary-btn" type="submit">发送验证码</button>
+      </form>
+
+      <form id="code-form" class="login-form" novalidate hidden>
+        <p class="sent-to">验证码已发送到 <b id="sent-email"></b><button id="change-email" class="link-btn" type="button">换一个邮箱</button></p>
+        <label class="field">
+          <span>验证码</span>
+          <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="10" placeholder="邮件里的数字" required>
+        </label>
+        <button id="verify" class="primary-btn" type="submit">登录</button>
+        <button id="resend" class="secondary-btn" type="button" disabled>重新发送</button>
+      </form>
+
+      <p id="login-error" class="login-error" role="alert" hidden></p>
+      <p class="login-note">没收到邮件？看看垃圾邮件；同一个邮箱 60 秒内只能发送一次，验证码 1 小时内有效。</p>
+    </section>
+
+    <a class="back-link" href="/about">了解 ShortEmotion</a>
+  </main>
+
+  <script type="module" src="/login/login.js?v=1"></script>
+</body>
+</html>

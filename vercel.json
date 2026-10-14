@@ -8,7 +8,9 @@
     }
   },
   "redirects": [
-    {"source": "/", "destination": "/home", "permanent": false},
+    {"source": "/", "destination": "/about", "permanent": false},
+    {"source": "/home", "destination": "/about", "permanent": false},
+    {"source": "/home/", "destination": "/about", "permanent": false},
     {"source": "/shortemotion", "destination": "/shortemotion/cn", "permanent": false},
     {"source": "/shortemotion/", "destination": "/shortemotion/cn", "permanent": false},
     {"source": "/cn", "destination": "/shortemotion/cn", "permanent": false},
@@ -23,8 +25,10 @@
     {"source": "/short-emotion/", "destination": "/shortemotion/cn", "permanent": false}
   ],
   "rewrites": [
-    {"source": "/home", "destination": "/home/index.html"},
-    {"source": "/home/", "destination": "/home/index.html"},
+    {"source": "/about", "destination": "/about/index.html"},
+    {"source": "/about/", "destination": "/about/index.html"},
+    {"source": "/login", "destination": "/login/index.html"},
+    {"source": "/login/", "destination": "/login/index.html"},
     {"source": "/shortemotion/cn", "destination": "/short-emotion/index.html"},
     {"source": "/shortemotion/cn/", "destination": "/short-emotion/index.html"},
     {"source": "/shortemotion/tw", "destination": "/short-emotion/index.html"},

@@ -1,4 +1,5 @@
-/* ShortEmotion 首页 — 沿用 TWSVP 与看板的视觉：浅灰底、白色直角描边卡片、黑色强调、Noto Sans SC + Manrope。
+/* ShortEmotion 介绍页（/about），登录页（/login）也共用这里的顶栏与版面。
+   沿用 TWSVP 与看板的视觉：浅灰底、白色直角描边卡片、黑色强调、Noto Sans SC + Manrope。
    唯一放大的元素是主视觉里的「今日情绪」实时读数。 */
 :root {
   --bg: #efefef;

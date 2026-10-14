@@ -1,4 +1,4 @@
-import { HANT, HANT_FIXES } from "./hant-map.js?v=4";
+import { HANT, HANT_FIXES } from "./hant-map.js?v=5";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -176,8 +176,16 @@ async function api(resource, { fresh = readFresh } = {}) {
   const extra = fresh ? `&fresh=1&t=${Date.now()}` : "";
   const response = await fetch(`${API_BASE}?market=${MARKET}&resource=${encodeURIComponent(resource)}${extra}`, { headers: { Accept: "application/json" }, cache: fresh ? "no-store" : "default" });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw Object.assign(new Error(payload.error || `请求失败 (${response.status})`), { code: payload.code });
+  if (!response.ok) {
+    if (payload.code === "login_required") goLogin();
+    throw Object.assign(new Error(payload.error || `请求失败 (${response.status})`), { code: payload.code });
+  }
   return payload;
+}
+
+// 登录已失效（例如在别的设备退出、或超过 90 天没打开）：回到登录页，登录后回到这里。
+function goLogin() {
+  location.replace(`/login?next=${encodeURIComponent(location.pathname + location.search)}`);
 }
 
 function shanghaiTimeLabel(value) {
@@ -721,13 +729,14 @@ async function runExport(kind) {
 }
 
 function closeExportMenu() {
-  $(".export-menu")?.remove();
+  $(".export-menu:not(.account-menu)")?.remove();
   $("#export-image")?.setAttribute("aria-expanded", "false");
 }
 
 function toggleExportMenu(event) {
   event.stopPropagation();
-  if ($(".export-menu")) return closeExportMenu();
+  closeAccountMenu();
+  if ($(".export-menu:not(.account-menu)")) return closeExportMenu();
   const menu = document.createElement("div");
   menu.className = "export-menu";
   menu.setAttribute("role", "menu");
@@ -740,8 +749,58 @@ function toggleExportMenu(event) {
   $("#export-image").setAttribute("aria-expanded", "true");
 }
 
-document.addEventListener("click", (event) => { if (!event.target.closest(".export-menu")) closeExportMenu(); });
-document.addEventListener("keydown", (event) => { if (event.key === "Escape") { closeExportMenu(); closeGallery(); } });
+// 账号：顶栏右侧显示登录的邮箱与「退出登录」（登录未开启时不显示）。
+const uiText = (text) => (MARKET === "tw" ? toHant(text) : String(text));
+let accountEmail = "";
+
+async function loadAccount() {
+  try {
+    const response = await fetch("/api/auth?action=me", { headers: { Accept: "application/json" }, credentials: "same-origin" });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.enabled === false) return;
+    if (!payload.user) return goLogin();
+    accountEmail = payload.user.email || "";
+    $("#account").hidden = false;
+  } catch {}
+}
+
+function closeAccountMenu() {
+  $(".account-menu")?.remove();
+  $("#account")?.setAttribute("aria-expanded", "false");
+}
+
+function toggleAccountMenu(event) {
+  event.stopPropagation();
+  closeExportMenu();
+  if ($(".account-menu")) return closeAccountMenu();
+  const menu = document.createElement("div");
+  menu.className = "export-menu account-menu";
+  menu.setAttribute("role", "menu");
+  const who = document.createElement("div");
+  who.className = "account-who";
+  who.innerHTML = `<small>${uiText("已登录")}</small><b></b>`;
+  who.querySelector("b").textContent = accountEmail;
+  const logout = document.createElement("button");
+  logout.type = "button";
+  logout.setAttribute("role", "menuitem");
+  logout.innerHTML = `<b>${uiText("退出登录")}</b>`;
+  logout.addEventListener("click", async () => {
+    logout.disabled = true;
+    try { await fetch("/api/auth?action=logout", { method: "POST", credentials: "same-origin" }); } catch {}
+    location.replace("/about");
+  });
+  menu.append(who, logout);
+  $(".nav").append(menu);
+  $("#account").setAttribute("aria-expanded", "true");
+}
+
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".export-menu")) {
+    closeExportMenu();
+    closeAccountMenu();
+  }
+});
+document.addEventListener("keydown", (event) => { if (event.key === "Escape") { closeExportMenu(); closeAccountMenu(); closeGallery(); } });
 
 // 「刷新」每个浏览器每小时只能按一次（打开页面只读快照，不计入、也不触发更新）。
 // 点刷新 = 真实调用 Wind MCP：服务端触发 GitHub Actions 数据任务，页面显示「数据更新中」并轮询进度，
@@ -898,6 +957,7 @@ async function handleManualRefresh() {
   } catch (error) {
     try { localStorage.removeItem(REFRESH_KEY); } catch {} // 没刷新成功不占用每小时一次的额度
     stopRefresh();
+    if (error.code === "login_required") return goLogin();
     toast(error.code === "not_configured" ? "实时刷新服务尚未开通，页面显示的是最近一次定时快照" : `刷新失败：${error.message}`, true);
   }
 }
@@ -924,6 +984,7 @@ window.addEventListener("resize", () => {
 function bindEvents() {
   $("#refresh").addEventListener("click", handleManualRefresh);
   $("#export-image").addEventListener("click", toggleExportMenu);
+  $("#account").addEventListener("click", toggleAccountMenu);
 
   $$(".anomaly-filter").forEach((button) => button.addEventListener("click", () => {
     anomalyFilter = button.dataset.anomalyFilter;
@@ -972,4 +1033,5 @@ function watchSections() {
 
 applyMarketCopy();
 bindEvents();
+loadAccount();
 loadEmotion().then(resumeRunningRefresh);
