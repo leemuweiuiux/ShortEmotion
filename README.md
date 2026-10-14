@@ -1,6 +1,8 @@
 # ShortEmotion · 短線情緒
 
-A股 / 台股短線情緒看板。由 [twsvp-frontend](https://github.com/MuWeiLee/twsvp-frontend) 的「短線情緒」原樣遷出（來源 `69593b1`，PR #126），獨立部署。
+A股 / 台股短線情緒看板：**https://lfjmwl.com**（Vercel 預設網址 stockmarketshortemotion.vercel.app 也可用）。
+
+由 [twsvp-frontend](https://github.com/MuWeiLee/twsvp-frontend) 的「短線情緒」原樣遷出（來源 `69593b1`，PR #126），獨立部署。twsvp.com 保留自己的短線情緒頁面，兩站各自取數、互不依賴。
 
 | 網址 | 內容 |
 | --- | --- |
@@ -44,4 +46,3 @@ SHORT_EMOTION_DATA_DIR=./short-emotion-data npm run dev   # 改讀本地檢出�
 
 - 正式品牌與 Logo（目前 `public/short-emotion/logo.svg` 是臨時標識）
 - 外觀設定的 localStorage 鍵名仍為 `twsvp_theme`、`twsvp_price_scheme`；樣式檔仍叫 `twsvp.css`
-- 獨立域名綁定；twsvp.com 舊網址跳轉到新域名；停用 TWSVP 的 short-emotion 定時任務
