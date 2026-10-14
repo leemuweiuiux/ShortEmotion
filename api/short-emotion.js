@@ -1,4 +1,4 @@
-// 短线情绪工作台 — 页面接口（twsvp.com/cn-short-emotion、/tw-short-emotion）
+// 短线情绪工作台 — 页面接口（/cn A股、/tw 台股）
 //
 // GET  /api/short-emotion?market=cn|tw&resource=emotion|anomalies|history|news|status
 //      读取定时任务写入数据分支的快照，不调用 Wind；CDN 缓存 2 分钟。带 fresh=1 时跳过缓存（刷新完成后读取）。
@@ -6,8 +6,8 @@
 //      最近一次手动刷新任务的状态（排队中 / 获取中 / 完成）。
 // POST /api/short-emotion?market=cn|tw&action=refresh
 //      用户点「刷新」：触发 GitHub Actions 数据任务，真实调用 Wind MCP 并写入新快照。
-import { readResource, NotReadyError, normalizeMarket } from "../_lib/short-emotion/service.js";
-import { requestRefresh, latestRefreshRun, githubToken } from "../_lib/short-emotion/github.js";
+import { readResource, NotReadyError, normalizeMarket } from "./_lib/short-emotion/service.js";
+import { requestRefresh, latestRefreshRun, githubToken } from "./_lib/short-emotion/github.js";
 
 const RESOURCES = new Set(["emotion", "anomalies", "history", "news", "status", "refresh-status"]);
 

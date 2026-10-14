@@ -5,11 +5,11 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 let data = null;
 let anomalyData = null;
 let anomalyFilter = "all";
-let timelineMode = /^\/tw-short-emotion/.test(location.pathname) ? "daily" : "intraday";
+let timelineMode = /^\/tw(?:-short-emotion)?(?:\/|$)/.test(location.pathname) ? "daily" : "intraday";
 let toastTimer = null;
 
-// ── 市场：/cn-short-emotion（A股）与 /tw-short-emotion（台股）共用这一页 ──
-const MARKET = /^\/tw-short-emotion/.test(location.pathname) ? "tw" : "cn";
+// ── 市场：/cn（A股）与 /tw（台股）共用这一页（旧地址 /cn-short-emotion、/tw-short-emotion 会跳转过来）──
+const MARKET = /^\/tw(?:-short-emotion)?(?:\/|$)/.test(location.pathname) ? "tw" : "cn";
 const MARKETS = {
   cn: {
     label: "A股",
@@ -554,14 +554,14 @@ function exportHeader(subtitle = "") {
   const head = document.createElement("div");
   head.className = "export-head";
   const quote = $("#quote-time")?.textContent || "";
-  head.innerHTML = `<img src="/logo.png" alt="TWSVP"><div><b>${escapeHtml(toHant(`短线情绪 · ${CFG.label}`))}${subtitle ? ` · ${escapeHtml(subtitle)}` : ""}</b><small>${escapeHtml(quote)}</small></div>`;
+  head.innerHTML = `<img src="/short-emotion/logo.svg" alt="ShortEmotion"><div><b>${escapeHtml(toHant(`短线情绪 · ${CFG.label}`))}${subtitle ? ` · ${escapeHtml(subtitle)}` : ""}</b><small>${escapeHtml(quote)}</small></div>`;
   return head;
 }
 
 function exportFooter() {
   const footer = document.createElement("div");
   footer.className = "export-footer";
-  footer.textContent = toHant(`TWSVP · 数据来源 Wind · 仅用于研究与情绪观察，不构成投资建议`);
+  footer.textContent = toHant(`ShortEmotion · 数据来源 Wind · 仅用于研究与情绪观察，不构成投资建议`);
   return footer;
 }
 

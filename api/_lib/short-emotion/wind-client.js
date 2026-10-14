@@ -6,7 +6,7 @@
 // failover, route/param validation, SSE parsing) runs in-process with fetch.
 
 const SKILL_VERSION = "1.7.0";
-const CLIENT_NAME = "twsvp-short-emotion";
+const CLIENT_NAME = "shortemotion";
 
 const SERVERS = {
   stock_data: "https://mcp.wind.com.cn/vserver_stock_data/mcp/",

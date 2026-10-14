@@ -1,8 +1,8 @@
-// 短线情绪工作台 — 定时刷新（由 .github/workflows/scheduled-jobs.yml 在 GitHub Actions 中运行）
+// 短线情绪工作台 — 定时刷新（由 .github/workflows/short-emotion.yml 在 GitHub Actions 中运行）
 //
 // 读取 short-emotion-data 分支检出的目录（SHORT_EMOTION_DATA_DIR），按 schedule.js 判断本时段
 // 该跑哪些任务、调用 Wind 计算快照并写回该目录；工作流随后把目录推回数据分支。
-// 页面（twsvp.com/short-emotion）只从数据分支读取，不调用 Wind。
+// 页面（/cn、/tw）只从数据分支读取，不调用 Wind。
 //
 // 用法：node scripts/short-emotion/refresh.mjs [--force] [--market=cn|tw|all]
 //   --force   忽略时间窗口立即刷新全部数据（手动触发时使用）

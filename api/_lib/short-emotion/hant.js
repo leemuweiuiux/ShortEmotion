@@ -1,5 +1,5 @@
 // 台股页面用繁体中文：Wind 返回的是简体，写入数据分支前在 GitHub Actions 里统一转换（opencc-js，台湾用语）。
-// opencc-js 只在 Actions 里安装（见 .github/workflows/scheduled-jobs.yml），Vercel 读接口不会用到；
+// opencc-js 只在 Actions 里安装（见 .github/workflows/short-emotion.yml），Vercel 读接口不会用到；
 // 没有安装时原样返回并给出提示，不影响数据更新。
 import { pathToFileURL } from "node:url";
 

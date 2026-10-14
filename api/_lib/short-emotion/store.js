@@ -10,7 +10,7 @@
 //   memory   — in-process, for local dev and tests.
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { githubToken, dataBranchHead, DATA_RAW_BASE } from "./github.js";
+import { githubToken, dataBranchHead, DATA_RAW_BASE, DATA_BRANCH } from "./github.js";
 
 const KV_TABLE = "short_emotion_kv";
 const HISTORY_TABLE = "short_emotion_history";
@@ -274,7 +274,8 @@ class FileStore {
 
 // ───── 只读：从 GitHub 数据分支读取（Vercel 上的页面接口使用）─────
 
-const DEFAULT_DATA_URL = "https://raw.githubusercontent.com/MuWeiLee/twsvp-frontend/short-emotion-data";
+// 与 github.js 的 REPO 同源，换仓库时只需改一处（或设 SHORT_EMOTION_REPO）。
+const DEFAULT_DATA_URL = `${DATA_RAW_BASE}/${DATA_BRANCH}`;
 const READ_CACHE_MS = 30_000;
 const readCache = new Map();
 

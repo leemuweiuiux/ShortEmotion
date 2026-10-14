@@ -1,5 +1,5 @@
 // @vitest-environment node
-import handler from "../../api/_routes/short-emotion.js";
+import handler from "../api/short-emotion.js";
 
 function call(method, query) {
   return new Promise((resolve) => {

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { duePlan } from "../../api/_lib/short-emotion/schedule.js";
+import { duePlan } from "../api/_lib/short-emotion/schedule.js";
 
 // Beijing time helper: 2026-10-12 is a Monday.
 const bj = (date, time) => new Date(`${date}T${time}:00+08:00`);
@@ -64,7 +64,7 @@ describe("runScheduledRefresh (mock Wind, memory store)", () => {
   beforeAll(async () => {
     process.env.WIND_MOCK = "1";
     delete process.env.SUPABASE_URL;
-    ({ runScheduledRefresh, readResource } = await import("../../api/_lib/short-emotion/service.js"));
+    ({ runScheduledRefresh, readResource } = await import("../api/_lib/short-emotion/service.js"));
   });
 
   it("forced run stores snapshots that the read API serves", async () => {
@@ -106,7 +106,7 @@ describe("台股 refresh (mock Wind, memory store)", () => {
 
   beforeAll(async () => {
     process.env.WIND_MOCK = "1";
-    ({ runScheduledRefresh, readResource } = await import("../../api/_lib/short-emotion/service.js"));
+    ({ runScheduledRefresh, readResource } = await import("../api/_lib/short-emotion/service.js"));
   });
 
   it("stores a 台股 snapshot separately from A股", async () => {

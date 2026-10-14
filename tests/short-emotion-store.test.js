@@ -21,7 +21,7 @@ describe("short-emotion data branch (file store → GitHub read store)", () => {
   });
 
   it("the Actions job writes snapshots that the Vercel read API can serve", async () => {
-    const { runScheduledRefresh, readResource } = await import("../../api/_lib/short-emotion/service.js");
+    const { runScheduledRefresh, readResource } = await import("../api/_lib/short-emotion/service.js");
     const result = await runScheduledRefresh({ force: true });
     expect(result.status).toBe("ok");
 
@@ -51,7 +51,7 @@ describe("short-emotion data branch (file store → GitHub read store)", () => {
   });
 
   it("the read-only store refuses writes", async () => {
-    const { getStore } = await import("../../api/_lib/short-emotion/store.js");
+    const { getStore } = await import("../api/_lib/short-emotion/store.js");
     process.env.SHORT_EMOTION_STORE = "github";
     await expect(getStore().kvSet("x", 1)).rejects.toThrow();
   });
@@ -64,7 +64,7 @@ describe("short-emotion data branch (file store → GitHub read store)", () => {
       if (text.endsWith("/split/kv/emotion_latest.json")) return new Response(JSON.stringify({ value: { score: 42 } }), { status: 200 });
       return new Response("not found", { status: 404 });
     };
-    const { getStore } = await import("../../api/_lib/short-emotion/store.js");
+    const { getStore } = await import("../api/_lib/short-emotion/store.js");
     expect((await getStore("cn").kvGet("emotion:latest")).value.score).toBe(42);
     expect(await getStore("tw").kvGet("emotion:latest")).toBeNull();
   });

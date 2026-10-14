@@ -1,10 +1,10 @@
-// 「刷新」= 真实调用 Wind MCP：Vercel 通过 GitHub API 触发数据任务（scheduled-jobs.yml 的手动运行），
+// 「刷新」= 真实调用 Wind MCP：Vercel 通过 GitHub API 触发数据任务（short-emotion.yml 的手动运行），
 // 任务在 GitHub Actions 里取 Wind 数据、写入 short-emotion-data 分支，页面轮询任务状态后读取新快照。
 //
 // 需要 Vercel 环境变量 GITHUB_ACTIONS_TOKEN（或 GITHUB_ACTION_TOKEN）：GitHub fine-grained token，只授权本仓库，
 // 权限 Actions: Read and write、Contents: Read。未配置时刷新返回 not_configured。
-const REPO = process.env.SHORT_EMOTION_REPO || "MuWeiLee/twsvp-frontend";
-const WORKFLOW = "scheduled-jobs.yml";
+const REPO = process.env.SHORT_EMOTION_REPO || "leemuweiuiux/ShortEmotion";
+const WORKFLOW = "short-emotion.yml";
 const DATA_BRANCH = "short-emotion-data";
 const API = "https://api.github.com";
 
@@ -21,7 +21,7 @@ async function github(path, { method = "GET", body } = {}) {
       Authorization: `Bearer ${token}`,
       Accept: "application/vnd.github+json",
       "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": "twsvp-short-emotion",
+      "User-Agent": "shortemotion",
       ...(body ? { "Content-Type": "application/json" } : {})
     },
     body: body ? JSON.stringify(body) : undefined,
