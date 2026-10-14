@@ -6,6 +6,7 @@ import * as OpenCC from "opencc-js";
 const sources = [
   "public/short-emotion/index.html",
   "public/short-emotion/app.js",
+  "public/short-emotion/auth.js",
   "api/_lib/short-emotion/engine.js",
   "api/_lib/short-emotion/tw-engine.js",
   "api/_lib/short-emotion/service.js",
@@ -26,7 +27,9 @@ export const HANT = ${JSON.stringify(map)};
 // 与 api/_lib/short-emotion/hant.js 保持一致：日常写法用「台」，以及证交所产业正式名称。
 export const HANT_FIXES = [
   [/臺/g, "台"], [/拉昇/g, "拉升"], [/信息服務/g, "資訊服務"], [/計算機及外圍(?:裝置|設備)/g, "電腦及週邊設備"],
-  [/計算機/g, "電腦"], [/外圍(?:裝置|設備)/g, "週邊設備"], [/零元件/g, "零組件"], [/軟件/g, "軟體"], [/網絡/g, "網路"], [/鍾/g, "鐘"]
+  [/計算機/g, "電腦"], [/外圍(?:裝置|設備)/g, "週邊設備"], [/零元件/g, "零組件"], [/軟件/g, "軟體"], [/網絡/g, "網路"], [/鍾/g, "鐘"],
+  // 登录界面：台湾用语
+  [/登錄/g, "登入"], [/賬號/g, "帳號"], [/郵箱/g, "電子郵件"]
 ];
 `;
 await writeFile("public/short-emotion/hant-map.js", output);

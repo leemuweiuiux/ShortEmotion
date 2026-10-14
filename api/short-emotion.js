@@ -6,8 +6,10 @@
 //      最近一次手动刷新任务的状态（排队中 / 获取中 / 完成）。
 // POST /api/short-emotion?market=cn|tw&action=refresh
 //      用户点「刷新」：触发 GitHub Actions 数据任务，真实调用 Wind MCP 并写入新快照。
+//      登录开启时（见 _lib/auth.js）需要带 Authorization: Bearer <Supabase 登录凭证>，否则 401 login_required。
 import { readResource, NotReadyError, normalizeMarket } from "./_lib/short-emotion/service.js";
 import { requestRefresh, latestRefreshRun, githubToken } from "./_lib/short-emotion/github.js";
+import { requireUser } from "./_lib/auth.js";
 
 const RESOURCES = new Set(["emotion", "anomalies", "history", "news", "status", "refresh-status"]);
 
@@ -34,6 +36,8 @@ export default async function handler(req, res) {
     }
     res.setHeader("Cache-Control", "no-store");
     try {
+      const { user } = await requireUser(req);
+      if (user) console.log(`short-emotion refresh ${market} requested by user ${user.id}`);
       res.status(202).json({ market, ...(await requestRefresh(market)) });
     } catch (error) {
       fail(res, error);

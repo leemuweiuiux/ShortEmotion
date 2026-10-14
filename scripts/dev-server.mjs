@@ -1,6 +1,7 @@
 // 本地预览：node scripts/dev-server.mjs（或 npm run dev），打开 http://localhost:3000/cn 、/tw
 //
-// 按 vercel.json 的 redirects / rewrites 提供页面，/api/short-emotion 直接调用 api/short-emotion.js。
+// 按 vercel.json 的 redirects / rewrites 提供页面，/api/<名称> 直接调用 api/<名称>.js（同 Vercel 函数）。
+// 登录：设 SUPABASE_URL、SUPABASE_PUBLISHABLE_KEY 后开启（见 api/_lib/auth.js）。
 // 数据默认读线上 short-emotion-data 分支（只读，不调用 Wind）；
 // 设 SHORT_EMOTION_DATA_DIR=<目录> 时改读本地检出的数据分支。
 import { createServer } from "node:http";
@@ -12,7 +13,10 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const publicDir = path.join(root, "public");
 const vercel = JSON.parse(await readFile(path.join(root, "vercel.json"), "utf8"));
 if (!process.env.SHORT_EMOTION_STORE) process.env.SHORT_EMOTION_STORE = process.env.SHORT_EMOTION_DATA_DIR ? "file" : "github";
-const { default: api } = await import("../api/short-emotion.js");
+const API_ROUTES = {
+  "short-emotion": () => import("../api/short-emotion.js"),
+  "auth-config": () => import("../api/auth-config.js")
+};
 
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".json": "application/json", ".png": "image/png" };
 const port = Number(process.env.PORT || 3000);
@@ -41,7 +45,9 @@ createServer(async (req, res) => {
       res.writeHead(307, { Location: redirect.destination + url.search }).end();
       return;
     }
-    if (url.pathname === "/api/short-emotion") {
+    const apiName = url.pathname.match(/^\/api\/([\w-]+)\/?$/)?.[1];
+    if (apiName && API_ROUTES[apiName]) {
+      const { default: api } = await API_ROUTES[apiName]();
       req.query = Object.fromEntries(url.searchParams);
       req.body = await readBody(req);
       await api(req, vercelResponse(res));

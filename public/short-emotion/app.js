@@ -1,4 +1,5 @@
-import { HANT, HANT_FIXES } from "./hant-map.js?v=3";
+import { HANT, HANT_FIXES } from "./hant-map.js?v=4";
+import { initAuth, authEnabled, accessToken, clearSession, openLogin, mountAccountButton } from "./auth.js?v=1";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -63,6 +64,9 @@ function toHant(text) {
   for (const [pattern, replacement] of HANT_FIXES) output = output.replace(pattern, replacement);
   return output;
 }
+
+// 只在台股页面转繁体（登录弹窗等后加的界面文字用它）。
+const uiText = (text) => (MARKET === "tw" ? toHant(text) : String(text));
 
 function hantify(root) {
   if (MARKET !== "tw" || !root) return;
@@ -881,10 +885,18 @@ async function handleManualRefresh() {
     toast("刷新每小时只能使用一次，交易时段每 30 分钟也会自动更新");
     return;
   }
+  // 登录开启时，登录后才能刷新（见 auth.js）；没登录先弹出登录，登录成功后接着刷新。
+  await authReady;
+  let token = null;
+  if (authEnabled()) {
+    token = await accessToken();
+    if (!token && await openLogin({ t: uiText, reason: "登录后即可刷新数据" })) token = await accessToken();
+    if (!token) return;
+  }
   try { localStorage.setItem(REFRESH_KEY, String(Date.now())); } catch {}
   beginRefresh({ step: "submitted", poll: false }); // 先显示「数据更新中」，提交成功后再轮询进度
   try {
-    const response = await fetch(`${API_BASE}?market=${MARKET}&action=refresh`, { method: "POST", headers: { Accept: "application/json" } });
+    const response = await fetch(`${API_BASE}?market=${MARKET}&action=refresh`, { method: "POST", headers: { Accept: "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw Object.assign(new Error(payload.error || `请求失败 (${response.status})`), { code: payload.code });
     if (payload.dispatched) {
@@ -898,7 +910,10 @@ async function handleManualRefresh() {
   } catch (error) {
     try { localStorage.removeItem(REFRESH_KEY); } catch {} // 没刷新成功不占用每小时一次的额度
     stopRefresh();
-    toast(error.code === "not_configured" ? "实时刷新服务尚未开通，页面显示的是最近一次定时快照" : `刷新失败：${error.message}`, true);
+    if (error.code === "login_required") clearSession();
+    toast(error.code === "not_configured" ? "实时刷新服务尚未开通，页面显示的是最近一次定时快照"
+      : error.code === "login_required" ? "登录已失效，请重新登录后再刷新"
+      : `刷新失败：${error.message}`, true);
   }
 }
 
@@ -972,4 +987,5 @@ function watchSections() {
 
 applyMarketCopy();
 bindEvents();
+const authReady = initAuth().then(() => mountAccountButton({ t: uiText, toast }));
 loadEmotion().then(resumeRunningRefresh);

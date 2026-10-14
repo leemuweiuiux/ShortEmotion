@@ -17,11 +17,13 @@ GitHub Actions（.github/workflows/short-emotion.yml，工作日 09:00–15:30 �
   └─ scripts/short-emotion/refresh.mjs 呼叫 Wind MCP 計算快照
        └─ 強制推送到 short-emotion-data 分支（A股在根目錄，台股在 tw/）
 Vercel
-  ├─ public/short-emotion/        靜態頁面
-  └─ api/short-emotion.js         只讀資料分支；POST action=refresh 時觸發上面的工作流
+  ├─ public/short-emotion/        靜態頁面（auth.js：郵箱驗證碼登入）
+  ├─ api/short-emotion.js         只讀資料分支；POST action=refresh 時觸發上面的工作流（需登入）
+  └─ api/auth-config.js           提供登入設定（Supabase 網址與 Publishable key）
+Supabase Auth                     寄送與驗證郵箱驗證碼（不使用資料表）
 ```
 
-頁面不直接呼叫 Wind。「刷新」按鈕每個瀏覽器每小時一次，同一市場 2 分鐘內多人點擊共用同一次任務。
+頁面不直接呼叫 Wind。「刷新」按鈕**登入後才能使用**，每個瀏覽器每小時一次，同一市場 2 分鐘內多人點擊共用同一次任務。
 
 ## 部署設定（只需做一次）
 
@@ -30,13 +32,21 @@ Vercel
 2. **Vercel**：匯入本倉庫，Framework 選 Other，其餘保持預設（`vercel.json` 已指定輸出目錄 `public`）。
 3. **Vercel 環境變數** `GITHUB_ACTIONS_TOKEN`：GitHub fine-grained token，只授權本倉庫，
    權限 Actions: Read and write、Contents: Read-only。沒有它頁面照常顯示，只是「刷新」不可用。
+4. **登入（Supabase Auth）**：
+   - Vercel 環境變數 `SUPABASE_URL`（`https://<專案代號>.supabase.co`）與 `SUPABASE_PUBLISHABLE_KEY`
+     （Supabase → Project Settings → API Keys 的 Publishable key，公開值）。**不要**放 secret / service_role key。
+     兩個都設定才會開啟登入；沒設定時不顯示登入，刷新也不要求登入。
+   - Supabase → Authentication → Emails：**Magic link** 與 **Confirm signup** 兩個範本都要含 `{{ .Token }}`，
+     郵件裡才會是驗證碼而不是連結。
+   - Supabase 內建寄信只能寄給專案團隊成員、每小時 2 封；正式開放前要在 Authentication → Emails → SMTP Settings
+     接自己的寄信服務（例如 Resend，以 lfjmwl.com 寄出）。
 
 ## 本地開發
 
 ```bash
 npm install
 npm test            # 單元測試
-npm run dev         # http://localhost:3000/cn ，預設讀線上資料分支
+npm run dev         # http://localhost:3000/cn ，預設讀線上資料分支（未設 SUPABASE_* 時不顯示登入）
 SHORT_EMOTION_DATA_DIR=./short-emotion-data npm run dev   # 改讀本地檢出的資料分支
 ```
 
