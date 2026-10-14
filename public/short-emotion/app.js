@@ -1,15 +1,15 @@
-import { HANT, HANT_FIXES } from "./hant-map.js?v=3";
+import { HANT, HANT_FIXES } from "./hant-map.js?v=4";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 let data = null;
 let anomalyData = null;
 let anomalyFilter = "all";
-let timelineMode = /^\/tw(?:-short-emotion)?(?:\/|$)/.test(location.pathname) ? "daily" : "intraday";
+let timelineMode = /^\/(?:shortemotion\/)?tw(?:-short-emotion)?(?:\/|$)/.test(location.pathname) ? "daily" : "intraday";
 let toastTimer = null;
 
-// ── 市场：/cn（A股）与 /tw（台股）共用这一页（旧地址 /cn-short-emotion、/tw-short-emotion 会跳转过来）──
-const MARKET = /^\/tw(?:-short-emotion)?(?:\/|$)/.test(location.pathname) ? "tw" : "cn";
+// ── 市场：/shortemotion/cn（A股）与 /shortemotion/tw（台股）共用这一页（旧地址 /cn、/tw、/cn-short-emotion 等会跳转过来）──
+const MARKET = /^\/(?:shortemotion\/)?tw(?:-short-emotion)?(?:\/|$)/.test(location.pathname) ? "tw" : "cn";
 const MARKETS = {
   cn: {
     label: "A股",

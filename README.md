@@ -6,9 +6,12 @@ A股 / 台股短線情緒看板：**https://lfjmwl.com**（Vercel 預設網址 s
 
 | 網址 | 內容 |
 | --- | --- |
-| `/`、`/cn` | A股 |
-| `/tw` | 台股（盤後快照，繁體） |
-| `/cn-short-emotion`、`/tw-short-emotion`、`/short-emotion` | 舊網址，跳轉到 `/cn`、`/tw` |
+| `/home` | 首頁（介紹、今日情緒、看板入口）；`/` 會轉到這裡 |
+| `/shortemotion/cn` | 短線情緒 · A股 |
+| `/shortemotion/tw` | 短線情緒 · 台股（盤後快照，繁體） |
+| `/cn`、`/tw`、`/cn-short-emotion`、`/tw-short-emotion`、`/short-emotion` | 舊網址，轉到上面的新網址 |
+
+每個看板放在自己的資料夾（`/看板名/…`），以後新增看板照同樣方式加。
 
 ## 運作方式
 
@@ -17,7 +20,8 @@ GitHub Actions（.github/workflows/short-emotion.yml，工作日 09:00–15:30 �
   └─ scripts/short-emotion/refresh.mjs 呼叫 Wind MCP 計算快照
        └─ 強制推送到 short-emotion-data 分支（A股在根目錄，台股在 tw/）
 Vercel
-  ├─ public/short-emotion/        靜態頁面
+  ├─ public/home/                首頁
+  ├─ public/short-emotion/        短線情緒看板頁面
   └─ api/short-emotion.js         只讀資料分支；POST action=refresh 時觸發上面的工作流
 ```
 

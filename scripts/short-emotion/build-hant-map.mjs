@@ -9,7 +9,9 @@ const sources = [
   "api/_lib/short-emotion/engine.js",
   "api/_lib/short-emotion/tw-engine.js",
   "api/_lib/short-emotion/service.js",
-  "api/_lib/short-emotion/schedule.js"
+  "api/_lib/short-emotion/schedule.js",
+  "public/home/index.html",
+  "public/home/home.js"
 ];
 const text = (await Promise.all(sources.map((file) => readFile(file, "utf8")))).join("");
 const chars = [...new Set(text.match(/[一-鿿]/g))].sort();
