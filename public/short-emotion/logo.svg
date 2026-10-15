@@ -1,5 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="ShortEmotion">
-  <!-- 第一阶段临时标识：情绪脉冲线。第二阶段换正式品牌 Logo。 -->
-  <rect width="32" height="32" rx="4" fill="#ff4015"/>
-  <path d="M5 18h5l3-8 5 13 3-7h6" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ShortEmotion">
+  <!-- 品牌标识：实心方块反白，L 与 J 合起来是一个 D（2026-10-15 定稿） -->
+  <rect width="64" height="64" rx="12" fill="#E6252B"/>
+  <g fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="butt" stroke-linejoin="miter">
+    <path d="M18,9.0 V50 H28"/>
+    <path d="M29,14 H41 A6,6 0 0 1 47,20 V35 A15,15 0 0 1 32,50 H35"/>
+  </g>
 </svg>
