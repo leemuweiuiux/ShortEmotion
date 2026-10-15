@@ -26,42 +26,36 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/about/about.css?v=3">
-  <link rel="stylesheet" href="/login/login.css?v=1">
-  <link rel="stylesheet" href="/account/account.css?v=1">
+  <link rel="stylesheet" href="/account/account.css?v=2">
 </head>
-<body>
-  <nav class="nav">
-    <a class="brand" href="/about" aria-label="ShortEmotion 介绍">
-      <img class="brand-logo" src="/short-emotion/logo.svg" alt="">
-      <span class="brand-text">
-        <b>ShortEmotion</b>
-        <small>看懂A股与台股的短线情绪</small>
-      </span>
+<body class="sub-page">
+  <nav class="subnav">
+    <a id="back" class="subnav-btn" href="/shortemotion/cn" aria-label="返回">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </a>
-    <div class="lang-toggle" role="group" aria-label="语言">
-      <button type="button" class="lang-btn" data-lang="hans">简体</button>
-      <span aria-hidden="true">｜</span>
-      <button type="button" class="lang-btn" data-lang="hant">繁体</button>
-    </div>
+    <div class="subnav-title">个人资料</div>
   </nav>
 
-  <main class="page login-page">
-    <section class="login-card" aria-labelledby="account-title">
-      <div class="login-head">
-        <h1 id="account-title">个人资料</h1>
-        <p>资料只用于和你联系，不会公开显示。</p>
+  <main class="sub-frame">
+    <header>
+      <h1 class="sub-title">个人资料</h1>
+    </header>
+
+    <section class="sub-card">
+      <div class="section-title">账号</div>
+      <div class="setting-item">
+        <div class="setting-meta">
+          <strong>邮箱</strong>
+          <span id="email">读取中…</span>
+        </div>
       </div>
 
-      <form id="profile-form" class="login-form" novalidate>
+      <div class="section-title">基本资料</div>
+      <form id="profile-form" class="profile-form" novalidate>
         <label class="field">
           <span>姓名</span>
-          <input id="name" name="name" type="text" autocomplete="name" maxlength="40" placeholder="怎么称呼你">
+          <input id="name" name="name" type="text" autocomplete="name" maxlength="40" placeholder="输入你的姓名">
         </label>
-        <div class="field">
-          <span>邮箱</span>
-          <p id="email" class="readonly-value">读取中…</p>
-          <small class="field-hint">登录用的邮箱，不能修改。</small>
-        </div>
         <div class="field">
           <span id="phone-label">电话</span>
           <div class="phone-row" role="group" aria-labelledby="phone-label">
@@ -80,21 +74,22 @@
             </select>
             <input id="phone" name="phoneNumber" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="15" placeholder="手机号">
           </div>
-          <small class="field-hint">选填，不需要验证码。</small>
         </div>
-        <button id="save" class="primary-btn" type="submit" disabled>保存</button>
+        <p id="profile-error" class="form-error" role="alert" hidden></p>
+        <button id="save" class="btn-primary" type="submit" disabled>保存</button>
+        <p id="profile-status" class="form-status" role="status" hidden></p>
       </form>
 
-      <p id="profile-status" class="profile-status" role="status" hidden></p>
-      <p id="profile-error" class="login-error" role="alert" hidden></p>
-
-      <div class="account-actions">
-        <a class="secondary-btn link-button" href="/shortemotion/cn">返回看板</a>
-        <button id="logout" class="secondary-btn" type="button">退出登录</button>
+      <div class="section-title">退出</div>
+      <div class="setting-item">
+        <div class="setting-meta">
+          <strong>退出当前账号</strong>
+        </div>
+        <button id="logout" class="btn-outline" type="button">退出</button>
       </div>
     </section>
   </main>
 
-  <script type="module" src="/account/account.js?v=1"></script>
+  <script type="module" src="/account/account.js?v=2"></script>
 </body>
 </html>
