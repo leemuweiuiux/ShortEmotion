@@ -1,0 +1,31 @@
+/* 个人资料 /account：版面与表单沿用 /about/about.css、/login/login.css，这里只补差异。 */
+.readonly-value {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border: 1px dashed var(--border);
+  color: var(--ink);
+  font-size: 16px;
+  word-break: break-all;
+}
+.field-hint { color: var(--muted); font-size: 12px; font-weight: 400; }
+.phone-row { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr); gap: 8px; }
+.phone-row select {
+  height: 48px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+}
+.phone-row select:focus { outline: none; border-color: var(--ink); background: var(--surface); }
+.profile-status { padding: 10px 12px; border: 1px solid var(--border); background: var(--panel); font-size: 13px; }
+.profile-status[hidden] { display: none; }
+.account-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding-top: 14px; border-top: 1px solid var(--border); }
+.link-button { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+@media (max-width: 360px) {
+  .phone-row { grid-template-columns: 1fr; }
+}

@@ -33,12 +33,14 @@ let validRefresh;
 let calls;
 let supabaseDown;
 let activity;
+let metadata;
 function installFetch() {
   validTokens = new Set();
   validRefresh = new Map();
   calls = [];
   supabaseDown = false;
   activity = [];
+  metadata = new Map();
   globalThis.fetch = vi.fn(async (url, options = {}) => {
     const href = String(url);
     calls.push(href.replace(SUPABASE, ""));
@@ -47,7 +49,8 @@ function installFetch() {
       const token = String(options.headers.Authorization).replace("Bearer ", "");
       if (!validTokens.has(token)) return new Response(JSON.stringify({ msg: "invalid" }), { status: 401 });
       const payload = session.decodeJwt(token);
-      return Response.json({ id: payload.sub, email: payload.email });
+      if (options.method === "PUT") metadata.set(payload.sub, { ...(metadata.get(payload.sub) || {}), ...JSON.parse(options.body).data });
+      return Response.json({ id: payload.sub, email: payload.email, user_metadata: metadata.get(payload.sub) || {} });
     }
     if (href === `${SUPABASE}/auth/v1/token?grant_type=refresh_token`) {
       const { refresh_token: refreshToken } = JSON.parse(options.body);
@@ -316,5 +319,46 @@ describe("活跃记录（只记哪天来过，30 天）", () => {
     await visit("/", loggedIn());
     await call(dataApi, { method: "POST", query: { market: "tw", action: "refresh" }, cookie: loggedIn() });
     expect(activity).toEqual([]);
+  });
+});
+
+describe("个人资料 /account", () => {
+  const origin = { origin: "https://www.lfjmwl.com" };
+
+  it("页面需要登录；登录后放行，不另记活跃", async () => {
+    expect((await visit("/account")).headers.get("location")).toBe("/login?next=%2Faccount");
+    const ok = await visit("/account", loggedIn());
+    expect(ok.headers.get("x-middleware-next")).toBe("1");
+    expect(activity).toEqual([]);
+  });
+
+  it("读取与保存：姓名、电话区号与号码存在 Supabase 用户资料，邮箱只读", async () => {
+    const cookie = loggedIn({ email: "a@b.co" });
+    const empty = await call(authApi, { query: { action: "profile" }, cookie });
+    expect(empty.body.profile).toEqual({ email: "a@b.co", name: "", phoneCountryCode: "", phoneNumber: "" });
+
+    const saved = await call(authApi, { method: "POST", query: { action: "profile" }, cookie, headers: origin,
+      body: { name: "  李 牧微 ", phoneCountryCode: "+886", phoneNumber: "0912-345 678", email: "hacker@x.com" } });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.body.profile).toEqual({ email: "a@b.co", name: "李 牧微", phoneCountryCode: "+886", phoneNumber: "0912345678" });
+    expect(metadata.get("user-1")).toEqual({ full_name: "李 牧微", display_name: "李 牧微", phone_country_code: "+886", phone_number: "0912345678" });
+
+    const again = await call(authApi, { query: { action: "profile" }, cookie });
+    expect(again.body.profile.name).toBe("李 牧微");
+  });
+
+  it("检查输入；未登录 401；别的网站发来 403", async () => {
+    const cookie = loggedIn();
+    const bad = await call(authApi, { method: "POST", query: { action: "profile" }, cookie, headers: origin, body: { phoneCountryCode: "+86", phoneNumber: "12ab" } });
+    expect(bad.statusCode).toBe(400);
+    expect(bad.body.code).toBe("invalid_profile");
+    expect((await call(authApi, { method: "POST", query: { action: "profile" }, cookie, headers: origin, body: { name: "x".repeat(41) } })).statusCode).toBe(400);
+    expect((await call(authApi, { query: { action: "profile" } })).statusCode).toBe(401);
+    expect((await call(authApi, { method: "POST", query: { action: "profile" }, cookie, headers: { origin: "https://evil.com" }, body: {} })).statusCode).toBe(403);
+  });
+
+  it("不填电话时不存区号", async () => {
+    const res = await call(authApi, { method: "POST", query: { action: "profile" }, cookie: loggedIn(), headers: origin, body: { name: "A", phoneCountryCode: "+86", phoneNumber: "" } });
+    expect(res.body.profile).toMatchObject({ phoneCountryCode: "", phoneNumber: "" });
   });
 });

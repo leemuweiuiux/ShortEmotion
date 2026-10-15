@@ -17,7 +17,7 @@ describe("网址：介绍页、登录页与看板", () => {
     expect(redirects["/"]).toBe("/about");
     expect(redirects["/home"]).toBe("/about");
     expect(redirects["/home/"]).toBe("/about");
-    for (const page of ["about", "login"]) {
+    for (const page of ["about", "login", "account"]) {
       expect(rewrites[`/${page}`]).toBe(`/${page}/index.html`);
       expect(rewrites[`/${page}/`]).toBe(`/${page}/index.html`);
       expect(() => readFileSync(resolve(root, `public/${page}/index.html`))).not.toThrow();
@@ -56,7 +56,7 @@ describe("网址：介绍页、登录页与看板", () => {
 
   it("页面里的站内链接都指向存在的网址", () => {
     const known = new Set([...Object.keys(rewrites), ...Object.keys(redirects)]);
-    for (const file of ["public/short-emotion/index.html", "public/about/index.html", "public/login/index.html"]) {
+    for (const file of ["public/short-emotion/index.html", "public/about/index.html", "public/login/index.html", "public/account/index.html"]) {
       const html = readFileSync(resolve(root, file), "utf8");
       const links = [...html.matchAll(/<a[^>]+href="(\/[^"#?]*)"/g)].map((m) => m[1]);
       expect(links.length).toBeGreaterThan(0);
@@ -65,7 +65,7 @@ describe("网址：介绍页、登录页与看板", () => {
   });
 
   it("页面引用的静态文件都存在", () => {
-    for (const [file, prefix] of [["public/short-emotion/index.html", "short-emotion"], ["public/about/index.html", "(?:about|short-emotion)"], ["public/login/index.html", "(?:about|login|short-emotion)"]]) {
+    for (const [file, prefix] of [["public/short-emotion/index.html", "short-emotion"], ["public/about/index.html", "(?:about|short-emotion)"], ["public/login/index.html", "(?:about|login|short-emotion)"], ["public/account/index.html", "(?:about|login|account|short-emotion)"]]) {
       const html = readFileSync(resolve(root, file), "utf8");
       const refs = [...html.matchAll(new RegExp(`(?:href|src|srcset)="(\\/${prefix}\\/[^"?]+\\.[a-z0-9]+)`, "g"))].map((m) => m[1]);
       expect(refs.length).toBeGreaterThan(3);
@@ -76,7 +76,7 @@ describe("网址：介绍页、登录页与看板", () => {
 
 describe("页面脚本", () => {
   it("介绍页、登录页、共用模块 import 的文件都存在，简繁字表版本号一致", () => {
-    const files = ["public/about/about.js", "public/login/login.js", "public/shared/lang.js", "public/short-emotion/app.js"];
+    const files = ["public/about/about.js", "public/login/login.js", "public/account/account.js", "public/shared/lang.js", "public/short-emotion/app.js"];
     const versions = new Set();
     for (const file of files) {
       const code = readFileSync(resolve(root, file), "utf8");
@@ -91,7 +91,7 @@ describe("页面脚本", () => {
 
   it("中间件只拦介绍页以外的入口：/、/login、看板", async () => {
     const { config } = await import("../middleware.js");
-    expect(config.matcher).toEqual(["/", "/login", "/login/", "/shortemotion/:path*"]);
+    expect(config.matcher).toEqual(["/", "/login", "/login/", "/account", "/account/", "/shortemotion/:path*"]);
   });
 });
 
@@ -102,7 +102,7 @@ describe("页面文字：不到处标注数据供应商", () => {
     .replace(/function plain\([\s\S]*?\n}\n/, "");    // 去除供应商字样的函数本身
 
   it("看板与登录页不出现 Wind / 万得", () => {
-    for (const file of ["public/short-emotion/index.html", "public/short-emotion/app.js", "public/login/index.html", "public/login/login.js"]) {
+    for (const file of ["public/short-emotion/index.html", "public/short-emotion/app.js", "public/login/index.html", "public/login/login.js", "public/account/index.html", "public/account/account.js"]) {
       const text = visible(readFileSync(resolve(root, file), "utf8")).replace(/window|Window/g, "");
       expect(text, file).not.toMatch(/Wind|万得|萬得/);
     }

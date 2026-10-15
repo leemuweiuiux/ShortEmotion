@@ -67,6 +67,12 @@ Supabase Auth                     寄送與驗證郵箱驗證碼（經 Resend �
 - 查看：Supabase → Table Editor 的 `activity_summary`（註冊數、近 7 天新註冊、今日 / 7 天 / 30 天活躍）與 `activity_daily`（每天活躍人數）。
   表與視圖都不對網站訪客開放。
 
+## 個人資料
+
+- 看板右上角頭像 → 點郵箱進入 `/account`（需登入）：姓名、郵箱（只讀）、電話（區號 + 手機號，不做驗證碼）。
+- 存在 Supabase 用戶資料的 user_metadata（`full_name` / `display_name`、`phone_country_code`、`phone_number`），
+  透過 `GET / POST /api/auth?action=profile` 用登入用戶自己的憑證讀寫，不另建表；Supabase 後台 Users 的 Display name 會顯示姓名。
+
 ## 部署設定（只需做一次）
 
 1. **GitHub 倉庫 Secret**：Settings → Secrets and variables → Actions → 新增 `WIND_API_KEY`。

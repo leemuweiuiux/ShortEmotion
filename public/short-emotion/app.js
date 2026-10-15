@@ -1,4 +1,4 @@
-import { HANT, HANT_FIXES } from "./hant-map.js?v=7";
+import { HANT, HANT_FIXES } from "./hant-map.js?v=8";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -805,9 +805,12 @@ function toggleAccountMenu(event) {
   const menu = document.createElement("div");
   menu.className = "export-menu account-menu";
   menu.setAttribute("role", "menu");
-  const who = document.createElement("div");
+  // 点邮箱进入个人资料（姓名、邮箱、电话）
+  const who = document.createElement("a");
   who.className = "account-who";
-  who.innerHTML = `<small>${uiText("已登录")}</small><b></b>`;
+  who.href = "/account";
+  who.setAttribute("role", "menuitem");
+  who.innerHTML = `<small>${uiText("已登录 · 查看个人资料")}</small><b></b>`;
   who.querySelector("b").textContent = accountEmail || "—";
   const logout = document.createElement("button");
   logout.type = "button";
