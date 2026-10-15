@@ -97,7 +97,10 @@ SHORT_EMOTION_DATA_DIR=./short-emotion-data npm run dev   # 改讀本地檢出�
 
 `main` 是線上版本，受保護規則限制，所有改動都走「分支 → PR → 合併」。流程、分工與衝突處理見 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
+## 品牌標識
+
+- Logo：紅色實心方塊反白，L 與 J 合起來是一個 D（`public/short-emotion/logo.svg`）；分頁圖示另有 `favicon-32.png`、`/favicon.ico`，手機桌面圖示 `/apple-touch-icon.png`。
+
 ## 第二階段待辦
 
-- 正式品牌與 Logo（目前 `public/short-emotion/logo.svg` 是臨時標識）
 - 外觀設定的 localStorage 鍵名仍為 `twsvp_theme`、`twsvp_price_scheme`；樣式檔仍叫 `twsvp.css`
