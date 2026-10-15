@@ -1,4 +1,4 @@
-import { HANT, HANT_FIXES } from "./hant-map.js?v=8";
+import { HANT, HANT_FIXES } from "./hant-map.js?v=9";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -594,10 +594,11 @@ function exportHeader(subtitle = "") {
   return head;
 }
 
+// 分享图底部：品牌 + 网址 + 二维码（https://lfjmwl.com，已登录进看板，未登录到介绍页）
 function exportFooter() {
   const footer = document.createElement("div");
   footer.className = "export-footer";
-  footer.textContent = toHant(`ShortEmotion · 仅用于研究与情绪观察，不构成投资建议`);
+  footer.innerHTML = `<div class="export-footer-text"><b>ShortEmotion · ${escapeHtml(toHant("短线情绪"))}</b><span>${escapeHtml(toHant("扫码查看每日 A股、台股短线情绪"))}</span><small>lfjmwl.com · ${escapeHtml(toHant("仅用于研究与情绪观察，不构成投资建议"))}</small></div><img class="export-qr" src="/short-emotion/qr-site.svg?v=1" alt="lfjmwl.com">`;
   return footer;
 }
 

@@ -548,7 +548,12 @@ body.gallery-open { overflow: hidden; }
 .gallery-grid figcaption { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-top: 1px solid var(--border); font-size: 13px; }
 .gallery-save { min-height: 30px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel); color: var(--ink); font-size: 13px; cursor: pointer; }
 .export-filter-marker { padding: 2px 8px; border-radius: 999px; background: var(--ink); color: var(--surface); font-size: 12px; font-weight: 600; }
-.export-footer { padding: 14px 0 4px; color: var(--muted); font-size: 12px; text-align: center; }
+.export-footer { display: flex; align-items: center; gap: 14px; margin-top: 10px; padding: 12px; background: var(--surface); border: 1px solid var(--border); }
+.export-footer-text { flex: 1; display: grid; gap: 3px; min-width: 0; }
+.export-footer-text b { font-size: 15px; font-weight: 600; line-height: 1.4; }
+.export-footer-text span { font-size: 13px; line-height: 1.5; }
+.export-footer-text small { color: var(--muted); font-size: 11px; line-height: 1.5; }
+.export-qr { flex: none; width: 76px; height: 76px; padding: 4px; background: #ffffff; border: 1px solid var(--border); } /* 深色主题下也保持白底，方便扫码 */
 
 /* 嵌入模式（?embed=1） */
 .embed .nav, .embed .tabs-wrap, .embed .status-bar .pill-btn { display: none; }
