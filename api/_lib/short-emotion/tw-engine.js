@@ -9,8 +9,13 @@
 // 文字一律先用简体产出，service 在写入前统一转换为繁体（hant.js）。
 import {
   windCall, tables, objects, fulfilled, reason, runWindTasks, runWindTasksInBatches,
-  clamp, scoreBreadth, scoreLimit, scorePremium, classify, limitStreakLabel, localDate
+  clamp, scoreBreadth, scoreLimit, scorePremium, classify, limitStreakLabel, localDate,
+  scoreLiquidity, limitLadderMetrics
 } from "./engine.js";
+
+// 评分口径：v2 起连板梯队与成交环境改用与 A股 相同的方法（见 scoreLadderTw、loadEmotion 的成交环境）。
+// 历史曲线在口径交界处断线，每日均值只合并同一口径的快照（store.js）。
+export const TW_SCORE_VERSION = 2;
 
 const INDEX_CODE = "TWII.TW";
 const LIMIT_PCT = 9.5; // 台股涨跌幅限制 10%，因价格档位，涨停实际约 9.5%–10%
@@ -132,7 +137,8 @@ export function importEngineState(saved) {
 }
 
 async function tradingCalendar(day) {
-  const begin = new Date(Date.UTC(Number(day.slice(0, 4)), Number(day.slice(4, 6)) - 1, Number(day.slice(6, 8)) - 30));
+  // 取约 100 个自然日：交易日历 + 近 60 个交易日的成交额（成交环境用）
+  const begin = new Date(Date.UTC(Number(day.slice(0, 4)), Number(day.slice(4, 6)) - 1, Number(day.slice(6, 8)) - 100));
   const beginDay = begin.toISOString().slice(0, 10).replaceAll("-", "");
   const payload = await windCall("index_data", "get_index_kline", { windcode: INDEX_CODE, begin_date: beginDay, end_date: day });
   const rows = objects(tables(payload)[0]).map((row) => ({
@@ -205,19 +211,29 @@ async function industrySnapshot(indexes) {
   })).filter((row) => row.code && row.changePct != null);
 }
 
-function scoreLadder(streaks) {
-  if (!streaks.length) return 50;
-  const multi = streaks.filter((value) => value >= 2).length;
-  const max = Math.max(...streaks);
-  return clamp(38 + multi * 6 + (max - 1) * 8 + Math.min(streaks.length, 40) * .3);
+/**
+ * 连板梯队（v2，与 A股 同一套：涨停家数 + 最高板 + 梯队是否完整 + 首板占比）。
+ * 台股上市柜约 1,900 只，约为 A股 的三分之一，涨停家数的权重相应放大（A股 每只 0.6 分，台股 1.6 分，上限都是 35）。
+ * 前几个交易日的涨停名单不齐时算不准连板，暂用中性 50。
+ */
+export function scoreLadderTw(streaks, complete = true) {
+  if (!complete) return 50;
+  if (!streaks.length) return 10;
+  const metrics = limitLadderMetrics(streaks.map((limitStreak) => ({ limitStreak })));
+  let score = 10 + Math.min(35, streaks.length * 1.6);
+  if (metrics.maxStreak >= 2) score += Math.min(20, metrics.maxStreak * 4);
+  if (metrics.contiguousDepth >= 3) score += Math.min(15, metrics.contiguousDepth * 3);
+  if (metrics.maxStreak >= 2 && (metrics.counts[1] || 0) >= streaks.length * .6) score += 10;
+  return clamp(score);
 }
 
-function scoreLiquidity(today, history) {
-  const values = history.map((row) => row.turnover).filter((value) => Number.isFinite(value) && value > 0).slice(-5);
-  if (!Number.isFinite(today) || !values.length) return { score: 50, ratio: null };
-  const average = values.reduce((sum, value) => sum + value, 0) / values.length;
-  const ratio = today / average;
-  return { score: clamp(50 + (ratio - 1) * 80), ratio };
+/** 成交环境（v2）：当日成交额在近 60 个交易日中的分位（台股为收盘数据，不需要推算全天）。不足 10 天历史时用中性 50。 */
+export function scoreLiquidityTw(amount, calendar, dataDay) {
+  const history = calendar.filter((row) => row.day < dataDay && Number.isFinite(row.turnover) && row.turnover > 0).slice(-60);
+  const recent = history.slice(-5).map((row) => row.turnover);
+  const ratio = Number.isFinite(amount) && recent.length ? amount / (recent.reduce((sum, value) => sum + value, 0) / recent.length) : null;
+  const available = Number.isFinite(amount) && history.length >= 10;
+  return { score: available ? scoreLiquidity(amount, history.map((row) => ({ amount: row.turnover }))) : 50, ratio, available, sample: history.length };
 }
 
 function scoreIndustries(themes) {
@@ -274,6 +290,8 @@ export async function loadEmotion() {
     // 记录行情日的涨停名单（连板计算用）
     if (limitUpRows.length) state.limitHistory[dataDay] = limitUpRows.map((row) => row.code);
     const streaks = limitUpRows.map((row) => streakOf(row.code, dataDay));
+    const ladderDays = previousTradingDays(dataDay, 4);
+    const ladderComplete = ladderDays.length === 4 && ladderDays.every((date) => Array.isArray(state.limitHistory[date])) && limitUp != null;
 
     // 昨日涨停溢价：前一交易日涨停股今天的平均涨跌幅
     const previousDay = previousTradingDays(dataDay, 1)[0] || null;
@@ -289,12 +307,12 @@ export async function loadEmotion() {
     }
 
     const amount = num(indexRow["成交额"]);
-    const liquidity = scoreLiquidity(amount, calendar.filter((row) => row.day < dataDay));
+    const liquidity = scoreLiquidityTw(amount, calendar, dataDay);
     const upRatio = Number.isFinite(up) && Number.isFinite(down) && up + down > 0 ? up / (up + down) * 100 : null;
     const dimensions = {
       breadth: Math.round(scoreBreadth(up, down)),
       limits: Math.round(scoreLimit(limitUp, limitDown, bigUp, bigDown)),
-      ladder: Math.round(scoreLadder(streaks)),
+      ladder: Math.round(scoreLadderTw(streaks, ladderComplete)),
       profit: Math.round(scorePremium(premium)),
       themes: Math.round(scoreIndustries(allIndustries)),
       liquidity: Math.round(liquidity.score)
@@ -313,6 +331,7 @@ export async function loadEmotion() {
       capturedAt: new Date().toISOString(),
       quoteTime,
       source: "Wind AI Fin Market（台股）",
+      scoreVersion: TW_SCORE_VERSION,
       score,
       regime: classify(score, { upRatio }),
       dimensions,
@@ -335,8 +354,9 @@ export async function loadEmotion() {
         { name: "市场广度", status: up != null ? "direct" : "error", note: breadthSource },
         { name: "涨跌停与大涨大跌", status: limitUp != null ? "derived" : "error", note: "涨跌幅≥9.5%视为涨停（台股涨跌幅限制10%）" },
         { name: "昨日涨停溢价", status: premium != null ? "derived" : "error", note: `前一交易日涨停股今日等权平均（${premiumSample}只）` },
-        { name: "连板", status: "derived", note: "每日涨停名单本地累计" },
-        { name: "题材", status: "limited", note: "Wind无台股概念指数，以证交所产业指数代替" }
+        { name: "连板与晋级率", status: ladderComplete ? "derived" : "limited", note: ladderComplete ? "近几个交易日涨停名单计算最高板、梯队完整度与涨停家数" : "前几个交易日涨停名单不齐，连板梯队暂用中性分" },
+        { name: "成交额", status: liquidity.available ? "derived" : "limited", note: liquidity.available ? `近${liquidity.sample}个交易日成交额分位数` : "历史成交额不足，成交环境暂用中性分" },
+        { name: "题材", status: "limited", note: "台股没有概念指数，以证交所产业指数代替" }
       ],
       errors,
       partial: errors.length > 0
@@ -566,7 +586,7 @@ export function isTradingSessionHistory(item) {
 }
 
 export function historyRecord(snapshot) {
-  return { tradingDate: snapshot.tradingDate, capturedAt: snapshot.capturedAt, quoteTime: snapshot.quoteTime, score: snapshot.score, phase: snapshot.regime.phase, up: snapshot.market.up, down: snapshot.market.down, limitUp: snapshot.extremes.limitUp, limitDown: snapshot.extremes.limitDown, premium: snapshot.profit.premium };
+  return { tradingDate: snapshot.tradingDate, capturedAt: snapshot.capturedAt, quoteTime: snapshot.quoteTime, scoreVersion: snapshot.scoreVersion, score: snapshot.score, phase: snapshot.regime.phase, up: snapshot.market.up, down: snapshot.market.down, limitUp: snapshot.extremes.limitUp, limitDown: snapshot.extremes.limitDown, premium: snapshot.profit.premium };
 }
 
 export { classify };
