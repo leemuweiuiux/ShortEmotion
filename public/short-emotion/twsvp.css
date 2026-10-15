@@ -636,3 +636,12 @@ body.gallery-open { overflow: hidden; }
 .account-who small { color: var(--muted); font-size: 12px; }
 .account-who b { font-size: 14px; font-weight: 600; word-break: break-all; }
 .nav-btn[hidden] { display: none; }
+
+/* 切换 A股 / 台股 是整页跳转：用跨页过渡让顶栏原地不动、内容淡入，避免顶栏闪一下（不支持的浏览器照旧跳转） */
+@view-transition { navigation: auto; }
+.nav { view-transition-name: se-nav; }
+::view-transition-group(se-nav) { animation-duration: 0s; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .18s; }
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+}

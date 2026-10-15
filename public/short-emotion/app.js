@@ -416,7 +416,7 @@ function renderDailyTimeline() {
   const history = allDaily.slice(-20);
   const versionOf = (item) => Number(item.scoreVersion || 1);
   const mixedVersions = new Set(history.map(versionOf)).size > 1;
-  setText("#history-count", `近 ${history.length} 个交易日均值${mixedVersions ? " · 评分口径变化处断线" : ""}`);
+  setText("#history-count", `近 ${history.length} 个交易日均值`);
   if (history.length < 2) {
     $("#timeline-chart").innerHTML = `<div class="empty">\u5df2\u6c89\u6dc0${history.length}\u4e2a\u65e5\u7ebf\u70b9\uff1b\u6bcf\u65e5\u6309\u5f53\u5929 n \u4e2a\u76d8\u4e2d\u5feb\u7167\u7b49\u6743\u5e73\u5747\uff0c\u540e\u7eed\u81ea\u52a8\u7d2f\u8ba1\u3002</div>`;
     return;
@@ -777,7 +777,8 @@ function toggleExportMenu(event) {
   $("#export-image").setAttribute("aria-expanded", "true");
 }
 
-// 账号：顶栏右侧显示登录的邮箱与「退出登录」（登录未开启时不显示）。
+// 账号：顶栏右侧显示登录的邮箱与「退出登录」。按钮一开始就显示（看板只有登录后才进得来），
+// 只在登录未开启时移除，避免读到账号后才插入按钮、把「A股/台股」切换和导出按钮挤动（顶栏闪烁）。
 const uiText = (text) => (MARKET === "tw" ? toHant(text) : String(text));
 let accountEmail = "";
 
@@ -785,10 +786,10 @@ async function loadAccount() {
   try {
     const response = await fetch("/api/auth?action=me", { headers: { Accept: "application/json" }, credentials: "same-origin" });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok || payload.enabled === false) return;
+    if (payload.enabled === false) return $("#account")?.remove();
+    if (!response.ok) return;
     if (!payload.user) return goLogin();
     accountEmail = payload.user.email || "";
-    $("#account").hidden = false;
   } catch {}
 }
 
@@ -807,7 +808,7 @@ function toggleAccountMenu(event) {
   const who = document.createElement("div");
   who.className = "account-who";
   who.innerHTML = `<small>${uiText("已登录")}</small><b></b>`;
-  who.querySelector("b").textContent = accountEmail;
+  who.querySelector("b").textContent = accountEmail || "—";
   const logout = document.createElement("button");
   logout.type = "button";
   logout.setAttribute("role", "menuitem");
