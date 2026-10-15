@@ -590,7 +590,7 @@ function exportHeader(subtitle = "") {
   const head = document.createElement("div");
   head.className = "export-head";
   const quote = $("#quote-time")?.textContent || "";
-  head.innerHTML = `<img src="/short-emotion/logo.svg" alt="ShortEmotion"><div><b>${escapeHtml(toHant(`短线情绪 · ${CFG.label}`))}${subtitle ? ` · ${escapeHtml(subtitle)}` : ""}</b><small>${escapeHtml(quote)}</small></div>`;
+  head.innerHTML = `<img src="/short-emotion/logo.svg?v=2" alt="ShortEmotion"><div><b>${escapeHtml(toHant(`短线情绪 · ${CFG.label}`))}${subtitle ? ` · ${escapeHtml(subtitle)}` : ""}</b><small>${escapeHtml(quote)}</small></div>`;
   return head;
 }
 
