@@ -286,44 +286,35 @@ describe("同一页面同时换新凭证", () => {
   });
 });
 
-describe("活跃记录（30 天）", () => {
+describe("活跃记录（只记哪天来过，30 天）", () => {
   const seenOf = (response) => response.headers.getSetCookie().find((value) => value.startsWith("se_seen="));
 
-  it("打开看板：每人每天每个市场只记一次", async () => {
+  it("打开看板：每人每天只记一次，A股、台股不分开记", async () => {
     const cookie = loggedIn();
     const first = await visit("/shortemotion/cn", cookie);
-    expect(activity).toEqual([{ user: "user-1", p_market: "cn", p_refresh: false }]);
+    expect(activity).toEqual([{ user: "user-1" }]);
     const seen = seenOf(first);
-    expect(seen).toMatch(new RegExp(`^se_seen=${session.shanghaiDay()}:cn; .*HttpOnly`));
+    expect(seen).toMatch(new RegExp(`^se_seen=${session.shanghaiDay()}; .*HttpOnly`));
 
-    const again = await visit("/shortemotion/cn", `${cookie}; ${seen.split(";")[0]}`);
+    const again = await visit("/shortemotion/tw", `${cookie}; ${seen.split(";")[0]}`);
     expect(activity).toHaveLength(1);
     expect(seenOf(again)).toBeUndefined();
-
-    const tw = await visit("/shortemotion/tw", `${cookie}; ${seen.split(";")[0]}`);
-    expect(activity.at(-1)).toEqual({ user: "user-1", p_market: "tw", p_refresh: false });
-    expect(seenOf(tw)).toContain(":cn,tw;");
   });
 
   it("隔天重新记；写入失败不记 se_seen，下次再试", async () => {
     const cookie = loggedIn();
-    await visit("/shortemotion/cn", `${cookie}; se_seen=20200101:cn,tw`);
+    await visit("/shortemotion/cn", `${cookie}; se_seen=20200101`);
     expect(activity).toHaveLength(1);
     supabaseDown = true;
     const failed = await visit("/shortemotion/cn", loggedIn());
     expect(seenOf(failed)).toBeUndefined();
   });
 
-  it("未登录、介绍页、登录页都不记", async () => {
+  it("未登录、介绍页、登录页、点刷新都不额外记", async () => {
     await visit("/shortemotion/cn");
     await visit("/login");
     await visit("/", loggedIn());
+    await call(dataApi, { method: "POST", query: { market: "tw", action: "refresh" }, cookie: loggedIn() });
     expect(activity).toEqual([]);
-  });
-
-  it("点刷新记一次", async () => {
-    const res = await call(dataApi, { method: "POST", query: { market: "tw", action: "refresh" }, cookie: loggedIn() });
-    expect(activity).toEqual([{ user: "user-1", p_market: "tw", p_refresh: true }]);
-    expect(res.statusCode).not.toBe(401); // 本地没设 GitHub token，刷新本身会回「未开通」
   });
 });

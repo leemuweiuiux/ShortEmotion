@@ -3,7 +3,7 @@
 //   /                  已登录 → /shortemotion/cn；未登录 → /about（介绍页）
 //   /login             已登录 → 直接去 next（默认 /shortemotion/cn）
 //   /shortemotion/...  未登录 → /login?next=原网址；凭证过期时顺手换新 cookie（滚动 90 天）；
-//                      已登录时记一笔当天的活跃（每人每天每个市场一次，见 session.js recordActivity）
+//                      已登录时记一笔当天的活跃（每人每天一次，只记「哪天来过」，见 session.js recordActivity）
 //
 // 登录判断见 api/_lib/session.js；数据接口 /api/short-emotion 另外在函数里检查，不经过这里。
 import { next } from "@vercel/functions/middleware";
@@ -44,9 +44,8 @@ export default async function middleware(request) {
 
   // /shortemotion/...
   if (!session.user) return redirect(`/login?next=${encodeURIComponent(path + url.search)}`, session.setCookies);
-  const market = /^\/shortemotion\/tw(?:\/|$)/.test(path) ? "tw" : "cn";
-  const seen = session.accessToken ? seenCookieFor(request.headers.get("cookie"), market, { secure }) : null;
-  // 每人每天每个市场只写一次（最多等 4 秒）；写成功才记下 se_seen，失败下次打开再试。
-  if (seen && await recordActivity(settings, session.accessToken, { market })) return proceed([...session.setCookies, seen]);
+  const seen = session.accessToken ? seenCookieFor(request.headers.get("cookie"), { secure }) : null;
+  // 每人每天只写一次（最多等 4 秒）；写成功才记下 se_seen，失败下次打开再试。
+  if (seen && await recordActivity(settings, session.accessToken)) return proceed([...session.setCookies, seen]);
   return proceed(session.setCookies);
 }
