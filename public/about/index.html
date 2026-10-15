@@ -28,7 +28,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/about/about.css?v=2">
+  <link rel="stylesheet" href="/about/about.css?v=3">
 </head>
 <body>
   <nav class="nav">
@@ -68,7 +68,7 @@
           <small class="live-time">收盘后更新</small>
         </a>
       </div>
-      <p class="hero-note">数据来自万得 Wind。分数 0–100，越高代表短线情绪越热。</p>
+      <p class="hero-note">分数 0–100，越高代表短线情绪越热。</p>
     </header>
 
     <section class="steps-intro">
@@ -107,8 +107,8 @@
         <p>按涨停点火、批量拉升和消息催化，找出当天真正在动的题材，并列出带头的个股。</p>
       </div>
       <picture class="feature-shot fade-bottom">
-        <source srcset="/about/img/themes-dark.webp" media="(prefers-color-scheme: dark)">
-        <img src="/about/img/themes-light.webp" alt="题材雷达：当日题材异动与个股" width="776" height="1050" loading="lazy">
+        <source srcset="/about/img/themes-dark.webp?v=2" media="(prefers-color-scheme: dark)">
+        <img src="/about/img/themes-light.webp?v=2" alt="题材雷达：当日题材异动与个股" width="776" height="1050" loading="lazy">
       </picture>
     </section>
 
@@ -129,13 +129,23 @@
       <div class="market-grid">
         <div>
           <h3>A股</h3>
-          <p>交易日 09:30–15:00 每 30 分钟更新一次，题材按 Wind 概念归并。</p>
+          <p>交易日 09:30–15:00 每 30 分钟更新一次，题材按概念板块归并。</p>
         </div>
         <div>
           <h3>台股</h3>
           <p>使用收盘数据，开盘前与收盘后更新；题材按证交所产业指数，界面为繁体。</p>
         </div>
       </div>
+    </section>
+
+    <section class="data-source">
+      <h2>用 Wind MCP 数据搭建</h2>
+      <p>ShortEmotion 的数据来自 Wind Alice Market 的 MCP 服务。行情、涨跌停与连板、概念板块和财经新闻都通过 MCP 接口按交易时段定时取得，再由我们的算法合成情绪分、整理成题材雷达。</p>
+      <ul class="source-list">
+        <li><b>行情与涨跌停</b><span>涨跌家数、涨跌停、连板与溢价</span></li>
+        <li><b>概念板块</b><span>板块分钟行情与成分股</span></li>
+        <li><b>财经新闻</b><span>消息催化与个股归因</span></li>
+      </ul>
     </section>
 
     <section class="boards">
@@ -154,7 +164,6 @@
     </section>
 
     <footer class="footer">
-      <p>数据来源：万得 Wind 金融数据服务。</p>
       <p>仅用于研究与情绪观察，不构成投资建议。</p>
       <p>© 2026 ShortEmotion</p>
     </footer>
@@ -167,6 +176,6 @@
     </div>
   </div>
 
-  <script type="module" src="/about/about.js?v=2"></script>
+  <script type="module" src="/about/about.js?v=3"></script>
 </body>
 </html>

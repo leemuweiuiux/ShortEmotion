@@ -41,7 +41,7 @@ export const SCHEDULES = {
     cleanupAt: 15 * 60 + 30,
     historyTradingDays: 60,
     holidayCheckAfter: 24 * 60,
-    summary: "盤後快照：Wind 台股為收盤數據，每個交易日 09:00 與 15:00 後更新（新聞 09:00–13:30 每 30 分鐘）"
+    summary: "盤後快照：台股為收盤數據，每個交易日 09:00 與 15:00 後更新（新聞 09:00–13:30 每 30 分鐘）"
   }
 };
 

@@ -354,8 +354,8 @@ function industryNewsMatches(news, industryName) {
     if (!hits.length) continue;
     const sentence = text.split(/[。！？\n]/).find((part) => hits.some((keyword) => part.includes(keyword))) || article.title || "";
     matches.push({
-      title: article.title || "Wind台股新闻",
-      source: article.source || "Wind财经新闻",
+      title: article.title || "台股新闻",
+      source: article.source || "财经新闻",
       date: article.date || "",
       viewpoint: sentence.trim().slice(0, 140),
       impact: `新闻点名${hits.slice(0, 3).join("、")}，关注${industryName}资金是否持续流入。`,
@@ -508,8 +508,8 @@ export async function loadThemeAnomalies() {
         if (!members.length) continue;
         const average = members.reduce((sum, row) => sum + row.changePct, 0) / members.length;
         const articles = group.articles.slice(0, 3).map((article) => ({
-          title: article.title || "Wind台股新闻",
-          source: article.source || "Wind财经新闻",
+          title: article.title || "台股新闻",
+          source: article.source || "财经新闻",
           date: article.date || "",
           viewpoint: (`${article.title || ""}。${article.content || ""}`.split(/[。！？\n]/).find((part) => part.includes(`${group.name}族群`)) || "").trim().slice(0, 140),
           impact: `新闻点名${group.name}族群，观察资金是否持续扩散。`,

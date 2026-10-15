@@ -95,6 +95,27 @@ describe("页面脚本", () => {
   });
 });
 
+describe("页面文字：不到处标注数据供应商", () => {
+  const visible = (code) => code
+    .replace(/\/\/[^\n]*/g, "")                       // 注释
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/function plain\([\s\S]*?\n}\n/, "");    // 去除供应商字样的函数本身
+
+  it("看板与登录页不出现 Wind / 万得", () => {
+    for (const file of ["public/short-emotion/index.html", "public/short-emotion/app.js", "public/login/index.html", "public/login/login.js"]) {
+      const text = visible(readFileSync(resolve(root, file), "utf8")).replace(/window|Window/g, "");
+      expect(text, file).not.toMatch(/Wind|万得|萬得/);
+    }
+  });
+
+  it("介绍页只在「用 Wind MCP 数据搭建」一节介绍数据来源", () => {
+    const html = readFileSync(resolve(root, "public/about/index.html"), "utf8").replace(/window/g, "");
+    const section = html.match(/<section class="data-source">[\s\S]*?<\/section>/)?.[0] || "";
+    expect(section).toContain("Wind Alice Market 的 MCP 服务");
+    expect(html.replace(section, "")).not.toMatch(/Wind|万得/);
+  });
+});
+
 describe("数据任务（GitHub Actions）", () => {
   it("工作日 09:00–15:30（北京时间）每 30 分钟运行", () => {
     const schedules = [...workflow.matchAll(/-\s*cron:\s*"([^"]+)"/g)].map((m) => m[1]);

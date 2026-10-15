@@ -1082,9 +1082,9 @@ async function loadThemeAnomalies(force = false) {
       accepted.forEach(({ item, catalyst }) => {
         item.signals.add("news");
         if (item.news.length < 3) item.news.push({
-          title: article.title || "Wind市场消息",
+          title: article.title || "市场消息",
           date: freshness.published.raw,
-          source: article.source || article.media || article.source_name || article.provider || "Wind财经新闻",
+          source: article.source || article.media || article.source_name || article.provider || "财经新闻",
           ...catalyst
         });
         item.score += item.news.length === 1 ? 18 : 5;

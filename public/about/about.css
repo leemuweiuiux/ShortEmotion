@@ -176,6 +176,19 @@ h3 { font-size: 17px; font-weight: 700; line-height: 1.4; }
 .market-grid > div { display: grid; gap: 4px; align-content: start; padding: 14px; }
 .market-grid > div + div { border-left: 1px solid var(--border); }
 
+/* ── 数据来源（Wind MCP） ── */
+.data-source { display: grid; gap: 12px; }
+.data-source > p { color: var(--muted); font-size: 14px; line-height: 1.7; }
+.source-list { display: grid; grid-template-columns: repeat(3, 1fr); margin: 0; padding: 0; list-style: none; border: 1px solid var(--border); }
+.source-list li { display: grid; gap: 4px; align-content: start; padding: 12px; }
+.source-list li + li { border-left: 1px solid var(--border); }
+.source-list b { font-size: 14px; font-weight: 600; }
+.source-list span { color: var(--muted); font-size: 12px; line-height: 1.5; }
+@media (max-width: 420px) {
+  .source-list { grid-template-columns: 1fr; }
+  .source-list li + li { border-left: 0; border-top: 1px solid var(--border); }
+}
+
 /* ── 看板 ── */
 .boards { display: grid; gap: 12px; }
 .board { display: grid; gap: 14px; padding: 16px; background: var(--panel); border: 1px solid var(--border); }
