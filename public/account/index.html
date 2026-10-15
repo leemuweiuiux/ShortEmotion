@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/about/about.css?v=3">
-  <link rel="stylesheet" href="/account/account.css?v=2">
+  <link rel="stylesheet" href="/account/account.css?v=3">
 </head>
 <body class="sub-page">
   <nav class="subnav">
@@ -76,21 +76,15 @@
             <input id="phone" name="phoneNumber" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="15" placeholder="手机号">
           </div>
         </div>
-        <p id="profile-error" class="form-error" role="alert" hidden></p>
         <button id="save" class="btn-primary" type="submit" disabled>保存</button>
-        <p id="profile-status" class="form-status" role="status" hidden></p>
       </form>
-
-      <div class="section-title">退出</div>
-      <div class="setting-item">
-        <div class="setting-meta">
-          <strong>退出当前账号</strong>
-        </div>
-        <button id="logout" class="btn-outline" type="button">退出</button>
-      </div>
     </section>
+
+    <button id="logout" class="logout-link" type="button">退出登录</button>
   </main>
 
-  <script type="module" src="/account/account.js?v=3"></script>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="/account/account.js?v=4"></script>
 </body>
 </html>

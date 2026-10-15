@@ -1,5 +1,5 @@
 /* 个人资料 /account：参考 TWSVP 的二级页（完善个人资料 / 设置）
-   固定顶栏（返回 + 标题）→ 页面标题 → 一张直角卡片（分区小标题、字段、主按钮、退出行）。
+   固定顶栏（返回 + 标题）→ 页面标题 → 一张直角卡片（分区小标题、字段、保存）→ 卡片下方弱化的「退出登录」。
    颜色变量与字体沿用 /about/about.css。 */
 body.sub-page { background: var(--bg); }
 
@@ -73,19 +73,51 @@ body.sub-page { background: var(--bg); }
 .field input:focus, .phone-row select:focus { outline: none; border-color: var(--ink); background: var(--surface); }
 .phone-row { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr); gap: 8px; }
 
-.btn-primary, .btn-outline {
+.btn-primary {
   border-radius: 10px;
   font: inherit;
   font-weight: 600;
   cursor: pointer;
 }
 .btn-primary { padding: 12px 16px; border: 0; background: var(--ink); color: var(--surface); font-size: 14px; }
-.btn-outline { flex: none; padding: 10px 14px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font-size: 13px; }
-.btn-primary:disabled, .btn-outline:disabled { opacity: .6; cursor: default; }
+.btn-primary:disabled { opacity: .6; cursor: default; }
 
-.form-error { margin: 0; color: var(--heat); font-size: 12px; }
-.form-status { margin: -8px 0 0; color: var(--muted); font-size: 12px; text-align: center; }
-.form-error[hidden], .form-status[hidden] { display: none; }
+/* 退出登录：弱化为卡片下方的灰色文字按钮 */
+.logout-link {
+  display: block;
+  margin: 20px auto 0;
+  padding: 8px 12px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.logout-link:hover, .logout-link:focus-visible { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; outline: none; }
+.logout-link:disabled { opacity: .6; cursor: default; }
+
+/* 轻提示（同看板的 toast） */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  z-index: 50;
+  max-width: calc(100vw - 48px);
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+  opacity: 0;
+  transform: translate(-50%, 8px);
+  transition: opacity .2s ease, transform .2s ease;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast.error { background: #d32f2f; color: #fff; }
 
 @media (max-width: 360px) {
   .phone-row { grid-template-columns: 1fr; }
