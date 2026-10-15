@@ -1,5 +1,5 @@
 // 个人资料 /account：姓名、邮箱（只读）、电话区号与手机号（不做验证码）。资料存在 Supabase 的用户资料里（/api/auth?action=profile）。
-import { initLanguage, setText } from "/shared/lang.js?v=4";
+import { initLanguage, setText } from "/shared/lang.js?v=5";
 
 const $ = (selector) => document.querySelector(selector);
 

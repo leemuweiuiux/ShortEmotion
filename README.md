@@ -99,6 +99,8 @@ SHORT_EMOTION_DATA_DIR=./short-emotion-data npm run dev   # 改讀本地檢出�
 
 ## 品牌標識
 
+- 分享長圖、小卡底部附二維碼（`public/short-emotion/qr-site.svg`，指向 https://lfjmwl.com：已登入進看板、未登入到介紹頁）；網址改了用 `python3 scripts/short-emotion/build-share-qr.py` 重新產生。
+
 - Logo：紅色實心方塊反白，L 與 J 合起來是一個 D（`public/short-emotion/logo.svg`）；分頁圖示另有 `favicon-32.png`、`/favicon.ico`，手機桌面圖示 `/apple-touch-icon.png`。
 
 ## 第二階段待辦
