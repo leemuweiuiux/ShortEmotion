@@ -4,7 +4,8 @@
 // GET  /api/auth?action=me       当前登录的邮箱；未登录时 user 为 null
 // POST /api/auth?action=session  body { access_token, refresh_token }：验证码通过后，把凭证换成 HttpOnly cookie
 // POST /api/auth?action=logout   退出登录：注销这台设备的凭证并清除 cookie
-import { authConfig, resolveSession, fetchUser, sessionCookies, clearSessionCookies, parseCookies, isSecureNodeRequest, ACCESS_COOKIE } from "./_lib/session.js";
+// GET  /api/auth?action=profile  个人资料（姓名、邮箱、电话区号与号码）；POST 同一地址保存（不做手机验证码）
+import { authConfig, resolveSession, fetchUser, sessionCookies, clearSessionCookies, parseCookies, isSecureNodeRequest, ACCESS_COOKIE, readProfile, saveProfile, PHONE_COUNTRY_CODES } from "./_lib/session.js";
 
 function readJson(body) {
   if (body && typeof body === "object" && !Buffer.isBuffer(body)) return body;
@@ -43,6 +44,24 @@ export default async function handler(req, res) {
       send(res, 200, { enabled: true, user: { email: session.user.email } }, session.setCookies);
     } catch (error) {
       send(res, 503, { error: error.message, code: "auth_unavailable" });
+    }
+    return;
+  }
+
+  // 个人资料：GET 读取，POST 保存（姓名、电话；邮箱只读）
+  if (action === "profile" && (req.method === "GET" || req.method === "POST")) {
+    if (!config) return send(res, 404, { error: "登录未开启", code: "auth_disabled" });
+    if (req.method === "POST" && !sameOrigin(req)) return send(res, 403, { error: "来源不允许", code: "forbidden" });
+    try {
+      const session = await resolveSession(req.headers?.cookie, { config, secure, clearOnFailure: false });
+      if (!session.user) return send(res, 401, { error: "请先登录", code: "login_required" }, session.setCookies);
+      if (!session.accessToken) return send(res, 503, { error: "登录服务暂时不可用，请稍后再试", code: "auth_unavailable" }, session.setCookies);
+      const profile = req.method === "GET"
+        ? await readProfile(config, session.accessToken)
+        : await saveProfile(config, session.accessToken, readJson(req.body));
+      send(res, 200, { profile, phoneCountryCodes: PHONE_COUNTRY_CODES }, session.setCookies);
+    } catch (error) {
+      send(res, error.statusCode || 503, { error: error.message, code: error.code || "auth_unavailable" });
     }
     return;
   }

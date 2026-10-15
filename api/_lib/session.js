@@ -222,3 +222,56 @@ export async function recordActivity(config, accessToken) {
     return false;
   }
 }
+
+// ── 个人资料（存在 Supabase 用户的 user_metadata，不另建表）──
+// 姓名写 full_name 与 display_name（Supabase 后台「Display name」会显示）；电话只存区号与号码，不做验证码校验。
+export const PHONE_COUNTRY_CODES = ["+86", "+886", "+852", "+853", "+1", "+44", "+60", "+61", "+65", "+81", "+82"];
+
+export function profileFromUser(payload) {
+  const meta = payload?.user_metadata || {};
+  return {
+    email: payload?.email || null,
+    name: String(meta.full_name || meta.display_name || meta.name || ""),
+    phoneCountryCode: String(meta.phone_country_code || ""),
+    phoneNumber: String(meta.phone_number || "")
+  };
+}
+
+/** 检查并整理要保存的资料；有问题时抛出带 code 的错误。 */
+export function cleanProfile(input = {}) {
+  const fail = (message) => { throw Object.assign(new Error(message), { code: "invalid_profile", statusCode: 400 }); };
+  const name = String(input.name ?? "").trim().replace(/\s+/g, " ");
+  const phoneCountryCode = String(input.phoneCountryCode ?? "").trim();
+  const phoneNumber = String(input.phoneNumber ?? "").replace(/[\s-]/g, "");
+  if (name.length > 40) fail("姓名最多 40 个字");
+  if (phoneNumber && !/^\d{4,15}$/.test(phoneNumber)) fail("手机号只能是 4–15 位数字");
+  if (phoneNumber && !/^\+\d{1,4}$/.test(phoneCountryCode)) fail("请选择区号");
+  return { name, phoneCountryCode: phoneNumber ? phoneCountryCode : "", phoneNumber };
+}
+
+async function supabaseUserRequest(config, accessToken, init = {}) {
+  const response = await fetch(`${config.url}/auth/v1/user`, {
+    ...init,
+    headers: { apikey: config.key, Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json", ...(init.headers || {}) },
+    signal: AbortSignal.timeout(8_000)
+  });
+  if ([401, 403].includes(response.status)) throw Object.assign(new Error("登录已失效，请重新登录"), { code: "login_required", statusCode: 401 });
+  if (!response.ok) throw unavailable(response.status);
+  return response.json();
+}
+
+export async function readProfile(config, accessToken) {
+  return profileFromUser(await supabaseUserRequest(config, accessToken));
+}
+
+export async function saveProfile(config, accessToken, input) {
+  const profile = cleanProfile(input);
+  const payload = await supabaseUserRequest(config, accessToken, {
+    method: "PUT",
+    body: JSON.stringify({ data: {
+      full_name: profile.name, display_name: profile.name,
+      phone_country_code: profile.phoneCountryCode, phone_number: profile.phoneNumber
+    } })
+  });
+  return profileFromUser(payload);
+}

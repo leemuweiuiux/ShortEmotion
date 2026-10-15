@@ -29,6 +29,8 @@
     {"source": "/about/", "destination": "/about/index.html"},
     {"source": "/login", "destination": "/login/index.html"},
     {"source": "/login/", "destination": "/login/index.html"},
+    {"source": "/account", "destination": "/account/index.html"},
+    {"source": "/account/", "destination": "/account/index.html"},
     {"source": "/shortemotion/cn", "destination": "/short-emotion/index.html"},
     {"source": "/shortemotion/cn/", "destination": "/short-emotion/index.html"},
     {"source": "/shortemotion/tw", "destination": "/short-emotion/index.html"},
