@@ -1,4 +1,4 @@
-import { HANT, HANT_FIXES } from "./hant-map.js?v=5";
+import { HANT, HANT_FIXES } from "./hant-map.js?v=6";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -18,15 +18,15 @@ const MARKETS = {
     indexPrefix: "全A",
     indexCode: "881001.WI",
     amountLabel: "两市成交额",
-    amountNote: "Wind 全A口径",
+    amountNote: "全A口径",
     themeTitle: "题材热度排名",
-    themePill: "A股 Wind 概念",
+    themePill: "A股概念板块",
     themesTab: "题材雷达",
     breadthTitle: "市场广度",
     breadthUnit: "家数",
     anomalyTitle: "当日题材异动",
     anomalyDesc: "相似分支先归并为父题材，再按涨停、批量拉升与消息催化筛选高价值方向。",
-    emptyThemes: "Wind 暂未返回A股概念排名。",
+    emptyThemes: "暂未取得A股概念排名。",
     // 盘中曲线：09:25–11:30、13:00–15:00（午休压缩掉）
     sessions: [[565, 690], [780, 900]],
     slotsWide: [[565, "09:25"], [600, "10:00"], [690, "11:30"], [810, "13:30"], [870, "14:30"], [900, "15:00"]],
@@ -48,7 +48,7 @@ const MARKETS = {
     breadthUnit: "产业",
     anomalyTitle: "当日产业异动",
     anomalyDesc: "以证交所产业指数为题材，并纳入新闻点名的族群；按涨停（涨幅≥9.5%）与消息催化筛选。",
-    emptyThemes: "Wind 暂未返回台股产业排名。",
+    emptyThemes: "暂未取得台股产业排名。",
     // 台股连续交易 09:00–13:30
     sessions: [[540, 815]],
     slotsWide: [[540, "09:00"], [600, "10:00"], [660, "11:00"], [720, "12:00"], [780, "13:00"], [810, "13:30"]],
@@ -172,6 +172,16 @@ const API_BASE = "/api/short-emotion";
 
 // fresh=true：刚完成一次刷新，跳过 CDN 与服务端缓存，直接读数据分支最新提交。
 let readFresh = false;
+// 页面不标注数据供应商：旧快照或新闻来源里残留的「Wind」「万得」字样在显示时去掉。
+function plain(text, fallback = "") {
+  const output = String(text ?? "")
+    .replace(/(?:万得|萬得)\s*/g, "")
+    .replace(/Wind\s*(?:MCP|AI Fin Market)?\s*/gi, "")
+    .replace(/^[\s·:：、，,（(]+|[\s·:：、，,）)]+$/g, "")
+    .trim();
+  return output || fallback;
+}
+
 async function api(resource, { fresh = readFresh } = {}) {
   const extra = fresh ? `&fresh=1&t=${Date.now()}` : "";
   const response = await fetch(`${API_BASE}?market=${MARKET}&resource=${encodeURIComponent(resource)}${extra}`, { headers: { Accept: "application/json" }, cache: fresh ? "no-store" : "default" });
@@ -216,13 +226,13 @@ function renderHeader() {
   setText("#connection", status);
   const quoteLabel = data.endOfDay && quote ? `收盘数据 ${quote.slice(0, 5)}` : quote ? `行情时间 ${quote}` : "未返回行情时间";
   setText("#quote-time", `${quoteLabel}${stored ? ` · 快照 ${stored}` : ""}`);
-  if (data.schedule) setText("#schedule-note", data.schedule);
+  if (data.schedule) setText("#schedule-note", plain(data.schedule));
   reportToolbarState({ connection: status, quoteTime: quote ? `行情时间 ${quote}` : "未返回行情时间", partial: data.partial });
 }
 
 function reportToolbarState(overrides = {}) {
   if (!isEmbedded || window.parent === window) return;
-  window.parent.postMessage({ type: "emotion-toolbar-state", connection: data?.partial ? "Wind 部分数据可用" : "Wind 数据已连接", quoteTime: data?.quoteTime ? `行情时间 ${String(data.quoteTime).replace(/^(\d{8})\s?/, "$1 ")}` : "等待行情时间", partial: Boolean(data?.partial), ...overrides }, "*");
+  window.parent.postMessage({ type: "emotion-toolbar-state", connection: data?.partial ? "部分数据可用" : "数据已连接", quoteTime: data?.quoteTime ? `行情时间 ${String(data.quoteTime).replace(/^(\d{8})\s?/, "$1 ")}` : "等待行情时间", partial: Boolean(data?.partial), ...overrides }, "*");
 }
 
 function renderPulse() {
@@ -384,13 +394,13 @@ function renderAnomalies() {
           ? `${item.news?.length || 0}条催化`
           : `综合分 ${activeScore}`;
     const showNews = (anomalyFilter === "all" || anomalyFilter === "news") && item.news?.length;
-    const newsCards = showNews ? `<div class="catalyst-news-list">${item.news.slice(0, 3).map((article) => `<article class="catalyst-news"><div class="catalyst-news-head"><b>${escapeHtml(article.title || "Wind市场消息")}</b><span>${escapeHtml(article.source || "Wind财经新闻")}${article.date ? ` · ${escapeHtml(article.date)}` : ""}</span></div><p><strong>刺激观点</strong>${escapeHtml(article.viewpoint || article.catalyst || "正文观点待补充")}</p><p><strong>可能影响</strong>${escapeHtml(article.impact || article.relation || `需要继续验证该消息对${item.name}基本面预期的实际影响。`)}</p>${article.matchedKeywords?.length ? `<div class="catalyst-keywords">${article.matchedKeywords.map((keyword) => `<i>${escapeHtml(keyword)}</i>`).join("")}${Number.isFinite(Number(article.relevanceScore)) ? `<em>关联度 ${article.relevanceScore}</em>` : ""}</div>` : ""}</article>`).join("")}</div>` : "";
+    const newsCards = showNews ? `<div class="catalyst-news-list">${item.news.slice(0, 3).map((article) => `<article class="catalyst-news"><div class="catalyst-news-head"><b>${escapeHtml(plain(article.title, "市场消息"))}</b><span>${escapeHtml(plain(article.source, "财经新闻"))}${article.date ? ` · ${escapeHtml(article.date)}` : ""}</span></div><p><strong>刺激观点</strong>${escapeHtml(article.viewpoint || article.catalyst || "正文观点待补充")}</p><p><strong>可能影响</strong>${escapeHtml(article.impact || article.relation || `需要继续验证该消息对${item.name}基本面预期的实际影响。`)}</p>${article.matchedKeywords?.length ? `<div class="catalyst-keywords">${article.matchedKeywords.map((keyword) => `<i>${escapeHtml(keyword)}</i>`).join("")}${Number.isFinite(Number(article.relevanceScore)) ? `<em>关联度 ${article.relevanceScore}</em>` : ""}</div>` : ""}</article>`).join("")}</div>` : "";
     const displayStatus = anomalyFilter === "limit" ? "涨停点火" : anomalyFilter === "batch" ? "批量拉升" : anomalyFilter === "news" ? "消息催化" : item.status;
     const batchChip = (anomalyFilter === "all" || anomalyFilter === "batch") && item.shortMove != null && Number.isFinite(Number(item.shortMove)) ? `<span class="anomaly-chip batch">5分钟 ${formatPct(item.shortMove)}</span>` : "";
     const limitChip = (anomalyFilter === "all" || anomalyFilter === "limit") && item.limitStocks?.length ? `<span class="anomaly-chip limit">${item.limitStocks.length}只点火股</span>` : "";
     const highBoardChip = (anomalyFilter === "all" || anomalyFilter === "limit") && item.ladder?.maxStreak >= 3 ? `<span class="anomaly-chip ladder">最高${item.ladder.maxStreak}板 +${item.ladder.highBoardBonus}</span>` : "";
     const fullLadderChip = (anomalyFilter === "all" || anomalyFilter === "limit") && item.ladder?.contiguousDepth >= 3 ? `<span class="anomaly-chip ladder">完整1-${item.ladder.contiguousDepth}板 +${item.ladder.ladderBonus}</span>` : "";
-    return `<article class="anomaly-card filter-${anomalyFilter}${index < 3 ? " primary" : ""}"><div class="anomaly-card-head"><div><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.code || "Wind概念映射")}</small><em class="anomaly-rank-metric">${rankingMetric}</em></div><span class="anomaly-score">${activeScore}</span></div><span class="anomaly-status">${escapeHtml(displayStatus)}</span><div class="anomaly-evidence">${chips}${batchChip}${limitChip}${highBoardChip}${fullLadderChip}</div><p class="anomaly-detail" title="${escapeHtml(detail)}">${escapeHtml(detail)}</p>${newsCards}<details class="stock-details" data-theme="${escapeHtml(item.name)}"${stockDetailsOpen(item.name) ? " open" : ""}><summary>个股分层 <small>点火 ${(item.limitStocks || []).length} · 跟风 ${(item.followers || []).length} · 候选 ${(item.rideable || []).length}</small></summary><div class="stock-layers"><section class="role-section ignition"><h4>点火个股 <small>率先封板</small></h4>${stockItems(item.limitStocks || [], "ignition")}</section><section class="role-section follower"><h4>跟风个股 <small>同步走强未封板</small></h4>${stockItems(item.followers || [], "follower")}</section><section class="role-section ride"><h4>候选上车 <small>需等待触发</small></h4>${stockItems(item.rideable || [], "ride")}</section></div></details></article>`;
+    return `<article class="anomaly-card filter-${anomalyFilter}${index < 3 ? " primary" : ""}"><div class="anomaly-card-head"><div><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.code || "概念板块")}</small><em class="anomaly-rank-metric">${rankingMetric}</em></div><span class="anomaly-score">${activeScore}</span></div><span class="anomaly-status">${escapeHtml(displayStatus)}</span><div class="anomaly-evidence">${chips}${batchChip}${limitChip}${highBoardChip}${fullLadderChip}</div><p class="anomaly-detail" title="${escapeHtml(detail)}">${escapeHtml(detail)}</p>${newsCards}<details class="stock-details" data-theme="${escapeHtml(item.name)}"${stockDetailsOpen(item.name) ? " open" : ""}><summary>个股分层 <small>点火 ${(item.limitStocks || []).length} · 跟风 ${(item.followers || []).length} · 候选 ${(item.rideable || []).length}</small></summary><div class="stock-layers"><section class="role-section ignition"><h4>点火个股 <small>率先封板</small></h4>${stockItems(item.limitStocks || [], "ignition")}</section><section class="role-section follower"><h4>跟风个股 <small>同步走强未封板</small></h4>${stockItems(item.followers || [], "follower")}</section><section class="role-section ride"><h4>候选上车 <small>需等待触发</small></h4>${stockItems(item.rideable || [], "ride")}</section></div></details></article>`;
   }).join("");
 }
 
@@ -547,7 +557,7 @@ async function loadNews() {
     const items = payload.items || [];
     const asOf = shanghaiTimeLabel(payload.asOf);
     setText("#news-asof", asOf ? `快照 ${asOf}` : "等待快照");
-    $("#news-list").innerHTML = items.length ? items.slice(0, 5).map((item) => `<article class="news-item"><b>${escapeHtml(item.title || "Wind 市场信息")}</b><span>${escapeHtml(item.date || "")} · 相关度 ${Number(item.relevance || 0).toFixed(2)}</span><p>${escapeHtml(String(item.content || "").slice(0, 170))}${String(item.content || "").length > 170 ? "…" : ""}</p></article>`).join("") : '<div class="empty">暂无新闻快照，交易日 09:00 起每 30 分钟更新。</div>';
+    $("#news-list").innerHTML = items.length ? items.slice(0, 5).map((item) => `<article class="news-item"><b>${escapeHtml(plain(item.title, "市场消息"))}</b><span>${escapeHtml(item.date || "")} · 相关度 ${Number(item.relevance || 0).toFixed(2)}</span><p>${escapeHtml(String(item.content || "").slice(0, 170))}${String(item.content || "").length > 170 ? "…" : ""}</p></article>`).join("") : '<div class="empty">暂无新闻快照，交易日 09:00 起每 30 分钟更新。</div>';
   } catch (error) {
     $("#news-list").innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`;
     toast(error.message, true);
@@ -587,7 +597,7 @@ function exportHeader(subtitle = "") {
 function exportFooter() {
   const footer = document.createElement("div");
   footer.className = "export-footer";
-  footer.textContent = toHant(`ShortEmotion · 数据来源 Wind · 仅用于研究与情绪观察，不构成投资建议`);
+  footer.textContent = toHant(`ShortEmotion · 仅用于研究与情绪观察，不构成投资建议`);
   return footer;
 }
 
@@ -842,20 +852,20 @@ function updateRefreshButton() {
   if (refreshRun.active) {
     button.disabled = true;
     button.textContent = "更新中…";
-    button.title = "正在从 Wind 获取最新数据";
+    button.title = "正在获取最新数据";
     return;
   }
   if (button.dataset.loading === "1") return;
   const left = refreshCooldownLeft();
   button.disabled = left > 0;
   button.textContent = left > 0 ? `${Math.ceil(left / 60_000)}分钟后可刷新` : "刷新";
-  button.title = left > 0 ? "刷新每小时只能使用一次；交易时段每 30 分钟也会自动更新" : "从 Wind 获取最新数据";
+  button.title = left > 0 ? "刷新每小时只能使用一次；交易时段每 30 分钟也会自动更新" : "获取最新数据";
 }
 
 const REFRESH_STEPS = {
   submitted: "已提交更新请求，等待任务启动…",
   queued: "排队中，即将开始获取数据…",
-  in_progress: "正在从 Wind MCP 获取最新数据…",
+  in_progress: "正在获取最新数据…",
   reading: "数据已写入，正在读取新快照…"
 };
 
