@@ -68,4 +68,16 @@ describe("short-emotion data branch (file store → GitHub read store)", () => {
     expect((await getStore("cn").kvGet("emotion:latest")).value.score).toBe(42);
     expect(await getStore("tw").kvGet("emotion:latest")).toBeNull();
   });
+
+  it("daily averages only combine snapshots with the latest scoring method", async () => {
+    process.env.SHORT_EMOTION_STORE = "file";
+    const { getStore } = await import("../api/_lib/short-emotion/store.js");
+    const store = getStore("cn");
+    await store.historyUpsert({ tradingDate: "20260105", capturedAt: "2026-01-05T02:00:00Z", score: 20 }, true);
+    await store.historyUpsert({ tradingDate: "20260105", capturedAt: "2026-01-05T02:30:00Z", scoreVersion: 2, score: 80 }, true);
+    await store.historyUpsert({ tradingDate: "20260105", capturedAt: "2026-01-05T03:00:00Z", scoreVersion: 2, score: 90 }, true);
+    expect((await store.dailyHistory()).find((item) => item.tradingDate === "20260105")).toMatchObject({
+      scoreVersion: 2, score: 85, sampleCount: 2
+    });
+  });
 });

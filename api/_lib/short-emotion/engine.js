@@ -14,6 +14,8 @@ const cacheTtlMs = 60_000;
 let inflight = null;
 let anomalyInflight = null;
 const conceptMembershipCache = new Map();
+const investmentLogicCache = new Map();
+const stockCatalystCache = new Map();
 const themeMomentumCache = new Map();
 const themeMomentumCacheTtlMs = 300_000;
 let lastValidLimitStocks = [];
@@ -21,6 +23,9 @@ let lastValidLimitTradingDate = null;
 let lastValidLimitCapturedAt = 0;
 let cachedLimitHistory = null;
 let cachedPreviousTradingDate = null;
+let cachedLiquidityHistory = null;
+let cachedAnomalies = null;
+let anomalyCachedAt = 0;
 
 const newsThemeRules = [
   { name: "农业种植", keywords: ["农业", "种植", "种业", "粮食", "大豆", "玉米", "育种", "农产品"] },
@@ -175,6 +180,13 @@ function newsCatalystSummary(article, themeName, rule = null) {
   };
 }
 
+const GENERIC_NEWS_THEME_NAMES = new Set(["农业种植", "机器人", "AI算力", "半导体", "医药", "消费", "军工", "有色金属", "油气", "房地产", "金融科技", "人工智能", "AI"]);
+function specificNewsBranchName(rule, catalyst, fallbackName) {
+  if (!rule) return fallbackName;
+  const candidates = (catalyst?.matchedKeywords || []).filter((keyword) => keyword && keyword !== rule.name && !GENERIC_NEWS_THEME_NAMES.has(keyword));
+  return candidates.sort((a, b) => b.length - a.length)[0] || fallbackName;
+}
+
 function clamp(value, min = 0, max = 100) {
   return Math.min(max, Math.max(min, Number(value) || 0));
 }
@@ -309,7 +321,7 @@ function scoreBreadth(up, down) {
 
 function scoreLimit(limitUp, limitDown, bigUp, bigDown) {
   const balance = (Number(limitUp) || 0) - (Number(limitDown) || 0) * 2;
-  const tails = ((Number(bigUp) || 0) - (Number(bigDown) || 0)) / 5;
+  const tails = ((Number(bigUp) || 0) - (Number(bigDown) || 0)) / 12;
   return clamp(50 + balance / 2 + tails);
 }
 
@@ -324,15 +336,73 @@ function scoreTheme(themes) {
   return clamp(42 + first * 4 + fifth * 2);
 }
 
+function scoreLadder(limitStocks, streakComplete = false) {
+  if (!limitStocks || limitStocks.length === 0) return 10;
+  const total = limitStocks.length;
+  const enriched = streakComplete
+    ? limitStocks
+    : limitStocks.map((s) => ({ ...s, limitStreak: 1 }));
+  const metrics = limitLadderMetrics(enriched);
+  let score = 10;
+  score += Math.min(35, total * 0.6);
+  if (metrics.maxStreak >= 2) score += Math.min(20, metrics.maxStreak * 4);
+  if (metrics.contiguousDepth >= 3) score += Math.min(15, metrics.contiguousDepth * 3);
+  const firstBoardCount = metrics.counts[1] || 0;
+  if (metrics.maxStreak >= 2 && firstBoardCount >= total * 0.6) score += 10;
+  return clamp(score);
+}
+
+function scoreLiquidity(predictedAmount, historyTurnovers = []) {
+  if (predictedAmount == null || !Number.isFinite(Number(predictedAmount))) return 50;
+  const sorted = historyTurnovers.map((x) => Number(x.amount)).filter(Number.isFinite).sort((a, b) => a - b);
+  if (!sorted.length) return 50;
+  const rank = percentileRank(Number(predictedAmount), sorted);
+  return scoreFromPercentile(rank);
+}
+
+function percentileRank(value, sortedArray) {
+  if (!sortedArray.length) return 0.5;
+  let lo = 0, hi = sortedArray.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (sortedArray[mid] < value) lo = mid + 1; else hi = mid;
+  }
+  return lo / sortedArray.length;
+}
+
+function scoreFromPercentile(rank) {
+  const p = clamp(rank, 0, 1);
+  if (p <= 0.1) return Math.round(20 + p / 0.1 * 10);
+  if (p <= 0.3) return Math.round(30 + (p - 0.1) / 0.2 * 15);
+  if (p <= 0.5) return Math.round(45 + (p - 0.3) / 0.2 * 15);
+  if (p <= 0.7) return Math.round(60 + (p - 0.5) / 0.2 * 15);
+  if (p <= 0.9) return Math.round(75 + (p - 0.7) / 0.2 * 15);
+  return Math.round(90 + (p - 0.9) / 0.1 * 10);
+}
+
 function classify(score, metrics) {
-  if (score <= 28) return { phase: "冰点", posture: "观望", tone: "cold", summary: "极端亏钱效应占优，等待风险释放收敛。" };
-  if (score <= 42) return { phase: "退潮", posture: "防守", tone: "risk", summary: "负反馈仍在扩散，优先降低接力和追高暴露。" };
-  if (score <= 56) return { phase: "分歧", posture: "精选", tone: "watch", summary: "多空反馈混杂，只跟踪辨识度最高的核心。" };
-  if (score <= 70) return { phase: "修复", posture: "试错", tone: "repair", summary: "赚钱效应开始恢复，但仍需确认持续性。" };
-  if (score <= 86) return { phase: "主升", posture: "进攻", tone: "hot", summary: "广度、涨停和溢价形成正反馈，关注主线扩散。" };
-  return Number(metrics.upRatio) >= 70
+  let base;
+  if (score <= 28) base = { phase: "冰点", posture: "观望", tone: "cold", summary: "极端亏钱效应占优，等待风险释放收敛。" };
+  else if (score <= 42) base = { phase: "退潮", posture: "防守", tone: "risk", summary: "负反馈仍在扩散，优先降低接力和追高暴露。" };
+  else if (score <= 56) base = { phase: "分歧", posture: "精选", tone: "watch", summary: "多空反馈混杂，只跟踪辨识度最高的核心。" };
+  else if (score <= 70) base = { phase: "修复", posture: "试错", tone: "repair", summary: "赚钱效应开始恢复，但仍需确认持续性。" };
+  else if (score <= 86) base = { phase: "主升", posture: "进攻", tone: "hot", summary: "广度、涨停和溢价形成正反馈，关注主线扩散。" };
+  else base = Number(metrics.upRatio) >= 70
     ? { phase: "高潮", posture: "去弱留强", tone: "peak", summary: "一致性处于高位，机会与次日分歧风险同时放大。" }
     : { phase: "主升", posture: "进攻", tone: "hot", summary: "强势集中在局部方向，避免把结构行情当作全面高潮。" };
+
+  if (score > 56) {
+    const liq = Number(metrics.dimensions?.liquidity);
+    const breadth = Number(metrics.dimensions?.breadth);
+    const changePct = Number(metrics.changePct);
+    if (Number.isFinite(liq) && liq < 30 && !(changePct > 0.2)) {
+      return { phase: "分歧", posture: "精选", tone: "watch", summary: "涨停接力局部活跃，但成交显著缩量、指数未共振，属存量资金抱团，不按主升处理，只跟踪辨识度核心。" };
+    }
+    if (score > 70 && Number.isFinite(liq) && liq < 45 && changePct <= 0 && (!(Number.isFinite(breadth)) || breadth < 60)) {
+      return { phase: "修复", posture: "试错", tone: "repair", summary: "涨停与溢价反馈偏强，但缩量、指数与广度未确认，按结构性修复对待，等待放量验证。" };
+    }
+  }
+  return base;
 }
 
 function normalizeThemes(payload) {
@@ -388,42 +458,66 @@ function allAnomalyScore(components, limitCount, resonanceBonus, ladderBonus = 0
   const nonLimitScore = Math.max(batchScore, newsScore) + crossSignalBonus + Math.min(2, resonanceBonus);
   return Math.round(clamp(Math.min(74, nonLimitScore) + ladderBonus));
 }
+// Specific families win before broader ones. Exclusions prevent shared words such
+// as "消费" and "材料" from silently merging unrelated industries.
 const ANOMALY_THEME_FAMILIES = [
-  { id: "agriculture", name: "农业产业链", test: /中农发系|央企农业|农业农村部系|种植业|大豆|生物育种|一号文件|粮食|农业|农机|农垦|种业/ },
-  { id: "robotics", name: "机器人产业链", test: /机器人|人形机器人|减速器|执行器|机器视觉|丝杠|关节/ },
-  { id: "artificial-intelligence", name: "人工智能产业链", test: /AI应用|多模态|智能体|AIGC|算力|光通信|CPO|光模块|数据中心/ },
-  { id: "semiconductor", name: "半导体产业链", test: /半导体|存储|HBM|芯片|集成电路|先进封装|晶圆|光刻/ },
-  { id: "aerospace-defense", name: "航空航天与军工", test: /商业航天|卫星|航天|航空发动机|低空经济|军工|国防/ },
-  { id: "healthcare", name: "医药产业链", test: /医药|医疗|创新药|CRO|CXO|ADC|中药|疫苗|医疗器械|生物制药/ },
-  { id: "new-energy", name: "新能源产业链", test: /光伏|风电|锂电|储能|新能源车|电动车|充电桩/ },
-  { id: "power-grid", name: "电力与电网产业链", test: /电力设备|电网|特高压|智能电网|发电运营|核电/ },
-  { id: "automotive", name: "汽车智能化产业链", test: /华为汽车|汽车配件|智能驾驶|无人驾驶|汽车电子|车联网/ },
-  { id: "materials", name: "有色与新材料", test: /有色|金属|稀土|铜|铝|黄金|碳纤维|超导|新材料/ },
-  { id: "consumer", name: "消费产业链", test: /白酒|啤酒|食品|饮料|零售|旅游|酒店|家电|消费/ },
-  { id: "finance", name: "金融科技与券商", test: /金融科技|证券|券商|保险|互金|支付/ }
+  { id: "agriculture", name: "农业产业链", test: /中农发系|央企农业|农业农村部系|种植业|大豆|生物育种|一号文件|粮食|农机|农垦|种业|农业|猪产业|生猪|养殖|畜牧|禽产业|水产/, exclude: /农业银行|农商行|农业保险/ },
+  { id: "robotics", name: "机器人产业链", test: /人形机器人|机器人|减速器|执行器|机器视觉|丝杠|关节|伺服系统/ },
+  { id: "semiconductor", name: "半导体产业链", test: /半导体|存储|HBM|芯片|集成电路|先进封装|晶圆|光刻|碳化硅|氮化镓|磷化铟/ },
+  { id: "aerospace-defense", name: "航空航天与军工", test: /商业航天|卫星|航天|航空发动机|低空经济|军工|国防|无人机/ },
+  { id: "healthcare", name: "医药产业链", test: /医药|医疗|医院|创新药|CRO|CXO|ADC|中药|疫苗|医疗器械|生物制药|化学制药/ },
+  { id: "power-grid", name: "电力与电网产业链", test: /电力设备|智能电网|电网|特高压|发电运营|核电|虚拟电厂|电力运营/ },
+  { id: "new-energy", name: "新能源产业链", test: /光伏|风电|锂电|储能|新能源车|电动车|充电桩|固态电池|钠离子电池|氢能/ },
+  { id: "automotive", name: "汽车智能化产业链", test: /华为汽车|汽车配件|智能驾驶|无人驾驶|汽车电子|车联网|汽车零部件|整车/ },
+  { id: "technology", name: "AI算力与通信产业链", test: /^AI$|人工智能|AI应用|AI手机|AI穿戴|多模态|智能体|AIGC|算力|光通信|CPO|光模块|数据中心|液冷|服务器|高速铜连接|铜缆高速连接|射频|天线|毫米波|5G|6G|消费电子|TWS|PCB|通信设备|数字经济|云计算|信创/ },
+  { id: "nonferrous", name: "有色金属产业链", test: /有色|稀土|贵金属|黄金|白银|工业金属|铜矿|铝业/ },
+  { id: "advanced-materials", name: "新材料产业链", test: /碳纤维|超导|新材料|超硬材料|金属非金属新材料/, exclude: /半导体材料|医药材料|建筑材料/ },
+  { id: "consumer", name: "消费产业链", test: /白酒|啤酒|食品饮料|食品|饮料|零售|旅游|酒店|免税|家电|乳业|调味品|餐饮|百货|商贸|预制菜|宠物经济/, exclude: /消费电子|电子消费|消费建材|医药消费|医疗消费/ },
+  { id: "finance", name: "金融科技与券商", test: /金融科技|证券|券商|保险|互金|支付|数字货币|稳定币|银行/ },
+  { id: "property-infrastructure", name: "地产与基建产业链", test: /房地产|地产开发|物业管理|城市更新|建筑施工|基础设施|基建/ },
+  { id: "energy", name: "传统能源产业链", test: /石油|天然气|油气|煤炭|页岩气|炼化/ }
 ];
-const NON_NARRATIVE_ANOMALY_PATTERN = /转融券|融资融券|场外期权|挂钩标的|证券公司.*业务|股权激励|全样本|样本池|样本|金股|券商推荐|机构推荐|超涨|超跌|市场情绪|情绪指数|打板|连板|首板|涨停|跌停|炸板|破板|一字板|反包|领涨|龙头|中军|补涨|跟风|竞价|抢筹|趋势股|突破股|放量股|缩量股|高开|低开|非.?ST|ST股|强势股|活跃股|高换手|低换手|高价股|低价股|微盘股|小盘股|大盘股|绩优股|亏损股|昨日|近\d+日|龙虎榜|陆股通|基金重仓|机构重仓|北向重仓|高股息|红利|低波|动量|等权|全A|百元股|次新股|解禁|破净|破发|风格指数|成交额|成交量|换手率|振幅|涨速|量比|市值|市盈率|市净率|排名|排行|榜单|股票池|精选组合|策略指数|因子指数|点位贡献|预增|预减|含可转债|可转债正股|行业龙头|地方国企|华为平台|举牌/i;
+const NON_NARRATIVE_ANOMALY_PATTERN = /^(?:TMT|大消费|新质生产力综合|三新|双循环|先进制造|老经济|新经济|资源股|成长|价值|质量|规模|均衡)$|(?:大|中|小|微)盘(?:成长|价值|均衡|风格|股)?|(?:大|中|小|微)市值(?:成长|价值|均衡)?|成长(?:风格|股|指数|精选)?$|价值(?:风格|股|指数|精选)?$|质量风格|规模风格|高盈利成长|低估值|高估值|蓝筹|白马|核心资产|茅指数|高贝塔|低贝塔|高波动|低波动|顺周期|逆周期|转融券|融资融券|场外期权|挂钩标的|证券公司.*业务|股权激励|全样本|样本池|样本|金股|券商推荐|机构推荐|超涨|超跌|市场情绪|情绪指数|打板|连板|首板|涨停|跌停|炸板|破板|一字板|反包|领涨|龙头|中军|补涨|跟风|竞价|抢筹|趋势股|突破股|放量股|缩量股|高开|低开|非.?ST|ST股|强势股|活跃股|高换手|低换手|高价股|低价股|微盘股|小盘股|大盘股|绩优股|亏损股|昨日|近\d+日|龙虎榜|陆股通|基金重仓|机构重仓|北向重仓|高股息|红利|低波|动量|等权|全A|百元股|次新股|解禁|破净|破发|风格指数|成交额|成交量|换手率|振幅|涨速|量比|市值|市盈率|市净率|排名|排行|榜单|股票池|精选组合|策略指数|因子指数|点位贡献|预增|预减|含可转债|可转债正股|行业龙头|地方国企|华为平台|举牌/i;
+const VERIFIED_STANDALONE_THEME_PATTERN = /首发经济|两岸融合|一带一路|统一大市场|自贸区|自贸港|国企改革|供销社|乡村振兴|西部大开发|东北振兴|成渝特区|粤港澳大湾区|长三角|海洋经济|新型城镇化|设备更新|以旧换新|碳中和|碳交易|文化传媒|影视|院线|游戏|短剧|出版|教育产业|体育产业|物流|航运|港口|机场|铁路|轨道交通|水泥|玻璃|建筑材料|化工|化肥|农药|造纸|纺织|服装|工程机械|工业母机|机床|船舶|环保|水务|燃气|数据要素|网络安全|工业互联网|物联网/;
 function anomalyFamily(name) {
-  return ANOMALY_THEME_FAMILIES.find((rule) => rule.test.test(name)) || null;
+  const value = String(name || "").trim();
+  return ANOMALY_THEME_FAMILIES.find((rule) => rule.test.test(value) && !rule.exclude?.test(value)) || null;
 }
-function selectPrimaryConcept(concepts, activeThemeNames) {
-  const valid = concepts.filter((name) => name && !NON_NARRATIVE_ANOMALY_PATTERN.test(name));
+function isEligibleNarrativeTheme(name) {
+  const value = anomalyThemeName(name);
+  if (!value || NON_NARRATIVE_ANOMALY_PATTERN.test(value)) return false;
+  return Boolean(anomalyFamily(value) || VERIFIED_STANDALONE_THEME_PATTERN.test(value));
+}
+function selectPrimaryConcept(concepts, activeThemeNames, limitConceptCounts = new Map()) {
+  const valid = concepts.filter(isEligibleNarrativeTheme);
   const active = activeThemeNames.map((name) => ({ name, family: anomalyFamily(name) }));
   return valid.map((name) => {
     const family = anomalyFamily(name);
     let score = 0;
+    const peerLimitCount = Number(limitConceptCounts.get(name) || 0);
+    if (peerLimitCount >= 2) score += (peerLimitCount - 1) * 180;
     if (active.some((item) => item.name === name)) score += 120;
     if (family && active.some((item) => item.family?.id === family.id)) score += 80;
     if (family) score += 35;
     if (name.length >= 3 && name.length <= 10) score += 12;
     if (/产业链|产业|行业|设备|材料|科技|农业|医药|汽车|机器人|半导体|消费|能源/.test(name)) score += 8;
     if (/系$/.test(name)) score -= 4;
-    return { name, score };
+    return { name, score, peerLimitCount };
   }).sort((a, b) => b.score - a.score || a.name.length - b.name.length)[0]?.name || null;
+}
+
+function limitConceptFrequency(stocks) {
+  const counts = new Map();
+  for (const stock of stocks) {
+    const concepts = new Set((stock.concepts || []).filter(isEligibleNarrativeTheme));
+    concepts.forEach((name) => counts.set(name, (counts.get(name) || 0) + 1));
+  }
+  return counts;
 }
 function mergeAnomalyThemes(items) {
   const groups = new Map();
   for (const item of items) {
+    if (!isEligibleNarrativeTheme(item.name)) continue;
     const family = anomalyFamily(item.name);
     const key = family ? `family:${family.id}` : `single:${anomalyThemeName(item.name).toLowerCase()}`;
     if (!groups.has(key)) groups.set(key, {
@@ -455,7 +549,7 @@ function anomalyRows(payload, mode) {
   } : {
     code: row["Wind代码"], name: row["证券简称"], status: row["涨跌停状态"],
     tradeTime: row["交易时间"] || null, sealTime: row["涨跌停时间"] || row["涨停时间"] || null
-  }).filter((x) => x.code && x.name && (mode === "theme" ? Number.isFinite(x.shortMove) && !NON_NARRATIVE_ANOMALY_PATTERN.test(x.name) : !seen.has(x.code) && seen.add(x.code)))
+  }).filter((x) => x.code && x.name && !/^\*?ST/i.test(x.name) && (mode === "theme" ? Number.isFinite(x.shortMove) && isEligibleNarrativeTheme(x.name) : !seen.has(x.code) && seen.add(x.code)))
     .sort((a, b) => mode === "theme" ? b.shortMove - a.shortMove : String(b.sealTime || b.tradeTime || "").localeCompare(String(a.sealTime || a.tradeTime || ""))).slice(0, mode === "theme" ? 50 : Number.MAX_SAFE_INTEGER);
 }
 function validatedIndexMomentumRow(payload, fallback, expectedDay) {
@@ -600,7 +694,7 @@ async function loadLimitHistory(day) {
       }
       if (codes.size === 0 && attempt < 2) await new Promise((resolve) => setTimeout(resolve, 300));
     }
-    if (lastError) errors.push(`${date}涨停名单: ${lastError}`);
+    if (lastError || codes.size === 0) errors.push(`${date}涨停名单: ${lastError || "NO_RESULTS: 未返回涨停代码"}`);
     sets.push(codes);
   }
   const output = { day, dates, sets, complete: errors.length === 0 && sets.length === 5, errors };
@@ -624,10 +718,55 @@ async function previousTradingDate(day) {
   cachedPreviousTradingDate = { day, date };
   return date;
 }
+async function loadLiquidityHistory(day) {
+  if (cachedLiquidityHistory?.day === day) return cachedLiquidityHistory;
+  try {
+    const payload = await windCall("index_data", "get_index_kline", {
+      windcode: "881001.WI",
+      // 查询足够长的自然日区间，再取最近 60 个交易日。
+      begin_date: calendarOffset(day, -100),
+      end_date: calendarOffset(day, -1)
+    });
+    const turnovers = tables(payload).flatMap(objects)
+      .map((row) => {
+        const date = String(row.TIME || "").replace(/\D/g, "").slice(0, 8);
+        const amount = Number(row.TURNOVER ?? row["成交额"] ?? row.Amount ?? row.amount);
+        return { date, amount };
+      })
+      .filter((x) => x.date && x.date.length === 8 && Number.isFinite(x.amount) && x.amount > 0 && x.date < day)
+      .sort((a, b) => a.date.localeCompare(b.date)).slice(-60);
+    const output = { day, turnovers };
+    if (turnovers.length >= 10) cachedLiquidityHistory = output;
+    return output;
+  } catch (error) {
+    return { day, turnovers: [], error: String(error?.message || error) };
+  }
+}
+
+function predictFullDayAmount(currentAmount, tradeTimeStr) {
+  if (currentAmount == null || !Number.isFinite(Number(currentAmount))) return null;
+  const m = String(tradeTimeStr || "").match(/(\d{2}):(\d{2})/);
+  if (!m) return null;
+  const nowMin = Number(m[1]) * 60 + Number(m[2]);
+  const morningStart = 570, morningEnd = 690, afternoonStart = 780, afternoonEnd = 900;
+  // 开盘前十分钟成交额波动大，也避免 09:30 除以零。
+  if (nowMin < morningStart + 10) return null;
+  if (nowMin <= morningEnd) {
+    const elapsed = nowMin - morningStart;
+    return Number(currentAmount) / elapsed * 240;
+  }
+  if (nowMin < afternoonStart) return Number(currentAmount) / 120 * 240;
+  const afternoonElapsed = Math.min(nowMin - afternoonStart, 120);
+  return Number(currentAmount) / (120 + afternoonElapsed) * 240;
+}
+
+const NON_BUSINESS_CONCEPT_PATTERN = /全部A股|全A|基金重仓|陆股通|等权|动量|小市值|小盘股|微盘股|大盘股|私募重仓|融资融券|深股通|沪股通|QFII|综合$|可转债正股|标普道琼斯|MSCI|富时罗素|成交主力|贷款回购|股票回购|保底增持|近期减持|股权激励|员工持股|预增|预减|业绩预|国资$/;
+function conceptNamesFromValue(value) {
+  return [...new Set(String(value || "").split(/[;；]/).map(anomalyThemeName)
+    .filter((name) => name && !NON_BUSINESS_CONCEPT_PATTERN.test(name) && isEligibleNarrativeTheme(name)))];
+}
 function conceptsOf(payload) {
-  const excluded = /全部A股|全A|基金重仓|陆股通|等权|动量|小市值|小盘股|私募重仓|融资融券|深股通|沪股通|综合$|可转债正股|预增|国资$/;
-  const values = tables(payload).flatMap(objects).flatMap((row) => String(row["所属概念板块"] || "").split(/[;；]/));
-  return [...new Set(values.map(anomalyThemeName).filter((x) => x && !excluded.test(x) && !NON_NARRATIVE_ANOMALY_PATTERN.test(x)))];
+  return [...new Set(tables(payload).flatMap(objects).flatMap((row) => conceptNamesFromValue(row["所属概念板块"])))];
 }
 async function enrichLimitStocks(day, stocks) {
   const missing = stocks.filter((x) => !conceptMembershipCache.has(`${day}:${x.code}`));
@@ -644,23 +783,99 @@ function constituentRows(payload, expectedDay = null) {
       }
       return null;
     };
-    const tradeTime = row["交易时间"] || row["指标时间"] || null;
+    const tradeTime = row["交易时间"] || row["今日交易时间"] || row["指标时间"] || row["日期"] || null;
     return {
       code: row["Wind代码"], name: row["证券简称"],
       changePct: findNumber("涨跌幅"), amount: findNumber("成交额"),
       turnover: findNumber("换手率"), volumeRatio: findNumber("量比"),
-      price: findNumber("最新成交价", "成交价"), open: findNumber("今日开盘价", "开盘价"),
-      high: findNumber("今日最高价", "最高价"), low: findNumber("今日最低价", "最低价"), tradeTime
+      price: findNumber("最新成交价", "今日最新价", "成交价"), open: findNumber("今日开盘价", "开盘价"),
+      high: findNumber("今日最高价", "最高价"), low: findNumber("今日最低价", "最低价"), tradeTime,
+      concepts: conceptNamesFromValue(row["所属概念板块"])
     };
   }).filter((x) => x.code && x.name && Number.isFinite(x.changePct)
     && (!expectedDay || String(x.tradeTime || "").replace(/\D/g, "").startsWith(expectedDay)));
+}
+function normalizedThemeToken(value) {
+  return anomalyThemeName(value).replace(/产业链|产业|概念|主题|板块|精选|相关/g, "").replace(/[^\p{L}\p{N}]+/gu, "").toLowerCase();
+}
+function exactConceptOverlap(concept, branchName) {
+  const conceptToken = normalizedThemeToken(concept), branchToken = normalizedThemeToken(branchName);
+  if (conceptToken.length < 2 || branchToken.length < 2) return false;
+  if (/^(?:消费|材料|能源|科技|汽车|农业|医药|金融|证券|AI|TMT)$/i.test(branchToken)) return conceptToken === branchToken;
+  return conceptToken === branchToken || conceptToken.includes(branchToken) || (conceptToken.length >= 3 && branchToken.includes(conceptToken));
+}
+function articleText(article) {
+  return `${cleanNewsText(article?.title)} ${sanitizeNewsContent(article?.content || article?.summary || article?.abstract)}`;
+}
+function candidateNewsEvidence(stock, branches, news) {
+  for (const article of news || []) {
+    const text = articleText(article);
+    if (!text.includes(stock.name) && !text.includes(stock.code)) continue;
+    const matchedBranch = branches.find((branch) => {
+      const token = normalizedThemeToken(branch);
+      return token.length >= 2 && text.toLowerCase().includes(token);
+    });
+    if (matchedBranch) return { branch: matchedBranch, title: cleanNewsText(article.title) };
+  }
+  return null;
+}
+function candidateThemeEvidence(theme, row, news, investmentLogic = "") {
+  const branches = row.candidateBranches?.length ? row.candidateBranches : (theme.branches || []).map((branch) => branch.name);
+  const exactConcepts = row.concepts.filter((concept) => branches.some((branch) => exactConceptOverlap(concept, branch)));
+  if (exactConcepts.length) return { accepted: true, level: "exact_concept", evidence: `精确概念：${exactConcepts.slice(0, 3).join("、")}` };
+  const newsHit = candidateNewsEvidence(row, branches, news);
+  if (newsHit) return { accepted: true, level: "stock_news", evidence: `当日催化：${newsHit.branch} · ${newsHit.title}` };
+  const newsOnly = theme.signals.length === 1 && theme.signals[0] === "news";
+  if (newsOnly) return { accepted: false, level: "unverified_news_theme", evidence: "新闻型题材缺少个股概念重合或当日催化" };
+  const exactBusinessBranch = branches.find((branch) => {
+    const token = normalizedThemeToken(branch);
+    return token.length >= 2 && String(investmentLogic).toLowerCase().includes(token);
+  });
+  if (exactBusinessBranch) return { accepted: true, level: "business_exact", evidence: `主营/投资逻辑命中：${exactBusinessBranch}` };
+  const themeFamily = anomalyFamily(theme.name) || branches.map(anomalyFamily).find(Boolean);
+  const familyConcepts = themeFamily ? row.concepts.filter((concept) => anomalyFamily(concept)?.id === themeFamily.id) : [];
+  if (familyConcepts.length) return { accepted: true, level: "family_concept", evidence: `同产业链概念：${familyConcepts.slice(0, 3).join("、")}` };
+  if (themeFamily && themeFamily.test.test(String(investmentLogic)) && !themeFamily.exclude?.test(String(investmentLogic))) {
+    return { accepted: true, level: "business_family", evidence: `主营/投资逻辑支持：${themeFamily.name}` };
+  }
+  return { accepted: false, level: "unrelated", evidence: "未找到概念、主营或当日催化证据" };
+}
+function investmentLogicText(payload) {
+  return tables(payload).flatMap(objects).flatMap((row) => Object.values(row)).filter((value) => value != null).join(" ");
+}
+async function loadInvestmentLogic(day, stock) {
+  const key = `${day}:${stock.code}`;
+  if (investmentLogicCache.has(key)) return investmentLogicCache.get(key);
+  const payload = await windCall("stock_data", "get_stock_basicinfo", { question: `${stock.code}公司主营业务和核心产品` }, 12_000);
+  const text = investmentLogicText(payload);
+  investmentLogicCache.set(key, text);
+  return text;
+}
+async function loadStockCatalyst(day, stock) {
+  const branches = stock.candidateBranches || [];
+  const key = `${day}:${stock.code}:${branches.join("|")}`;
+  if (stockCatalystCache.has(key)) return stockCatalystCache.get(key);
+  const payload = await windCall("financial_docs", "get_financial_news", {
+    query: `${day}${stock.name}${branches.slice(0, 2).join("、")}上涨原因投资逻辑`, top_k: 5
+  }, 12_000);
+  const items = payload?.data?.items || payload?.data?.data?.items || [];
+  stockCatalystCache.set(key, items);
+  return items;
+}
+async function loadCandidateSupplement(day, stock) {
+  const [logicResult, newsResult] = await Promise.allSettled([loadInvestmentLogic(day, stock), loadStockCatalyst(day, stock)]);
+  return {
+    investmentLogic: logicResult.status === "fulfilled" ? logicResult.value : "",
+    stockNews: newsResult.status === "fulfilled" ? newsResult.value : [],
+    errors: [logicResult, newsResult].filter((result) => result.status === "rejected").map((result) => String(result.reason?.message || result.reason))
+  };
 }
 function stockRoleLayers(theme, rows) {
   const ignitionCodes = new Set(theme.limitStocks.map((x) => x.code));
   const usable = rows.filter((x) => !ignitionCodes.has(x.code) && !/^688/.test(String(x.code)) && x.changePct < 9.5);
   const followers = usable.filter((x) => x.changePct >= 3)
     .sort((a, b) => b.changePct - a.changePct || (b.amount || 0) - (a.amount || 0)).slice(0, 3)
-    .map((x) => ({ ...x, role: "跟风", reason: "题材同步走强，尚未封板" }));
+    .map((x) => ({ ...x, role: "跟风", reason: x.themeEvidence || "题材归属已经二次校验" }));
   const rideable = usable.filter((x) => x.changePct >= 1.5 && x.changePct <= 8.5)
     .map((x) => {
       const liquidity = x.amount == null ? 0 : Math.min(18, Math.log10(Math.max(x.amount, 1)) * 2);
@@ -683,28 +898,98 @@ function stockRoleLayers(theme, rows) {
     });
   return { followers, rideable };
 }
-async function enrichThemeCandidates(day, items) {
+function candidateAttributionScore(theme, row) {
+  const exactStats = (row.branchStats || []).filter((stat) => row.concepts.some((concept) => exactConceptOverlap(concept, stat.name)));
+  const best = exactStats.sort((a, b) => b.limitCount - a.limitCount || b.advanceCount - a.advanceCount || a.rank - b.rank)[0]
+    || { name: row.candidateBranches?.[0] || theme.name, limitCount: 0, advanceCount: 0, rank: 99 };
+  const score = best.limitCount * 100 + best.advanceCount * 5 + Math.max(0, 11 - best.rank)
+    + (theme.limitStocks?.length || 0) * 8 + (theme.signals?.includes("batch") ? 20 : 0) + (theme.signals?.includes("news") ? 15 : 0);
+  return { score, branch: best.name, branchLimitCount: best.limitCount, branchAdvanceCount: best.advanceCount, branchRank: best.rank };
+}
+async function enrichThemeCandidates(day, items, marketNews = []) {
   const targets = items;
   const jobs = targets.flatMap((item) => (item.branches?.length ? item.branches : [{ name: item.name }]).slice(0, 4).map((branch) => ({ item, branch })));
   const results = await runWindTasks(jobs.map((job) => () => windCall("analytics_data", "get_financial_data", {
-    question: `${job.branch.name}概念成分股最新涨跌幅排名前十，返回Wind代码、证券简称、最新成交价、今日开盘价、今日最高价、今日最低价、涨跌幅、成交额、换手率、量比和交易时间`
+    question: `${job.branch.name}概念成分股最新涨跌幅排名前十，返回Wind代码、证券简称、所属概念板块、最新成交价、今日开盘价、今日最高价、今日最低价、涨跌幅、成交额、换手率、量比和交易时间`
   }, 12_000)));
   const lookup = new Map(targets.map((item) => [item, { rows: [], errors: [] }]));
   jobs.forEach((job, index) => {
     const entry = lookup.get(job.item);
-    entry.rows.push(...constituentRows(fulfilled(results[index]), day));
+    const branchRows = constituentRows(fulfilled(results[index]), day);
+    const branchLimitCount = branchRows.filter((row) => row.changePct >= 9.5).length;
+    const branchAdvanceCount = branchRows.filter((row) => row.changePct >= 3).length;
+    entry.rows.push(...branchRows.map((row, rank) => ({
+      ...row,
+      candidateBranches: [job.branch.name],
+      branchStats: [{ name: job.branch.name, rank: rank + 1, limitCount: branchLimitCount, advanceCount: branchAdvanceCount }]
+    })));
     if (reason(results[index])) entry.errors.push(reason(results[index]));
   });
-  return items.map((item) => {
+  const mergedRows = new Map();
+  targets.forEach((item) => {
+    const rows = new Map();
+    for (const row of lookup.get(item)?.rows || []) {
+      const previous = rows.get(row.code);
+      rows.set(row.code, previous ? {
+        ...previous,
+        concepts: [...new Set([...previous.concepts, ...row.concepts])],
+        candidateBranches: [...new Set([...previous.candidateBranches, ...row.candidateBranches])],
+        branchStats: [...(previous.branchStats || []), ...(row.branchStats || [])]
+      } : row);
+    }
+    mergedRows.set(item, [...rows.values()].sort((a, b) => b.changePct - a.changePct));
+  });
+  const ambiguous = targets.flatMap((item) => mergedRows.get(item).map((row) => ({
+    item, row, validation: candidateThemeEvidence(item, row, marketNews)
+  }))).filter((entry) => !entry.validation.accepted && entry.row.changePct >= 3)
+    .sort((a, b) => b.row.changePct - a.row.changePct).slice(0, 6);
+  const logicResults = await runWindTasksInBatches(ambiguous.map(({ row }) => () => loadCandidateSupplement(day, row)), 3);
+  ambiguous.forEach((entry, index) => {
+    const supplement = fulfilled(logicResults[index]) || {};
+    entry.row.investmentLogic = supplement.investmentLogic || "";
+    entry.row.stockNews = supplement.stockNews || [];
+    entry.row.supplementErrors = supplement.errors || (reason(logicResults[index]) ? [reason(logicResults[index])] : []);
+  });
+  const validatedEntries = items.map((item) => {
     const match = lookup.get(item);
+    if (!match) return { item, match: null, rows: [], rejected: [] };
+    const rejected = [];
+    const rows = mergedRows.get(item).map((row) => {
+      const validation = candidateThemeEvidence(item, row, [...marketNews, ...(row.stockNews || [])], row.investmentLogic);
+      if (!validation.accepted) {
+        rejected.push({ code: row.code, name: row.name, reason: validation.evidence });
+        return null;
+      }
+      const { investmentLogic, stockNews, supplementErrors, ...publicRow } = row;
+      return { ...publicRow, themeEvidence: validation.evidence, themeEvidenceLevel: validation.level };
+    }).filter(Boolean);
+    return { item, match, rows, rejected };
+  });
+  const primaryThemeByStock = new Map();
+  validatedEntries.forEach((entry) => entry.rows.forEach((row) => {
+    const attribution = candidateAttributionScore(entry.item, row);
+    const previous = primaryThemeByStock.get(row.code);
+    if (!previous || attribution.score > previous.attribution.score) primaryThemeByStock.set(row.code, { item: entry.item, attribution });
+  }));
+  return validatedEntries.map(({ item, match, rows, rejected }) => {
     if (!match) return { ...item, followers: [], rideable: [], stockCoverage: "not_requested" };
-    const rows = [...new Map(match.rows.sort((a, b) => b.changePct - a.changePct).map((row) => [row.code, row])).values()];
-    const layers = stockRoleLayers(item, rows);
-    const stockError = match.errors[0] || (!rows.length ? `NO_RESULTS: ${item.name}成分股涨跌幅未返回` : null);
-    return { ...item, ...layers, stockCoverage: rows.length ? "available" : "unavailable", stockError };
+    const attributedRows = rows.filter((row) => {
+      const primary = primaryThemeByStock.get(row.code);
+      if (primary?.item === item) {
+        row.primaryAttributionBranch = primary.attribution.branch;
+        row.attributionEvidence = `${primary.attribution.branch}分支涨停${primary.attribution.branchLimitCount}只、涨幅≥3%共${primary.attribution.branchAdvanceCount}只`;
+        return true;
+      }
+      if (primary) rejected.push({ code: row.code, name: row.name, reason: `多概念主归因调整为${primary.item.name}·${primary.attribution.branch}` });
+      return false;
+    });
+    const layers = stockRoleLayers(item, attributedRows);
+    const stockError = match.errors[0] || (!attributedRows.length ? `NO_RESULTS: ${item.name}成分股均未通过概念/催化二次校验或已归入更强题材` : null);
+    return { ...item, ...layers, rejectedCandidates: rejected, stockCoverage: attributedRows.length ? "verified" : "unavailable", stockError };
   });
 }
-async function loadThemeAnomalies() {
+async function loadThemeAnomalies(force = false) {
+  if (!force && cachedAnomalies && Date.now() - anomalyCachedAt < 15_000) return { ...cachedAnomalies, cached: true };
   if (anomalyInflight) return anomalyInflight;
   anomalyInflight = (async () => {
     const day = localDate();
@@ -760,8 +1045,9 @@ async function loadThemeAnomalies() {
       if (x.shortMove >= BATCH_SIGNAL_MIN_5M) item.signals.add("batch");
     });
     const activeThemeNames = shorts.map((item) => item.name);
+    const limitConceptCounts = limitConceptFrequency(limitStocks);
     limitStocks.forEach((stock) => {
-      const name = selectPrimaryConcept(stock.concepts, activeThemeNames);
+      const name = selectPrimaryConcept(stock.concepts, activeThemeNames, limitConceptCounts);
       if (!name) return;
       const item = ensure(name); item.signals.add("limit");
       if (!item.limitStocks.some((x) => x.code === stock.code)) item.limitStocks.push({ code: stock.code, name: stock.name, sealTime: stock.sealTime, primaryConcept: name, limitStreak: stock.limitStreak, streakLabel: stock.streakLabel });
@@ -786,7 +1072,7 @@ async function loadThemeAnomalies() {
       names.forEach((rule, name) => {
         const catalyst = newsCatalystSummary(article, name, rule);
         if (!catalyst) return;
-        const item = ensure(name);
+        const item = ensure(specificNewsBranchName(rule, catalyst, name));
         const move = Number(item.shortMove ?? item.dayChange ?? 0);
         if (catalyst.sentiment === "negative" && move >= 0) return;
         candidates.push({ item, catalyst });
@@ -804,7 +1090,7 @@ async function loadThemeAnomalies() {
         item.score += item.news.length === 1 ? 18 : 5;
       });
     });
-    const rawItems = [...map.values()];
+    const rawItems = [...map.values()].filter((item) => isEligibleNarrativeTheme(item.name));
     const mergedItems = mergeAnomalyThemes(rawItems);
     const rankedItems = mergedItems.map((item) => {
       const ladder = limitLadderMetrics(item.limitStocks);
@@ -840,9 +1126,9 @@ async function loadThemeAnomalies() {
       };
       const scoreBreakdown = { limit: Math.round(limitStrength), batch: Math.round(batchStrength), news: Math.round(newsStrength), resonance: resonanceBonus, highBoardBonus: ladder.highBoardBonus, ladderBonus: ladder.ladderBonus, ladderTotalBonus: ladder.totalBonus };
       return { ...item, score: tabScores.all, tabScores, scoreBreakdown, ladder, sortMetrics, status, signals: effectiveSignals };
-    }).filter((item) => item.tabScores.all >= ANOMALY_MIN_SCORE)
+    }).filter((item) => isEligibleNarrativeTheme(item.name) && item.tabScores.all >= ANOMALY_MIN_SCORE)
       .sort((a, b) => b.score - a.score || b.scoreBreakdown.ladderTotalBonus - a.scoreBreakdown.ladderTotalBonus || b.sortMetrics.limitCount - a.sortMetrics.limitCount).slice(0, ANOMALY_MAX_ITEMS);
-    const items = await enrichThemeCandidates(day, rankedItems);
+    const items = await enrichThemeCandidates(day, rankedItems, news);
     const errors = results.map(reason).filter(Boolean);
     errors.push(...streakResult.errors);
     if (!streakDataComplete) errors.push("NO_RESULTS: 连板明细本次未返回，未将未知股票标记为首板");
@@ -852,13 +1138,15 @@ async function loadThemeAnomalies() {
       counts[label] = (counts[label] || 0) + 1;
       return counts;
     }, {});
+    const verifiedCandidateCodes = new Set(items.flatMap((item) => [...(item.followers || []), ...(item.rideable || [])].map((stock) => stock.code)));
+    const rejectedCandidateCount = items.reduce((sum, item) => sum + (item.rejectedCandidates?.length || 0), 0);
     const output = { asOf: new Date().toISOString(), tradingDate: day, items,
-      summary: { total: items.length, rawTotal: rawItems.length, mergedTotal: mergedItems.length, filteredOut: mergedItems.length - items.length, minScore: ANOMALY_MIN_SCORE, limitThemes: items.filter((x) => x.signals.includes("limit")).length, batchThemes: items.filter((x) => x.signals.includes("batch")).length, newsThemes: items.filter((x) => x.signals.includes("news")).length },
+      summary: { total: items.length, rawTotal: rawItems.length, mergedTotal: mergedItems.length, filteredOut: mergedItems.length - items.length, minScore: ANOMALY_MIN_SCORE, limitThemes: items.filter((x) => x.signals.includes("limit")).length, batchThemes: items.filter((x) => x.signals.includes("batch")).length, newsThemes: items.filter((x) => x.signals.includes("news")).length, verifiedCandidates: verifiedCandidateCodes.size, rejectedCandidates: rejectedCandidateCount },
       limitData: { source: limitDataSource, stockCount: limitStocks.length, complete: !limitDataIncomplete, streakSource: "current_limits_intersect_consecutive_historical_close_limits", streakTradingDates: streakResult.dates, streakCounts },
       newsDiagnostics: { sourceArticles: news.length, windowStart: newsWindowStart, windowEnd: day, excludedStaleArticles: excludedStaleNewsArticles, excludedUndatedArticles: excludedUndatedNewsArticles, excludedRecapArticles: excludedNewsArticles, matchedArticles: matchedNewsArticles, maxThemesPerArticle: 2 },
       momentumDiagnostics: { source: "wind_current_price_vs_5m_ago_price", field: "(current_price/price_5m_ago-1)*100", validatedCount: shorts.length, strictField: true, requestCacheSeconds: cacheTtlMs / 1000, ...momentum.diagnostics },
       source: "Wind概念指数分钟行情、全量涨停明细、完整个股概念归属、财经新闻", partial: errors.length > 0 || !newsPayload, errors };
-    return output;
+    cachedAnomalies = output; anomalyCachedAt = Date.now(); return output;
   })().finally(() => { anomalyInflight = null; });
   return anomalyInflight;
 }
@@ -933,7 +1221,8 @@ async function loadEmotion() {
     ]);
     const indexPayload = fulfilled(calls[0]);
     const indexRow = objects(tables(indexPayload)[0])[0] || {};
-    const limitUp = uniqueWindCodeCount(fulfilled(calls[1]));
+    const limitUpStocks = tables(fulfilled(calls[1])).flatMap(objects).filter((r) => r["Wind代码"]).map((r) => ({ code: r["Wind代码"], name: r["证券简称"] || "" }));
+    const limitUp = limitUpStocks.length || uniqueWindCodeCount(fulfilled(calls[1]));
     const limitDown = uniqueWindCodeCount(fulfilled(calls[2]));
     const bigUp = aggregatedStockCount(fulfilled(calls[3]), /涨幅大于5%.*家数$/);
     const bigDown = aggregatedStockCount(fulfilled(calls[4]), /跌幅大于5%.*家数$/);
@@ -944,10 +1233,41 @@ async function loadEmotion() {
     const down = Number(indexRow["下跌家数"]);
     const flat = Number(indexRow["平盘家数"]);
     const upRatio = Number.isFinite(up + down) && up + down > 0 ? up / (up + down) * 100 : null;
-    const dimensions = { breadth: Math.round(scoreBreadth(up, down)), limits: Math.round(scoreLimit(limitUp, limitDown, bigUp, bigDown)), ladder: 50, profit: Math.round(scorePremium(premium)), themes: Math.round(scoreTheme(themes)), liquidity: 50 };
-    const score = Math.round(clamp(dimensions.breadth * .15 + dimensions.limits * .20 + dimensions.ladder * .20 + dimensions.profit * .20 + dimensions.themes * .15 + dimensions.liquidity * .10));
-    const regime = classify(score, { upRatio });
     const errors = calls.map(reason).filter(Boolean);
+    let ladderScore = 50;
+    let ladderAvailable = false;
+    try {
+      const streakResult = await loadLimitHistory(day);
+      errors.push(...streakResult.errors.map((error) => `连板梯队: ${error}`));
+      ladderAvailable = streakResult.complete && limitUp != null;
+      if (ladderAvailable) {
+        const enrichedLimitStocks = limitUpStocks.map((stock) => {
+          let limitStreak = 1;
+          for (const codes of streakResult.sets) {
+            if (!codes.has(stock.code)) break;
+            limitStreak += 1;
+          }
+          return { ...stock, limitStreak };
+        });
+        ladderScore = scoreLadder(enrichedLimitStocks, true);
+      }
+    } catch (ladderError) {
+      errors.push(`连板梯队: ${String(ladderError?.message || ladderError)}`);
+    }
+    let liquidityScore = 50;
+    let liquidityAvailable = false;
+    try {
+      const liquidityHistory = await loadLiquidityHistory(day);
+      const predicted = predictFullDayAmount(indexRow["成交额"], indexRow["交易时间"]);
+      liquidityAvailable = liquidityHistory.turnovers.length >= 10 && predicted != null;
+      if (liquidityHistory.error) errors.push(`成交环境: ${liquidityHistory.error}`);
+      if (liquidityAvailable) liquidityScore = scoreLiquidity(predicted, liquidityHistory.turnovers);
+    } catch (liqError) {
+      errors.push(`成交环境: ${String(liqError?.message || liqError)}`);
+    }
+    const dimensions = { breadth: Math.round(scoreBreadth(up, down)), limits: Math.round(scoreLimit(limitUp, limitDown, bigUp, bigDown)), ladder: Math.round(ladderScore), profit: Math.round(scorePremium(premium)), themes: Math.round(scoreTheme(themes)), liquidity: Math.round(liquidityScore) };
+    const score = Math.round(clamp(dimensions.breadth * .15 + dimensions.limits * .20 + dimensions.ladder * .20 + dimensions.profit * .20 + dimensions.themes * .15 + dimensions.liquidity * .10));
+    const regime = classify(score, { upRatio, changePct: Number(indexRow["涨跌幅"]), dimensions });
     const missing = [
       [!indexPayload, "市场广度"], [limitUp == null, "涨停家数"], [limitDown == null, "跌停家数"],
       [bigUp == null, "大涨家数"], [bigDown == null, "大跌家数"], [premium == null, "昨日涨停溢价"],
@@ -959,6 +1279,7 @@ async function loadEmotion() {
       capturedAt: new Date().toISOString(),
       quoteTime: latestQuoteTime(indexRow, themes),
       source: "Wind AI Fin Market",
+      scoreVersion: 2,
       score,
       regime,
       dimensions,
@@ -970,7 +1291,8 @@ async function loadEmotion() {
         { name: "市场广度", status: indexPayload ? "direct" : "error", note: "全A指数直接返回上涨、下跌、平盘与成交额" },
         { name: "涨跌停与大涨大跌", status: [limitUp, limitDown, bigUp, bigDown].some((item) => item != null) ? "direct" : "error", note: "Wind结构化取数" },
         { name: "昨日涨停溢价", status: premium != null ? "derived" : "error", note: premium != null ? "Wind明细本地等权平均（" + premiumDetail.sampleSize + "只）" : "Wind未返回前一交易日涨停股今日涨跌幅明细" },
-        { name: "连板与晋级率", status: "derived", note: "下一阶段由多日涨停名单本地计算" },
+        { name: "连板与晋级率", status: ladderAvailable ? "derived" : "limited", note: ladderAvailable ? "多日涨停名单本地计算最高板、梯队完整度与涨停总数" : "历史涨停名单不足，连板梯队暂用中性分" },
+        { name: "成交额", status: liquidityAvailable ? "derived" : "limited", note: liquidityAvailable ? "近60交易日成交额分位数，盘中按时间外推全天" : "交易时间过早或历史成交额不足，成交环境暂用中性分" },
         { name: "炸板率与盘中曲线", status: "derived", note: "依赖分钟级快照持续沉淀" },
         { name: "L2排撤单", status: "limited", note: "需要额外高频或L2数据授权" }
       ],
@@ -988,7 +1310,7 @@ async function loadNews() {
 }
 
 function historyRecord(snapshot) {
-  return { tradingDate: snapshot.tradingDate, capturedAt: snapshot.capturedAt, quoteTime: snapshot.quoteTime, score: snapshot.score, phase: snapshot.regime.phase, up: snapshot.market.up, down: snapshot.market.down, limitUp: snapshot.extremes.limitUp, limitDown: snapshot.extremes.limitDown, premium: snapshot.profit.premium };
+  return { tradingDate: snapshot.tradingDate, capturedAt: snapshot.capturedAt, quoteTime: snapshot.quoteTime, scoreVersion: snapshot.scoreVersion, score: snapshot.score, phase: snapshot.regime.phase, up: snapshot.market.up, down: snapshot.market.down, limitUp: snapshot.extremes.limitUp, limitDown: snapshot.extremes.limitDown, premium: snapshot.profit.premium };
 }
 
 // Per-day caches survive across cron runs (cold instances) via service.js.
@@ -1033,6 +1355,8 @@ export {
   scorePremium,
   limitStreakLabel
 };
+
+export { scoreLiquidity, predictFullDayAmount };
 
 export {
   loadEmotion,

@@ -73,9 +73,16 @@ describe("runScheduledRefresh (mock Wind, memory store)", () => {
     expect(result.ran).toEqual(expect.arrayContaining(["emotion", "anomalies", "news"]));
     const emotion = await readResource("emotion");
     expect(emotion.score).toBeGreaterThan(0);
+    expect(emotion.dimensions.ladder).not.toBe(50);
+    expect(emotion.coverage.find((item) => item.name === "连板与晋级率")?.status).toBe("derived");
     expect(emotion.storedAt).toBeTruthy();
     const history = await readResource("history");
     expect(history.history.length).toBeGreaterThan(0);
+    const anomalies = await readResource("anomalies");
+    expect(anomalies.summary.verifiedCandidates).toBeGreaterThan(0);
+    expect(anomalies.summary.rejectedCandidates).toBeGreaterThan(0);
+    expect(anomalies.items.flatMap((item) => [...item.followers, ...item.rideable])
+      .every((stock) => stock.themeEvidence && stock.attributionEvidence)).toBe(true);
   });
 
   it("outside the schedule with data present it stays idle", async () => {

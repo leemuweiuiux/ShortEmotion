@@ -104,12 +104,12 @@ export function mockWindResult(serverType, toolName, params) {
   }
   if (serverType === "index_data" && toolName === "get_index_kline") {
     const rows = [];
-    for (let offset = 14; offset >= 1; offset -= 1) {
+    for (let offset = 100; offset >= 1; offset -= 1) {
       const date = new Date(Date.UTC(Number(now.day.slice(0, 4)), Number(now.day.slice(4, 6)) - 1, Number(now.day.slice(6, 8)) - offset));
       if ([0, 6].includes(date.getUTCDay())) continue;
-      rows.push([date.toISOString().slice(0, 10).replaceAll("-", ""), 6000 + offset]);
+      rows.push([date.toISOString().slice(0, 10).replaceAll("-", ""), 6000 + offset, 900_000_000_000 + offset * 3_000_000_000]);
     }
-    return result({ data: [table(["TIME", "收盘价"], rows)] });
+    return result({ data: [table(["TIME", "收盘价", "TURNOVER"], rows)] });
   }
   if (serverType === "index_data" && toolName === "get_index_technicals") {
     const [hh, mm] = qt.slice(9, 14).split(":").map(Number);
@@ -146,9 +146,10 @@ export function mockWindResult(serverType, toolName, params) {
     }
     if (/概念成分股最新涨跌幅排名前十/.test(question)) {
       const seed = question.length;
+      const concept = question.split("概念成分股")[0];
       return result({ data: [table(
-        ["Wind代码", "证券简称", "最新成交价", "今日开盘价", "今日最高价", "今日最低价", "涨跌幅", "成交额", "换手率", "量比", "交易时间"],
-        [0, 1, 2, 3, 4].map((index) => [`30${seed % 10}${index}1${index}.SZ`, `成分样本${index + 1}`, 12.3 + index, 11.8, 12.6 + index, 11.6, 7.2 - index * 1.3, 8e8 - index * 1e8, 6.1 - index, 1.6, qt])
+        ["Wind代码", "证券简称", "所属概念板块", "最新成交价", "今日开盘价", "今日最高价", "今日最低价", "涨跌幅", "成交额", "换手率", "量比", "交易时间"],
+        [0, 1, 2, 3, 4].map((index) => [`30${seed % 10}${index}1${index}.SZ`, `成分样本${index + 1}`, index === 4 ? "无关行业" : concept, 12.3 + index, 11.8, 12.6 + index, 11.6, 7.2 - index * 1.3, 8e8 - index * 1e8, 6.1 - index, 1.6, qt])
       )] });
     }
     return result({ data: [] });
