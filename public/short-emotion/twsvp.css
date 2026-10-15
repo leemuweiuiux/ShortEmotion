@@ -385,6 +385,8 @@ main {
 .role-stock small { display: block; margin-top: 1px; color: var(--muted); font-size: 12px; }
 .role-stock em { font-size: 13px; font-style: normal; font-weight: 600; }
 .role-stock > i { grid-column: 1 / -1; color: var(--muted); font-size: 12px; font-style: normal; }
+.stock-evidence { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.stock-evidence strong { margin-right: 6px; color: var(--ink); font-weight: 600; }
 .role-stock-metric { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .streak-badge { padding: 1px 7px; border: 1px solid var(--price-up); border-radius: 999px; color: var(--price-up); font-size: 12px; font-style: normal; white-space: nowrap; }
 .candidate-rules { grid-column: 1 / -1; display: grid; gap: 4px; padding: 8px; background: var(--surface); border: 1px solid var(--border); }

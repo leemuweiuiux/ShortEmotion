@@ -181,12 +181,15 @@ function aggregateDaily(records) {
   }
   return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([tradingDate, items]) => {
     items.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
+    const scoreVersion = items.at(-1).scoreVersion || 1;
+    const comparable = items.filter((item) => (item.scoreVersion || 1) === scoreVersion);
     return {
       tradingDate,
-      score: Math.round(items.reduce((sum, item) => sum + Number(item.score), 0) / items.length * 100) / 100,
-      sampleCount: items.length,
-      firstCapturedAt: items[0].capturedAt,
-      lastCapturedAt: items.at(-1).capturedAt
+      scoreVersion,
+      score: Math.round(comparable.reduce((sum, item) => sum + Number(item.score), 0) / comparable.length * 100) / 100,
+      sampleCount: comparable.length,
+      firstCapturedAt: comparable[0].capturedAt,
+      lastCapturedAt: comparable.at(-1).capturedAt
     };
   });
 }

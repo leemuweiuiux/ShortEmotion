@@ -328,7 +328,10 @@ function renderAnomalies() {
   });
   const streakRank = (label) => label === "首板" ? 1 : Number.parseInt(label) || 99;
   const streakSummary = Object.entries(anomalyData?.limitData?.streakCounts || {}).sort((a, b) => streakRank(a[0]) - streakRank(b[0])).map(([label, count]) => `<span>${escapeHtml(label)} ${count}</span>`).join("");
-  $("#anomaly-summary").innerHTML = `<span>${MARKET === "tw" ? "有效方向" : "有效题材"} ${summary.total || 0}</span><span>${limitLabel}样本 ${anomalyData?.limitData?.stockCount || 0}</span>${streakSummary}${MARKET === "tw" ? "" : `<span>已合并 ${Math.max(0, (summary.rawTotal || 0) - (summary.mergedTotal || 0))}</span>`}<span>过滤低分 ${summary.filteredOut || 0}</span><span>门槛 ≥ ${summary.minScore || 60}</span>`;
+  const verificationSummary = MARKET === "cn" && Number.isFinite(Number(summary.verifiedCandidates))
+    ? `<span>已核验个股 ${summary.verifiedCandidates}</span><span>未入选归因 ${summary.rejectedCandidates || 0}</span>`
+    : "";
+  $("#anomaly-summary").innerHTML = `<span>${MARKET === "tw" ? "有效方向" : "有效题材"} ${summary.total || 0}</span><span>${limitLabel}样本 ${anomalyData?.limitData?.stockCount || 0}</span>${streakSummary}${MARKET === "tw" ? "" : `<span>已合并 ${Math.max(0, (summary.rawTotal || 0) - (summary.mergedTotal || 0))}</span>`}${verificationSummary}<span>过滤低分 ${summary.filteredOut || 0}</span><span>门槛 ≥ ${summary.minScore || 60}</span>`;
   const sorters = {
     all: (a, b) => (b.tabScores?.all ?? b.score) - (a.tabScores?.all ?? a.score) || (b.scoreBreakdown?.ladderTotalBonus || 0) - (a.scoreBreakdown?.ladderTotalBonus || 0) || (b.sortMetrics?.limitCount || 0) - (a.sortMetrics?.limitCount || 0),
     limit: (a, b) => (b.sortMetrics?.limitCount || b.limitStocks?.length || 0) - (a.sortMetrics?.limitCount || a.limitStocks?.length || 0) || (b.tabScores?.limit ?? b.score) - (a.tabScores?.limit ?? a.score),
@@ -351,7 +354,13 @@ function renderAnomalies() {
     const candidateRules = role === "ride" ? `<div class="candidate-rules"><p><strong>触发</strong><span>${escapeHtml(stock.trigger || "等待个股突破日内关键价位且题材动能保持为正")}</span></p><p><strong>失效</strong><span>${escapeHtml(stock.invalidation || "跌破日内关键支撑且题材5分钟动能转负")}</span></p></div>` : "";
     const streakBadge = role === "ignition" && Number(stock.limitStreak) >= 2 ? `<i class="streak-badge">${escapeHtml(stock.streakLabel || `${stock.limitStreak}连板`)}</i>` : "";
     const quote = Number.isFinite(Number(stock.changePct)) ? formatPct(stock.changePct) : role === "ignition" ? "涨停" : "—";
-    return `<div class="role-stock"><span><b>${escapeHtml(stock.name)}</b><small>${escapeHtml(stock.code)}</small></span><span class="role-stock-metric"><em class="${signClass(stock.changePct)}">${quote}</em>${streakBadge}</span>${Number.isFinite(Number(stock.candidateScore)) ? `<i>候选分 ${stock.candidateScore}</i>` : ""}${candidateRules}</div>`;
+    const evidence = stock.themeEvidence
+      ? `<p class="stock-evidence"><strong>归属依据</strong>${escapeHtml(stock.themeEvidence)}</p>`
+      : "";
+    const attribution = stock.attributionEvidence
+      ? `<p class="stock-evidence"><strong>主归因</strong>${escapeHtml(stock.attributionEvidence)}</p>`
+      : "";
+    return `<div class="role-stock"><span><b>${escapeHtml(stock.name)}</b><small>${escapeHtml(stock.code)}</small></span><span class="role-stock-metric"><em class="${signClass(stock.changePct)}">${quote}</em>${streakBadge}</span>${Number.isFinite(Number(stock.candidateScore)) ? `<i>候选分 ${stock.candidateScore}</i>` : ""}${evidence}${attribution}${candidateRules}</div>`;
   }).join("") : '<div class="role-empty">暂无有效标的</div>';
   $("#anomaly-list").innerHTML = viewState + items.map((item, index) => {
     const activeScore = item.tabScores?.[anomalyFilter] ?? item.score;
@@ -395,7 +404,9 @@ function renderDailyTimeline() {
   const allDaily = (data.dailyHistory || []).filter((item) => String(item.tradingDate || "").length === 8 && Number.isFinite(Number(item.score)))
     .sort((a, b) => String(a.tradingDate).localeCompare(String(b.tradingDate)));
   const history = allDaily.slice(-20);
-  setText("#history-count", `近 ${history.length} 个交易日均值`);
+  const versionOf = (item) => Number(item.scoreVersion || 1);
+  const mixedVersions = new Set(history.map(versionOf)).size > 1;
+  setText("#history-count", `近 ${history.length} 个交易日均值${mixedVersions ? " · 评分口径变化处断线" : ""}`);
   if (history.length < 2) {
     $("#timeline-chart").innerHTML = `<div class="empty">\u5df2\u6c89\u6dc0${history.length}\u4e2a\u65e5\u7ebf\u70b9\uff1b\u6bcf\u65e5\u6309\u5f53\u5929 n \u4e2a\u76d8\u4e2d\u5feb\u7167\u7b49\u6743\u5e73\u5747\uff0c\u540e\u7eed\u81ea\u52a8\u7d2f\u8ba1\u3002</div>`;
     return;
@@ -404,10 +415,16 @@ function renderDailyTimeline() {
   const pad = 25;
   const xAt = (index) => pad + index / Math.max(1, history.length - 1) * (width - pad * 2);
   const points = history.map((item, index) => ({ ...item, x: xAt(index), y: height - pad - Number(item.score) / 100 * (height - pad * 2) }));
-  const line = points.map((point) => `${point.x},${point.y}`).join(" ");
-  const area = `${points[0].x},${height - pad} ${line} ${points.at(-1).x},${height - pad}`;
+  const segments = [];
+  for (const point of points) {
+    if (!segments.length || versionOf(segments.at(-1).at(-1)) !== versionOf(point)) segments.push([]);
+    segments.at(-1).push(point);
+  }
+  const lines = segments.filter((segment) => segment.length > 1)
+    .map((segment) => `<polyline class="timeline-line" points="${segment.map((point) => `${point.x},${point.y}`).join(" ")}"/>`).join("");
+  const area = mixedVersions ? "" : `<polygon class="timeline-area daily" points="${points[0].x},${height - pad} ${points.map((point) => `${point.x},${point.y}`).join(" ")} ${points.at(-1).x},${height - pad}"/>`;
   const grid = [25, 50, 75].map((score) => { const y = height - pad - score / 100 * (height - pad * 2); return `<line class="timeline-grid" x1="${pad}" y1="${y}" x2="${width - pad}" y2="${y}"/><text class="timeline-label" x="0" y="${y + 3}">${score}</text>`; }).join("");
-  const dots = points.map((point, index) => `<circle class="timeline-dot" cx="${point.x}" cy="${point.y}" r="${index === points.length - 1 ? 5 : 3}"><title>${escapeHtml(point.tradingDate)} \u00b7 \u5747\u503c ${Number(point.score).toFixed(2)} \u00b7 n=${point.sampleCount} \u00b7 ${escapeHtml(point.phase)}</title></circle>`).join("");
+  const dots = points.map((point, index) => `<circle class="timeline-dot" cx="${point.x}" cy="${point.y}" r="${index === points.length - 1 ? 5 : 3}"><title>${escapeHtml(point.tradingDate)} \u00b7 \u5747\u503c ${Number(point.score).toFixed(2)} \u00b7 n=${point.sampleCount} \u00b7 口径 v${versionOf(point)} \u00b7 ${escapeHtml(point.phase)}</title></circle>`).join("");
   const axisIndexes = [...new Set([0, Math.round((history.length - 1) * .25), Math.round((history.length - 1) * .5), Math.round((history.length - 1) * .75), history.length - 1])];
   const axis = axisIndexes.map((index, slotIndex) => {
     const point = points[index];
@@ -415,7 +432,7 @@ function renderDailyTimeline() {
     const anchor = slotIndex === 0 ? "start" : slotIndex === axisIndexes.length - 1 ? "end" : "middle";
     return `<line class="timeline-grid timeline-time-grid" x1="${point.x}" y1="${pad}" x2="${point.x}" y2="${height - pad}"/><text class="timeline-label timeline-time-label" text-anchor="${anchor}" x="${point.x}" y="${height - 5}">${label}</text>`;
   }).join("");
-  $("#timeline-chart").innerHTML = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><defs><linearGradient id="areaGradientDaily" x1="0" y1="0" x2="0" y2="1"><stop class="timeline-stop" offset="0" stop-opacity=".12"/><stop class="timeline-stop" offset="1" stop-opacity="0"/></linearGradient></defs>${grid}${axis}<polygon class="timeline-area daily" points="${area}"/><polyline class="timeline-line" points="${line}"/>${dots}</svg>`;
+  $("#timeline-chart").innerHTML = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><defs><linearGradient id="areaGradientDaily" x1="0" y1="0" x2="0" y2="1"><stop class="timeline-stop" offset="0" stop-opacity=".12"/><stop class="timeline-stop" offset="1" stop-opacity="0"/></linearGradient></defs>${grid}${axis}${area}${lines}${dots}</svg>`;
 }
 
 // 按容器真实尺寸绘制，避免 viewBox 固定 1000×200 在手机上把文字和圆点横向压扁。
@@ -446,6 +463,7 @@ function renderTimeline() {
   const inSession = (minute) => CFG.sessions.some(([start, end]) => minute >= start && minute <= end);
   const history = (data.history || []).map(parseSnapshot).filter(Boolean)
     .filter((item) => item.snapshotDate === tradingDate)
+    .filter((item) => Number(item.scoreVersion || 1) === Number(data.scoreVersion || 1))
     .filter((item) => inSession(item.minute))
     .filter((item) => tradingDate !== today || item.minute <= nowMinute)
     .sort((a, b) => a.minute - b.minute).slice(-60);
