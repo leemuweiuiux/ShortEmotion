@@ -53,11 +53,10 @@ Supabase Auth                     寄送與驗證郵箱驗證碼（經 Resend �
 ## 用戶統計
 
 - **註冊用戶**：Supabase Auth 自動記錄（Supabase → Authentication → Users），包含信箱、註冊時間、最後一次輸入驗證碼的時間。
-- **活躍用戶（只保留 30 天）**：`supabase/migrations/20261015_daily_active.sql` 建立 `daily_active` 表，每人每天一行，
-  記錄看過的市場（cn / tw）與刷新次數。打開看板時由 middleware 寫入（每人每天每個市場一次，`se_seen` cookie 去重），
-  點刷新時由 `/api/short-emotion` 寫入；寫入用的是登入用戶自己的憑證呼叫 `record_activity()`，不需要 secret key。
-  函數每次寫入時順手刪除 30 天前的記錄。
-- 查看：Supabase → Table Editor 的 `activity_summary`（註冊數、近 7 天新註冊、今日 / 7 天 / 30 天活躍）與 `activity_daily`（每天活躍人數、A股 / 台股、刷新次數）。
+- **活躍用戶（只保留 30 天）**：`daily_active` 表每人每天一行，只記「哪天來過」（不記看了哪個市場、用了哪個功能）。
+  打開看板時由 middleware 寫入（每人每天一次，`se_seen` cookie 去重）；寫入用登入用戶自己的憑證呼叫 `record_activity()`，
+  不需要 secret key，函數每次寫入時順手刪除 30 天前的記錄。SQL 見 `supabase/migrations/`（依檔名順序執行）。
+- 查看：Supabase → Table Editor 的 `activity_summary`（註冊數、近 7 天新註冊、今日 / 7 天 / 30 天活躍）與 `activity_daily`（每天活躍人數）。
   表與視圖都不對網站訪客開放。
 
 ## 部署設定（只需做一次）

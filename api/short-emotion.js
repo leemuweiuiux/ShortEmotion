@@ -11,7 +11,7 @@
 // 未登录时返回 401 login_required（登录判断见 _lib/session.js）。
 import { readResource, NotReadyError, normalizeMarket } from "./_lib/short-emotion/service.js";
 import { requestRefresh, latestRefreshRun, githubToken } from "./_lib/short-emotion/github.js";
-import { requireSession, recordActivity, authConfig } from "./_lib/session.js";
+import { requireSession } from "./_lib/session.js";
 
 const RESOURCES = new Set(["summary", "emotion", "anomalies", "history", "news", "status", "refresh-status"]);
 
@@ -51,7 +51,6 @@ export default async function handler(req, res) {
     try {
       const session = await requireSession(req, res);
       if (session.user) console.log(`short-emotion refresh ${market} requested by user ${session.user.id}`);
-      await recordActivity(authConfig(), session.accessToken, { market, refresh: true });
       res.status(202).json({ market, ...(await requestRefresh(market)) });
     } catch (error) {
       fail(res, error);

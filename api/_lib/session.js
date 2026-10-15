@@ -188,9 +188,9 @@ export async function requireSession(req, res, config = authConfig()) {
   return session;
 }
 
-// ── 活跃记录（只保留 30 天，见 supabase/migrations/20261015_daily_active.sql）──
+// ── 活跃记录（只记「哪天来过」，保留 30 天，见 supabase/migrations/）──
 // 用登录用户自己的凭证调用 Supabase 的 record_activity()，不需要 secret key。
-// 打开看板时每人每天每个市场只记一次（用 se_seen cookie 去重）；点刷新时每次都记。
+// 打开看板时每人每天只记一次（用 se_seen cookie 去重）。
 export const SEEN_COOKIE = "se_seen";
 
 /** 北京时间的日期，例如 20261015。 */
@@ -198,22 +198,21 @@ export function shanghaiDay(date = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(date).replace(/-/g, "");
 }
 
-/** 今天是否已记过这个市场；返回 null 表示已记过，否则返回要写回的 se_seen cookie。 */
-export function seenCookieFor(cookieHeader, market, { secure = true, day = shanghaiDay() } = {}) {
-  const [seenDay, list = ""] = String(parseCookies(cookieHeader)[SEEN_COOKIE] || "").split(":");
-  const markets = seenDay === day ? list.split(",").filter(Boolean) : [];
-  if (markets.includes(market)) return null;
-  return `${SEEN_COOKIE}=${day}:${[...markets, market].join(",")}; Path=/; Max-Age=172800; HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}`;
+/** 今天是否已记过；返回 null 表示已记过，否则返回要写回的 se_seen cookie。 */
+export function seenCookieFor(cookieHeader, { secure = true, day = shanghaiDay() } = {}) {
+  const seenDay = String(parseCookies(cookieHeader)[SEEN_COOKIE] || "").split(":")[0];
+  if (seenDay === day) return null;
+  return `${SEEN_COOKIE}=${day}; Path=/; Max-Age=172800; HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}`;
 }
 
 /** 写一笔活跃记录；失败只记日志，不影响页面。 */
-export async function recordActivity(config, accessToken, { market = null, refresh = false } = {}) {
+export async function recordActivity(config, accessToken) {
   if (!config || !accessToken) return false;
   try {
     const response = await fetch(`${config.url}/rest/v1/rpc/record_activity`, {
       method: "POST",
       headers: { apikey: config.key, Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ p_market: market, p_refresh: Boolean(refresh) }),
+      body: "{}",
       signal: AbortSignal.timeout(4_000)
     });
     if (!response.ok) console.error(`short-emotion activity ${response.status}: ${(await response.text()).slice(0, 200)}`);
