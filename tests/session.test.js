@@ -32,11 +32,13 @@ let validTokens;
 let validRefresh;
 let calls;
 let supabaseDown;
+let activity;
 function installFetch() {
   validTokens = new Set();
   validRefresh = new Map();
   calls = [];
   supabaseDown = false;
+  activity = [];
   globalThis.fetch = vi.fn(async (url, options = {}) => {
     const href = String(url);
     calls.push(href.replace(SUPABASE, ""));
@@ -58,6 +60,12 @@ function installFetch() {
       return Response.json({ access_token: accessToken, refresh_token: `rt-${serial}`, user: { id: user.sub, email: user.email } });
     }
     if (href.startsWith(`${SUPABASE}/auth/v1/logout`)) return new Response(null, { status: 204 });
+    if (href === `${SUPABASE}/rest/v1/rpc/record_activity`) {
+      const token = String(options.headers.Authorization).replace("Bearer ", "");
+      if (!validTokens.has(token)) return new Response("{}", { status: 401 });
+      activity.push({ user: session.decodeJwt(token).sub, ...JSON.parse(options.body) });
+      return new Response(null, { status: 204 });
+    }
     throw new Error(`unexpected fetch ${href}`);
   });
 }
@@ -177,10 +185,10 @@ describe("页面守门（middleware）", () => {
   it("看板已登录：放行；凭证过期时放行并带上新的 cookie", async () => {
     const ok = await visit("/shortemotion/cn", loggedIn());
     expect(ok.headers.get("x-middleware-next")).toBe("1");
-    expect(ok.headers.getSetCookie()).toEqual([]);
+    expect(ok.headers.getSetCookie().filter((value) => /^se_(?:at|rt)=/.test(value))).toEqual([]);
     const renewed = await visit("/shortemotion/cn", loggedIn({ expired: true }));
     expect(renewed.headers.get("x-middleware-next")).toBe("1");
-    expect(renewed.headers.getSetCookie()).toHaveLength(2);
+    expect(renewed.headers.getSetCookie().filter((value) => /^se_(?:at|rt)=/.test(value))).toHaveLength(2);
   });
 
   it("/login：已登录时直接跳到 next（只接受站内路径）", async () => {
@@ -275,5 +283,47 @@ describe("同一页面同时换新凭证", () => {
     expect(res.headers["set-cookie"]).toBeUndefined();
     const page = await visit("/shortemotion/cn", "se_at=bad.token.x; se_rt=used");
     expect(page.headers.getSetCookie().every((value) => value.includes("Max-Age=0"))).toBe(true);
+  });
+});
+
+describe("活跃记录（30 天）", () => {
+  const seenOf = (response) => response.headers.getSetCookie().find((value) => value.startsWith("se_seen="));
+
+  it("打开看板：每人每天每个市场只记一次", async () => {
+    const cookie = loggedIn();
+    const first = await visit("/shortemotion/cn", cookie);
+    expect(activity).toEqual([{ user: "user-1", p_market: "cn", p_refresh: false }]);
+    const seen = seenOf(first);
+    expect(seen).toMatch(new RegExp(`^se_seen=${session.shanghaiDay()}:cn; .*HttpOnly`));
+
+    const again = await visit("/shortemotion/cn", `${cookie}; ${seen.split(";")[0]}`);
+    expect(activity).toHaveLength(1);
+    expect(seenOf(again)).toBeUndefined();
+
+    const tw = await visit("/shortemotion/tw", `${cookie}; ${seen.split(";")[0]}`);
+    expect(activity.at(-1)).toEqual({ user: "user-1", p_market: "tw", p_refresh: false });
+    expect(seenOf(tw)).toContain(":cn,tw;");
+  });
+
+  it("隔天重新记；写入失败不记 se_seen，下次再试", async () => {
+    const cookie = loggedIn();
+    await visit("/shortemotion/cn", `${cookie}; se_seen=20200101:cn,tw`);
+    expect(activity).toHaveLength(1);
+    supabaseDown = true;
+    const failed = await visit("/shortemotion/cn", loggedIn());
+    expect(seenOf(failed)).toBeUndefined();
+  });
+
+  it("未登录、介绍页、登录页都不记", async () => {
+    await visit("/shortemotion/cn");
+    await visit("/login");
+    await visit("/", loggedIn());
+    expect(activity).toEqual([]);
+  });
+
+  it("点刷新记一次", async () => {
+    const res = await call(dataApi, { method: "POST", query: { market: "tw", action: "refresh" }, cookie: loggedIn() });
+    expect(activity).toEqual([{ user: "user-1", p_market: "tw", p_refresh: true }]);
+    expect(res.statusCode).not.toBe(401); // 本地没设 GitHub token，刷新本身会回「未开通」
   });
 });

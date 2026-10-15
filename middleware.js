@@ -2,11 +2,12 @@
 //
 //   /                  已登录 → /shortemotion/cn；未登录 → /about（介绍页）
 //   /login             已登录 → 直接去 next（默认 /shortemotion/cn）
-//   /shortemotion/...  未登录 → /login?next=原网址；凭证过期时顺手换新 cookie（滚动 90 天）
+//   /shortemotion/...  未登录 → /login?next=原网址；凭证过期时顺手换新 cookie（滚动 90 天）；
+//                      已登录时记一笔当天的活跃（每人每天每个市场一次，见 session.js recordActivity）
 //
 // 登录判断见 api/_lib/session.js；数据接口 /api/short-emotion 另外在函数里检查，不经过这里。
 import { next } from "@vercel/functions/middleware";
-import { authConfig, resolveSession, safeNext, isSecureRequest } from "./api/_lib/session.js";
+import { authConfig, resolveSession, safeNext, isSecureRequest, seenCookieFor, recordActivity } from "./api/_lib/session.js";
 
 export const config = {
   matcher: ["/", "/login", "/login/", "/shortemotion/:path*"]
@@ -32,10 +33,8 @@ export default async function middleware(request) {
 
   if (!settings) return path === "/" ? redirect("/about") : next(); // 登录关闭：看板公开
 
-  const session = await resolveSession(request.headers.get("cookie"), {
-    config: settings,
-    secure: isSecureRequest(request.url, request.headers.get("x-forwarded-proto"))
-  });
+  const secure = isSecureRequest(request.url, request.headers.get("x-forwarded-proto"));
+  const session = await resolveSession(request.headers.get("cookie"), { config: settings, secure });
 
   if (path === "/") return redirect(session.user ? "/shortemotion/cn" : "/about", session.setCookies);
 
@@ -45,5 +44,9 @@ export default async function middleware(request) {
 
   // /shortemotion/...
   if (!session.user) return redirect(`/login?next=${encodeURIComponent(path + url.search)}`, session.setCookies);
+  const market = /^\/shortemotion\/tw(?:\/|$)/.test(path) ? "tw" : "cn";
+  const seen = session.accessToken ? seenCookieFor(request.headers.get("cookie"), market, { secure }) : null;
+  // 每人每天每个市场只写一次（最多等 4 秒）；写成功才记下 se_seen，失败下次打开再试。
+  if (seen && await recordActivity(settings, session.accessToken, { market })) return proceed([...session.setCookies, seen]);
   return proceed(session.setCookies);
 }
