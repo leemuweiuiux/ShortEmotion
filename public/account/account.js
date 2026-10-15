@@ -26,16 +26,15 @@ function goLogin() {
   location.replace(`/login?next=${encodeURIComponent("/account")}`);
 }
 
-function show(element, message) {
-  if (!message) {
-    element.hidden = true;
-    return;
-  }
+// 保存结果用页面底部的轻提示（几秒后自动消失），不占版面。
+let toastTimer = null;
+function toast(message, error = false) {
+  const element = $("#toast");
   setText(element, message);
-  element.hidden = false;
+  element.className = `toast show${error ? " error" : ""}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { element.className = "toast"; }, 2400);
 }
-const showError = (message) => show($("#profile-error"), message);
-const showStatus = (message) => show($("#profile-status"), message);
 
 function fill(profile) {
   setText($("#email"), profile.email || "—");
@@ -63,15 +62,12 @@ async function request(method, body) {
 phoneInput.addEventListener("input", () => {
   phoneInput.value = phoneInput.value.replace(/[^\d]/g, "").slice(0, 15);
 });
-for (const input of [nameInput, countrySelect, phoneInput]) input.addEventListener("input", () => showStatus(""));
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  showError("");
-  showStatus("");
   const phoneNumber = phoneInput.value.trim();
   if (phoneNumber && !/^\d{4,15}$/.test(phoneNumber)) {
-    showError("手机号只能是 4–15 位数字。");
+    toast("手机号只能是 4–15 位数字", true);
     phoneInput.focus();
     return;
   }
@@ -79,9 +75,9 @@ form.addEventListener("submit", async (event) => {
   setText(saveButton, "保存中…");
   try {
     fill(await request("POST", { name: nameInput.value, phoneCountryCode: countrySelect.value, phoneNumber }));
-    showStatus("已保存");
+    toast("已保存");
   } catch (error) {
-    showError(error.message);
+    toast(error.message, true);
   } finally {
     saveButton.disabled = false;
     setText(saveButton, "保存");
@@ -99,4 +95,4 @@ request("GET")
     fill(profile);
     saveButton.disabled = false;
   })
-  .catch((error) => showError(error.message));
+  .catch((error) => toast(error.message, true));
