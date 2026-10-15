@@ -2,6 +2,18 @@
 import { initLanguage, setText } from "/shared/lang.js?v=4";
 
 const $ = (selector) => document.querySelector(selector);
+
+// 从哪个看板进来就返回哪个；从台股看板进来、且没选过语言时用繁体。
+const from = (() => {
+  try {
+    const url = new URL(document.referrer);
+    return url.origin === location.origin && /^\/shortemotion\/(?:cn|tw)\/?$/.test(url.pathname) ? url.pathname : null;
+  } catch { return null; }
+})();
+if (from) $("#back").href = from;
+let savedLang = null;
+try { savedLang = localStorage.getItem("shortemotion:lang"); } catch {}
+if (!savedLang && from?.includes("/tw")) document.documentElement.dataset.lang = "hant";
 initLanguage();
 
 const form = $("#profile-form");
