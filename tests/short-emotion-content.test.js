@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { predictFullDayAmount, scoreLiquidity } from "../api/_lib/short-emotion/engine.js";
+import { scoreLadderTw, scoreLiquidityTw } from "../api/_lib/short-emotion/tw-engine.js";
 
 describe("A股看板内容计算", () => {
   it("开盘初期不用不稳定的成交额推算，午后和收盘保持有限数值", () => {
@@ -16,5 +17,23 @@ describe("A股看板内容计算", () => {
     const history = [{ amount: 100 }, { amount: 200 }, { amount: 300 }];
     expect(scoreLiquidity(400, history)).toBe(100);
     expect(scoreLiquidity(null, history)).toBe(50);
+  });
+});
+
+describe("台股评分 v2（与 A股 同一套方法）", () => {
+  it("连板梯队：2026-10-15 的 9 只涨停（首板3、2连板4、3连板1、5连板1）不再给满分", () => {
+    // 旧公式给 100；v2 = 10 + 9×1.6 + 5板×4 + 完整1-3板×3 = 53.4
+    expect(Math.round(scoreLadderTw([1, 1, 1, 2, 2, 2, 2, 3, 5]))).toBe(53);
+    expect(scoreLadderTw([])).toBe(10);
+    expect(scoreLadderTw([1, 2, 3], false)).toBe(50); // 前几日涨停名单不齐：中性
+    expect(scoreLadderTw(Array(40).fill(1).concat([2, 3, 4, 5, 6]))).toBeLessThanOrEqual(100);
+  });
+
+  it("成交环境：今日成交额在近 60 个交易日中的分位；历史不足 10 天用中性 50", () => {
+    const calendar = Array.from({ length: 70 }, (_, index) => ({ day: `2026${String(index + 1000).slice(1)}`, turnover: 100 + index }));
+    const last = calendar.at(-1).day;
+    expect(scoreLiquidityTw(1000, calendar, "20269999")).toMatchObject({ score: 100, available: true, sample: 60 });
+    expect(scoreLiquidityTw(0.5, calendar, "20269999").score).toBe(20);
+    expect(scoreLiquidityTw(150, calendar.slice(0, 5), last)).toMatchObject({ score: 50, available: false });
   });
 });

@@ -123,6 +123,8 @@ describe("台股 refresh (mock Wind, memory store)", () => {
     const emotion = await readResource("emotion", "tw");
     expect(emotion.marketCode).toBe("tw");
     expect(emotion.market.up).toBeGreaterThan(0);
+    expect(emotion.scoreVersion).toBe(2);
+    expect(emotion.coverage.find((item) => item.name.startsWith("成交"))?.status).toBe("derived"); // 台股文字已转繁体
     expect(emotion.extremes.limitUp).toBeGreaterThan(0);
     expect(emotion.themes[0].code).toMatch(/^TWSE\d+\.TW$/);
     expect(emotion.schedule).toContain("13:30");
