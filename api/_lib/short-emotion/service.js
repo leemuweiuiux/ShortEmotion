@@ -105,8 +105,8 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
         const record = historyRecord(snapshot);
         await store.historyUpsert(record, isTradingSessionHistory(record));
         result.ran.push("emotion");
-      } else if (result.mode !== "scheduled" && quoteDay) {
-        // Manual/bootstrap run outside a session: show the last session's numbers, add no curve point.
+      } else if ((result.mode !== "scheduled" || plan.minute < (SCHEDULE.sessionStart ?? 0)) && quoteDay) {
+        // Manual/bootstrap run, or the pre-open scheduled run: show the last session's numbers, add no curve point.
         await store.kvSet(KEY.emotion, { ...snapshot, tradingDate: quoteDay, offSession: true });
         result.ran.push("emotion(off-session)");
       } else if (!quoteDay) {
@@ -188,8 +188,8 @@ export async function readResource(resource, market = "cn", { fresh = false } = 
   if (resource === "emotion") {
     const entry = await store.kvGet(KEY.emotion);
     if (!entry) throw new NotReadyError(market === "tw"
-      ? `暫無快照：首個數據將在下一個交易時段由定時任務生成（${scheduleSummary(market)}）`
-      : `暂无快照：首个数据将在下一个交易时段由定时任务生成（${scheduleSummary(market)}）`);
+      ? "暫無快照：首個數據將在下一個交易時段生成"
+      : "暂无快照：首个数据将在下一个交易时段生成");
     return { ...entry.value, ...meta(entry) };
   }
   if (resource === "anomalies") {

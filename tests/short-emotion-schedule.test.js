@@ -6,13 +6,8 @@ const bj = (date, time) => new Date(`${date}T${time}:00+08:00`);
 const due = (date, time) => Object.entries(duePlan(bj(date, time)).jobs).filter(([, on]) => on).map(([name]) => name).sort();
 
 describe("短线情绪 schedule (hourly, 09:00–15:00 Beijing)", () => {
-  it("09:00 pre-open refreshes news only", () => {
-    expect(due("2026-10-12", "09:00")).toEqual(["news"]);
-    expect(due("2026-10-12", "09:30")).toEqual(["news"]);
-  });
-
-  it("10:00–14:00 on the hour refresh market data and news (12:00 = morning close)", () => {
-    for (const time of ["10:00", "11:00", "12:00", "13:00", "14:00"]) {
+  it("09:00–14:00 on the hour run a full refresh (09:00 = previous close, 12:00 = morning close)", () => {
+    for (const time of ["09:00", "09:30", "10:00", "11:00", "12:00", "13:00", "14:00"]) {
       expect(due("2026-10-12", time)).toEqual(["anomalies", "emotion", "news"]);
     }
   });
@@ -91,7 +86,7 @@ describe("runScheduledRefresh (mock Wind, memory store)", () => {
     // Future weekday: mock quotes carry today's date, so the market looks closed for that day.
     const first = await runScheduledRefresh({ now: bj("2030-01-07", "09:00") });
     const second = await runScheduledRefresh({ now: bj("2030-01-07", "09:40") });
-    expect(first.ran).toEqual(["news"]);
+    expect(first.ran).toEqual(expect.arrayContaining(["emotion(off-session)", "anomalies", "news"]));
     expect(second.status).toBe("duplicate");
   });
 
