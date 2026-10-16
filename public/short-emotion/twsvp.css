@@ -440,6 +440,8 @@ main {
 
 /* 情绪路径 */
 .segmented { display: flex; gap: 8px; margin-top: 12px; }
+/* 台股没有盘中数据：情绪路径只有「每日」，不显示切换 */
+html[data-market="tw"] .timeline-panel .segmented { display: none; }
 .timeline-chart { position: relative; height: 200px; margin-top: 12px; color: var(--ink); }
 .timeline-chart svg { width: 100%; height: 100%; overflow: visible; }
 .timeline-grid { stroke: var(--border); stroke-width: 1; }
