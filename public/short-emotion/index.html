@@ -143,18 +143,18 @@
             <button class="timeline-toggle active" data-timeline-mode="intraday" aria-pressed="true" type="button">盘中</button>
             <button class="timeline-toggle" data-timeline-mode="daily" aria-pressed="false" type="button">每日</button>
           </div>
-          <div id="timeline-chart" class="timeline-chart"><div class="empty">交易时段每 30 分钟自动沉淀一个情绪快照。</div></div>
+          <div id="timeline-chart" class="timeline-chart"><div class="empty">交易时段定时沉淀情绪快照。</div></div>
         </article>
       </section>
 
       <footer class="legal">
-        <p><span id="schedule-note">交易日 09:00–15:00 每30分钟定时更新</span></p>
+        <p><span id="schedule-note">交易日 09:00–15:00 每小时定时更新</span></p>
         <p>仅用于研究与情绪观察，不构成投资建议；请以“行情时间”判断数据新鲜度。</p>
       </footer>
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="/short-emotion/vendor/html-to-image.js" defer></script>
-  <script type="module" src="/short-emotion/app.js?v=36"></script>
+  <script type="module" src="/short-emotion/app.js?v=37"></script>
 </body>
 </html>

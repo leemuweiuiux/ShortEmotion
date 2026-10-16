@@ -1,4 +1,4 @@
-import { HANT, HANT_FIXES } from "./hant-map.js?v=9";
+import { HANT, HANT_FIXES } from "./hant-map.js?v=10";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -167,7 +167,7 @@ function signClass(value) {
   return Number(value) > 0 ? "up-text" : Number(value) < 0 ? "down-text" : "";
 }
 
-// 所有数据来自定时任务写入的快照（交易日 09:00–15:00 每 30 分钟），页面不直接调用 Wind。
+// 所有数据来自定时任务写入的快照（A股交易日 09:00–15:00 每小时，台股收盘后），页面不直接调用 Wind。
 const API_BASE = "/api/short-emotion";
 
 // fresh=true：刚完成一次刷新，跳过 CDN 与服务端缓存，直接读数据分支最新提交。
@@ -480,7 +480,7 @@ function renderTimeline() {
   const latestLabel = history.at(-1)?.timeLabel;
   setText("#history-count", `${history.length} 个当日快照${latestLabel ? ` · 截至 ${latestLabel}` : ""}`);
   if (history.length < 2) {
-    $("#timeline-chart").innerHTML = '<div class="empty">交易时段每 30 分钟生成一个快照，至少两个快照后形成盘中曲线。</div>';
+    $("#timeline-chart").innerHTML = '<div class="empty">交易时段定时生成快照，至少两个快照后形成盘中曲线。</div>';
     return;
   }
   const { width, height } = chartSize();
@@ -557,7 +557,7 @@ async function loadNews() {
     const items = payload.items || [];
     const asOf = shanghaiTimeLabel(payload.asOf);
     setText("#news-asof", asOf ? `快照 ${asOf}` : "等待快照");
-    $("#news-list").innerHTML = items.length ? items.slice(0, 5).map((item) => `<article class="news-item"><b>${escapeHtml(plain(item.title, "市场消息"))}</b><span>${escapeHtml(item.date || "")} · 相关度 ${Number(item.relevance || 0).toFixed(2)}</span><p>${escapeHtml(String(item.content || "").slice(0, 170))}${String(item.content || "").length > 170 ? "…" : ""}</p></article>`).join("") : '<div class="empty">暂无新闻快照，交易日 09:00 起每 30 分钟更新。</div>';
+    $("#news-list").innerHTML = items.length ? items.slice(0, 5).map((item) => `<article class="news-item"><b>${escapeHtml(plain(item.title, "市场消息"))}</b><span>${escapeHtml(item.date || "")} · 相关度 ${Number(item.relevance || 0).toFixed(2)}</span><p>${escapeHtml(String(item.content || "").slice(0, 170))}${String(item.content || "").length > 170 ? "…" : ""}</p></article>`).join("") : '<div class="empty">暂无新闻快照，交易日 09:00 起定时更新。</div>';
   } catch (error) {
     $("#news-list").innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`;
     toast(error.message, true);
@@ -864,7 +864,7 @@ function updateRefreshButton() {
   const left = refreshCooldownLeft();
   button.disabled = left > 0;
   button.textContent = left > 0 ? `${Math.ceil(left / 60_000)}分钟后可刷新` : "刷新";
-  button.title = left > 0 ? "刷新每小时只能使用一次；交易时段每 30 分钟也会自动更新" : "获取最新数据";
+  button.title = left > 0 ? "刷新每小时只能使用一次；交易时段也会定时自动更新" : "获取最新数据";
 }
 
 const REFRESH_STEPS = {
@@ -946,7 +946,7 @@ async function pollRefresh() {
   if (!refreshRun.active) return;
   if (Date.now() - refreshRun.startedAt > REFRESH_TIMEOUT_MS) {
     stopRefresh();
-    toast("更新耗时过长，页面仍显示上一份快照；交易时段每 30 分钟也会自动更新", true);
+    toast("更新耗时过长，页面仍显示上一份快照；交易时段也会定时自动更新", true);
     return;
   }
   try {
@@ -970,7 +970,7 @@ async function handleManualRefresh() {
   if (refreshRun.active) return;
   if (refreshCooldownLeft() > 0) {
     updateRefreshButton();
-    toast("刷新每小时只能使用一次，交易时段每 30 分钟也会自动更新");
+    toast("刷新每小时只能使用一次，交易时段也会定时自动更新");
     return;
   }
   try { localStorage.setItem(REFRESH_KEY, String(Date.now())); } catch {}
