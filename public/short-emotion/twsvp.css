@@ -92,11 +92,16 @@ h2, h3, p { margin: 0; }
   position: sticky;
   top: calc(var(--nav-height) + env(safe-area-inset-top, 0px));
   z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 0 16px;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
 }
 .tabs {
+  flex: 1;
+  min-width: 0;
   display: flex;
   gap: 16px;
   margin-top: 6px;
@@ -116,6 +121,10 @@ h2, h3, p { margin: 0; }
   cursor: pointer;
 }
 .tab-btn.active { color: var(--ink); border-color: var(--ink); }
+/* 分栏右侧的导出按钮（长图 / 小卡） */
+.tabs-action { flex: none; width: 30px; height: 30px; margin-top: 6px; border-radius: 8px; }
+.tabs-action svg { width: 16px; height: 16px; }
+.tabs-wrap .export-menu { top: calc(100% + 4px); }
 
 main {
   padding: 12px 16px calc(32px + env(safe-area-inset-bottom, 0px));
