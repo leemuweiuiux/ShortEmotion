@@ -167,7 +167,7 @@ function signClass(value) {
   return Number(value) > 0 ? "up-text" : Number(value) < 0 ? "down-text" : "";
 }
 
-// 所有数据来自定时任务写入的快照（A股交易日 09:00–15:00 每小时，台股收盘后），页面不直接调用 Wind。
+// 所有数据来自定时任务写入的快照（节奏见 api/_lib/short-emotion/schedule.js），页面不直接调用 Wind。
 const API_BASE = "/api/short-emotion";
 
 // fresh=true：刚完成一次刷新，跳过 CDN 与服务端缓存，直接读数据分支最新提交。
@@ -226,7 +226,6 @@ function renderHeader() {
   setText("#connection", status);
   const quoteLabel = data.endOfDay && quote ? `收盘数据 ${quote.slice(0, 5)}` : quote ? `行情时间 ${quote}` : "未返回行情时间";
   setText("#quote-time", `${quoteLabel}${stored ? ` · 快照 ${stored}` : ""}`);
-  if (data.schedule) setText("#schedule-note", plain(data.schedule));
   reportToolbarState({ connection: status, quoteTime: quote ? `行情时间 ${quote}` : "未返回行情时间", partial: data.partial });
 }
 
@@ -557,7 +556,7 @@ async function loadNews() {
     const items = payload.items || [];
     const asOf = shanghaiTimeLabel(payload.asOf);
     setText("#news-asof", asOf ? `快照 ${asOf}` : "等待快照");
-    $("#news-list").innerHTML = items.length ? items.slice(0, 5).map((item) => `<article class="news-item"><b>${escapeHtml(plain(item.title, "市场消息"))}</b><span>${escapeHtml(item.date || "")} · 相关度 ${Number(item.relevance || 0).toFixed(2)}</span><p>${escapeHtml(String(item.content || "").slice(0, 170))}${String(item.content || "").length > 170 ? "…" : ""}</p></article>`).join("") : '<div class="empty">暂无新闻快照，交易日 09:00 起定时更新。</div>';
+    $("#news-list").innerHTML = items.length ? items.slice(0, 5).map((item) => `<article class="news-item"><b>${escapeHtml(plain(item.title, "市场消息"))}</b><span>${escapeHtml(item.date || "")} · 相关度 ${Number(item.relevance || 0).toFixed(2)}</span><p>${escapeHtml(String(item.content || "").slice(0, 170))}${String(item.content || "").length > 170 ? "…" : ""}</p></article>`).join("") : '<div class="empty">暂无新闻快照。</div>';
   } catch (error) {
     $("#news-list").innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`;
     toast(error.message, true);

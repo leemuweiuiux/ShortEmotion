@@ -24,7 +24,7 @@ if (word && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
 // ── 今日情绪：两个市场的最新分数（公开摘要） ──
 function quoteLabel(market, payload) {
   const match = String(payload.quoteTime || "").match(/^\d{4}(\d{2})(\d{2})\s+(\d{2}):(\d{2})/);
-  if (!match) return market === "tw" ? "收盘后更新" : "盘中每小时更新";
+  if (!match) return market === "tw" ? "收盘数据" : "盘中数据";
   const [, month, day, hour, minute] = match;
   return market === "tw" || payload.endOfDay ? `${month}-${day} 收盘` : `${month}-${day} ${hour}:${minute} 行情`;
 }
