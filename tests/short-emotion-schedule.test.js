@@ -139,3 +139,15 @@ describe("台股 refresh (mock Wind, memory store)", () => {
     await expect(readResource("emotion", "hk")).rejects.toThrow("未知市场");
   });
 });
+
+describe("Wind 调用统计", () => {
+  it("每次更新把调用次数写进 last-run（按工具、按 Key）", async () => {
+    process.env.WIND_MOCK = "1";
+    const { runScheduledRefresh } = await import("../api/_lib/short-emotion/service.js");
+    const result = await runScheduledRefresh({ force: true, market: "cn" });
+    expect(result.windCalls.total).toBeGreaterThan(5);
+    expect(result.windCalls.byKey.MOCK).toBe(result.windCalls.total);
+    expect(Object.values(result.windCalls.byTool).reduce((sum, value) => sum + value, 0)).toBe(result.windCalls.total);
+    expect(result.windCalls.byTool["stock_data/search_stocks"]).toBeGreaterThan(0);
+  });
+});
