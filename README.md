@@ -18,7 +18,7 @@ A股 / 台股短線情緒看板：**https://lfjmwl.com**（Vercel 預設網址 s
 ## 運作方式
 
 ```
-GitHub Actions（.github/workflows/short-emotion.yml，工作日 09:00–15:30 每 30 分鐘）
+GitHub Actions（.github/workflows/short-emotion.yml，工作日 09:00–15:30 每 30 分鐘喚醒；A股每小時更新一次，台股盤後更新）
   └─ scripts/short-emotion/refresh.mjs 呼叫 Wind MCP 計算快照
        └─ 強制推送到 short-emotion-data 分支（A股在根目錄，台股在 tw/）
 Vercel

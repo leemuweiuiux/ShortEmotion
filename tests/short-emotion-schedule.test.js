@@ -5,30 +5,27 @@ import { duePlan } from "../api/_lib/short-emotion/schedule.js";
 const bj = (date, time) => new Date(`${date}T${time}:00+08:00`);
 const due = (date, time) => Object.entries(duePlan(bj(date, time)).jobs).filter(([, on]) => on).map(([name]) => name).sort();
 
-describe("短线情绪 schedule (every 30 min, 09:00–15:00 Beijing)", () => {
+describe("短线情绪 schedule (hourly, 09:00–15:00 Beijing)", () => {
   it("09:00 pre-open refreshes news only", () => {
     expect(due("2026-10-12", "09:00")).toEqual(["news"]);
+    expect(due("2026-10-12", "09:30")).toEqual(["news"]);
   });
 
-  it("trading slots refresh market data and news", () => {
-    for (const time of ["09:30", "10:00", "11:30", "13:00", "14:30"]) {
+  it("10:00–14:00 on the hour refresh market data and news (12:00 = morning close)", () => {
+    for (const time of ["10:00", "11:00", "12:00", "13:00", "14:00"]) {
       expect(due("2026-10-12", time)).toEqual(["anomalies", "emotion", "news"]);
     }
   });
 
-  it("lunch break refreshes news only", () => {
-    expect(due("2026-10-12", "12:00")).toEqual(["news"]);
-    expect(due("2026-10-12", "12:30")).toEqual(["news"]);
-  });
-
-  it("15:00 is the last run and includes cleanup", () => {
+  it("15:00 is the last run and includes cleanup; nothing after 16:00", () => {
     expect(due("2026-10-12", "15:00")).toEqual(["anomalies", "cleanup", "emotion", "news"]);
-    expect(due("2026-10-12", "15:30")).toEqual([]);
+    expect(due("2026-10-12", "16:00")).toEqual([]);
   });
 
-  it("a delayed GitHub run stays in its 30-minute slot", () => {
+  it("slots are whole hours, so a delayed or :30 wake-up falls into the same hour", () => {
     expect(duePlan(bj("2026-10-12", "10:17")).slot).toBe(600);
-    expect(due("2026-10-12", "10:17")).toEqual(["anomalies", "emotion", "news"]);
+    expect(duePlan(bj("2026-10-12", "10:45")).slot).toBe(600);
+    expect(due("2026-10-12", "10:45")).toEqual(["anomalies", "emotion", "news"]);
   });
 
   it("weekends and off-hours never call Wind", () => {
@@ -93,7 +90,7 @@ describe("runScheduledRefresh (mock Wind, memory store)", () => {
   it("a slot runs at most once", async () => {
     // Future weekday: mock quotes carry today's date, so the market looks closed for that day.
     const first = await runScheduledRefresh({ now: bj("2030-01-07", "09:00") });
-    const second = await runScheduledRefresh({ now: bj("2030-01-07", "09:10") });
+    const second = await runScheduledRefresh({ now: bj("2030-01-07", "09:40") });
     expect(first.ran).toEqual(["news"]);
     expect(second.status).toBe("duplicate");
   });
@@ -101,7 +98,7 @@ describe("runScheduledRefresh (mock Wind, memory store)", () => {
   it("marks a holiday when quotes never switch to the day, then stops calling Wind", async () => {
     const check = await runScheduledRefresh({ now: bj("2030-01-07", "10:00") });
     expect(check.status).toBe("holiday");
-    const later = await runScheduledRefresh({ now: bj("2030-01-07", "10:30") });
+    const later = await runScheduledRefresh({ now: bj("2030-01-07", "11:00") });
     expect(later.status).toBe("holiday");
     expect(later.ran).toEqual([]);
   });

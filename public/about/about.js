@@ -1,5 +1,5 @@
 // 介绍页 /about：简繁切换、主视觉轮换词、今日情绪（公开摘要接口，不调用 Wind）、底部登录按钮。
-import { initLanguage, setText, setAttributeText } from "/shared/lang.js?v=5";
+import { initLanguage, setText, setAttributeText } from "/shared/lang.js?v=6";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -24,7 +24,7 @@ if (word && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
 // ── 今日情绪：两个市场的最新分数（公开摘要） ──
 function quoteLabel(market, payload) {
   const match = String(payload.quoteTime || "").match(/^\d{4}(\d{2})(\d{2})\s+(\d{2}):(\d{2})/);
-  if (!match) return market === "tw" ? "收盘后更新" : "盘中每 30 分钟更新";
+  if (!match) return market === "tw" ? "收盘后更新" : "盘中每小时更新";
   const [, month, day, hour, minute] = match;
   return market === "tw" || payload.endOfDay ? `${month}-${day} 收盘` : `${month}-${day} ${hour}:${minute} 行情`;
 }
