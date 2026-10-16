@@ -2,6 +2,7 @@
 //   runScheduledRefresh — the only code path that calls Wind (GitHub Actions cron / manual trigger)
 //   readResource        — what page visitors get: stored snapshots, never a Wind call
 import * as cnEngine from "./engine.js";
+import { resetWindCallStats, windCallStats } from "./wind-client.js";
 import * as twEngine from "./tw-engine.js";
 import { getStore, storageMode } from "./store.js";
 import { duePlan, scheduleSummary, scheduleFor, MARKETS } from "./schedule.js";
@@ -50,8 +51,10 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
   const store = getStore(market);
   const plan = duePlan(now, market);
   const result = { market, startedAt: now.toISOString(), beijingTime: `${plan.day} ${plan.label}`, mode: "scheduled", ran: [], skipped: [], errors: [] };
+  resetWindCallStats();
   const finish = async (status, extra = {}) => {
-    const output = { ...result, ...extra, status, finishedAt: new Date().toISOString() };
+    // windCalls：这次更新实际调用 Wind 的次数（按工具 / 按 Key），用来估算额度消耗
+    const output = { ...result, ...extra, status, windCalls: windCallStats(), finishedAt: new Date().toISOString() };
     await store.kvSet(KEY.lastRun, output).catch(() => {});
     return output;
   };

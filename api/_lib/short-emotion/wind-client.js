@@ -172,6 +172,22 @@ async function mcpRequest(serverType, method, params, { apiKey, timeoutMs }) {
 
 let mockModulePromise = null;
 
+// 调用统计：每次 tools/call 记一笔（按工具、按 Key），用来估算一次更新消耗多少 Wind 额度。
+// runScheduledRefresh 开始时清零，结束时写进 cron:last-run。initialize 握手不计。
+let callStats = { total: 0, failed: 0, byTool: {}, byKey: {} };
+export function resetWindCallStats() {
+  callStats = { total: 0, failed: 0, byTool: {}, byKey: {} };
+}
+export function windCallStats() {
+  return JSON.parse(JSON.stringify(callStats));
+}
+function countCall(serverType, toolName, keyLabel) {
+  const tool = `${serverType}/${toolName}`;
+  callStats.total += 1;
+  callStats.byTool[tool] = (callStats.byTool[tool] || 0) + 1;
+  callStats.byKey[keyLabel] = (callStats.byKey[keyLabel] || 0) + 1;
+}
+
 /**
  * Calls one Wind tool and returns the raw MCP result ({ content: [...] }),
  * exactly what `cli.mjs call` printed to stdout.
@@ -180,6 +196,7 @@ export async function callWindTool(serverType, toolName, params, { timeoutMs = 3
   validateCall(serverType, toolName, params);
 
   if (isMockMode()) {
+    countCall(serverType, toolName, "MOCK");
     mockModulePromise ||= import("./mock-wind.js");
     return (await mockModulePromise).mockWindResult(serverType, toolName, params);
   }
@@ -197,12 +214,14 @@ export async function callWindTool(serverType, toolName, params, { timeoutMs = 3
         capabilities: {},
         clientInfo: { name: CLIENT_NAME, version: SKILL_VERSION }
       }, { apiKey: account.key, timeoutMs: Math.min(15_000, remaining()) });
+      countCall(serverType, toolName, account.label);
       return await mcpRequest(serverType, "tools/call", {
         name: toolName,
         arguments: params,
         _meta: { clientVersion: SKILL_VERSION }
       }, { apiKey: account.key, timeoutMs: remaining() });
     } catch (error) {
+      callStats.failed += 1;
       if (!(error instanceof QuotaExhaustedError)) throw error;
       lastQuotaError = `${account.label}: ${error.message}`;
     }
