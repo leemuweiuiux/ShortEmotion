@@ -287,6 +287,12 @@ function aggregatedStockCount(payload, matcher) {
   return null;
 }
 
+/** 选股结果的股票数：没有命中返回 0；只有调用失败（网络、额度等）或行情本身没取到时才是 null。 */
+function screenerCount(result, marketPayload) {
+  if (result.status === "fulfilled") return uniqueWindCodeCount(result.value) ?? (marketPayload ? 0 : null);
+  return result.reason?.code === "NO_RESULTS" && marketPayload ? 0 : null;
+}
+
 function fulfilled(result) { return result.status === "fulfilled" ? result.value : null; }
 function reason(result) { return result.status === "rejected" ? String(result.reason?.message || result.reason) : null; }
 
@@ -1222,8 +1228,9 @@ async function loadEmotion() {
     const indexPayload = fulfilled(calls[0]);
     const indexRow = objects(tables(indexPayload)[0])[0] || {};
     const limitUpStocks = tables(fulfilled(calls[1])).flatMap(objects).filter((r) => r["Wind代码"]).map((r) => ({ code: r["Wind代码"], name: r["证券简称"] || "" }));
-    const limitUp = limitUpStocks.length || uniqueWindCodeCount(fulfilled(calls[1]));
-    const limitDown = uniqueWindCodeCount(fulfilled(calls[2]));
+    // 选股条件没有命中任何股票时（例如大涨日没有跌停），Wind 返回空结果或 NO_RESULTS，这是 0 家而不是缺数据。
+    const limitUp = limitUpStocks.length || screenerCount(calls[1], indexPayload);
+    const limitDown = screenerCount(calls[2], indexPayload);
     const bigUp = aggregatedStockCount(fulfilled(calls[3]), /涨幅大于5%.*家数$/);
     const bigDown = aggregatedStockCount(fulfilled(calls[4]), /跌幅大于5%.*家数$/);
     const premiumDetail = averageColumn(fulfilled(calls[5]), /^(?:(?:最新|今日|当日).*|\d{8}|\d{4}年\d{1,2}月\d{1,2}日)涨跌幅$/);
@@ -1356,7 +1363,7 @@ export {
   limitStreakLabel
 };
 
-export { scoreLiquidity, predictFullDayAmount, limitLadderMetrics };
+export { scoreLiquidity, predictFullDayAmount, limitLadderMetrics, screenerCount };
 
 export {
   loadEmotion,

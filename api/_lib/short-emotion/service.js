@@ -36,6 +36,10 @@ const KEY = {
 
 const errorText = (error) => String(error?.message || error);
 const quoteDayOf = (snapshot) => String(snapshot?.quoteTime || "").replace(/\D/g, "").slice(0, 8);
+const quoteMinuteOf = (snapshot) => {
+  const match = String(snapshot?.quoteTime || "").match(/\s(\d{2}):(\d{2})/);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+};
 const ALL_JOBS = { emotion: true, anomalies: true, news: true, cleanup: false };
 
 /**
@@ -89,6 +93,7 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
   importEngineState(savedState, plan.day);
 
   let marketLive = true;
+  let inAuction = false;
   if (jobs.emotion) {
     try {
       const snapshot = await transform(await loadEmotion());
@@ -100,6 +105,11 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
         const record = historyRecord(eodSnapshot);
         await store.historyUpsert(record, isTradingSessionHistory(record));
         result.ran.push(`emotion(eod ${quoteDay})`);
+      } else if (quoteDay === plan.day && SCHEDULE.sessionStart && quoteMinuteOf(snapshot) != null && quoteMinuteOf(snapshot) < SCHEDULE.sessionStart) {
+        // 集合竞价（09:15–09:25）的行情：涨跌家数为 0、涨跌停是虚拟撮合价，不保存，保留上一份快照。
+        marketLive = false;
+        inAuction = true;
+        result.skipped.push(`emotion: 集合竞价中（${String(snapshot.quoteTime).slice(9, 14)}），保留上一份快照`);
       } else if (quoteDay === plan.day) {
         await store.kvSet(KEY.emotion, snapshot);
         const record = historyRecord(snapshot);
@@ -125,7 +135,7 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
   }
 
   const tasks = [];
-  if (jobs.anomalies && !marketLive && result.mode === "scheduled" && !SCHEDULE.endOfDay) {
+  if (jobs.anomalies && !marketLive && (result.mode === "scheduled" || inAuction) && !SCHEDULE.endOfDay) {
     result.skipped.push("anomalies: 当日行情未就绪，跳过以免覆盖为旧数据");
   } else if (jobs.anomalies) {
     tasks.push(loadThemeAnomalies().then(transform).then(async (output) => {

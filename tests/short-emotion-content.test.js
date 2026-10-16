@@ -37,3 +37,16 @@ describe("台股评分 v2（与 A股 同一套方法）", () => {
     expect(scoreLiquidityTw(150, calendar.slice(0, 5), last)).toMatchObject({ score: 50, available: false });
   });
 });
+
+describe("选股家数（涨停 / 跌停）", () => {
+  it("没有命中视为 0 家，调用失败才算缺数据", async () => {
+    const { screenerCount } = await import("../api/_lib/short-emotion/engine.js");
+    const market = { data: { columns: [{ name: "上涨家数" }], rows: [[1]] } };
+    const hit = { data: { columns: [{ name: "Wind代码" }, { name: "证券简称" }], rows: [["000001.SZ", "平安银行"], ["600000.SH", "浦发银行"]] } };
+    expect(screenerCount({ status: "fulfilled", value: hit }, market)).toBe(2);
+    expect(screenerCount({ status: "fulfilled", value: { data: [] } }, market)).toBe(0);
+    expect(screenerCount({ status: "rejected", reason: Object.assign(new Error("NO_RESULTS: 未获取到数据"), { code: "NO_RESULTS" }) }, market)).toBe(0);
+    expect(screenerCount({ status: "rejected", reason: Object.assign(new Error("NETWORK_ERROR"), { code: "NETWORK_ERROR" }) }, market)).toBeNull();
+    expect(screenerCount({ status: "fulfilled", value: { data: [] } }, null)).toBeNull();
+  });
+});
