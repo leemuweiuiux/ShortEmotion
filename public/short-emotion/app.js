@@ -774,7 +774,7 @@ function toggleExportMenu(event) {
     const item = clickEvent.target.closest("[data-export]");
     if (item) runExport(item.dataset.export);
   });
-  $(".nav").append(menu);
+  $(".tabs-wrap").append(menu); // 导出按钮在分栏右侧，菜单从这里展开
   $("#export-image").setAttribute("aria-expanded", "true");
 }
 
