@@ -361,8 +361,9 @@ export async function loadThemeAnomalies() {
     const byChange = concepts.slice(0, 8);
     const byNews = concepts.filter((item) => newsHits.get(item.code).length && !byChange.includes(item)).slice(0, 2);
     const candidates = [...byChange, ...byNews];
+    // 用指数代码问成分股：用名称（如「[HK]电子烟指数」）问时 Wind 会返回全市场涨幅榜，归属会错。
     const memberResults = await runWindTasksInBatches(candidates.map((item) => () => windCall("analytics_data", "get_financial_data", {
-      question: `${item.rawName || item.name}成分股最新涨跌幅排名前十`
+      question: `${item.code}成分股最新涨跌幅排名前十`
     })), 5);
     errors.push(...memberResults.map(reason).filter(Boolean));
 

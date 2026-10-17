@@ -142,7 +142,7 @@ export function mockWindResult(serverType, toolName, params) {
   const qt = quoteTime();
   const question = String(params.question || params.query || "");
   if (/\.TWO?\b|台湾|台股/.test(JSON.stringify(params))) return mockTaiwan(serverType, toolName, params, now, qt);
-  if (/\.H[KI]\b|\[HK\]|香港|港股|南向/.test(JSON.stringify(params))) return mockHongKong(serverType, toolName, params, now, qt);
+  if (/\.H[KI]\b|\[HK\]|香港|港股|南向|^887\d+\.WI成分股/.test(JSON.stringify(params).replace(/^\{"question":"/, ""))) return mockHongKong(serverType, toolName, params, now, qt);
 
   if (serverType === "index_data" && toolName === "get_index_price_indicators") {
     return result({ data: [table(
