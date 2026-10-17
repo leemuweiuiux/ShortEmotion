@@ -1,5 +1,5 @@
 // 个人资料 /account：姓名、邮箱（只读）、电话区号与手机号（不做验证码）。资料存在 Supabase 的用户资料里（/api/auth?action=profile）。
-import { initLanguage, setText } from "/shared/lang.js?v=6";
+import { initLanguage, setText } from "/shared/lang.js?v=7";
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -7,7 +7,7 @@ const $ = (selector) => document.querySelector(selector);
 const from = (() => {
   try {
     const url = new URL(document.referrer);
-    return url.origin === location.origin && /^\/shortemotion\/(?:cn|tw)\/?$/.test(url.pathname) ? url.pathname : null;
+    return url.origin === location.origin && /^\/shortemotion\/(?:cn|tw|hk)\/?$/.test(url.pathname) ? url.pathname : null;
   } catch { return null; }
 })();
 if (from) $("#back").href = from;

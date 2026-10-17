@@ -1,5 +1,5 @@
 // 介绍页 /about：简繁切换、主视觉轮换词、今日情绪（公开摘要接口，不调用 Wind）、底部登录按钮。
-import { initLanguage, setText, setAttributeText } from "/shared/lang.js?v=6";
+import { initLanguage, setText, setAttributeText } from "/shared/lang.js?v=7";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -26,7 +26,7 @@ function quoteLabel(market, payload) {
   const match = String(payload.quoteTime || "").match(/^\d{4}(\d{2})(\d{2})\s+(\d{2}):(\d{2})/);
   if (!match) return market === "tw" ? "收盘数据" : "盘中数据";
   const [, month, day, hour, minute] = match;
-  return market === "tw" || payload.endOfDay ? `${month}-${day} 收盘` : `${month}-${day} ${hour}:${minute} 行情`;
+  return market === "tw" || payload.endOfDay ? `${month}-${day} 收盘` : `${month}-${day} ${hour}:${minute}`;
 }
 
 async function loadLive(tile) {
@@ -49,7 +49,7 @@ async function loadLive(tile) {
       setText(posture, payload.regime.posture);
     }
     setText($(".live-time", tile), quoteLabel(market, payload));
-    setAttributeText(tile, "aria-label", `${market === "tw" ? "台股" : "A股"}情绪分 ${score}，${payload.regime?.phase || ""}`);
+    setAttributeText(tile, "aria-label", `${{ tw: "台股", hk: "港股" }[market] || "A股"}情绪分 ${score}，${payload.regime?.phase || ""}`);
   } catch {
     setText($(".live-phase", tile), "登录后查看");
   }

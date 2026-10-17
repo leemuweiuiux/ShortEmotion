@@ -6,7 +6,7 @@ const root = resolve(__dirname, "..");
 const workflow = readFileSync(resolve(root, ".github/workflows/short-emotion.yml"), "utf8");
 const vercel = JSON.parse(readFileSync(resolve(root, "vercel.json"), "utf8"));
 
-const SHORT_EMOTION_CRON = "0,30 1-7 * * 1-5";
+const SHORT_EMOTION_CRON = "0,30 1-8 * * 1-5";
 const PAGE = "/short-emotion/index.html";
 
 describe("网址：介绍页、登录页与看板", () => {
@@ -117,7 +117,7 @@ describe("页面文字：不到处标注数据供应商", () => {
 });
 
 describe("数据任务（GitHub Actions）", () => {
-  it("工作日 09:00–15:30（北京时间）每 30 分钟运行", () => {
+  it("工作日 09:00–16:30（北京时间）每 30 分钟运行", () => {
     const schedules = [...workflow.matchAll(/-\s*cron:\s*"([^"]+)"/g)].map((m) => m[1]);
     expect(schedules).toEqual([SHORT_EMOTION_CRON]);
     expect(workflow).toContain(`github.event.schedule == '${SHORT_EMOTION_CRON}'`);

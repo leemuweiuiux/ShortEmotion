@@ -90,11 +90,59 @@ function mockTaiwan(serverType, toolName, params, now, qt) {
   return result({ data: [] });
 }
 
+const HK_BIG = [["2335.HK", "样本医药"], ["2663.HK", "样本控股"], ["1385.HK", "样本复旦"]];
+
+function mockHongKong(serverType, toolName, params, now, qt) {
+  const question = String(params.question || params.query || "");
+  const iso = `${now.day.slice(0, 4)}-${now.day.slice(4, 6)}-${now.day.slice(6, 8)}T${qt.slice(9)}.000+08:00`;
+  if (toolName === "get_index_price_indicators") {
+    return result({ data: table(["最新成交价", "涨跌幅", "成交额", "上涨家数", "下跌家数", "平盘家数", "交易时间", "Wind代码"],
+      [["24186.83", "0.52", "178207245100", "60", "33", "2", iso, "HSI.HI"], ["3532.19", "0.67", "130412745000", "378", "183", "20", iso, "HSCI.HI"]]) });
+  }
+  if (toolName === "get_index_kline") {
+    const rows = [];
+    for (let offset = 90; offset >= 0; offset -= 1) {
+      const date = new Date(Date.UTC(Number(now.day.slice(0, 4)), Number(now.day.slice(4, 6)) - 1, Number(now.day.slice(6, 8)) - offset));
+      if ([0, 6].includes(date.getUTCDay())) continue;
+      rows.push([`${date.toISOString().slice(0, 10)}T00:00:00.000+08:00`, "3500", "3510", "3520", "3490", String(120e9 + offset * 1e8)]);
+    }
+    return result({ data: table(["TIME", "OPEN", "MATCH", "HIGH", "LOW", "TURNOVER"], rows) });
+  }
+  if (toolName === "search_global_stocks") {
+    const day = (question.match(/(\d{8})涨跌幅/) || [])[1] || now.day;
+    const down = /小于-/.test(question);
+    const pick = /10%/.test(question) ? (down ? HK_BIG.slice(0, 1) : HK_BIG) : HK_BIG.concat(HK_BIG.map(([code, name]) => [code.replace("2", "3"), name]));
+    const rows = pick.map(([code, name]) => [code, name, down ? -11.2 : 12.4, 120.5, `${day} 15:00:00`, Number(day), "HKD"]);
+    return result({ data: { data: [{ ...table(["Wind代码", "证券简称", "最新涨跌幅", "最新以港元计的成交额", "交易时间", "日期", "交易币种"], rows), excelTotalCount: rows.length }] } });
+  }
+  if (toolName === "get_financial_data") {
+    if (/52周/.test(question)) return result({ data: { data: [table(["最新创52周新高的股票家数"], [[8]]), table(["最新创52周新低的股票家数"], [[21]])] } });
+    if (/南向/.test(question)) return result({ data: { data: [table(["今日交易方向", "今日交易日期", "今日沪市港股通净买入", "今日深市港股通净买入", "今日南向资金净买入合计"], [["南向", `${now.day.slice(0, 4)}-${now.day.slice(4, 6)}-${now.day.slice(6, 8)}`, -17.6, -12.8, -30.4]])] } });
+    if (/港股Wind概念指数/.test(question)) {
+      return result({ data: { data: [table(["Wind代码", "证券简称", "最新涨跌幅", "交易时间", "日期"],
+        [["8877024.WI", "[HK]脑机接口指数", 5.82], ["887721.WI", "[HK]CAR-T指数", 5.38], ["887729.WI", "[HK]烟草指数", 2.1]].map((row) => [...row, qt, now.day]))] } });
+    }
+    if (/成分股最新涨跌幅排名前十/.test(question)) {
+      return result({ data: { data: [table(["Wind代码", "证券简称", "最新涨跌幅"], [["2335.HK", "样本医药", 14.1], ["2663.HK", "样本控股", 11.3], ["0700.HK", "样本科技", 4.2], ["0005.HK", "样本银行", 1.1]])] } });
+    }
+    if (/的最新涨跌幅$/.test(question)) {
+      const codes = question.replace(/的最新涨跌幅$/, "").split("、");
+      return result({ data: { data: [table(["Wind代码", "证券简称", "最新涨跌幅"], codes.map((code, index) => [code, `样本${index + 1}`, 2.5 - index]))] } });
+    }
+    return result({ data: { data: [] } });
+  }
+  if (toolName === "get_financial_news") {
+    return result({ data: { items: [{ title: "港股脑机接口概念走强", content: "脑机接口板块午后拉升，多只成分股涨超10%。", date: `${now.day.slice(0, 4)}-${now.day.slice(4, 6)}-${now.day.slice(6, 8)}`, source: "Wind样例", relevance: 0.8 }] } });
+  }
+  return result({ data: [] });
+}
+
 export function mockWindResult(serverType, toolName, params) {
   const now = beijingNow();
   const qt = quoteTime();
   const question = String(params.question || params.query || "");
   if (/\.TWO?\b|台湾|台股/.test(JSON.stringify(params))) return mockTaiwan(serverType, toolName, params, now, qt);
+  if (/\.H[KI]\b|\[HK\]|香港|港股|南向/.test(JSON.stringify(params))) return mockHongKong(serverType, toolName, params, now, qt);
 
   if (serverType === "index_data" && toolName === "get_index_price_indicators") {
     return result({ data: [table(
