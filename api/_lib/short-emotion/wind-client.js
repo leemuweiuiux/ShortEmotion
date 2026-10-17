@@ -121,7 +121,7 @@ function parseSSE(text) {
   throw new Error(`响应格式无法识别：${text.slice(0, 200)}`);
 }
 
-async function mcpRequest(serverType, method, params, { apiKey, timeoutMs }) {
+export async function mcpRequest(serverType, method, params, { apiKey, timeoutMs }) {
   let response;
   try {
     response = await fetch(SERVERS[serverType], {

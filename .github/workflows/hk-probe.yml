@@ -1,0 +1,21 @@
+name: HK probe (temporary)
+on:
+  push:
+    branches: [hk-probe]
+    paths: [scripts/short-emotion/probe-hk.mjs, .github/workflows/hk-probe.yml]
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node scripts/short-emotion/probe-hk.mjs
+        env:
+          WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
+      - run: |
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add probe-out && git commit -m "probe output" && git push
