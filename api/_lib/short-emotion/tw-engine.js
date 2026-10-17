@@ -88,7 +88,7 @@ export function normalizeQuoteTime(value) {
 const dayOfQuote = (value) => (normalizeQuoteTime(value) || "").slice(0, 8);
 
 /** search_global_stocks 结果：明细行 + Wind 给出的总数。 */
-function screenResult(payload) {
+export function screenResult(payload) {
   const table = tables(payload)[0];
   const rows = objects(table).map((row) => ({
     code: row["Wind代码"],
@@ -102,10 +102,10 @@ function screenResult(payload) {
 
 // Wind 条件选股最多返回 100 只：达到上限时页面显示「100+」。
 const SCREEN_CAP = 100;
-const isCapped = (screen) => Boolean(screen) && screen.rows.length >= SCREEN_CAP && screen.total <= screen.rows.length;
+export const isCapped = (screen) => Boolean(screen) && screen.rows.length >= SCREEN_CAP && screen.total <= screen.rows.length;
 
 /** 只计当日有成交的股票；明细被截断时按当日占比推算总数。 */
-function countForDay(screen, day) {
+export function countForDay(screen, day) {
   if (!screen) return null;
   const today = screen.rows.filter((row) => row.day === day);
   if (screen.rows.length >= screen.total) return today.length;

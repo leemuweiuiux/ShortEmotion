@@ -139,7 +139,7 @@ describe("台股 refresh (mock Wind, memory store)", () => {
   });
 
   it("rejects unknown markets", async () => {
-    await expect(readResource("emotion", "hk")).rejects.toThrow("未知市场");
+    await expect(readResource("emotion", "us")).rejects.toThrow("未知市场");
   });
 });
 

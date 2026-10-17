@@ -1363,7 +1363,7 @@ export {
   limitStreakLabel
 };
 
-export { scoreLiquidity, predictFullDayAmount, limitLadderMetrics, screenerCount };
+export { scoreLiquidity, predictFullDayAmount, limitLadderMetrics, screenerCount, scoreTheme };
 
 export {
   loadEmotion,

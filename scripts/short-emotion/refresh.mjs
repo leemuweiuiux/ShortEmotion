@@ -4,9 +4,9 @@
 // 该跑哪些任务、调用 Wind 计算快照并写回该目录；工作流随后把目录推回数据分支。
 // 页面（/cn、/tw）只从数据分支读取，不调用 Wind。
 //
-// 用法：node scripts/short-emotion/refresh.mjs [--force] [--market=cn|tw|all]
+// 用法：node scripts/short-emotion/refresh.mjs [--force] [--market=cn|tw|hk|all]
 //   --force   忽略时间窗口立即刷新全部数据（手动触发时使用）
-//   --market  默认 all：A股写在数据目录根部，台股写在 tw/ 子目录
+//   --market  默认 all：A股写在数据目录根部，台股写在 tw/、港股写在 hk/ 子目录
 import { readFile } from "node:fs/promises";
 
 process.env.SHORT_EMOTION_STORE ||= "file";
@@ -19,7 +19,7 @@ const { runScheduledRefresh } = await import("../../api/_lib/short-emotion/servi
 const args = process.argv.slice(2);
 const force = args.includes("--force");
 const marketArg = (args.find((arg) => arg.startsWith("--market=")) || "--market=all").split("=")[1];
-const markets = marketArg === "all" ? ["cn", "tw"] : [marketArg];
+const markets = marketArg === "all" ? ["cn", "tw", "hk"] : [marketArg];
 
 // 首次运行：导入原工作台 2026-08-18 至 09-03 的 A股盘中快照，作为「每日」曲线的起点。
 if (markets.includes("cn")) {

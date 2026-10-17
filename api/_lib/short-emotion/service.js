@@ -4,6 +4,7 @@
 import * as cnEngine from "./engine.js";
 import { resetWindCallStats, windCallStats } from "./wind-client.js";
 import * as twEngine from "./tw-engine.js";
+import * as hkEngine from "./hk-engine.js";
 import { getStore, storageMode } from "./store.js";
 import { duePlan, scheduleSummary, scheduleFor, MARKETS } from "./schedule.js";
 import { getApiKeys, isMockMode } from "./wind-client.js";
@@ -11,7 +12,8 @@ import { toTraditional } from "./hant.js";
 
 const MARKET_CONFIG = {
   cn: { engine: cnEngine, transform: async (value) => value },
-  tw: { engine: twEngine, transform: toTraditional }
+  tw: { engine: twEngine, transform: toTraditional },
+  hk: { engine: hkEngine, transform: async (value) => value }
 };
 
 export { MARKETS };

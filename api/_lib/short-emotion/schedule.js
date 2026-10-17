@@ -14,6 +14,8 @@
 //   - 新闻 09:00–13:30 每 30 分钟（新闻是实时的）
 //   以上都在现有 GitHub 定时任务（工作日 09:00–15:30 每 30 分钟）之内，不新增定时任务。
 
+const HK_SLOTS = [10, 11, 12, 13, 14, 15, 16].map((hour) => [hour * 60, hour * 60]).concat([[16 * 60 + 30, 16 * 60 + 30]]);
+
 export const SCHEDULES = {
   cn: {
     slotMinutes: 30,
@@ -44,6 +46,21 @@ export const SCHEDULES = {
     historyTradingDays: 60,
     holidayCheckAfter: 24 * 60,
     summary: "盤後快照：台股為收盤數據，每個交易日 09:00 與 15:00 後更新（新聞 09:00–13:30 每 30 分鐘）"
+  },
+  // 港股（hk）：交易时段 09:30–12:00、13:00–16:00。整点每小时一次（10:00–16:00，12:00 取上午收盘），
+  // 16:30 再取一次收盘（收盘竞价到 16:10）。情绪、题材、新闻一起更新。
+  hk: {
+    slotMinutes: 30,
+    jobs: {
+      emotion: { everyMinutes: 30, windows: HK_SLOTS },
+      anomalies: { everyMinutes: 30, windows: HK_SLOTS },
+      news: { everyMinutes: 30, windows: HK_SLOTS }
+    },
+    sessionStart: 9 * 60 + 30,
+    cleanupAt: 16 * 60 + 30,
+    historyTradingDays: 60,
+    holidayCheckAfter: 10 * 60,
+    summary: "交易日 10:00–16:00 每小时定时更新，16:30 取收盘"
   }
 };
 

@@ -1,12 +1,12 @@
-// 短线情绪工作台 — 页面接口（/cn A股、/tw 台股）
+// 短线情绪工作台 — 页面接口（/cn A股、/tw 台股、/hk 港股）
 //
-// GET  /api/short-emotion?market=cn|tw&resource=summary
+// GET  /api/short-emotion?market=cn|tw|hk&resource=summary
 //      公开：只给情绪分、阶段与行情时间（介绍页 /about 的「今日情绪」用），CDN 缓存 2 分钟。
-// GET  /api/short-emotion?market=cn|tw&resource=emotion|anomalies|history|news|status
+// GET  /api/short-emotion?market=cn|tw|hk&resource=emotion|anomalies|history|news|status
 //      需要登录：读取定时任务写入数据分支的快照，不调用 Wind。带 fresh=1 时跳过缓存（刷新完成后读取）。
-// GET  /api/short-emotion?market=cn|tw&resource=refresh-status
+// GET  /api/short-emotion?market=cn|tw|hk&resource=refresh-status
 //      需要登录：最近一次手动刷新任务的状态（排队中 / 获取中 / 完成）。
-// POST /api/short-emotion?market=cn|tw&action=refresh
+// POST /api/short-emotion?market=cn|tw|hk&action=refresh
 //      需要登录：用户点「刷新」，触发 GitHub Actions 数据任务，真实调用 Wind MCP 并写入新快照。
 // 未登录时返回 401 login_required（登录判断见 _lib/session.js）。
 import { readResource, NotReadyError, normalizeMarket } from "./_lib/short-emotion/service.js";

@@ -602,9 +602,14 @@ body.gallery-open { overflow: hidden; }
   white-space: nowrap;
 }
 :root[data-market="cn"] .market-tab[data-market="cn"],
+:root[data-market="hk"] .market-tab[data-market="hk"],
 :root[data-market="tw"] .market-tab[data-market="tw"] { background: var(--ink); color: var(--surface); }
-/* 台股没有盘中涨速数据，隐藏「批量拉升」筛选 */
-:root[data-market="tw"] [data-anomaly-filter="batch"] { display: none; }
+/* 台股、港股没有盘中涨速数据，隐藏「批量拉升」筛选 */
+:root[data-market="tw"] [data-anomaly-filter="batch"],
+:root[data-market="hk"] [data-anomaly-filter="batch"] { display: none; }
+.flow-grid-3 { grid-template-columns: repeat(3, 1fr) !important; }
+.flow-grid-2 { grid-template-columns: repeat(2, 1fr) !important; margin-top: 0; }
+.flow-grid-3 strong { font-size: 18px; white-space: nowrap; }
 @media (max-width: 380px) {
   .nav { gap: 8px; }
   .nav-title { font-size: 18px; }

@@ -1,4 +1,4 @@
-import { HANT, HANT_FIXES } from "./hant-map.js?v=10";
+import { HANT, HANT_FIXES } from "./hant-map.js?v=11";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -9,7 +9,7 @@ let timelineMode = /^\/(?:shortemotion\/)?tw(?:-short-emotion)?(?:\/|$)/.test(lo
 let toastTimer = null;
 
 // ── 市场：/shortemotion/cn（A股）与 /shortemotion/tw（台股）共用这一页（旧地址 /cn、/tw、/cn-short-emotion 等会跳转过来）──
-const MARKET = /^\/(?:shortemotion\/)?tw(?:-short-emotion)?(?:\/|$)/.test(location.pathname) ? "tw" : "cn";
+const MARKET = /^\/(?:shortemotion\/)?tw(?:-short-emotion)?(?:\/|$)/.test(location.pathname) ? "tw" : /^\/shortemotion\/hk(?:\/|$)/.test(location.pathname) ? "hk" : "cn";
 const MARKETS = {
   cn: {
     label: "A股",
@@ -32,6 +32,35 @@ const MARKETS = {
     sessions: [[570, 690], [780, 900]],
     slotsWide: [[570, "09:30"], [630, "10:30"], [690, "11:30｜13:00"], [840, "14:00"], [900, "15:00"]],
     slotsNarrow: [[570, "09:30"], [690, "11:30｜13:00"], [900, "15:00"]]
+  },
+  hk: {
+    label: "港股",
+    pulseTitle: "港股短线情绪",
+    indexLabel: "恒生指数涨跌幅",
+    indexPrefix: "恒指",
+    indexCode: "HSI.HI",
+    amountLabel: "港股成交额",
+    amountNote: "恒生综合指数口径",
+    themeTitle: "概念热度排名",
+    themePill: "港股概念指数",
+    themesTab: "题材雷达",
+    breadthTitle: "市场广度",
+    breadthUnit: "家数",
+    anomalyTitle: "当日题材异动",
+    anomalyDesc: "以港股概念指数为题材，按成分股大涨（≥10%）与消息催化筛选。",
+    emptyThemes: "暂未取得港股概念排名。",
+    // 港股没有涨跌停：极端反馈看涨跌超 10% 的家数（成交额 > 1000 万港元）
+    premiumLabel: "昨日大涨股溢价",
+    limitPairLabel: "涨 / 跌超 10%",
+    limitUpLabel: "涨幅 ≥ 10%",
+    limitDownLabel: "跌幅 ≥ 10%",
+    tailPill: "成交额 > 1000万港元",
+    limitWord: "大涨",
+    intraday: true,
+    // 盘中曲线：09:30–12:00、13:00–16:00（午休压缩掉，12:00 与 13:00 在同一位置）
+    sessions: [[570, 720], [780, 960]],
+    slotsWide: [[570, "09:30"], [660, "11:00"], [720, "12:00｜13:00"], [870, "14:30"], [960, "16:00"]],
+    slotsNarrow: [[570, "09:30"], [720, "12:00｜13:00"], [960, "16:00"]]
   },
   tw: {
     label: "台股",
@@ -115,6 +144,12 @@ function applyMarketCopy() {
   setText("#breadth-tab", CFG.breadthTitle);
   setText("#anomaly-title", CFG.anomalyTitle);
   setText("#anomaly-desc", CFG.anomalyDesc);
+  if (CFG.premiumLabel) setText("#premium-label", CFG.premiumLabel);
+  if (CFG.limitPairLabel) setText("#limit-pair-label", CFG.limitPairLabel);
+  if (CFG.limitUpLabel) setText("#limit-up-label", CFG.limitUpLabel);
+  if (CFG.limitDownLabel) setText("#limit-down-label", CFG.limitDownLabel);
+  if (CFG.tailPill) setText("#tail-pill", CFG.tailPill);
+  if (MARKET === "hk") $("#flow-card").hidden = false;
   // 台股只有收盘数据：去掉「盘中」路径，只保留每日曲线
   if (MARKET === "tw") {
     $(".segmented")?.remove();
@@ -255,9 +290,14 @@ function renderPulse() {
   };
   setText("#action-title", titles[data.regime.phase] || "等待市场结构进一步确认");
   setText("#action-copy", `情绪分数 ${data.score}，操作姿态为“${data.regime.posture}”。评分来自广度、极端反馈、梯队、溢价、题材和成交环境。`);
-  setText("#confirm-signal", data.score >= 57 ? "核心强势延续、后排不出现批量掉队" : "跌停与大跌收缩、昨日强势股溢价转正");
-  setText("#risk-signal", data.score >= 70 ? "炸板上升、昨日涨停溢价快速转负" : "跌停扩散、高位股负反馈加剧");
-  const names = MARKET === "tw" ? { ...dimensionNames, breadth: "产业广度", themes: "产业聚焦" } : dimensionNames;
+  if (MARKET === "hk") {
+    setText("#confirm-signal", data.score >= 57 ? "核心强势延续、新高家数继续增加" : "大跌家数收缩、昨日大涨股溢价转正");
+    setText("#risk-signal", data.score >= 70 ? "大涨股次日回吐、溢价快速转负" : "大跌扩散、52周新低家数增加");
+  } else {
+    setText("#confirm-signal", data.score >= 57 ? "核心强势延续、后排不出现批量掉队" : "跌停与大跌收缩、昨日强势股溢价转正");
+    setText("#risk-signal", data.score >= 70 ? "炸板上升、昨日涨停溢价快速转负" : "跌停扩散、高位股负反馈加剧");
+  }
+  const names = MARKET === "tw" ? { ...dimensionNames, breadth: "产业广度", themes: "产业聚焦" } : MARKET === "hk" ? { ...dimensionNames, ladder: "新高新低" } : dimensionNames;
   $("#dimension-bars").innerHTML = Object.entries(data.dimensions).map(([key, value]) => `<div class="dimension-item"><span>${escapeHtml(names[key] || key)}</span><div class="dimension-track"><i style="width:${Math.max(2, Number(value))}%"></i></div><b>${formatNumber(value)}</b></div>`).join("");
 }
 
@@ -285,7 +325,7 @@ function renderBreadth() {
   $("#breadth-flat").style.width = `${flat / total * 100}%`;
   const ratio = Number(data.market.upRatio);
   const breadthText = !Number.isFinite(ratio) ? "广度数据暂缺。" : ratio >= 70 ? "市场呈现普涨，赚钱效应具备扩散基础。" : ratio >= 50 ? "上涨家数占优，但仍需结合涨停溢价判断强度。" : ratio >= 30 ? "下跌家数占优，当前更接近结构行情。" : "市场广度明显偏弱，指数表现可能掩盖个股风险。";
-  setText("#breadth-read", MARKET === "tw" ? `${breadthText.replace(/家数/g, "产业")}（按 ${up + down + flat} 个证交所产业指数统计）` : breadthText);
+  setText("#breadth-read", MARKET === "tw" ? `${breadthText.replace(/家数/g, "产业")}（按 ${up + down + flat} 个证交所产业指数统计）` : MARKET === "hk" ? `${breadthText.replace("涨停溢价", "昨日大涨股溢价")}（按恒生综合指数 ${up + down + flat} 只成分股统计）` : breadthText);
   // 台股条件选股最多返回 100 只，达到上限显示「100+」
   const capped = (value, flag) => `${formatNumber(value)}${flag ? "+" : ""}`;
   setText("#limit-up", capped(data.extremes.limitUp, data.extremes.limitUpCapped));
@@ -297,6 +337,22 @@ function renderBreadth() {
   const balance = Number.isFinite(bigUp + bigDown) && bigUp + bigDown ? bigUp / (bigUp + bigDown) * 100 : 50;
   $("#tail-balance i").style.left = `${balance}%`;
   setText("#tail-balance span", balance >= 55 ? "大涨尾部占优，弹性方向反馈较好" : balance <= 45 ? "大跌尾部占优，亏钱效应更强" : "大涨与大跌尾部接近平衡");
+}
+
+// 港股：南向资金（只展示，不计入情绪分）与 52 周新高新低
+function renderFlow() {
+  if (MARKET !== "hk") return;
+  const south = data.southbound;
+  const yi = (value) => (Number.isFinite(Number(value)) ? `${Number(value) > 0 ? "+" : ""}${Number(value).toFixed(1)}亿` : "—");
+  setText("#southbound-total", yi(south?.total));
+  $("#southbound-total").className = signClass(south?.total);
+  setText("#southbound-sh", yi(south?.shanghai));
+  $("#southbound-sh").className = signClass(south?.shanghai);
+  setText("#southbound-sz", yi(south?.shenzhen));
+  $("#southbound-sz").className = signClass(south?.shenzhen);
+  setText("#southbound-day", south?.day ? `南向 ${south.day.slice(4, 6)}-${south.day.slice(6, 8)}` : "南向资金");
+  setText("#new-high", formatNumber(data.highLow?.newHigh));
+  setText("#new-low", formatNumber(data.highLow?.newLow));
 }
 
 function renderThemes() {
@@ -324,8 +380,9 @@ document.addEventListener("toggle", (event) => {
 function renderAnomalies() {
   const summary = anomalyData?.summary || {};
   const sourceItems = anomalyData?.items || [];
-  const filterLabels = { all: "全部异动", limit: "涨停点火", batch: "批量拉升", news: "消息催化" };
-  const limitLabel = MARKET === "tw" ? "涨停（≥9.5%）" : "涨停";
+  const limitWord = CFG.limitWord || "涨停";
+  const filterLabels = { all: "全部异动", limit: `${limitWord}点火`, batch: "批量拉升", news: "消息催化" };
+  const limitLabel = MARKET === "tw" ? "涨停（≥9.5%）" : MARKET === "hk" ? "大涨（≥10%）" : "涨停";
   const filterCounts = {
     all: sourceItems.filter((item) => (item.tabScores?.all ?? item.score) >= 60).length,
     limit: sourceItems.filter((item) => item.signals.includes("limit") && (item.tabScores?.limit ?? item.score) >= 60).length,
@@ -342,7 +399,7 @@ function renderAnomalies() {
   const verificationSummary = MARKET === "cn" && Number.isFinite(Number(summary.verifiedCandidates))
     ? `<span>已核验个股 ${summary.verifiedCandidates}</span><span>未入选归因 ${summary.rejectedCandidates || 0}</span>`
     : "";
-  $("#anomaly-summary").innerHTML = `<span>${MARKET === "tw" ? "有效方向" : "有效题材"} ${summary.total || 0}</span><span>${limitLabel}样本 ${anomalyData?.limitData?.stockCount || 0}</span>${streakSummary}${MARKET === "tw" ? "" : `<span>已合并 ${Math.max(0, (summary.rawTotal || 0) - (summary.mergedTotal || 0))}</span>`}${verificationSummary}<span>过滤低分 ${summary.filteredOut || 0}</span><span>门槛 ≥ ${summary.minScore || 60}</span>`;
+  $("#anomaly-summary").innerHTML = `<span>${MARKET === "tw" ? "有效方向" : "有效题材"} ${summary.total || 0}</span><span>${limitLabel}样本 ${anomalyData?.limitData?.stockCount || 0}</span>${streakSummary}${MARKET !== "cn" ? "" : `<span>已合并 ${Math.max(0, (summary.rawTotal || 0) - (summary.mergedTotal || 0))}</span>`}${verificationSummary}<span>过滤低分 ${summary.filteredOut || 0}</span><span>门槛 ≥ ${summary.minScore || 60}</span>`;
   const sorters = {
     all: (a, b) => (b.tabScores?.all ?? b.score) - (a.tabScores?.all ?? a.score) || (b.scoreBreakdown?.ladderTotalBonus || 0) - (a.scoreBreakdown?.ladderTotalBonus || 0) || (b.sortMetrics?.limitCount || 0) - (a.sortMetrics?.limitCount || 0),
     limit: (a, b) => (b.sortMetrics?.limitCount || b.limitStocks?.length || 0) - (a.sortMetrics?.limitCount || a.limitStocks?.length || 0) || (b.tabScores?.limit ?? b.score) - (a.tabScores?.limit ?? a.score),
@@ -351,6 +408,8 @@ function renderAnomalies() {
   };
   const sortLabels = MARKET === "tw"
     ? { all: "综合分降序", limit: "涨停家数降序", batch: "—", news: "产业涨跌幅降序" }
+    : MARKET === "hk"
+    ? { all: "综合分降序", limit: "大涨家数降序", batch: "—", news: "概念涨跌幅降序" }
     : { all: "综合分降序", limit: "涨停家数降序", batch: "5分钟涨跌幅降序", news: "涨跌幅与涨速综合降序" };
   const items = sourceItems.filter((item) => (anomalyFilter === "all" || item.signals.includes(anomalyFilter)) && (item.tabScores?.[anomalyFilter] ?? item.score) >= 60).sort(sorters[anomalyFilter] || sorters.all);
   const quoteTime = anomalyData?.items?.[0]?.tradeTime ? `行情时间 ${anomalyData.items[0].tradeTime} · ` : "";
@@ -360,7 +419,7 @@ function renderAnomalies() {
     $("#anomaly-list").innerHTML = `${viewState}<div class="anomaly-empty">当前筛选条件下没有识别到题材异动。</div>`;
     return;
   }
-  const labels = { limit: "涨停点火", batch: "批量拉升", news: "消息催化" };
+  const labels = { limit: `${limitWord}点火`, batch: "批量拉升", news: "消息催化" };
   const stockItems = (items, role) => items.length ? items.map((stock) => {
     const candidateRules = role === "ride" ? `<div class="candidate-rules"><p><strong>触发</strong><span>${escapeHtml(stock.trigger || "等待个股突破日内关键价位且题材动能保持为正")}</span></p><p><strong>失效</strong><span>${escapeHtml(stock.invalidation || "跌破日内关键支撑且题材5分钟动能转负")}</span></p></div>` : "";
     const streakBadge = role === "ignition" && Number(stock.limitStreak) >= 2 ? `<i class="streak-badge">${escapeHtml(stock.streakLabel || `${stock.limitStreak}连板`)}</i>` : "";
@@ -388,7 +447,7 @@ function renderAnomalies() {
     if (!details.length) details.push(`日内涨幅 ${formatPct(item.dayChange)}`);
     const detail = details.join("；");
     const rankingMetric = anomalyFilter === "limit"
-      ? `${item.sortMetrics?.limitCount || item.limitStocks?.length || 0}家涨停`
+      ? `${item.sortMetrics?.limitCount || item.limitStocks?.length || 0}家${limitWord}`
       : anomalyFilter === "batch"
         ? `5分钟 ${formatPct(item.sortMetrics?.fiveMinuteChange ?? item.shortMove)}`
         : anomalyFilter === "news"
@@ -396,12 +455,12 @@ function renderAnomalies() {
           : `综合分 ${activeScore}`;
     const showNews = (anomalyFilter === "all" || anomalyFilter === "news") && item.news?.length;
     const newsCards = showNews ? `<div class="catalyst-news-list">${item.news.slice(0, 3).map((article) => `<article class="catalyst-news"><div class="catalyst-news-head"><b>${escapeHtml(plain(article.title, "市场消息"))}</b><span>${escapeHtml(plain(article.source, "财经新闻"))}${article.date ? ` · ${escapeHtml(article.date)}` : ""}</span></div><p><strong>刺激观点</strong>${escapeHtml(article.viewpoint || article.catalyst || "正文观点待补充")}</p><p><strong>可能影响</strong>${escapeHtml(article.impact || article.relation || `需要继续验证该消息对${item.name}基本面预期的实际影响。`)}</p>${article.matchedKeywords?.length ? `<div class="catalyst-keywords">${article.matchedKeywords.map((keyword) => `<i>${escapeHtml(keyword)}</i>`).join("")}${Number.isFinite(Number(article.relevanceScore)) ? `<em>关联度 ${article.relevanceScore}</em>` : ""}</div>` : ""}</article>`).join("")}</div>` : "";
-    const displayStatus = anomalyFilter === "limit" ? "涨停点火" : anomalyFilter === "batch" ? "批量拉升" : anomalyFilter === "news" ? "消息催化" : item.status;
+    const displayStatus = anomalyFilter === "limit" ? `${limitWord}点火` : anomalyFilter === "batch" ? "批量拉升" : anomalyFilter === "news" ? "消息催化" : item.status;
     const batchChip = (anomalyFilter === "all" || anomalyFilter === "batch") && item.shortMove != null && Number.isFinite(Number(item.shortMove)) ? `<span class="anomaly-chip batch">5分钟 ${formatPct(item.shortMove)}</span>` : "";
     const limitChip = (anomalyFilter === "all" || anomalyFilter === "limit") && item.limitStocks?.length ? `<span class="anomaly-chip limit">${item.limitStocks.length}只点火股</span>` : "";
     const highBoardChip = (anomalyFilter === "all" || anomalyFilter === "limit") && item.ladder?.maxStreak >= 3 ? `<span class="anomaly-chip ladder">最高${item.ladder.maxStreak}板 +${item.ladder.highBoardBonus}</span>` : "";
     const fullLadderChip = (anomalyFilter === "all" || anomalyFilter === "limit") && item.ladder?.contiguousDepth >= 3 ? `<span class="anomaly-chip ladder">完整1-${item.ladder.contiguousDepth}板 +${item.ladder.ladderBonus}</span>` : "";
-    return `<article class="anomaly-card filter-${anomalyFilter}${index < 3 ? " primary" : ""}"><div class="anomaly-card-head"><div><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.code || "概念板块")}</small><em class="anomaly-rank-metric">${rankingMetric}</em></div><span class="anomaly-score">${activeScore}</span></div><span class="anomaly-status">${escapeHtml(displayStatus)}</span><div class="anomaly-evidence">${chips}${batchChip}${limitChip}${highBoardChip}${fullLadderChip}</div><p class="anomaly-detail" title="${escapeHtml(detail)}">${escapeHtml(detail)}</p>${newsCards}<details class="stock-details" data-theme="${escapeHtml(item.name)}"${stockDetailsOpen(item.name) ? " open" : ""}><summary>个股分层 <small>点火 ${(item.limitStocks || []).length} · 跟风 ${(item.followers || []).length} · 候选 ${(item.rideable || []).length}</small></summary><div class="stock-layers"><section class="role-section ignition"><h4>点火个股 <small>率先封板</small></h4>${stockItems(item.limitStocks || [], "ignition")}</section><section class="role-section follower"><h4>跟风个股 <small>同步走强未封板</small></h4>${stockItems(item.followers || [], "follower")}</section><section class="role-section ride"><h4>候选上车 <small>需等待触发</small></h4>${stockItems(item.rideable || [], "ride")}</section></div></details></article>`;
+    return `<article class="anomaly-card filter-${anomalyFilter}${index < 3 ? " primary" : ""}"><div class="anomaly-card-head"><div><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.code || "概念板块")}</small><em class="anomaly-rank-metric">${rankingMetric}</em></div><span class="anomaly-score">${activeScore}</span></div><span class="anomaly-status">${escapeHtml(displayStatus)}</span><div class="anomaly-evidence">${chips}${batchChip}${limitChip}${highBoardChip}${fullLadderChip}</div><p class="anomaly-detail" title="${escapeHtml(detail)}">${escapeHtml(detail)}</p>${newsCards}<details class="stock-details" data-theme="${escapeHtml(item.name)}"${stockDetailsOpen(item.name) ? " open" : ""}><summary>个股分层 <small>点火 ${(item.limitStocks || []).length} · 跟风 ${(item.followers || []).length} · 候选 ${(item.rideable || []).length}</small></summary><div class="stock-layers"><section class="role-section ignition"><h4>点火个股 <small>${MARKET === "hk" ? "率先大涨" : "率先封板"}</small></h4>${stockItems(item.limitStocks || [], "ignition")}</section><section class="role-section follower"><h4>跟风个股 <small>${MARKET === "hk" ? "同步走强" : "同步走强未封板"}</small></h4>${stockItems(item.followers || [], "follower")}</section><section class="role-section ride"><h4>候选上车 <small>需等待触发</small></h4>${stockItems(item.rideable || [], "ride")}</section></div></details></article>`;
   }).join("");
 }
 
@@ -513,6 +572,7 @@ function renderAll() {
   renderPulse();
   renderMetrics();
   renderBreadth();
+  renderFlow();
   renderThemes();
   renderTimeline();
 }
