@@ -308,7 +308,7 @@ class GithubReadStore {
     return this.sub ? `${this.base}/${this.sub}` : this.base;
   }
   async fetchJson(relative, fallback) {
-    // 缓存按完整地址区分：A股（根目录）和台股（tw/）的同名文件不能互相命中。
+    // 缓存按完整地址区分。
     const url = `${await this.root()}/${relative}`;
     const cached = this.fresh ? null : readCache.get(url);
     if (cached && Date.now() - cached.at < READ_CACHE_MS) return cached.value;
@@ -340,7 +340,7 @@ export function storageMode(env = process.env) {
   return "memory";
 }
 
-// 每个市场一份独立数据：A股（cn）在数据分支根目录（保持原有路径），台股（tw）在 tw/ 子目录。
+// A股（cn）数据在数据分支根目录。
 const memoryStores = new Map();
 export function marketSubdir(market = "cn") {
   return market === "cn" ? "" : market;

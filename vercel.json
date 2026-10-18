@@ -15,14 +15,18 @@
     {"source": "/shortemotion/", "destination": "/shortemotion/cn", "permanent": false},
     {"source": "/cn", "destination": "/shortemotion/cn", "permanent": false},
     {"source": "/cn/", "destination": "/shortemotion/cn", "permanent": false},
-    {"source": "/tw", "destination": "/shortemotion/tw", "permanent": false},
-    {"source": "/tw/", "destination": "/shortemotion/tw", "permanent": false},
+    {"source": "/tw", "destination": "/shortemotion/cn", "permanent": false},
+    {"source": "/tw/", "destination": "/shortemotion/cn", "permanent": false},
     {"source": "/cn-short-emotion", "destination": "/shortemotion/cn", "permanent": false},
     {"source": "/cn-short-emotion/", "destination": "/shortemotion/cn", "permanent": false},
-    {"source": "/tw-short-emotion", "destination": "/shortemotion/tw", "permanent": false},
-    {"source": "/tw-short-emotion/", "destination": "/shortemotion/tw", "permanent": false},
+    {"source": "/tw-short-emotion", "destination": "/shortemotion/cn", "permanent": false},
+    {"source": "/tw-short-emotion/", "destination": "/shortemotion/cn", "permanent": false},
     {"source": "/short-emotion", "destination": "/shortemotion/cn", "permanent": false},
-    {"source": "/short-emotion/", "destination": "/shortemotion/cn", "permanent": false}
+    {"source": "/short-emotion/", "destination": "/shortemotion/cn", "permanent": false},
+    {"source": "/shortemotion/tw", "destination": "/shortemotion/cn", "permanent": false},
+    {"source": "/shortemotion/tw/", "destination": "/shortemotion/cn", "permanent": false},
+    {"source": "/shortemotion/hk", "destination": "/shortemotion/cn", "permanent": false},
+    {"source": "/shortemotion/hk/", "destination": "/shortemotion/cn", "permanent": false}
   ],
   "rewrites": [
     {"source": "/about", "destination": "/about/index.html"},
@@ -32,10 +36,6 @@
     {"source": "/account", "destination": "/account/index.html"},
     {"source": "/account/", "destination": "/account/index.html"},
     {"source": "/shortemotion/cn", "destination": "/short-emotion/index.html"},
-    {"source": "/shortemotion/cn/", "destination": "/short-emotion/index.html"},
-    {"source": "/shortemotion/hk", "destination": "/short-emotion/index.html"},
-    {"source": "/shortemotion/hk/", "destination": "/short-emotion/index.html"},
-    {"source": "/shortemotion/tw", "destination": "/short-emotion/index.html"},
-    {"source": "/shortemotion/tw/", "destination": "/short-emotion/index.html"}
+    {"source": "/shortemotion/cn/", "destination": "/short-emotion/index.html"}
   ]
 }

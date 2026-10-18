@@ -12,9 +12,6 @@
     // 外观设置（localStorage）：深浅色主题与红涨/绿涨配色。键名沿用 TWSVP 时期的 twsvp_*，没有设置时跟随系统主题、红涨绿跌。
     (function () {
       var root = document.documentElement;
-      root.dataset.market = /^\/(?:shortemotion\/)?tw(?:-short-emotion)?(?:\/|$)/.test(location.pathname) ? "tw" : /^\/shortemotion\/hk(?:\/|$)/.test(location.pathname) ? "hk" : "cn";
-      if (root.dataset.market === "tw") { root.lang = "zh-Hant-TW"; document.title = "短線情緒 · 台股 · ShortEmotion"; }
-      if (root.dataset.market === "hk") document.title = "短线情绪 · 港股 · ShortEmotion";
       var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
       var theme = get("twsvp_theme");
       if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
@@ -28,18 +25,13 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/short-emotion/twsvp.css?v=12">
+  <link rel="stylesheet" href="/short-emotion/twsvp.css?v=13">
 </head>
 <body>
   <div class="app-shell">
     <nav class="nav">
       <a class="nav-logo" href="/about" aria-label="ShortEmotion 介绍"><img src="/short-emotion/logo.svg?v=2" alt="ShortEmotion"></a>
       <div class="nav-title">短线情绪</div>
-      <div class="market-switch" role="tablist" aria-label="市场">
-        <a class="market-tab" data-market="cn" href="/shortemotion/cn">A股</a>
-        <a class="market-tab" data-market="hk" href="/shortemotion/hk">港股</a>
-        <a class="market-tab" data-market="tw" href="/shortemotion/tw">台股</a>
-      </div>
       <button id="account" class="nav-btn" type="button" aria-label="账号" title="账号" aria-haspopup="menu" aria-expanded="false">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5" stroke="currentColor" stroke-width="1.6"/><path d="M5 19.5c1.2-3.3 3.8-5 7-5s5.8 1.7 7 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
       </button>
@@ -86,8 +78,8 @@
         <div class="metric-strip">
           <article><span id="index-label">全A涨跌幅</span><strong id="index-change">—</strong><small id="index-level">881001.WI</small></article>
           <article><span id="amount-label">两市成交额</span><strong id="amount">—</strong><small id="amount-note">全A口径</small></article>
-          <article><span id="premium-label">昨日涨停溢价</span><strong id="premium">—</strong><small>今日平均涨跌幅</small></article>
-          <article><span id="limit-pair-label">涨停 / 跌停</span><strong id="limit-pair" class="limit-pair"><span class="up-text">—</span><i>/</i><span class="down-text">—</span></strong><small>极端反馈</small></article>
+          <article><span>昨日涨停溢价</span><strong id="premium">—</strong><small>今日平均涨跌幅</small></article>
+          <article><span>涨停 / 跌停</span><strong id="limit-pair" class="limit-pair"><span class="up-text">—</span><i>/</i><span class="down-text">—</span></strong><small>极端反馈</small></article>
         </div>
       </section>
 
@@ -100,27 +92,14 @@
         </article>
 
         <article class="card">
-          <div class="card-head"><h2 class="card-title">赚钱与亏钱尾部</h2><span id="tail-pill" class="pill">全市场统计</span></div>
+          <div class="card-head"><h2 class="card-title">赚钱与亏钱尾部</h2><span class="pill">全市场统计</span></div>
           <div class="extreme-grid">
-            <div class="positive"><span id="limit-up-label">涨停</span><strong id="limit-up">—</strong></div>
-            <div class="negative"><span id="limit-down-label">跌停</span><strong id="limit-down">—</strong></div>
+            <div class="positive"><span>涨停</span><strong id="limit-up">—</strong></div>
+            <div class="negative"><span>跌停</span><strong id="limit-down">—</strong></div>
             <div class="positive"><span>涨幅 &gt; 5%</span><strong id="big-up">—</strong></div>
             <div class="negative"><span>跌幅 &gt; 5%</span><strong id="big-down">—</strong></div>
           </div>
           <div id="tail-balance" class="tail-balance"><i></i><span>等待尾部强弱对比</span></div>
-        </article>
-
-        <article id="flow-card" class="card" hidden>
-          <div class="card-head"><h2 class="card-title">南向资金与新高新低</h2><span id="southbound-day" class="pill">—</span></div>
-          <div class="extreme-grid flow-grid flow-grid-3">
-            <div><span>南向净买入</span><strong id="southbound-total">—</strong></div>
-            <div><span>港股通（沪）</span><strong id="southbound-sh">—</strong></div>
-            <div><span>港股通（深）</span><strong id="southbound-sz">—</strong></div>
-          </div>
-          <div class="extreme-grid flow-grid flow-grid-2">
-            <div class="positive"><span>52周新高</span><strong id="new-high">—</strong></div>
-            <div class="negative"><span>52周新低</span><strong id="new-low">—</strong></div>
-          </div>
         </article>
       </section>
 
@@ -169,6 +148,6 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="/short-emotion/vendor/html-to-image.js" defer></script>
-  <script type="module" src="/short-emotion/app.js?v=40"></script>
+  <script type="module" src="/short-emotion/app.js?v=41"></script>
 </body>
 </html>

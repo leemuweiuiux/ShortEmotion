@@ -110,8 +110,8 @@ section, .hero { background: var(--surface); border: 1px solid var(--border); pa
 .hero-word.swap { opacity: 0; transform: translateY(6px); }
 .hero-lead { color: var(--muted); font-size: 15px; line-height: 1.7; max-width: 34em; }
 
-/* 今日情绪：三个市场的实时分数（与看板同款圆环） */
-.live { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 4px; }
+/* 今日情绪：A股实时分数（与看板同款圆环） */
+.live { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 4px; }
 .live-tile {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -169,12 +169,6 @@ h3 { font-size: 17px; font-weight: 700; line-height: 1.4; }
   -webkit-mask-image: linear-gradient(180deg, #000 72%, transparent);
   mask-image: linear-gradient(180deg, #000 72%, transparent);
 }
-
-/* ── 三个市场 ── */
-.markets { display: grid; gap: 14px; }
-.market-grid { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--border); }
-.market-grid > div { display: grid; gap: 4px; align-content: start; padding: 14px; }
-.market-grid > div + div { border-left: 1px solid var(--border); }
 
 /* ── 数据来源（Wind MCP） ── */
 .data-source { display: grid; gap: 12px; }
@@ -241,25 +235,11 @@ h3 { font-size: 17px; font-weight: 700; line-height: 1.4; }
   text-decoration: none;
 }
 
-@media (max-width: 640px) {
-  /* 三个市场在手机上仍并排：每张卡改成上下排列 */
-  .live { gap: 8px; }
-  .live-tile { grid-template-columns: 1fr; grid-template-areas: "market" "ring" "phase" "time"; justify-items: start; align-content: start; align-items: start; padding: 12px 10px; row-gap: 8px; }
-  .live-market { margin-bottom: 0; }
-  .live-ring { --size: 52px; }
-  .live-score { font-size: 20px; }
-  .live-phase { font-size: 17px; }
-  .live-time { width: 100%; font-size: 11px; }
-  .market-grid { grid-template-columns: 1fr; }
-  .market-grid > div + div { border-left: 0; border-top: 1px solid var(--border); }
-}
 @media (max-width: 520px) {
   .hero-title { font-size: 30px; }
 }
 @media (max-width: 380px) {
   .hero-title { font-size: 28px; }
-  .market-grid { grid-template-columns: 1fr; }
-  .market-grid > div + div { border-left: 0; border-top: 1px solid var(--border); }
   .drawer-copy { display: none; }
   .drawer-cta { flex: 1; text-align: center; }
 }

@@ -1,19 +1,14 @@
-// Orchestration for 短线情绪工作台 (A股 cn / 台股 tw):
+// Orchestration for 短线情绪工作台 (A股):
 //   runScheduledRefresh — the only code path that calls Wind (GitHub Actions cron / manual trigger)
 //   readResource        — what page visitors get: stored snapshots, never a Wind call
 import * as cnEngine from "./engine.js";
 import { resetWindCallStats, windCallStats } from "./wind-client.js";
-import * as twEngine from "./tw-engine.js";
-import * as hkEngine from "./hk-engine.js";
 import { getStore, storageMode } from "./store.js";
 import { duePlan, scheduleSummary, scheduleFor, MARKETS } from "./schedule.js";
 import { getApiKeys, isMockMode } from "./wind-client.js";
-import { toTraditional } from "./hant.js";
 
 const MARKET_CONFIG = {
-  cn: { engine: cnEngine, transform: async (value) => value },
-  tw: { engine: twEngine, transform: toTraditional },
-  hk: { engine: hkEngine, transform: async (value) => value }
+  cn: { engine: cnEngine },
 };
 
 export { MARKETS };
@@ -51,7 +46,7 @@ const ALL_JOBS = { emotion: true, anomalies: true, news: true, cleanup: false };
  */
 export async function runScheduledRefresh({ force = false, now = new Date(), market = "cn" } = {}) {
   market = normalizeMarket(market);
-  const { engine, transform } = MARKET_CONFIG[market];
+  const { engine } = MARKET_CONFIG[market];
   const { loadEmotion, loadThemeAnomalies, loadNews, historyRecord, isTradingSessionHistory, exportEngineState, importEngineState } = engine;
   const SCHEDULE = scheduleFor(market);
   const store = getStore(market);
@@ -89,7 +84,7 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
     return finish("error", { errors: ["WIND_API_KEY 未配置（Vercel → Settings → Environment Variables）"] });
   }
 
-  // 当日状态优先；台股的连板名单需要跨日延续，所以再回退到最近一次保存的状态。
+  // 当日状态优先，再回退到最近一次保存的状态。
   const savedState = (await store.kvGet(KEY.engineState(plan.day)).catch(() => null))?.value
     || (await store.kvGet(KEY.engineStateLatest).catch(() => null))?.value;
   importEngineState(savedState, plan.day);
@@ -98,16 +93,9 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
   let inAuction = false;
   if (jobs.emotion) {
     try {
-      const snapshot = await transform(await loadEmotion());
+      const snapshot = await loadEmotion();
       const quoteDay = quoteDayOf(snapshot);
-      if (SCHEDULE.endOfDay && quoteDay) {
-        // 盘后模式（台股）：Wind 只有收盘数据，直接保存最近一个交易日的快照，每日曲线按交易日记一个点。
-        const eodSnapshot = { ...snapshot, tradingDate: quoteDay, endOfDay: true };
-        await store.kvSet(KEY.emotion, eodSnapshot);
-        const record = historyRecord(eodSnapshot);
-        await store.historyUpsert(record, isTradingSessionHistory(record));
-        result.ran.push(`emotion(eod ${quoteDay})`);
-      } else if (quoteDay === plan.day && SCHEDULE.sessionStart && quoteMinuteOf(snapshot) != null && quoteMinuteOf(snapshot) < SCHEDULE.sessionStart) {
+      if (quoteDay === plan.day && SCHEDULE.sessionStart && quoteMinuteOf(snapshot) != null && quoteMinuteOf(snapshot) < SCHEDULE.sessionStart) {
         // 集合竞价（09:15–09:25）的行情：涨跌家数为 0、涨跌停是虚拟撮合价，不保存，保留上一份快照。
         marketLive = false;
         inAuction = true;
@@ -137,10 +125,10 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
   }
 
   const tasks = [];
-  if (jobs.anomalies && !marketLive && (result.mode === "scheduled" || inAuction) && !SCHEDULE.endOfDay) {
+  if (jobs.anomalies && !marketLive && (result.mode === "scheduled" || inAuction)) {
     result.skipped.push("anomalies: 当日行情未就绪，跳过以免覆盖为旧数据");
   } else if (jobs.anomalies) {
-    tasks.push(loadThemeAnomalies().then(transform).then(async (output) => {
+    tasks.push(loadThemeAnomalies().then(async (output) => {
       // A fully failed run (nothing returned) must not wipe the last good radar.
       if (!output.items.length && output.partial && await store.kvGet(KEY.anomalies)) {
         result.errors.push(`anomalies: 本次无有效结果，保留上一份 | ${output.errors.slice(0, 3).join(" | ")}`);
@@ -151,7 +139,7 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
     }).catch((error) => { result.errors.push(`anomalies: ${errorText(error)}`); }));
   }
   if (jobs.news) {
-    tasks.push(loadNews().then(transform).then(async (items) => {
+    tasks.push(loadNews().then(async (items) => {
       if (!items.length) { result.skipped.push("news: 无新结果"); return; }
       await store.kvSet(KEY.news, { asOf: new Date().toISOString(), items });
       result.ran.push("news");
@@ -199,9 +187,7 @@ export async function readResource(resource, market = "cn", { fresh = false } = 
 
   if (resource === "emotion") {
     const entry = await store.kvGet(KEY.emotion);
-    if (!entry) throw new NotReadyError(market === "tw"
-      ? "暫無快照：首個數據將在下一個交易時段生成"
-      : "暂无快照：首个数据将在下一个交易时段生成");
+    if (!entry) throw new NotReadyError("暂无快照：首个数据将在下一个交易时段生成");
     return { ...entry.value, ...meta(entry) };
   }
   if (resource === "anomalies") {

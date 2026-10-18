@@ -6,7 +6,7 @@ const root = resolve(__dirname, "..");
 const workflow = readFileSync(resolve(root, ".github/workflows/short-emotion.yml"), "utf8");
 const vercel = JSON.parse(readFileSync(resolve(root, "vercel.json"), "utf8"));
 
-const SHORT_EMOTION_CRON = "0,30 1-8 * * 1-5";
+const SHORT_EMOTION_CRON = "0,30 1-7 * * 1-5";
 const PAGE = "/short-emotion/index.html";
 
 describe("网址：介绍页、登录页与看板", () => {
@@ -29,29 +29,20 @@ describe("网址：介绍页、登录页与看板", () => {
     expect(html).toMatch(/<a class="drawer-cta" href="\/login">登录<\/a>/);
   });
 
-  it("短线情绪看板在 /shortemotion/cn、/shortemotion/tw，同一个页面提供", () => {
-    for (const path of ["/shortemotion/cn", "/shortemotion/cn/", "/shortemotion/tw", "/shortemotion/tw/"]) expect(rewrites[path]).toBe(PAGE);
+  it("短线情绪看板在 /shortemotion/cn", () => {
+    for (const path of ["/shortemotion/cn", "/shortemotion/cn/"]) expect(rewrites[path]).toBe(PAGE);
     expect(redirects["/shortemotion"]).toBe("/shortemotion/cn");
   });
 
   it("旧网址都跳到新网址（不经过二次跳转）", () => {
     const expected = {
-      "/cn": "cn", "/cn/": "cn", "/tw": "tw", "/tw/": "tw",
-      "/cn-short-emotion": "cn", "/cn-short-emotion/": "cn", "/tw-short-emotion": "tw", "/tw-short-emotion/": "tw",
-      "/short-emotion": "cn"
+      "/cn": "cn", "/cn/": "cn", "/cn-short-emotion": "cn", "/cn-short-emotion/": "cn", "/short-emotion": "cn",
+      // 已下线的台股、港股看板：旧链接都回到 A股
+      "/tw": "cn", "/tw/": "cn", "/tw-short-emotion": "cn", "/tw-short-emotion/": "cn",
+      "/shortemotion/tw": "cn", "/shortemotion/tw/": "cn", "/shortemotion/hk": "cn", "/shortemotion/hk/": "cn"
     };
     for (const [path, market] of Object.entries(expected)) expect(redirects[path]).toBe(`/shortemotion/${market}`);
     for (const destination of Object.values(redirects)) expect(redirects[destination]).toBeUndefined();
-  });
-
-  it("页面按路径识别市场：/shortemotion/tw（及旧的 /tw、/tw-short-emotion）是台股，其余是 A股", () => {
-    const html = readFileSync(resolve(root, "public/short-emotion/index.html"), "utf8");
-    const pattern = new RegExp(html.match(/root\.dataset\.market = \/(.+?)\/\.test/)[1]);
-    for (const path of ["/shortemotion/tw", "/shortemotion/tw/", "/tw", "/tw-short-emotion"]) expect(pattern.test(path)).toBe(true);
-    for (const path of ["/shortemotion/cn", "/cn", "/about", "/shortemotion/twxyz", "/short-emotion/index.html"]) expect(pattern.test(path)).toBe(false);
-    // app.js 用同一个判断
-    const app = readFileSync(resolve(root, "public/short-emotion/app.js"), "utf8");
-    expect(app.split(pattern.source).length - 1).toBe(2);
   });
 
   it("页面里的站内链接都指向存在的网址", () => {
@@ -117,7 +108,7 @@ describe("页面文字：不到处标注数据供应商", () => {
 });
 
 describe("数据任务（GitHub Actions）", () => {
-  it("工作日 09:00–16:30（北京时间）每 30 分钟运行", () => {
+  it("工作日 09:00–15:30（北京时间）每 30 分钟运行", () => {
     const schedules = [...workflow.matchAll(/-\s*cron:\s*"([^"]+)"/g)].map((m) => m[1]);
     expect(schedules).toEqual([SHORT_EMOTION_CRON]);
     expect(workflow).toContain(`github.event.schedule == '${SHORT_EMOTION_CRON}'`);
