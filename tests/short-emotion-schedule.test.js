@@ -41,25 +41,6 @@ describe("短线情绪 schedule (A股 every 30 min in session, news hourly)", ()
   });
 });
 
-describe("台股 schedule (end-of-day snapshots inside the existing 09:00–15:30 cron)", () => {
-  const twDue = (date, time) => Object.entries(duePlan(bj(date, time), "tw").jobs).filter(([, on]) => on).map(([name]) => name).sort();
-
-  it("09:00 takes the previous close plus news", () => {
-    expect(twDue("2026-10-12", "09:00")).toEqual(["anomalies", "emotion", "news"]);
-  });
-
-  it("during the session only news updates (Wind Taiwan quotes are end-of-day)", () => {
-    for (const time of ["09:30", "11:00", "13:00", "13:30"]) {
-      expect(twDue("2026-10-12", time)).toEqual(["news"]);
-    }
-  });
-
-  it("15:00 and 15:30 take the day's close; 15:30 also cleans up", () => {
-    expect(twDue("2026-10-12", "15:00")).toEqual(["anomalies", "emotion"]);
-    expect(twDue("2026-10-12", "15:30")).toEqual(["anomalies", "cleanup", "emotion"]);
-  });
-});
-
 describe("runScheduledRefresh (mock Wind, memory store)", () => {
   let runScheduledRefresh;
   let readResource;
@@ -110,36 +91,11 @@ describe("runScheduledRefresh (mock Wind, memory store)", () => {
   });
 });
 
-describe("台股 refresh (mock Wind, memory store)", () => {
-  let runScheduledRefresh;
-  let readResource;
-
-  beforeAll(async () => {
+describe("市场", () => {
+  it("只支持 A股，其他市场报错", async () => {
     process.env.WIND_MOCK = "1";
-    ({ runScheduledRefresh, readResource } = await import("../api/_lib/short-emotion/service.js"));
-  });
-
-  it("stores a 台股 snapshot separately from A股", async () => {
-    const result = await runScheduledRefresh({ force: true, market: "tw" });
-    expect(result.status).toBe("ok");
-    expect(result.market).toBe("tw");
-    const emotion = await readResource("emotion", "tw");
-    expect(emotion.marketCode).toBe("tw");
-    expect(emotion.market.up).toBeGreaterThan(0);
-    expect(emotion.scoreVersion).toBe(2);
-    expect(emotion.coverage.find((item) => item.name.startsWith("成交"))?.status).toBe("derived"); // 台股文字已转繁体
-    expect(emotion.extremes.limitUp).toBeGreaterThan(0);
-    expect(emotion.themes[0].code).toMatch(/^TWSE\d+\.TW$/);
-    expect(emotion.schedule).toContain("13:30");
-    const anomalies = await readResource("anomalies", "tw");
-    expect(anomalies.items.length).toBeGreaterThan(0);
-    expect(anomalies.items.every((item) => !item.signals.includes("batch"))).toBe(true);
-    const cn = await readResource("emotion", "cn");
-    expect(cn.themes[0].code).not.toMatch(/^TWSE/);
-  });
-
-  it("rejects unknown markets", async () => {
-    await expect(readResource("emotion", "us")).rejects.toThrow("未知市场");
+    const { readResource } = await import("../api/_lib/short-emotion/service.js");
+    for (const market of ["tw", "hk", "us"]) await expect(readResource("emotion", market)).rejects.toThrow("未知市场");
   });
 });
 

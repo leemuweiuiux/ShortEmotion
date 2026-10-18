@@ -1,20 +1,12 @@
 // 短线情绪工作台 — 定时更新节奏（唯一需要改频率的地方）
 //
 // 只有 GitHub Actions 定时任务（scripts/short-emotion/refresh.mjs）会调用 Wind；页面访问只读最新快照。
-// 工作流在北京/台北时间（同为 UTC+8）工作日 09:00–15:30 每 30 分钟唤醒一次（台股需要 15:30），
-// 每个市场跑哪些任务由下面各自的窗口决定。所有时间单位：分钟（UTC+8）。
+// 工作流在北京时间工作日 09:00–15:30 每 30 分钟唤醒一次，跑哪些任务由下面的窗口决定。所有时间单位：分钟（UTC+8）。
 //
 // A股（cn）：交易时段每 30 分钟一次，午休不跑。
 //   - 情绪指标 + 题材异动：09:30–11:30、13:00–15:00 每 30 分钟（共 10 次；11:30 为上午收盘，15:00 为全天收盘）
 //   - 新闻：每小时整点（09:00 盘前、10:00、11:00、13:00、14:00、15:00）
 //   - 同一个 30 分钟时段只调用一次 Wind；GitHub 定时任务延迟时仍落在原时段，被跳过的时段就少一个点。
-// 台股（tw）：Wind 的台股行情为收盘（日终）数据，盘中不更新，因此台股页是「盘后快照」：
-//   - 09:00：取前一交易日收盘数据（此时一定可用）
-//   - 15:00、15:30：收盘后再取一次，Wind 已更新时即为当日收盘数据，未更新则数据不变
-//   - 新闻 09:00–13:30 每 30 分钟（新闻是实时的）
-//   以上都在现有 GitHub 定时任务（工作日 09:00–15:30 每 30 分钟）之内，不新增定时任务。
-
-const HK_SLOTS = [10, 11, 12, 13, 14, 15, 16].map((hour) => [hour * 60, hour * 60]).concat([[16 * 60 + 30, 16 * 60 + 30]]);
 
 export const SCHEDULES = {
   cn: {
@@ -32,43 +24,13 @@ export const SCHEDULES = {
     // 晚于这个时间仍拿不到当日行情，就判定今天休市，当天不再调用 Wind
     holidayCheckAfter: 10 * 60,
     summary: "交易日 09:30–11:30、13:00–15:00 每 30 分钟定时更新"
-  },
-  tw: {
-    slotMinutes: 30,
-    // 盘后模式：接受 Wind 返回的最近一个交易日收盘数据，不做盘中/休市判断
-    endOfDay: true,
-    jobs: {
-      emotion: { everyMinutes: 30, windows: [[9 * 60, 9 * 60], [15 * 60, 15 * 60 + 30]] },
-      anomalies: { everyMinutes: 30, windows: [[9 * 60, 9 * 60], [15 * 60, 15 * 60 + 30]] },
-      news: { everyMinutes: 30, windows: [[9 * 60, 13 * 60 + 30]] }
-    },
-    cleanupAt: 15 * 60 + 30,
-    historyTradingDays: 60,
-    holidayCheckAfter: 24 * 60,
-    summary: "盤後快照：台股為收盤數據，每個交易日 09:00 與 15:00 後更新（新聞 09:00–13:30 每 30 分鐘）"
-  },
-  // 港股（hk）：交易时段 09:30–12:00、13:00–16:00。整点每小时一次（10:00–16:00，12:00 取上午收盘），
-  // 16:30 再取一次收盘（收盘竞价到 16:10）。情绪、题材、新闻一起更新。
-  hk: {
-    slotMinutes: 30,
-    jobs: {
-      emotion: { everyMinutes: 30, windows: HK_SLOTS },
-      anomalies: { everyMinutes: 30, windows: HK_SLOTS },
-      news: { everyMinutes: 30, windows: HK_SLOTS }
-    },
-    sessionStart: 9 * 60 + 30,
-    cleanupAt: 16 * 60 + 30,
-    historyTradingDays: 60,
-    holidayCheckAfter: 10 * 60,
-    summary: "交易日 10:00–16:00 每小时定时更新，16:30 取收盘"
   }
 };
 
-// 兼容旧代码：SCHEDULE 指 A股
 export const SCHEDULE = SCHEDULES.cn;
 export const MARKETS = Object.keys(SCHEDULES);
 
-const TZ = "Asia/Shanghai"; // 台北与北京同为 UTC+8
+const TZ = "Asia/Shanghai";
 
 export function scheduleFor(market = "cn") {
   const schedule = SCHEDULES[market];

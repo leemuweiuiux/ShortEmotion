@@ -1,19 +1,8 @@
 // 个人资料 /account：姓名、邮箱（只读）、电话区号与手机号（不做验证码）。资料存在 Supabase 的用户资料里（/api/auth?action=profile）。
-import { initLanguage, setText } from "/shared/lang.js?v=7";
+import { initLanguage, setText } from "/shared/lang.js?v=8";
 
 const $ = (selector) => document.querySelector(selector);
 
-// 从哪个看板进来就返回哪个；从台股看板进来、且没选过语言时用繁体。
-const from = (() => {
-  try {
-    const url = new URL(document.referrer);
-    return url.origin === location.origin && /^\/shortemotion\/(?:cn|tw|hk)\/?$/.test(url.pathname) ? url.pathname : null;
-  } catch { return null; }
-})();
-if (from) $("#back").href = from;
-let savedLang = null;
-try { savedLang = localStorage.getItem("shortemotion:lang"); } catch {}
-if (!savedLang && from?.includes("/tw")) document.documentElement.dataset.lang = "hant";
 initLanguage();
 
 const form = $("#profile-form");

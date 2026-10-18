@@ -1,6 +1,6 @@
 # ShortEmotion · 短線情緒
 
-A股 / 台股短線情緒看板：**https://lfjmwl.com**（Vercel 預設網址 stockmarketshortemotion.vercel.app 也可用）。
+A股短線情緒看板：**https://lfjmwl.com**（Vercel 預設網址 stockmarketshortemotion.vercel.app 也可用）。
 
 由 [twsvp-frontend](https://github.com/MuWeiLee/twsvp-frontend) 的「短線情緒」原樣遷出（來源 `69593b1`，PR #126），獨立部署。twsvp.com 保留自己的短線情緒頁面，兩站各自取數、互不依賴。
 
@@ -9,18 +9,18 @@ A股 / 台股短線情緒看板：**https://lfjmwl.com**（Vercel 預設網址 s
 | `/about` | 介紹頁（公開）：產品介紹、今日情緒分數、底部「登录」按鈕 |
 | `/login` | 登入頁：輸入郵箱 → 同一頁填驗證碼，免費註冊 |
 | `/shortemotion/cn` | 短線情緒 · A股（**需登入**） |
-| `/shortemotion/tw` | 短線情緒 · 台股（盤後快照，繁體，**需登入**） |
 | `/` | 已登入 → `/shortemotion/cn`；未登入 → `/about` |
-| `/home`、`/cn`、`/tw`、`/cn-short-emotion`、`/tw-short-emotion`、`/short-emotion` | 舊網址，轉到上面的新網址 |
+| `/home`、`/cn`、`/cn-short-emotion`、`/short-emotion` | 舊網址，轉到上面的新網址 |
+| `/tw`、`/tw-short-emotion`、`/shortemotion/tw`、`/shortemotion/hk` | 已下線的台股、港股看板，轉到 A股看板 |
 
 每個看板放在自己的資料夾（`/看板名/…`），以後新增看板照同樣方式加。
 
 ## 運作方式
 
 ```
-GitHub Actions（.github/workflows/short-emotion.yml，工作日 09:00–15:30 每 30 分鐘喚醒；A股盤中每 30 分鐘、新聞每小時，台股盤後更新）
+GitHub Actions（.github/workflows/short-emotion.yml，工作日 09:00–15:30 每 30 分鐘喚醒；A股盤中每 30 分鐘、新聞每小時）
   └─ scripts/short-emotion/refresh.mjs 呼叫 Wind MCP 計算快照
-       └─ 強制推送到 short-emotion-data 分支（A股在根目錄，台股在 tw/）
+       └─ 強制推送到 short-emotion-data 分支
 Vercel
   ├─ middleware.js                打開看板前檢查登入（未登入 → /login?next=原網址）
   ├─ public/about/、public/login/ 介紹頁、登入頁（共用 public/shared/lang.js 簡繁切換）
@@ -38,13 +38,7 @@ Supabase Auth                     寄送與驗證郵箱驗證碼（經 Resend �
 - 異動題材合併相近分支，候選股需有概念、主營或當日催化依據；看板展示個股的歸屬和主歸因，以及未入選歸因的數量。
 - 這次情緒評分口徑標為 v2。歷史圖在 v1 / v2 交界處斷線；同一天的日均分只合併最新口徑的快照。
 
-## 台股看板內容
-
-- 與 A股 共用評分公式；台股情緒分 v2（2026-10-15）起，「連板梯隊」與「成交環境」改用 A股 的方法：
-  連板梯隊看漲停家數、最高板、梯隊完整度與首板占比（台股股票數約為 A股 三分之一，漲停家數權重放大為每只 1.6 分）；
-  成交環境取當日成交額在近 60 個交易日中的分位。前幾日漲停名單不齊或歷史成交額不足時暫用中性分。
-- 拿不到、因此與 A股 不同的部分：全市場漲跌家數（改用 27 個證交所產業指數）、概念板塊（改用產業指數與新聞點名的族群）、
-  盤中 5 分鐘漲速（不做批量拉升）、漲停價（以漲幅 ≥ 9.5% 近似）、盤中路徑（只有每日曲線）。
+台股、港股看板已於 2026-10-18 移除（程式與歷史資料一併刪除）。
 
 ## 登入
 

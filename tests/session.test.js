@@ -5,7 +5,7 @@ import { vi } from "vitest";
 vi.mock("../api/_lib/short-emotion/service.js", () => ({
   NotReadyError: class NotReadyError extends Error {},
   normalizeMarket: (market) => {
-    if (!["cn", "tw", undefined].includes(market)) throw new Error("bad market");
+    if (!["cn", undefined].includes(market)) throw new Error("bad market");
     return market || "cn";
   },
   readResource: vi.fn(async (resource, market) => ({
@@ -121,7 +121,7 @@ describe("会话 cookie", () => {
   });
 
   it("登录后的跳转只接受站内路径", () => {
-    expect(session.safeNext("/shortemotion/tw?x=1")).toBe("/shortemotion/tw?x=1");
+    expect(session.safeNext("/shortemotion/cn?x=1")).toBe("/shortemotion/cn?x=1");
     for (const bad of ["https://evil.com", "//evil.com", "/\\evil.com", "/login?next=/x", "/api/auth", "", null]) {
       expect(session.safeNext(bad)).toBe("/shortemotion/cn");
     }
@@ -180,9 +180,9 @@ describe("页面守门（middleware）", () => {
   });
 
   it("看板未登录：带着原网址去 /login", async () => {
-    const response = await visit("/shortemotion/tw?tab=themes");
+    const response = await visit("/shortemotion/cn?tab=themes");
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("/login?next=%2Fshortemotion%2Ftw%3Ftab%3Dthemes");
+    expect(response.headers.get("location")).toBe("/login?next=%2Fshortemotion%2Fcn%3Ftab%3Dthemes");
   });
 
   it("看板已登录：放行；凭证过期时放行并带上新的 cookie", async () => {
@@ -195,7 +195,7 @@ describe("页面守门（middleware）", () => {
   });
 
   it("/login：已登录时直接跳到 next（只接受站内路径）", async () => {
-    expect((await visit("/login?next=%2Fshortemotion%2Ftw", loggedIn())).headers.get("location")).toBe("/shortemotion/tw");
+    expect((await visit("/login?next=%2Fshortemotion%2Fcn%3Ftab%3Dthemes", loggedIn())).headers.get("location")).toBe("/shortemotion/cn?tab=themes");
     expect((await visit("/login?next=https%3A%2F%2Fevil.com", loggedIn())).headers.get("location")).toBe("/shortemotion/cn");
     expect((await visit("/login")).headers.get("x-middleware-next")).toBe("1");
   });
@@ -254,9 +254,9 @@ describe("登录接口 /api/auth", () => {
 
 describe("数据接口 /api/short-emotion", () => {
   it("summary 公开：只有分数、阶段、行情时间，可以 CDN 缓存", async () => {
-    const res = await call(dataApi, { query: { market: "tw", resource: "summary" } });
+    const res = await call(dataApi, { query: { market: "cn", resource: "summary" } });
     expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual({ market: "tw", score: 62, regime: { phase: "分歧", posture: "轻仓试错" }, quoteTime: "20261014 14:30", endOfDay: false });
+    expect(res.body).toEqual({ market: "cn", score: 62, regime: { phase: "分歧", posture: "轻仓试错" }, quoteTime: "20261014 14:30" });
     expect(res.headers["cache-control"]).toMatch(/^public/);
   });
 
@@ -292,14 +292,14 @@ describe("同一页面同时换新凭证", () => {
 describe("活跃记录（只记哪天来过，30 天）", () => {
   const seenOf = (response) => response.headers.getSetCookie().find((value) => value.startsWith("se_seen="));
 
-  it("打开看板：每人每天只记一次，A股、台股不分开记", async () => {
+  it("打开看板：每人每天只记一次", async () => {
     const cookie = loggedIn();
     const first = await visit("/shortemotion/cn", cookie);
     expect(activity).toEqual([{ user: "user-1" }]);
     const seen = seenOf(first);
     expect(seen).toMatch(new RegExp(`^se_seen=${session.shanghaiDay()}; .*HttpOnly`));
 
-    const again = await visit("/shortemotion/tw", `${cookie}; ${seen.split(";")[0]}`);
+    const again = await visit("/shortemotion/cn?tab=themes", `${cookie}; ${seen.split(";")[0]}`);
     expect(activity).toHaveLength(1);
     expect(seenOf(again)).toBeUndefined();
   });
@@ -317,7 +317,7 @@ describe("活跃记录（只记哪天来过，30 天）", () => {
     await visit("/shortemotion/cn");
     await visit("/login");
     await visit("/", loggedIn());
-    await call(dataApi, { method: "POST", query: { market: "tw", action: "refresh" }, cookie: loggedIn() });
+    await call(dataApi, { method: "POST", query: { market: "cn", action: "refresh" }, cookie: loggedIn() });
     expect(activity).toEqual([]);
   });
 });

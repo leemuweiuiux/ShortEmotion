@@ -1,8 +1,8 @@
-# 短线情绪数据任务（A股 + 台股）
+# 短线情绪数据任务（A股）
 #
-# 在 Actions 里直接调用 Wind 计算快照，结果推送到 `short-emotion-data` 分支（A股在根目录，台股在 tw/）；
-# 网站页面 /cn、/tw 只读该分支，不需要数据库。需要仓库 Secret：WIND_API_KEY。
-# 北京/台北/香港时间工作日 09:00–16:30 每 30 分钟唤醒（台股需要 15:30，港股需要 16:30 收盘），
+# 在 Actions 里直接调用 Wind 计算快照，结果推送到 `short-emotion-data` 分支；
+# 网站页面只读该分支，不需要数据库。需要仓库 Secret：WIND_API_KEY。
+# 北京时间工作日 09:00–15:30 每 30 分钟唤醒，
 # 各市场跑哪些任务见 api/_lib/short-emotion/schedule.js。
 #
 # 页面「刷新」按钮通过 GitHub API 手动运行本工作流（api/_lib/short-emotion/github.js），
@@ -15,7 +15,7 @@ run-name: ${{ github.event_name == 'workflow_dispatch' && inputs.target == 'shor
 
 on:
   schedule:
-    - cron: "0,30 1-8 * * 1-5"   # 短线情绪工作台
+    - cron: "0,30 1-7 * * 1-5"   # 短线情绪工作台
   workflow_dispatch:
     inputs:
       target:
@@ -29,13 +29,11 @@ on:
         type: boolean
         default: true
       market:
-        description: "市场（all / cn / tw / hk）"
+        description: "市场（all / cn）"
         type: choice
         options:
           - all
           - cn
-          - tw
-          - hk
         default: all
 
 permissions:
@@ -43,7 +41,7 @@ permissions:
 
 jobs:
   short-emotion:
-    if: github.event.schedule == '0,30 1-8 * * 1-5' || (github.event_name == 'workflow_dispatch' && inputs.target == 'short-emotion')
+    if: github.event.schedule == '0,30 1-7 * * 1-5' || (github.event_name == 'workflow_dispatch' && inputs.target == 'short-emotion')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
@@ -78,14 +76,10 @@ jobs:
             git archive FETCH_HEAD | tar -x -C "$DATA_DIR"
             git rev-parse 'FETCH_HEAD^{tree}' > "$RUNNER_TEMP/previous-tree"
           fi
-      - name: Install Traditional Chinese converter (台股繁体)
-        if: steps.guard.outputs.skip != 'true'
-        run: npm install --prefix "$RUNNER_TEMP/opencc" --no-audit --no-fund opencc-js@1.0.5
       - name: Refresh snapshot
         if: steps.guard.outputs.skip != 'true'
         run: node scripts/short-emotion/refresh.mjs ${{ (github.event_name == 'workflow_dispatch' && inputs.force) && '--force' || '' }} --market=${{ (github.event_name == 'workflow_dispatch' && inputs.market) || 'all' }}
         env:
-          OPENCC_JS_DIR: ${{ runner.temp }}/opencc
           WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
           SHORT_EMOTION_STORE: file
           SHORT_EMOTION_DATA_DIR: ${{ env.DATA_DIR }}

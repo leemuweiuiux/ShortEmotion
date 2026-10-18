@@ -34,7 +34,7 @@ async function github(path, { method = "GET", body } = {}) {
   return response.status === 204 ? null : response.json();
 }
 
-// 手动运行的标题里带市场（见工作流 run-name），据此区分 A股 / 台股。
+// 手动运行的标题里带市场（见工作流 run-name），据此找到自己那次任务。
 const runTitle = (market) => `short-emotion ${market} refresh`;
 
 function summarizeRun(run) {

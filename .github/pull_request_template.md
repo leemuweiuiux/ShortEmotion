@@ -9,7 +9,7 @@
 ## 怎麼驗證
 
 - [ ] `npm test` 通過（PR 頁面的 CI 也會自動跑）
-- [ ] 打開 Vercel 預覽網址看過 `/cn`、`/tw`
+- [ ] 打開 Vercel 預覽網址看過 `/shortemotion/cn`、`/about`
 - [ ] 有改畫面的話，附上截圖
 
 ## 需要對方特別留意的地方
