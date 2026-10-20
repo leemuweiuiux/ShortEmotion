@@ -347,6 +347,11 @@ function renderUnlockCountdown() {
   const pill = $("#anomaly-unlock");
   const until = Date.parse(anomalyData?.unlockUntil || "");
   if (!pill) return;
+  if (anomalyData?.unlimited) {
+    pill.hidden = false;
+    pill.textContent = "不限额";
+    return;
+  }
   if (!Number.isFinite(until)) {
     pill.hidden = true;
     return;
@@ -986,7 +991,7 @@ async function handleManualRefresh() {
     }
     if (payload.dispatched) {
       refreshRun.requestedAt = payload.requestedAt;
-      if (payload.charged) toast(`已扣除 ${payload.charged} 积分，正在获取最新数据`);
+      if (payload.charged > 0) toast(`已扣除 ${payload.charged} 积分，正在获取最新数据`);
     } else if (payload.run) {
       // 其他人刚刚发起过刷新：直接跟随那一次的进度
       refreshRun.runId = payload.run.id;

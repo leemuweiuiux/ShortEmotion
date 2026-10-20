@@ -43,7 +43,7 @@ function rpc(name, args) {
   const unlocked = account.unlockUntil && Date.parse(account.unlockUntil) > now ? account.unlockUntil : null;
   const today = new Date(now).toISOString().slice(0, 10);
   switch (name) {
-    case "points_status": return { balance: account.balance, signedToday: account.lastSigninDay === today, unlockUntil: unlocked, timezone: "Asia/Shanghai" };
+    case "points_status": return { balance: account.balance, unlimited: Boolean(account.unlimited), signedToday: account.lastSigninDay === today, unlockUntil: unlocked, timezone: "Asia/Shanghai" };
     case "points_signin":
       if (account.lastSigninDay === today) return { ok: false, reason: "already", balance: account.balance };
       account.lastSigninDay = today;
@@ -55,9 +55,11 @@ function rpc(name, args) {
       account.unlockUntil = new Date(now + 12 * 3600_000).toISOString();
       change("unlock", -5);
       return { ok: true, charged: true, balance: account.balance, unlockUntil: account.unlockUntil };
-    case "points_charge_refresh":
-      if (account.balance < 5) return { ok: false, reason: "insufficient", balance: account.balance };
-      return { ok: true, ledgerId: change("refresh", -5), balance: account.balance };
+    case "points_charge_refresh": {
+      const cost = account.unlimited ? 0 : 5;
+      if (account.balance < cost) return { ok: false, reason: "insufficient", balance: account.balance };
+      return { ok: true, ledgerId: change("refresh", cost ? -cost : 0), balance: account.balance, charged: cost, unlimited: Boolean(account.unlimited) };
+    }
     case "points_refund_refresh":
       if (ledger.some((row) => row.ref === args.p_ledger_id)) return { ok: false, balance: account.balance };
       change("refund", 5, args.p_ledger_id);
@@ -205,5 +207,30 @@ describe("积分：手动刷新", () => {
     expect(refreshWindowOpen(new Date("2026-10-20T15:05:00+08:00"))).toBe(true);
     expect(refreshWindowOpen(new Date("2026-10-20T15:06:00+08:00"))).toBe(false);
     expect(refreshWindowOpen(new Date("2026-10-24T10:00:00+08:00"))).toBe(false);
+  });
+});
+
+describe("不限额账号", () => {
+  beforeEach(async () => {
+    await call(authApi, { query: { action: "points" } });
+    account.unlimited = true;
+    account.balance = 0;
+  });
+
+  it("题材异动一直解锁，不扣分", async () => {
+    const res = await call(dataApi, { query: { resource: "anomalies" } });
+    expect(res.body).toMatchObject({ unlimited: true, unlockUntil: null });
+    expect(res.body.items).toHaveLength(2);
+    expect(ledger.map((row) => row.kind)).toEqual(["signup"]);
+  });
+
+  it("手动刷新不扣分，但记一笔 0 分；仍受交易时段限制", async () => {
+    const res = await call(dataApi, { method: "POST", query: { action: "refresh" } });
+    expect(res.body).toMatchObject({ dispatched: true, charged: 0, unlimited: true });
+    expect(ledger.at(-1)).toMatchObject({ kind: "refresh", delta: 0 });
+    const history = await call(authApi, { query: { action: "points" } });
+    expect(history.body.history[0].label).toBe("刷新数据（不限额）");
+    vi.setSystemTime(new Date("2026-10-20T20:00:00+08:00"));
+    expect((await call(dataApi, { method: "POST", query: { action: "refresh" } })).body.reason).toBe("closed");
   });
 });

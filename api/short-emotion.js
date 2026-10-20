@@ -97,7 +97,7 @@ export default async function handler(req, res) {
         const charged = await pointsChargeRefresh(config, session.accessToken);
         if (!charged.ok) throw new InsufficientPointsError(charged.balance);
         return {
-          result: { charged: POINTS.refresh, balance: charged.balance },
+          result: { charged: charged.charged ?? POINTS.refresh, balance: charged.balance, unlimited: Boolean(charged.unlimited) },
           refund: () => pointsRefundRefresh(config, session.accessToken, charged.ledgerId)
         };
       } : null;
@@ -153,6 +153,8 @@ export default async function handler(req, res) {
       const payload = await readResource("anomalies", market, { fresh: req.query?.fresh === "1" });
       if (!session.accessToken) return void res.status(200).json({ ...lockedAnomalies(payload, null), unavailable: true });
       const status = await pointsStatus(authConfig(), session.accessToken);
+      // 不限额账号：一直解锁
+      if (status.unlimited) return void res.status(200).json({ ...payload, unlimited: true, unlockUntil: null, balance: status.balance });
       if (!status.unlockUntil) return void res.status(200).json(lockedAnomalies(payload, status));
       res.status(200).json({ ...payload, unlockUntil: status.unlockUntil, balance: status.balance });
     } catch (error) {
