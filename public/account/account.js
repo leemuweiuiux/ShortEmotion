@@ -1,5 +1,5 @@
 // 个人页面 /account：个人信息（只显示，编辑在 /account/edit）、积分（余额 + 签到）、积分流水（最近 3 笔，全部在 /account/points）。
-import { $, setText, toast, readProfile, readPoints, signin, renderLedger } from "/account/common.js?v=1";
+import { $, setText, toast, readProfile, readPoints, signin, renderLedger } from "/account/common.js?v=2";
 
 const signinButton = $("#signin");
 
@@ -28,7 +28,9 @@ function fillProfile(profile) {
 async function loadPoints() {
   try {
     const payload = await readPoints();
-    setText($("#points-balance"), String(payload.balance));
+    setText($("#points-balance"), payload.unlimited ? "不限额" : String(payload.balance));
+    // 不限额账号不需要签到
+    signinButton.hidden = Boolean(payload.unlimited);
     setSigned(Boolean(payload.signedToday));
     renderLedger($("#ledger"), (payload.history || []).slice(0, 3));
   } catch (error) {

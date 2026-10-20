@@ -1,4 +1,4 @@
-// 积分（见 supabase/migrations/20261020_points.sql）：用登录用户自己的凭证调用 Supabase 的 points_* 函数，
+// 积分（见 supabase/migrations/20261020_points.sql；不限额账号见 20261020b_points_unlimited.sql）：用登录用户自己的凭证调用 Supabase 的 points_* 函数，
 // 余额与扣分都在数据库里一次完成（同一用户的并发请求排队），这里只负责转发与整理结果。
 //   获取：注册赠送 +50、每日签到 +10
 //   消耗：手动刷新 −5、解锁当日题材异动 −5（12 小时内有效）
@@ -46,7 +46,7 @@ export async function pointsHistory(config, token, { before = null, limit = 20 }
   return (Array.isArray(rows) ? rows : []).map((row) => ({
     id: row.id,
     kind: row.kind,
-    label: POINT_KINDS[row.kind] || row.kind,
+    label: row.kind === "refresh" && row.delta === 0 ? "刷新数据（不限额）" : POINT_KINDS[row.kind] || row.kind,
     delta: row.delta,
     balanceAfter: row.balance_after,
     createdAt: row.created_at

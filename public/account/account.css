@@ -167,3 +167,4 @@ body.sub-page { background: var(--bg); }
 .sheet-btn { min-height: 44px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--ink); font: inherit; font-size: 15px; cursor: pointer; }
 .sheet-btn.primary { border-color: var(--ink); background: var(--ink); color: var(--surface); font-weight: 600; }
 @media (min-width: 600px) { .sheet-backdrop { place-items: center; } }
+.points-head [hidden] { display: none; }
