@@ -40,6 +40,31 @@ const quoteMinuteOf = (snapshot) => {
 const ALL_JOBS = { emotion: true, anomalies: true, news: true, cleanup: false };
 
 /**
+ * 情绪方向与连续热区的参照：最近交易日的每日均分（不含今天，只取同一评分口径）。
+ * 没有历史时返回 null，阶段按当下分数判定。
+ */
+export async function scoreContinuity(store, today, scoreVersion) {
+  try {
+    const daily = await store.dailyHistory();
+    const scores = (daily || [])
+      .filter((item) => String(item.tradingDate) !== String(today))
+      .filter((item) => !scoreVersion || Number(item.scoreVersion || 1) === Number(scoreVersion))
+      .sort((a, b) => String(a.tradingDate).localeCompare(String(b.tradingDate)))
+      .map((item) => Number(item.score)).filter(Number.isFinite);
+    if (!scores.length) return null;
+    const tail = scores.slice(-5);
+    return {
+      prevScore: scores.at(-1),
+      avg5: tail.reduce((sum, value) => sum + value, 0) / tail.length,
+      lastScores: scores.slice(-8), // 升序，用于「连续热区天数」
+      sample: scores.length
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Refreshes whatever is due in the current Beijing 5-minute slot.
  * force=true (CRON_SECRET-authorised manual run) runs every job once.
  * Outside the schedule it only bootstraps an empty store, at most once a day.
@@ -80,6 +105,18 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
     }
   }
 
+  // 收盘后收缩（节约 Wind 额度）：当日已有 15:00 收盘快照时，收盘后的刷新只更新新闻，
+  // 行情与题材收盘后不会再变。若当日快照仍是盘中时点，收盘后仍要全量取一次收盘数据。
+  if (market === "cn" && plan.minute > 15 * 60) {
+    const todayEmotion = (await store.kvGet(KEY.emotion).catch(() => null))?.value;
+    const closeMinute = quoteMinuteOf(todayEmotion);
+    if (todayEmotion && quoteDayOf(todayEmotion) === plan.day && closeMinute != null && closeMinute >= 15 * 60) {
+      jobs.emotion = false;
+      jobs.anomalies = false;
+      result.skipped.push("emotion/anomalies: 收盘后只更新新闻（当日已有 15:00 收盘快照）");
+    }
+  }
+
   if (!isMockMode() && getApiKeys().length === 0) {
     return finish("error", { errors: ["WIND_API_KEY 未配置（Vercel → Settings → Environment Variables）"] });
   }
@@ -93,7 +130,7 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
   let inAuction = false;
   if (jobs.emotion) {
     try {
-      const snapshot = await loadEmotion();
+      const snapshot = await loadEmotion(await scoreContinuity(store, plan.day, engine.SCORE_VERSION));
       const quoteDay = quoteDayOf(snapshot);
       if (quoteDay === plan.day && SCHEDULE.sessionStart && quoteMinuteOf(snapshot) != null && quoteMinuteOf(snapshot) < SCHEDULE.sessionStart) {
         // 集合竞价（09:15–09:25）的行情：涨跌家数为 0、涨跌停是虚拟撮合价，不保存，保留上一份快照。

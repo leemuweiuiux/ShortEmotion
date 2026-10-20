@@ -175,6 +175,7 @@ function renderPulse() {
     退潮: "降低交易频率，回避中高位接力",
     分歧: "聚焦核心，放弃无辨识度后排",
     修复: "小仓试错，等待修复升级为共振",
+    启动: "跟随最强主线，控制单日追高",
     主升: "围绕主线核心参与扩散与分歧回流",
     高潮: "去弱留强，防范次日一致转分歧"
   };
@@ -250,11 +251,13 @@ function renderAnomalies() {
   const summary = anomalyData?.summary || {};
   const sourceItems = anomalyData?.items || [];
   const filterLabels = { all: "全部异动", limit: "涨停点火", batch: "批量拉升", news: "消息催化" };
+  // 上榜门槛：平时 60；普涨日（没有题材涨停 ≥3）放宽到 55，由数据里的 summary.minScore 给出
+  const threshold = Number(summary.minScore) || 60;
   const filterCounts = {
-    all: sourceItems.filter((item) => (item.tabScores?.all ?? item.score) >= 60).length,
-    limit: sourceItems.filter((item) => item.signals.includes("limit") && (item.tabScores?.limit ?? item.score) >= 60).length,
-    batch: sourceItems.filter((item) => item.signals.includes("batch") && (item.tabScores?.batch ?? item.score) >= 60).length,
-    news: sourceItems.filter((item) => item.signals.includes("news") && (item.tabScores?.news ?? item.score) >= 60).length
+    all: sourceItems.filter((item) => (item.tabScores?.all ?? item.score) >= threshold).length,
+    limit: sourceItems.filter((item) => item.signals.includes("limit") && (item.tabScores?.limit ?? item.score) >= threshold).length,
+    batch: sourceItems.filter((item) => item.signals.includes("batch") && (item.tabScores?.batch ?? item.score) >= threshold).length,
+    news: sourceItems.filter((item) => item.signals.includes("news") && (item.tabScores?.news ?? item.score) >= threshold).length
   };
   $$(".anomaly-filter").forEach((button) => {
     const key = button.dataset.anomalyFilter;
@@ -274,7 +277,7 @@ function renderAnomalies() {
     news: (a, b) => (b.sortMetrics?.newsMomentum || 0) - (a.sortMetrics?.newsMomentum || 0) || (b.tabScores?.news ?? b.score) - (a.tabScores?.news ?? a.score)
   };
   const sortLabels = { all: "综合分降序", limit: "涨停家数降序", batch: "5分钟涨跌幅降序", news: "涨跌幅与涨速综合降序" };
-  const items = sourceItems.filter((item) => (anomalyFilter === "all" || item.signals.includes(anomalyFilter)) && (item.tabScores?.[anomalyFilter] ?? item.score) >= 60).sort(sorters[anomalyFilter] || sorters.all);
+  const items = sourceItems.filter((item) => (anomalyFilter === "all" || item.signals.includes(anomalyFilter)) && (item.tabScores?.[anomalyFilter] ?? item.score) >= threshold).sort(sorters[anomalyFilter] || sorters.all);
   const quoteTime = anomalyData?.items?.[0]?.tradeTime ? `行情时间 ${anomalyData.items[0].tradeTime} · ` : "";
   setText("#anomaly-time", `${quoteTime}排序：${sortLabels[anomalyFilter]}`);
   const viewState = `<div class="anomaly-view-state"><b>${filterLabels[anomalyFilter]}</b><span>当前 ${items.length} 个题材 · ${sortLabels[anomalyFilter]}</span></div>`;
