@@ -811,14 +811,13 @@ function toggleAccountMenu(event) {
   const menu = document.createElement("div");
   menu.className = "export-menu account-menu";
   menu.setAttribute("role", "menu");
-  // 点邮箱进入个人资料（姓名、邮箱、电话）
+  // 点邮箱进入个人页面
   const who = document.createElement("a");
   who.className = "account-who";
   who.href = "/account";
   who.setAttribute("role", "menuitem");
-  who.innerHTML = `<small>已登录 · 个人页面</small><b></b><span class="account-points"></span>`;
+  who.innerHTML = "<b></b>";
   who.querySelector("b").textContent = accountEmail || "—";
-  who.querySelector(".account-points").textContent = pointsBalance != null ? `积分 ${pointsBalance}` : "积分 —";
   const logout = document.createElement("button");
   logout.type = "button";
   logout.setAttribute("role", "menuitem");

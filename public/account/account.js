@@ -8,11 +8,19 @@ function setSigned(signed) {
   setText(signinButton, signed ? "今日已签到" : "签到 +10");
 }
 
+/** 手机号中间隐码：保留前 3 位与后 4 位（例如 138****0000）；较短的号码只保留后 2 位。 */
+function maskPhone(number) {
+  const digits = String(number || "");
+  if (digits.length >= 8) return `${digits.slice(0, 3)}****${digits.slice(-4)}`;
+  if (digits.length > 2) return `${"*".repeat(digits.length - 2)}${digits.slice(-2)}`;
+  return digits;
+}
+
 function fillProfile(profile) {
   setText($("#info-name"), profile.name || "未填写");
   $("#info-name").classList.toggle("empty", !profile.name);
   setText($("#info-email"), profile.email || "—");
-  const phone = profile.phoneNumber ? `${profile.phoneCountryCode || ""} ${profile.phoneNumber}`.trim() : "未填写";
+  const phone = profile.phoneNumber ? `${profile.phoneCountryCode || ""} ${maskPhone(profile.phoneNumber)}`.trim() : "未填写";
   setText($("#info-phone"), phone);
   $("#info-phone").classList.toggle("empty", !profile.phoneNumber);
 }
