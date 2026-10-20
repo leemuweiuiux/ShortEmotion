@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=15">
-  <link rel="stylesheet" href="/technical-analysis/ta.css?v=1">
+  <link rel="stylesheet" href="/technical-analysis/ta.css?v=2">
 </head>
 <body>
   <div class="app-shell">
@@ -41,24 +41,14 @@
 
     <main>
       <form id="ta-form" class="card ta-search" autocomplete="off">
-        <label class="ta-search-label" for="ta-input">股票代码或简称</label>
-        <div class="ta-search-row">
-          <input id="ta-input" name="q" type="search" inputmode="search" enterkeyhint="go" maxlength="30" placeholder="代码或简称，如 603936" required>
+        <p class="card-desc">输入股票，生成趋势结构、胜率与赔率、历史同类量价结构和事件驱动分析。</p>
+        <div class="ta-searchbar">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-4.2-4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <input id="ta-input" name="q" type="search" inputmode="search" enterkeyhint="go" maxlength="30" placeholder="代码或简称，如 603936" aria-label="股票代码或简称" required>
           <button id="ta-run" class="pill-btn ta-run" type="submit">开始分析</button>
         </div>
-        <p id="ta-hint" class="ta-hint">每次分析扣 10 积分</p>
+        <p id="ta-hint" class="ta-hint">*每次分析扣 10 积分。</p>
       </form>
-
-      <section id="ta-intro" class="card ta-intro">
-        <h2 class="card-title">分析内容</h2>
-        <ul class="ta-intro-list">
-          <li><b>趋势与突破</b><span>当日分时与近 120 个交易日日 K，判断所处结构、突破质量与量价承接。</span></li>
-          <li><b>胜率与赔率</b><span>技术胜率评分，以及到压力位的空间与到结构失效位的风险。</span></li>
-          <li><b>历史同类结构</b><span>在该股近 6 年的历史里找相似量价结构，统计后续 5、10、20 日的表现。</span></li>
-          <li><b>事件驱动</b><span>近期连续大涨或涨停时，整理近 3 日的公司公告与新闻。</span></li>
-        </ul>
-        <p class="ta-note">随时都能分析，非交易时段使用最近一个交易日收盘的数据。</p>
-      </section>
 
       <div id="ta-loading" class="card ta-loading" hidden>
         <span class="ta-spinner" aria-hidden="true"></span>
@@ -179,6 +169,6 @@
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/technical-analysis/ta.js?v=1"></script>
+  <script type="module" src="/technical-analysis/ta.js?v=2"></script>
 </body>
 </html>

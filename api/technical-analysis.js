@@ -121,6 +121,7 @@ export default async function handler(req, res) {
       error: charged?.refunded ? `${message}（已退回 ${charged.charged} 积分）` : message,
       code: error?.code || "analysis_failed",
       refunded: Boolean(charged?.refunded),
+      charged: Boolean(charged && charged.charged > 0 && !charged.refunded), // 扣了分且没退回（极少见）
       balance: charged?.balance ?? null
     });
   }
