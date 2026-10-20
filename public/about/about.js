@@ -1,5 +1,5 @@
 // 介绍页 /about：简繁切换、主视觉轮换词、今日情绪（公开摘要接口，不调用 Wind）、底部登录按钮。
-import { initLanguage, setText, setAttributeText } from "/shared/lang.js?v=10";
+import { initLanguage, setText, setAttributeText } from "/shared/lang.js?v=11";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -68,8 +68,8 @@ async function loadAccount() {
       setText($(".drawer-copy"), `已登录 ${payload.user.email || ""}`.trim());
     } else return;
     const cta = $(".drawer-cta");
-    cta.href = "/shortemotion/cn";
-    setText(cta, "进入看板");
+    cta.href = "/home";
+    setText(cta, "进入首页");
   } catch {}
 }
 loadAccount();

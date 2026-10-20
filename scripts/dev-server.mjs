@@ -16,7 +16,8 @@ const vercel = JSON.parse(await readFile(path.join(root, "vercel.json"), "utf8")
 if (!process.env.SHORT_EMOTION_STORE) process.env.SHORT_EMOTION_STORE = process.env.SHORT_EMOTION_DATA_DIR ? "file" : "github";
 const API_ROUTES = {
   "short-emotion": () => import("../api/short-emotion.js"),
-  auth: () => import("../api/auth.js")
+  auth: () => import("../api/auth.js"),
+  "technical-analysis": () => import("../api/technical-analysis.js")
 };
 const { default: middleware, config: middlewareConfig } = await import("../middleware.js");
 

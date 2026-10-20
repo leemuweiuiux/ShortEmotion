@@ -1,0 +1,11 @@
+/* 首页 /home：个股技术分析（输入后跳到 /technicalanalysis 发起分析）+ 今日短线情绪（点进看板）。 */
+.home-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.home-card .card-desc { margin-top: 0; }
+.home-more { color: var(--muted); font-size: 13px; text-decoration: none; }
+.home-more:hover { color: var(--ink); }
+.home-emotion { color: var(--ink); text-decoration: none; }
+.home-emotion .pulse-main { margin: 4px 0; }
+.home-emotion:hover { border-color: var(--ink); }
+.home-emotion:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.home-enter { display: inline-flex; align-items: center; justify-self: end; gap: 2px; font-size: 13px; font-weight: 600; }
+.home-enter svg { width: 16px; height: 16px; }

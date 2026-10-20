@@ -1,7 +1,16 @@
 // 个人页面 /account：个人信息（只显示，编辑在 /account/edit）、积分（余额 + 签到）、积分流水（最近 3 笔，全部在 /account/points）。
-import { $, setText, toast, readProfile, readPoints, signin, renderLedger } from "/account/common.js?v=2";
+import { $, setText, toast, readProfile, readPoints, signin, renderLedger } from "/account/common.js?v=3";
 
 const signinButton = $("#signin");
+
+// 返回：从首页、个股分析或看板进来就回到原页面；直接打开时回首页
+(() => {
+  const back = $("#back");
+  try {
+    const from = new URL(document.referrer);
+    if (from.origin === location.origin && /^\/(home|technicalanalysis|shortemotion)(\/|$)/.test(from.pathname)) back.href = from.pathname + from.search;
+  } catch {}
+})();
 
 function setSigned(signed) {
   signinButton.disabled = signed;

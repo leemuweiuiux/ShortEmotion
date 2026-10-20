@@ -5,12 +5,13 @@
   "functions": {
     "api/short-emotion.js": {
       "maxDuration": 60
+    },
+    "api/technical-analysis.js": {
+      "maxDuration": 60
     }
   },
   "redirects": [
     {"source": "/", "destination": "/about", "permanent": false},
-    {"source": "/home", "destination": "/about", "permanent": false},
-    {"source": "/home/", "destination": "/about", "permanent": false},
     {"source": "/shortemotion", "destination": "/shortemotion/cn", "permanent": false},
     {"source": "/shortemotion/", "destination": "/shortemotion/cn", "permanent": false},
     {"source": "/cn", "destination": "/shortemotion/cn", "permanent": false},
@@ -39,6 +40,10 @@
     {"source": "/account/edit/", "destination": "/account/edit/index.html"},
     {"source": "/account/points", "destination": "/account/points/index.html"},
     {"source": "/account/points/", "destination": "/account/points/index.html"},
+    {"source": "/home", "destination": "/home/index.html"},
+    {"source": "/home/", "destination": "/home/index.html"},
+    {"source": "/technicalanalysis", "destination": "/technical-analysis/index.html"},
+    {"source": "/technicalanalysis/", "destination": "/technical-analysis/index.html"},
     {"source": "/shortemotion/cn", "destination": "/short-emotion/index.html"},
     {"source": "/shortemotion/cn/", "destination": "/short-emotion/index.html"}
   ]

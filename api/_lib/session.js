@@ -14,7 +14,7 @@ import { SUPABASE_PUBLIC } from "./supabase-public.js";
 export const ACCESS_COOKIE = "se_at";
 export const REFRESH_COOKIE = "se_rt";
 export const SESSION_MAX_AGE = 90 * 24 * 60 * 60; // 秒
-export const DEFAULT_AFTER_LOGIN = "/shortemotion/cn";
+export const DEFAULT_AFTER_LOGIN = "/home";
 
 /** 防呆：只接受可以公开的 key；误放 secret / service_role key 时拒绝使用。 */
 export function isPublicKey(key) {

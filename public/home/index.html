@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="robots" content="noindex">
+  <title>首页 · ShortEmotion</title>
+  <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
+  <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <script>
+    // 与看板共用外观设置：深浅色主题与红涨/绿涨配色（twsvp_*）。
+    (function () {
+      var root = document.documentElement;
+      var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
+      var theme = get("twsvp_theme");
+      if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      root.dataset.theme = theme;
+      if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/short-emotion/twsvp.css?v=15">
+  <link rel="stylesheet" href="/technical-analysis/ta.css?v=1">
+  <link rel="stylesheet" href="/home/home.css?v=1">
+</head>
+<body>
+  <div class="app-shell">
+    <nav class="nav">
+      <a class="nav-logo" href="/about" aria-label="ShortEmotion 介绍"><img src="/short-emotion/logo.svg?v=2" alt="ShortEmotion"></a>
+      <div class="nav-title">首页</div>
+      <button id="account" class="nav-btn" type="button" aria-label="账号" title="账号" aria-haspopup="menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5" stroke="currentColor" stroke-width="1.6"/><path d="M5 19.5c1.2-3.3 3.8-5 7-5s5.8 1.7 7 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </nav>
+
+    <main>
+      <form id="ta-form" class="card ta-search home-card" autocomplete="off">
+        <div class="card-head"><h2 class="card-title">个股技术分析</h2><a class="home-more" href="/technicalanalysis">打开</a></div>
+        <p class="card-desc">输入股票，生成趋势结构、胜率与赔率、历史同类量价结构和事件驱动分析。</p>
+        <div class="ta-search-row">
+          <input id="ta-input" name="q" type="search" inputmode="search" enterkeyhint="go" maxlength="30" placeholder="代码或简称，如 603936" aria-label="股票代码或简称" required>
+          <button id="ta-run" class="pill-btn ta-run" type="submit">开始分析</button>
+        </div>
+        <p id="ta-hint" class="ta-hint">每次分析扣 10 积分</p>
+      </form>
+
+      <a id="emotion-card" class="card home-card home-emotion" href="/shortemotion/cn">
+        <div class="card-head"><h2 class="card-title">今日短线情绪</h2><span id="emotion-posture" class="pill pill-solid">—</span></div>
+        <div class="pulse-main">
+          <div id="emotion-ring" class="score-ring"><div><strong id="emotion-score">—</strong><small>/ 100</small></div></div>
+          <div class="phase-copy"><span>当前情绪阶段</span><h3 id="emotion-phase">读取中</h3><p id="emotion-copy">A股短线情绪分数与阶段。</p></div>
+        </div>
+        <span class="home-enter">进入看板<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </a>
+
+      <footer class="legal">
+        <p>仅用于研究与情绪观察，不构成投资建议。</p>
+      </footer>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/home/home.js?v=1"></script>
+</body>
+</html>
