@@ -43,6 +43,90 @@ const CONCEPTS = [
   ["8841555.WI", "商业航天指数", 0.8, 55.2, 54.8]
 ];
 
+// ── 个股技术分析的离线样本：几只虚构股票 + 指数，按代码生成确定的随机走势（数字是合成的）──
+const KLINE_COLUMNS = ["TIME", "OPEN", "MATCH", "HIGH", "LOW", "TURNOVER", "VOLUME", "CHANGEHANDRATE", "AVPRICE"];
+const MOCK_STOCKS = [
+  { code: "603936.SH", name: "样本电子", base: 18, drift: 0.0006 },
+  { code: "300986.SZ", name: "样本新材", base: 11, drift: -0.0002, surge: true }, // 近 3 日连续大涨，会触发事件检索
+  { code: "688001.SH", name: "样本科技", base: 42, drift: 0.0003 },
+  { code: "600999.SH", name: "样本故障", base: 9, drift: 0, failKline: true } // 认得出、但取日 K 失败（测试「失败退回积分」）
+];
+const MOCK_INDEXES = { "000001.SH": 3100, "399001.SZ": 10200, "399006.SZ": 2100, "000688.SH": 950 };
+
+function mockStock(windcode) {
+  const text = String(windcode || "").trim().toUpperCase();
+  return MOCK_STOCKS.find((item) => item.code === text || item.name === String(windcode || "").trim()) || null;
+}
+
+function seeded(seedText) {
+  let seed = [...String(seedText)].reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) >>> 0, 7);
+  return () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+}
+
+const ymd = (date) => date.toISOString().slice(0, 10);
+const parseDay = (text) => new Date(Date.UTC(Number(text.slice(0, 4)), Number(text.slice(4, 6)) - 1, Number(text.slice(6, 8))));
+
+/** 日 K：从 2018 年起按代码生成同一条走势，再截取 begin–end（周末跳过）。 */
+function mockDaily(windcode, begin, end) {
+  const code = String(windcode || "").toUpperCase();
+  const stock = MOCK_STOCKS.find((item) => item.code === code);
+  const base = stock?.base ?? MOCK_INDEXES[code] ?? 10;
+  const drift = stock?.drift ?? 0.0002;
+  const vol = stock ? 0.024 : 0.011;
+  const random = seeded(code);
+  const rows = [];
+  let close = base;
+  const last = parseDay(end);
+  const days = [];
+  for (let date = parseDay("20180102"); date <= last; date = new Date(date.getTime() + 86_400_000)) {
+    if (![0, 6].includes(date.getUTCDay())) days.push(new Date(date));
+  }
+  days.forEach((date, index) => {
+    const prev = close;
+    const surgeDay = stock?.surge && index >= days.length - 3;
+    const change = surgeDay ? 0.1 : drift + (random() - 0.5) * 2 * vol;
+    close = Math.max(base * 0.3, prev * (1 + change));
+    const open = prev * (1 + (random() - 0.5) * vol * 0.6);
+    const high = Math.max(open, close) * (1 + random() * vol * 0.5);
+    const low = Math.min(open, close) * (1 - random() * vol * 0.5);
+    const volume = Math.round((stock ? 8e6 : 3e10) * (0.6 + random() * 0.9) * (surgeDay ? 2.2 : 1));
+    const avg = (open + close + high + low) / 4;
+    rows.push({ time: ymd(date), open: +open.toFixed(2), close: +close.toFixed(2), high: +high.toFixed(2), low: +low.toFixed(2), volume, amount: Math.round(volume * avg), turnover: +(volume / 2.5e8 * 100).toFixed(2), avg: +avg.toFixed(2) });
+  });
+  return rows.filter((row) => row.time.replaceAll("-", "") >= String(begin));
+}
+
+/** 分时：最近一个交易日 09:31 起，盘中到当前分钟、其余时间到 15:00；收盘价与日 K 最后一根一致。 */
+function mockMinutes(windcode, now) {
+  const daily = mockDaily(windcode, "20180101", now.day);
+  const today = daily.at(-1);
+  const prevClose = daily.at(-2)?.close ?? today.open;
+  const [hh, mm] = now.time.split(":").map(Number);
+  const minuteNow = hh * 60 + mm;
+  const isToday = today.time.replaceAll("-", "") === now.day;
+  const endMinute = isToday && minuteNow >= 571 && minuteNow < 900 ? (minuteNow > 690 && minuteNow < 781 ? 690 : minuteNow) : 900;
+  const minutes = [];
+  for (let m = 571; m <= endMinute; m += 1) if (m <= 690 || m >= 781) minutes.push(m);
+  const random = seeded(`${windcode}:${today.time}`);
+  const rows = [];
+  let volume = 0;
+  let amount = 0;
+  minutes.forEach((m, index) => {
+    const progress = minutes.length > 1 ? index / (minutes.length - 1) : 1;
+    const target = today.open + (today.close - today.open) * progress;
+    const price = index === minutes.length - 1 ? today.close : Math.min(today.high, Math.max(today.low, target + (random() - 0.5) * (today.high - today.low) * 0.3));
+    const v = Math.round(today.volume / 240 * (0.5 + random()));
+    volume += v;
+    amount += v * price;
+    const time = `${today.time} ${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00`;
+    rows.push([time, +(rows.at(-1)?.[2] ?? prevClose).toFixed(2), +price.toFixed(2), +Math.max(price, today.open).toFixed(2), +Math.min(price, today.open).toFixed(2), Math.round(v * price), v, 0, +(amount / volume).toFixed(2)]);
+  });
+  return rows;
+}
+
 export function mockWindResult(serverType, toolName, params) {
   const now = beijingNow();
   const qt = quoteTime();
@@ -105,6 +189,32 @@ export function mockWindResult(serverType, toolName, params) {
       )] });
     }
     return result({ data: [] });
+  }
+  // ── 个股技术分析（/technicalanalysis）用到的行情：日 K（period=10）、分时（begin=LAST）、个股快照 ──
+  if (serverType === "stock_data" && toolName === "get_stock_price_indicators") {
+    const stock = mockStock(params.windcode);
+    if (!stock) return result({ data: table(["Wind代码", "中文简称"], []) });
+    const days = mockDaily(stock.code, "20200101", now.day);
+    const last = days.at(-1);
+    const prev = days.at(-2);
+    return result({ data: table(
+      ["Wind代码", "中文简称", "最新成交价", "前收盘价", "今日开盘价", "今日最高价", "今日最低价", "成交量", "成交额", "涨跌", "涨跌幅", "换手率"],
+      [[stock.code, stock.name, last.close, prev.close, last.open, last.high, last.low, last.volume, last.amount, +(last.close - prev.close).toFixed(2), +((last.close / prev.close - 1) * 100).toFixed(2), last.turnover]]
+    ) });
+  }
+  if (serverType === "stock_data" && toolName === "get_stock_kline" && mockStock(params.windcode)?.failKline) {
+    return { isError: true, content: [{ type: "text", text: "TOOL_RUNTIME_ERROR: 模拟失败" }] };
+  }
+  if ((serverType === "stock_data" && toolName === "get_stock_kline") || (serverType === "index_data" && toolName === "get_index_kline" && params.period === "10")) {
+    const rows = mockDaily(params.windcode, params.begin_date, params.end_date)
+      .map((d) => [d.time, d.open, d.close, d.high, d.low, d.amount, d.volume, d.turnover, d.avg]);
+    return result({ data: table(KLINE_COLUMNS, rows) });
+  }
+  if ((serverType === "stock_data" && toolName === "get_stock_quote") || (serverType === "index_data" && toolName === "get_index_quote")) {
+    return result({ data: table(KLINE_COLUMNS, mockMinutes(params.windcode, now)) });
+  }
+  if (serverType === "financial_docs" && toolName === "get_company_announcements") {
+    return result({ data: { items: [] } });
   }
   if (serverType === "financial_docs" && toolName === "get_financial_news") {
     return result({ data: { items: [

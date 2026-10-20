@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="robots" content="noindex">
+  <title>个股技术分析 · ShortEmotion</title>
+  <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
+  <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <script>
+    // 与看板共用外观设置：深浅色主题与红涨/绿涨配色（twsvp_*）。
+    (function () {
+      var root = document.documentElement;
+      var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
+      var theme = get("twsvp_theme");
+      if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      root.dataset.theme = theme;
+      if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
+      if (get("twsvp_price_scheme") === "green_up") {
+        root.style.setProperty("--price-up", "#76BB40");
+        root.style.setProperty("--price-down", "#FF4015");
+      }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/short-emotion/twsvp.css?v=15">
+  <link rel="stylesheet" href="/technical-analysis/ta.css?v=1">
+</head>
+<body>
+  <div class="app-shell">
+    <nav class="nav">
+      <a class="nav-logo" href="/home" aria-label="首页"><img src="/short-emotion/logo.svg?v=2" alt="ShortEmotion"></a>
+      <div class="nav-title">个股技术分析</div>
+      <button id="account" class="nav-btn" type="button" aria-label="账号" title="账号" aria-haspopup="menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5" stroke="currentColor" stroke-width="1.6"/><path d="M5 19.5c1.2-3.3 3.8-5 7-5s5.8 1.7 7 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </nav>
+
+    <main>
+      <form id="ta-form" class="card ta-search" autocomplete="off">
+        <label class="ta-search-label" for="ta-input">股票代码或简称</label>
+        <div class="ta-search-row">
+          <input id="ta-input" name="q" type="search" inputmode="search" enterkeyhint="go" maxlength="30" placeholder="代码或简称，如 603936" required>
+          <button id="ta-run" class="pill-btn ta-run" type="submit">开始分析</button>
+        </div>
+        <p id="ta-hint" class="ta-hint">每次分析扣 10 积分</p>
+      </form>
+
+      <section id="ta-intro" class="card ta-intro">
+        <h2 class="card-title">分析内容</h2>
+        <ul class="ta-intro-list">
+          <li><b>趋势与突破</b><span>当日分时与近 120 个交易日日 K，判断所处结构、突破质量与量价承接。</span></li>
+          <li><b>胜率与赔率</b><span>技术胜率评分，以及到压力位的空间与到结构失效位的风险。</span></li>
+          <li><b>历史同类结构</b><span>在该股近 6 年的历史里找相似量价结构，统计后续 5、10、20 日的表现。</span></li>
+          <li><b>事件驱动</b><span>近期连续大涨或涨停时，整理近 3 日的公司公告与新闻。</span></li>
+        </ul>
+        <p class="ta-note">随时都能分析，非交易时段使用最近一个交易日收盘的数据。</p>
+      </section>
+
+      <div id="ta-loading" class="card ta-loading" hidden>
+        <span class="ta-spinner" aria-hidden="true"></span>
+        <p>正在获取分时、历史日 K、事件与市场基准…</p>
+      </div>
+
+      <div id="ta-result" class="ta-result" hidden>
+        <article class="card ta-head">
+          <div class="ta-identity">
+            <div>
+              <h2 id="ta-name">—</h2>
+              <span id="ta-code" class="ta-code">—</span>
+            </div>
+            <div class="ta-price">
+              <strong id="ta-price">—</strong>
+              <span id="ta-change">—</span>
+            </div>
+          </div>
+          <div class="ta-meta-row">
+            <span id="ta-time" class="ta-time">—</span>
+            <span id="ta-session" class="pill" hidden>盘中快照</span>
+            <span id="ta-opportunity" class="pill pill-solid">综合评分 —</span>
+          </div>
+          <div class="ta-verdict">
+            <div class="ta-phase"><b id="ta-winodds">—</b><span id="ta-structure">—</span></div>
+            <h3 id="ta-headline">—</h3>
+            <p id="ta-summary"></p>
+          </div>
+          <div class="ta-metrics">
+            <div><span id="ta-relative-label">相对强弱</span><strong id="ta-relative">—</strong></div>
+            <div><span>当日振幅</span><strong id="ta-amplitude">—</strong></div>
+            <div><span>量能 / 5日均量</span><strong id="ta-vr">—</strong></div>
+            <div><span>风险收益比</span><strong id="ta-rr">—</strong></div>
+          </div>
+          <p id="ta-intraday-note" class="ta-note" hidden>盘中快照：量能、收盘位置等按当前计算，以收盘后的结果为准。</p>
+        </article>
+
+        <article class="card">
+          <div class="card-head"><h2 class="card-title">当前胜率</h2><span id="ta-win-level" class="pill">—</span></div>
+          <div class="ta-win">
+            <div id="ta-score-ring" class="score-ring"><div><strong id="ta-score">—</strong><small>/ 100</small></div></div>
+            <div id="ta-dims" class="ta-dims"></div>
+          </div>
+          <p id="ta-win-verdict" class="readout"></p>
+        </article>
+
+        <article class="card">
+          <div class="card-head"><h2 class="card-title">当前赔率</h2><span id="ta-odds-level" class="pill">—</span></div>
+          <div class="ta-stats">
+            <div><span>至压力位空间</span><strong id="ta-upside">—</strong></div>
+            <div><span>至失效位风险</span><strong id="ta-downside">—</strong></div>
+            <div><span>风险收益比</span><strong id="ta-odds-rr">—</strong></div>
+            <div><span>1.5 倍赔率价格上限</span><strong id="ta-max-price">—</strong></div>
+          </div>
+          <p id="ta-odds-verdict" class="readout"></p>
+        </article>
+
+        <article class="card">
+          <div class="card-head"><h2 class="card-title">历史同类量价结构</h2><span class="pill">条件频率</span></div>
+          <div class="ta-badges"><span id="ta-history-scope">该股自身历史</span><span id="ta-history-sample">样本 —</span><span id="ta-history-confidence">置信度 —</span></div>
+          <div id="ta-history" class="ta-history"></div>
+          <p id="ta-history-method" class="ta-note"></p>
+        </article>
+
+        <article class="card">
+          <div class="card-head"><h2 class="card-title">事件驱动</h2><span id="ta-event-level" class="pill">—</span></div>
+          <div id="ta-events" class="ta-events"></div>
+          <p id="ta-event-reason" class="ta-note" hidden></p>
+        </article>
+
+        <article class="card">
+          <div class="card-head">
+            <h2 class="card-title">走势</h2>
+            <div class="segmented ta-tabs" role="group" aria-label="图表">
+              <button class="timeline-toggle active" data-chart="intraday" aria-pressed="true" type="button">当日分时</button>
+              <button class="timeline-toggle" data-chart="daily" aria-pressed="false" type="button">日K结构</button>
+            </div>
+          </div>
+          <div id="ta-legend" class="ta-legend"></div>
+          <div class="ta-chart"><canvas id="ta-canvas"></canvas></div>
+          <div class="ta-ohlc">
+            <div><span>开盘</span><b id="ta-open">—</b></div>
+            <div><span>最高</span><b id="ta-high">—</b></div>
+            <div><span>最低</span><b id="ta-low">—</b></div>
+            <div><span>均价</span><b id="ta-avg">—</b></div>
+            <div><span>换手</span><b id="ta-turnover">—</b></div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-head"><h2 class="card-title">市场相对强弱</h2><span class="pill">同期对比</span></div>
+          <div id="ta-market" class="ta-market"></div>
+        </article>
+
+        <article class="card">
+          <div class="card-head"><h2 class="card-title">关键价位</h2><span class="pill">由近及远</span></div>
+          <ol id="ta-levels" class="ta-levels"></ol>
+        </article>
+
+        <article class="card">
+          <div class="card-head"><h2 class="card-title">相关新闻与公告</h2><span class="pill">近 3 日</span></div>
+          <div id="ta-links" class="ta-links"></div>
+        </article>
+
+        <article class="card">
+          <div class="card-head"><h2 class="card-title">仓位风险测算</h2><span class="pill">可选</span></div>
+          <div class="ta-risk">
+            <label><span>持仓占总资产（%）</span><input id="ta-position" type="number" inputmode="decimal" value="50" min="0" max="100"></label>
+            <label><span>结构失效价</span><input id="ta-stop" type="number" inputmode="decimal" step="0.01"></label>
+          </div>
+          <div class="ta-risk-result"><span>触及失效位时，预计拖累账户</span><strong id="ta-risk">—</strong></div>
+        </article>
+      </div>
+
+      <footer class="legal">
+        <p>仅用于研究与技术观察，不构成投资建议。历史统计是样本内的条件频率，不代表未来概率；技术评分不代表收益预测。</p>
+      </footer>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/technical-analysis/ta.js?v=1"></script>
+</body>
+</html>

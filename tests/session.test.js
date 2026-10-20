@@ -123,7 +123,7 @@ describe("会话 cookie", () => {
   it("登录后的跳转只接受站内路径", () => {
     expect(session.safeNext("/shortemotion/cn?x=1")).toBe("/shortemotion/cn?x=1");
     for (const bad of ["https://evil.com", "//evil.com", "/\\evil.com", "/login?next=/x", "/api/auth", "", null]) {
-      expect(session.safeNext(bad)).toBe("/shortemotion/cn");
+      expect(session.safeNext(bad)).toBe("/home");
     }
   });
 
@@ -174,9 +174,15 @@ describe("会话 cookie", () => {
 });
 
 describe("页面守门（middleware）", () => {
-  it("/：未登录去介绍页，已登录直接进看板", async () => {
+  it("/：未登录去介绍页，已登录去首页", async () => {
     expect((await visit("/")).headers.get("location")).toBe("/about");
-    expect((await visit("/", loggedIn())).headers.get("location")).toBe("/shortemotion/cn");
+    expect((await visit("/", loggedIn())).headers.get("location")).toBe("/home");
+  });
+
+  it("首页与个股技术分析需要登录", async () => {
+    expect((await visit("/home")).headers.get("location")).toBe("/login?next=%2Fhome");
+    expect((await visit("/technicalanalysis?q=603936")).headers.get("location")).toBe("/login?next=%2Ftechnicalanalysis%3Fq%3D603936");
+    expect((await visit("/technicalanalysis", loggedIn())).headers.get("x-middleware-next")).toBe("1");
   });
 
   it("看板未登录：带着原网址去 /login", async () => {
@@ -196,7 +202,7 @@ describe("页面守门（middleware）", () => {
 
   it("/login：已登录时直接跳到 next（只接受站内路径）", async () => {
     expect((await visit("/login?next=%2Fshortemotion%2Fcn%3Ftab%3Dthemes", loggedIn())).headers.get("location")).toBe("/shortemotion/cn?tab=themes");
-    expect((await visit("/login?next=https%3A%2F%2Fevil.com", loggedIn())).headers.get("location")).toBe("/shortemotion/cn");
+    expect((await visit("/login?next=https%3A%2F%2Fevil.com", loggedIn())).headers.get("location")).toBe("/home");
     expect((await visit("/login")).headers.get("x-middleware-next")).toBe("1");
   });
 

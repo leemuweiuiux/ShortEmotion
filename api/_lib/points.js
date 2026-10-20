@@ -1,9 +1,10 @@
-// 积分（见 supabase/migrations/20261020_points.sql；不限额账号见 20261020b_points_unlimited.sql）：用登录用户自己的凭证调用 Supabase 的 points_* 函数，
+// 积分（见 supabase/migrations/20261020_points.sql；不限额账号见 20261020b_points_unlimited.sql；个股分析见 20261021_points_analysis.sql）：
+// 用登录用户自己的凭证调用 Supabase 的 points_* 函数，
 // 余额与扣分都在数据库里一次完成（同一用户的并发请求排队），这里只负责转发与整理结果。
 //   获取：注册赠送 +50、每日签到 +10
-//   消耗：手动刷新 −5、解锁当日题材异动 −5（12 小时内有效）
-export const POINTS = { signup: 50, signin: 10, refresh: 5, unlock: 5, unlockHours: 12 };
-export const POINT_KINDS = { signup: "注册赠送", signin: "每日签到", refresh: "刷新数据", unlock: "解锁题材异动", refund: "刷新未执行，退回" };
+//   消耗：手动刷新 −5、解锁当日题材异动 −5（12 小时内有效）、个股技术分析 −10（每次发起都扣，分析失败退回）
+export const POINTS = { signup: 50, signin: 10, refresh: 5, unlock: 5, unlockHours: 12, analysis: 10 };
+export const POINT_KINDS = { signup: "注册赠送", signin: "每日签到", refresh: "刷新数据", unlock: "解锁题材异动", refund: "刷新未执行，退回", analysis: "个股分析", analysis_refund: "分析未完成，退回" };
 
 /** 调用一个 points_* 函数；失败时抛出带 statusCode 的错误。 */
 export async function pointsRpc(config, accessToken, name, args = {}) {
@@ -39,6 +40,8 @@ export const pointsSignin = (config, token, timezone) => pointsRpc(config, token
 export const pointsUnlockAnomalies = (config, token) => pointsRpc(config, token, "points_unlock_anomalies");
 export const pointsChargeRefresh = (config, token) => pointsRpc(config, token, "points_charge_refresh");
 export const pointsRefundRefresh = (config, token, ledgerId) => pointsRpc(config, token, "points_refund_refresh", { p_ledger_id: ledgerId });
+export const pointsChargeAnalysis = (config, token, note) => pointsRpc(config, token, "points_charge_analysis", { p_note: String(note || "").slice(0, 40) || null });
+export const pointsRefundAnalysis = (config, token, ledgerId) => pointsRpc(config, token, "points_refund_analysis", { p_ledger_id: ledgerId });
 
 export async function pointsHistory(config, token, { before = null, limit = 20 } = {}) {
   const beforeId = Number.isSafeInteger(Number(before)) && Number(before) > 0 ? Number(before) : null;
@@ -46,7 +49,8 @@ export async function pointsHistory(config, token, { before = null, limit = 20 }
   return (Array.isArray(rows) ? rows : []).map((row) => ({
     id: row.id,
     kind: row.kind,
-    label: row.kind === "refresh" && row.delta === 0 ? "刷新数据（不限额）" : POINT_KINDS[row.kind] || row.kind,
+    label: row.delta === 0 && ["refresh", "analysis"].includes(row.kind) ? `${POINT_KINDS[row.kind]}（不限额）` : POINT_KINDS[row.kind] || row.kind,
+    note: row.note || null,
     delta: row.delta,
     balanceAfter: row.balance_after,
     createdAt: row.created_at

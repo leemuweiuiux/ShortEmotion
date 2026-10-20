@@ -1,6 +1,6 @@
 // 编辑个人信息 /account/edit：姓名、邮箱（只读）、电话区号与手机号（不做验证码）。
 // 右上角「保存」；有未保存的修改时点返回，先问是否保存。
-import { $, setText, toast, readProfile, saveProfile, askChoice } from "/account/common.js?v=2";
+import { $, setText, toast, readProfile, saveProfile, askChoice } from "/account/common.js?v=3";
 
 const form = $("#profile-form");
 const saveButton = $("#save");

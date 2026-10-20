@@ -1,5 +1,5 @@
 // 个人页面共用：/account（个人信息、积分、积分流水）、/account/edit（编辑个人信息）、/account/points（积分流水）。
-import { initLanguage, setText } from "/shared/lang.js?v=10";
+import { initLanguage, setText } from "/shared/lang.js?v=11";
 
 export { setText };
 export const $ = (selector) => document.querySelector(selector);
@@ -54,7 +54,8 @@ export function ledgerRow(row) {
   item.innerHTML = '<span class="ledger-what"><b></b><small></small></span><span class="ledger-amount"><b></b><small></small></span>';
   const [label, time] = item.querySelectorAll(".ledger-what > *");
   const [amount, after] = item.querySelectorAll(".ledger-amount > *");
-  setText(label, row.label || row.kind);
+  // 个股分析的流水带上股票，例如「个股分析 · 样本电子 603936.SH」
+  setText(label, `${row.label || row.kind}${row.note ? ` · ${row.note}` : ""}`);
   time.textContent = timeLabel(row.createdAt);
   amount.textContent = `${row.delta > 0 ? "+" : ""}${row.delta}`;
   amount.className = row.delta > 0 ? "plus" : "";

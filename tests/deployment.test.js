@@ -13,11 +13,10 @@ describe("网址：介绍页、登录页与看板", () => {
   const rewrites = Object.fromEntries((vercel.rewrites || []).map((r) => [r.source, r.destination]));
   const redirects = Object.fromEntries((vercel.redirects || []).map((r) => [r.source, r.destination]));
 
-  it("介绍页 /about、登录页 /login 是独立页面；/ 与旧的 /home 都到 /about（已登录时 middleware 把 / 直接送进看板）", () => {
+  it("介绍页 /about、登录页 /login、首页 /home 是独立页面；/ 到 /about（已登录时 middleware 把 / 送到首页）", () => {
     expect(redirects["/"]).toBe("/about");
-    expect(redirects["/home"]).toBe("/about");
-    expect(redirects["/home/"]).toBe("/about");
-    for (const page of ["about", "login", "account"]) {
+    expect(redirects["/home"]).toBeUndefined();
+    for (const page of ["about", "login", "account", "home"]) {
       expect(rewrites[`/${page}`]).toBe(`/${page}/index.html`);
       expect(rewrites[`/${page}/`]).toBe(`/${page}/index.html`);
       expect(() => readFileSync(resolve(root, `public/${page}/index.html`))).not.toThrow();
@@ -27,6 +26,11 @@ describe("网址：介绍页、登录页与看板", () => {
   it("介绍页底部是「登录」按钮，指向 /login", () => {
     const html = readFileSync(resolve(root, "public/about/index.html"), "utf8");
     expect(html).toMatch(/<a class="drawer-cta" href="\/login">登录<\/a>/);
+  });
+
+  it("个股技术分析在 /technicalanalysis", () => {
+    for (const path of ["/technicalanalysis", "/technicalanalysis/"]) expect(rewrites[path]).toBe("/technical-analysis/index.html");
+    expect(vercel.functions["api/technical-analysis.js"].maxDuration).toBe(60);
   });
 
   it("短线情绪看板在 /shortemotion/cn", () => {
@@ -47,7 +51,7 @@ describe("网址：介绍页、登录页与看板", () => {
 
   it("页面里的站内链接都指向存在的网址", () => {
     const known = new Set([...Object.keys(rewrites), ...Object.keys(redirects)]);
-    for (const file of ["public/short-emotion/index.html", "public/about/index.html", "public/login/index.html", "public/account/index.html", "public/account/edit/index.html", "public/account/points/index.html"]) {
+    for (const file of ["public/short-emotion/index.html", "public/about/index.html", "public/login/index.html", "public/account/index.html", "public/account/edit/index.html", "public/account/points/index.html", "public/home/index.html", "public/technical-analysis/index.html"]) {
       const html = readFileSync(resolve(root, file), "utf8");
       const links = [...html.matchAll(/<a[^>]+href="(\/[^"#?]*)"/g)].map((m) => m[1]);
       expect(links.length).toBeGreaterThan(0);
@@ -56,7 +60,7 @@ describe("网址：介绍页、登录页与看板", () => {
   });
 
   it("页面引用的静态文件都存在", () => {
-    for (const [file, prefix] of [["public/short-emotion/index.html", "short-emotion"], ["public/about/index.html", "(?:about|short-emotion)"], ["public/login/index.html", "(?:about|login|short-emotion)"], ["public/account/index.html", "(?:about|login|account|short-emotion)"]]) {
+    for (const [file, prefix] of [["public/short-emotion/index.html", "short-emotion"], ["public/about/index.html", "(?:about|short-emotion)"], ["public/login/index.html", "(?:about|login|short-emotion)"], ["public/account/index.html", "(?:about|login|account|short-emotion)"], ["public/home/index.html", "(?:home|technical-analysis|short-emotion)"], ["public/technical-analysis/index.html", "(?:technical-analysis|short-emotion)"]]) {
       const html = readFileSync(resolve(root, file), "utf8");
       const refs = [...html.matchAll(new RegExp(`(?:href|src|srcset)="(\\/${prefix}\\/[^"?]+\\.[a-z0-9]+)`, "g"))].map((m) => m[1]);
       expect(refs.length).toBeGreaterThan(3);
@@ -67,7 +71,7 @@ describe("网址：介绍页、登录页与看板", () => {
 
 describe("页面脚本", () => {
   it("介绍页、登录页、共用模块 import 的文件都存在，简繁字表版本号一致", () => {
-    const files = ["public/about/about.js", "public/login/login.js", "public/account/account.js", "public/shared/lang.js", "public/short-emotion/app.js"];
+    const files = ["public/about/about.js", "public/login/login.js", "public/account/account.js", "public/shared/lang.js", "public/short-emotion/app.js", "public/home/home.js", "public/technical-analysis/ta.js", "public/shared/nav-account.js"];
     const versions = new Set();
     for (const file of files) {
       const code = readFileSync(resolve(root, file), "utf8");
@@ -80,9 +84,9 @@ describe("页面脚本", () => {
     expect([...versions]).toHaveLength(1);
   });
 
-  it("中间件只拦介绍页以外的入口：/、/login、看板", async () => {
+  it("中间件只拦介绍页以外的入口：/、/login、首页、个股分析、个人页面、看板", async () => {
     const { config } = await import("../middleware.js");
-    expect(config.matcher).toEqual(["/", "/login", "/login/", "/account/:path*", "/shortemotion/:path*"]);
+    expect(config.matcher).toEqual(["/", "/login", "/login/", "/home", "/home/", "/technicalanalysis", "/technicalanalysis/", "/account/:path*", "/shortemotion/:path*"]);
   });
 });
 
@@ -92,8 +96,8 @@ describe("页面文字：不到处标注数据供应商", () => {
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/function plain\([\s\S]*?\n}\n/, "");    // 去除供应商字样的函数本身
 
-  it("看板与登录页不出现 Wind / 万得", () => {
-    for (const file of ["public/short-emotion/index.html", "public/short-emotion/app.js", "public/login/index.html", "public/login/login.js", "public/account/index.html", "public/account/account.js"]) {
+  it("看板、首页、个股分析与登录页不出现 Wind / 万得", () => {
+    for (const file of ["public/short-emotion/index.html", "public/short-emotion/app.js", "public/login/index.html", "public/login/login.js", "public/account/index.html", "public/account/account.js", "public/home/index.html", "public/home/home.js", "public/technical-analysis/index.html", "public/technical-analysis/ta.js", "public/shared/nav-account.js"]) {
       const text = visible(readFileSync(resolve(root, file), "utf8")).replace(/window|Window/g, "");
       expect(text, file).not.toMatch(/Wind|万得|萬得/);
     }

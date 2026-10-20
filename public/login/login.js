@@ -2,14 +2,14 @@
 // 1. 浏览器直接向 Supabase 申请验证码（/auth/v1/otp，未注册的邮箱自动注册），频率限制按访客自己的 IP 计算；
 // 2. 填入验证码后向 Supabase 验证（/auth/v1/verify），拿到登录凭证；
 // 3. 把凭证交给 POST /api/auth?action=session，服务端写入 HttpOnly cookie（90 天），再跳回原本要看的页面。
-import { initLanguage, setText } from "/shared/lang.js?v=10";
+import { initLanguage, setText } from "/shared/lang.js?v=11";
 
 const $ = (selector) => document.querySelector(selector);
 initLanguage();
 
 function safeNext(value) {
   const next = String(value || "");
-  if (!next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\") || /^\/(?:login|api)(?:\/|\?|$)/.test(next)) return "/shortemotion/cn";
+  if (!next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\") || /^\/(?:login|api)(?:\/|\?|$)/.test(next)) return "/home";
   return next;
 }
 const NEXT = safeNext(new URLSearchParams(location.search).get("next"));
