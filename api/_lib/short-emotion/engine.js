@@ -247,7 +247,7 @@ function summedScalar(payload, matcher) {
   return null;
 }
 
-function averageColumn(payload, matcher) {
+function percentileColumn(payload, matcher) {
   const values = [];
   for (const table of tables(payload)) {
     const valueIndex = table.columns.findIndex((column) => matcher.test(column.name));
@@ -259,10 +259,11 @@ function averageColumn(payload, matcher) {
       if (Number.isFinite(value)) values.push(value);
     }
   }
-  return {
-    value: values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null,
-    sampleSize: values.length
-  };
+  if (!values.length) return { value: null, sampleSize: 0, method: "median" };
+  values.sort((a, b) => a - b);
+  const mid = values.length >> 1;
+  const value = values.length % 2 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
+  return { value, sampleSize: values.length, method: "median" };
 }
 
 function uniqueWindCodeCount(payload) {
@@ -326,35 +327,42 @@ function scoreBreadth(up, down) {
 }
 
 function scoreLimit(limitUp, limitDown, bigUp, bigDown) {
-  const balance = (Number(limitUp) || 0) - (Number(limitDown) || 0) * 2;
+  // 跌停权重 2.5（历史回测：对“涨停40/跌停20”这类负反馈不再给中性50分）
+  const balance = (Number(limitUp) || 0) - (Number(limitDown) || 0) * 2.5;
   const tails = ((Number(bigUp) || 0) - (Number(bigDown) || 0)) / 12;
   return clamp(50 + balance / 2 + tails);
 }
 
 function scorePremium(premium) {
-  return premium != null && Number.isFinite(Number(premium)) ? clamp(50 + Number(premium) * 12.5) : 50;
+  // 不对称斜率（正 10 / 负 8，历史回测：负面日不再被过度惩罚到 30 以下）
+  return premium != null && Number.isFinite(Number(premium))
+    ? clamp(50 + Number(premium) * (Number(premium) >= 0 ? 10 : 8))
+    : 50;
 }
 
 function scoreTheme(themes) {
   if (!themes.length) return 50;
   const first = Number(themes[0].changePct) || 0;
   const fifth = Number(themes[Math.min(4, themes.length - 1)].changePct) || 0;
-  return clamp(42 + first * 4 + fifth * 2);
+  // 题材广度：头部强弱之外，还要看前 10 名中是普涨还是单点爆发，避免单一题材拉高分数。
+  const ups = themes.filter((item) => (Number(item.changePct) || 0) > 0).length;
+  const ratio = ups / themes.length;
+  const breadthFactor = ratio >= 0.8 ? 8 : ratio >= 0.5 ? 3 : ratio < 0.3 ? -6 : 0;
+  return clamp(42 + first * 4 + fifth * 2 + breadthFactor);
 }
 
 function scoreLadder(limitStocks, streakComplete = false) {
-  if (!limitStocks || limitStocks.length === 0) return 10;
-  const total = limitStocks.length;
-  const enriched = streakComplete
-    ? limitStocks
-    : limitStocks.map((s) => ({ ...s, limitStreak: 1 }));
-  const metrics = limitLadderMetrics(enriched);
-  let score = 10;
-  score += Math.min(35, total * 0.6);
-  if (metrics.maxStreak >= 2) score += Math.min(20, metrics.maxStreak * 4);
-  if (metrics.contiguousDepth >= 3) score += Math.min(15, metrics.contiguousDepth * 3);
-  const firstBoardCount = metrics.counts[1] || 0;
-  if (metrics.maxStreak >= 2 && firstBoardCount >= total * 0.6) score += 10;
+  if (!limitStocks || limitStocks.length === 0) return 30; // 无涨停 → 中性
+  if (!streakComplete) return 30; // 连板历史缺失 → 中性（不罚不奖），避免把首板海啸误算成强梯队
+  const metrics = limitLadderMetrics(limitStocks);
+  const multiBoard = Object.entries(metrics.counts)
+    .filter(([key]) => Number(key) >= 2).reduce((sum, [, count]) => sum + count, 0);
+  // 连板梯队只衡量“连板质量”：高度 + 深度 + 连板家数。涨停总数属广度，由 breadth/limits 计分。
+  let score = 20;
+  if (metrics.maxStreak >= 3) score += Math.min(32, (metrics.maxStreak - 2) * 8);
+  else if (metrics.maxStreak === 2) score += 4;
+  if (metrics.contiguousDepth >= 2) score += Math.min(20, (metrics.contiguousDepth - 1) * 4);
+  score += Math.min(14, multiBoard * 2);
   return clamp(score);
 }
 
@@ -386,27 +394,89 @@ function scoreFromPercentile(rank) {
   return Math.round(90 + (p - 0.9) / 0.1 * 10);
 }
 
+// 状态机阈值：较热区间边界与「主升」所需的连续热区天数（今日前连续 ≥N 日，加今日合计 ≥N+1 日）。
+const HOT_BOUNDARY = 70;
+const MAIN_RISE_HOT_STREAK = 2;
+
 function classify(score, metrics) {
+  const dims = metrics?.dimensions || {};
+  const upRatio = Number(metrics?.upRatio);
+  const breadth = Number(dims.breadth);
+  const liq = Number(dims.liquidity);
+  const profit = Number(dims.profit);
+  const changePct = Number(metrics?.changePct);
+  const cont = metrics?.continuity || null;
+  const has = (value) => Number.isFinite(value);
+
+  // 情绪方向（用户观点：分歧/修复是方向词而非高度词）。
+  // 对比基准优先昨日分，缺失时用近 5 日平均；|Δ| ≥ 6 分才算方向。
+  let trend = null;
+  if (cont) {
+    const ref = has(cont.prevScore) ? cont.prevScore : has(cont.avg5) ? cont.avg5 : null;
+    if (has(ref) && has(score)) {
+      const delta = score - ref;
+      trend = delta >= 6 ? "up" : delta <= -6 ? "down" : "flat";
+    }
+  }
+
+  // ① 绝对强度：截面档位（仅命名基线，最终以方向修正为准）
   let base;
   if (score <= 28) base = { phase: "冰点", posture: "观望", tone: "cold", summary: "极端亏钱效应占优，等待风险释放收敛。" };
   else if (score <= 42) base = { phase: "退潮", posture: "防守", tone: "risk", summary: "负反馈仍在扩散，优先降低接力和追高暴露。" };
   else if (score <= 56) base = { phase: "分歧", posture: "精选", tone: "watch", summary: "多空反馈混杂，只跟踪辨识度最高的核心。" };
   else if (score <= 70) base = { phase: "修复", posture: "试错", tone: "repair", summary: "赚钱效应开始恢复，但仍需确认持续性。" };
   else if (score <= 86) base = { phase: "主升", posture: "进攻", tone: "hot", summary: "广度、涨停和溢价形成正反馈，关注主线扩散。" };
-  else base = Number(metrics.upRatio) >= 70
+  else base = upRatio >= 70
     ? { phase: "高潮", posture: "去弱留强", tone: "peak", summary: "一致性处于高位，机会与次日分歧风险同时放大。" }
     : { phase: "主升", posture: "进攻", tone: "hot", summary: "强势集中在局部方向，避免把结构行情当作全面高潮。" };
 
-  if (score > 56) {
-    const liq = Number(metrics.dimensions?.liquidity);
-    const breadth = Number(metrics.dimensions?.breadth);
-    const changePct = Number(metrics.changePct);
-    if (Number.isFinite(liq) && liq < 30 && !(changePct > 0.2)) {
-      return { phase: "分歧", posture: "精选", tone: "watch", summary: "涨停接力局部活跃，但成交显著缩量、指数未共振，属存量资金抱团，不按主升处理，只跟踪辨识度核心。" };
+  // 热区持续性：今日之前连续多少个交易日维持在较热区间（>HOT_BOUNDARY）
+  // —— 主升必须靠“几天维持热区”确认，单日跳升只能算启动。
+  let prevHotStreak = 0;
+  if (cont && Array.isArray(cont.lastScores)) {
+    for (let index = cont.lastScores.length - 1; index >= 0; index -= 1) {
+      if (Number(cont.lastScores[index]) > HOT_BOUNDARY) prevHotStreak += 1; else break;
     }
-    if (score > 70 && Number.isFinite(liq) && liq < 45 && changePct <= 0 && (!(Number.isFinite(breadth)) || breadth < 60)) {
-      return { phase: "修复", posture: "试错", tone: "repair", summary: "涨停与溢价反馈偏强，但缩量、指数与广度未确认，按结构性修复对待，等待放量验证。" };
+  }
+  const currentHot = score > HOT_BOUNDARY; // 70
+  const sustainedHot = prevHotStreak >= MAIN_RISE_HOT_STREAK; // 今日前已连续多日热 → 加今日即连续 ≥MAIN+1 日
+
+  // ② 方向 × 持续性修正：热→冷=分歧；热区（含横盘）=按连续热区天数给启动/主升；
+  // 冷→温=修复；flat 且非热区保持截面档位。
+  if (trend === "down") {
+    if (score > HOT_BOUNDARY) {
+      base = { phase: "分歧", posture: "精选", tone: "watch", summary: "情绪自高位回落，热度仍在但接力降温，进入分歧期，只做辨识度核心。" };
+    } else if (base.phase === "修复") {
+      base = { phase: "分歧", posture: "精选", tone: "watch", summary: "修复遇阻，情绪再度降温，按分歧对待，降低追高。" };
+    } else if (score <= 42) {
+      base = { phase: "退潮", posture: "防守", tone: "risk", summary: "情绪继续走低，退潮持续，等待亏钱效应收敛。" };
     }
+  } else if (currentHot) {
+    // 今日已在较热区间：连续热区达标 → 主升/高潮；否则属单日骤升 → 启动（无论今日涨跌）。
+    if (sustainedHot) {
+      base = score > HOT_BOUNDARY + 16 && upRatio >= 70
+        ? { phase: "高潮", posture: "去弱留强", tone: "peak", summary: "情绪连续多日维持在较强区间且一致性极高，机会与次日分歧风险同时放大。" }
+        : { phase: "主升", posture: "进攻", tone: "hot", summary: `情绪已连续 ${prevHotStreak + 1} 日维持在较热区间，赚钱效应持续扩散，进入主升，关注主线扩散与高标接力。` };
+    } else {
+      base = { phase: "启动", posture: "进攻", tone: "hot", summary: "情绪单日骤升进入较热区间，属行情启动而非主升，需连续热区确认，先跟随最强主线、控制单日追高。" };
+    }
+  } else if (trend === "up" && score <= 42) {
+    base = { phase: "修复", posture: "试错", tone: "repair", summary: "情绪自冰点/退潮回升，广度与涨停开始修复，按反弹修复对待，先轻仓试错。" };
+  } else if (trend === "up") {
+    base = { phase: "修复", posture: "试错", tone: "repair", summary: "情绪自低位回暖、从分歧走向修复，赚钱效应正在恢复，关注持续确认。" };
+  }
+
+  // ③ 盈利确认否决：热区（趋势未知/横盘）分数靠涨停体量虚高时，仍降为修复
+  if (score >= 70 && has(profit) && profit < 50 && trend !== "up") {
+    return { phase: "修复", posture: "试错", tone: "repair", summary: "涨停人气与广度偏强，但昨日涨停今日无正溢价，追涨资金并不赚钱，属结构性修复而非主升，等赚钱效应确认。" };
+  }
+
+  // ④ 缩量 / 指数未共振（维持原有）
+  if (score > 56 && has(liq) && liq < 30 && !(changePct > 0.2)) {
+    return { phase: "分歧", posture: "精选", tone: "watch", summary: "涨停接力局部活跃，但成交显著缩量、指数未共振，属存量资金抱团，不按主升处理，只跟踪辨识度核心。" };
+  }
+  if (score > 70 && has(liq) && liq < 45 && changePct <= 0 && (!has(breadth) || breadth < 60)) {
+    return { phase: "修复", posture: "试错", tone: "repair", summary: "涨停与溢价反馈偏强，但缩量、指数与广度未确认，按结构性修复对待，等待放量验证。" };
   }
   return base;
 }
@@ -418,7 +488,11 @@ function normalizeThemes(payload) {
     changePct: Number(Object.entries(row).find(([key]) => key.includes("涨跌幅"))?.[1]),
     tradeTime: row["交易时间"] || null
   })).filter((item) => item.code && item.name && Number.isFinite(item.changePct))
-    .filter((item) => !/^\[(?:HK|US)\]/i.test(item.name)).slice(0, 10);
+    .filter((item) => !/^\[(?:HK|US)\]/i.test(item.name))
+    // 题材温度维度同样剔除风格类/资金流类指数（陆股通轻仓、成交主力、MSCI 等），
+    // 否则“陆股通轻仓 +5.7%”这类非叙事指数会污染头部排名（与 anomaly 侧口径对齐）。
+    .filter((item) => !NON_NARRATIVE_ANOMALY_PATTERN.test(item.name))
+    .slice(0, 10);
 }
 
 const anomalyThemeName = (value) => String(value || "").replace(/^[[^]]+]/, "").replace(/(?:Wind)?(?:概念)?指数$|概念板块$|板块$|精选$/g, "").trim();
@@ -462,7 +536,8 @@ function allAnomalyScore(components, limitCount, resonanceBonus, ladderBonus = 0
   const newsScore = components.news > 0 ? 55 + components.news * .17 : 0;
   const crossSignalBonus = components.batch > 0 && components.news > 0 ? 4 : 0;
   const nonLimitScore = Math.max(batchScore, newsScore) + crossSignalBonus + Math.min(2, resonanceBonus);
-  return Math.round(clamp(Math.min(74, nonLimitScore) + ladderBonus));
+  // 非涨停驱动的题材上限从 74 放开到 82：普涨日涨停分散、单题材涨停<3 时，纯批量/消息题材也能上榜。
+  return Math.round(clamp(Math.min(82, nonLimitScore) + ladderBonus));
 }
 // Specific families win before broader ones. Exclusions prevent shared words such
 // as "消费" and "材料" from silently merging unrelated industries.
@@ -475,7 +550,9 @@ const ANOMALY_THEME_FAMILIES = [
   { id: "power-grid", name: "电力与电网产业链", test: /电力设备|智能电网|电网|特高压|发电运营|核电|虚拟电厂|电力运营/ },
   { id: "new-energy", name: "新能源产业链", test: /光伏|风电|锂电|储能|新能源车|电动车|充电桩|固态电池|钠离子电池|氢能/ },
   { id: "automotive", name: "汽车智能化产业链", test: /华为汽车|汽车配件|智能驾驶|无人驾驶|汽车电子|车联网|汽车零部件|整车/ },
-  { id: "technology", name: "AI算力与通信产业链", test: /^AI$|人工智能|AI应用|AI手机|AI穿戴|多模态|智能体|AIGC|算力|光通信|CPO|光模块|数据中心|液冷|服务器|高速铜连接|铜缆高速连接|射频|天线|毫米波|5G|6G|消费电子|TWS|PCB|通信设备|数字经济|云计算|信创/ },
+  { id: "ai-app", name: "AI应用与软件产业链", test: /^AI$|人工智能|AI应用|AI手机|AI穿戴|多模态|智能体|AIGC|大模型|数字经济|云计算|信创|AI软件/ },
+  { id: "compute-comm", name: "算力与通信产业链", test: /算力|AI算力|液冷|服务器|光通信|CPO|光模块|数据中心|高速铜连接|铜缆高速连接|5G|6G|射频|天线|毫米波|通信设备/ },
+  { id: "consumer-electronics", name: "消费电子产业链", test: /消费电子|TWS|PCB|智能穿戴|折叠屏|面板/ },
   { id: "nonferrous", name: "有色金属产业链", test: /有色|稀土|贵金属|黄金|白银|工业金属|铜矿|铝业/ },
   { id: "advanced-materials", name: "新材料产业链", test: /碳纤维|超导|新材料|超硬材料|金属非金属新材料/, exclude: /半导体材料|医药材料|建筑材料/ },
   { id: "consumer", name: "消费产业链", test: /白酒|啤酒|食品饮料|食品|饮料|零售|旅游|酒店|免税|家电|乳业|调味品|餐饮|百货|商贸|预制菜|宠物经济/, exclude: /消费电子|电子消费|消费建材|医药消费|医疗消费/ },
@@ -700,7 +777,8 @@ async function loadLimitHistory(day) {
       }
       if (codes.size === 0 && attempt < 2) await new Promise((resolve) => setTimeout(resolve, 300));
     }
-    if (lastError || codes.size === 0) errors.push(`${date}涨停名单: ${lastError || "NO_RESULTS: 未返回涨停代码"}`);
+    // 某天确实没有涨停（返回空）不算失败，只有调用出错才算历史不全。
+    if (lastError) errors.push(`${date}涨停名单: ${lastError}`);
     sets.push(codes);
   }
   const output = { day, dates, sets, complete: errors.length === 0 && sets.length === 5, errors };
@@ -749,21 +827,30 @@ async function loadLiquidityHistory(day) {
   }
 }
 
+// A 股成交节奏模板（U 型：开盘/尾盘放量、午盘缩量），键为当日分钟数（570 = 9:30）。
+// 值为该时点累计成交占全天比例的经验近似，用于盘中外推全天成交额。
+const TURNOVER_PROFILE = [
+  [570, 0.18], [600, 0.28], [630, 0.35], [660, 0.42], [690, 0.53],
+  [780, 0.56], [810, 0.64], [840, 0.73], [870, 0.83], [900, 1.00]
+];
+function cumulativeTurnoverShare(minute) {
+  if (minute < 570) return 0.05;
+  if (minute >= 900) return 1;
+  let i = 0;
+  while (i < TURNOVER_PROFILE.length - 1 && TURNOVER_PROFILE[i + 1][0] <= minute) i += 1;
+  const [t0, s0] = TURNOVER_PROFILE[i];
+  const [t1, s1] = TURNOVER_PROFILE[i + 1];
+  return s0 + (s1 - s0) * (minute - t0) / (t1 - t0);
+}
+
 function predictFullDayAmount(currentAmount, tradeTimeStr) {
   if (currentAmount == null || !Number.isFinite(Number(currentAmount))) return null;
   const m = String(tradeTimeStr || "").match(/(\d{2}):(\d{2})/);
-  if (!m) return null;
-  const nowMin = Number(m[1]) * 60 + Number(m[2]);
-  const morningStart = 570, morningEnd = 690, afternoonStart = 780, afternoonEnd = 900;
-  // 开盘前十分钟成交额波动大，也避免 09:30 除以零。
-  if (nowMin < morningStart + 10) return null;
-  if (nowMin <= morningEnd) {
-    const elapsed = nowMin - morningStart;
-    return Number(currentAmount) / elapsed * 240;
-  }
-  if (nowMin < afternoonStart) return Number(currentAmount) / 120 * 240;
-  const afternoonElapsed = Math.min(nowMin - afternoonStart, 120);
-  return Number(currentAmount) / (120 + afternoonElapsed) * 240;
+  const nowMin = m ? Number(m[1]) * 60 + Number(m[2]) : null;
+  if (nowMin == null) return Number(currentAmount);
+  if (nowMin < 570) return Number(currentAmount) * 20; // 未开盘，按 5% 累计占比外推
+  if (nowMin >= 900) return Number(currentAmount);
+  return Number(currentAmount) / cumulativeTurnoverShare(nowMin);
 }
 
 const NON_BUSINESS_CONCEPT_PATTERN = /全部A股|全A|基金重仓|陆股通|等权|动量|小市值|小盘股|微盘股|大盘股|私募重仓|融资融券|深股通|沪股通|QFII|综合$|可转债正股|标普道琼斯|MSCI|富时罗素|成交主力|贷款回购|股票回购|保底增持|近期减持|股权激励|员工持股|预增|预减|业绩预|国资$/;
@@ -1098,6 +1185,10 @@ async function loadThemeAnomalies(force = false) {
     });
     const rawItems = [...map.values()].filter((item) => isEligibleNarrativeTheme(item.name));
     const mergedItems = mergeAnomalyThemes(rawItems);
+    // 普涨日放宽门槛：当日没有一个题材涨停 ≥3（涨停分散在各题材）时，按 55 而非 60 过滤，
+    // 避免有效的批量拉升 / 消息题材大面积落选。只写进摘要的门槛，不算数据缺失。
+    const hasLimitAnchor = mergedItems.some((item) => item.signals.has("limit") && item.limitStocks.length >= LIMIT_THEME_MIN_STOCKS);
+    const minScore = hasLimitAnchor ? ANOMALY_MIN_SCORE : 55;
     const rankedItems = mergedItems.map((item) => {
       const ladder = limitLadderMetrics(item.limitStocks);
       const limit = item.signals.has("limit") && item.limitStocks.length >= LIMIT_THEME_MIN_STOCKS;
@@ -1132,7 +1223,7 @@ async function loadThemeAnomalies(force = false) {
       };
       const scoreBreakdown = { limit: Math.round(limitStrength), batch: Math.round(batchStrength), news: Math.round(newsStrength), resonance: resonanceBonus, highBoardBonus: ladder.highBoardBonus, ladderBonus: ladder.ladderBonus, ladderTotalBonus: ladder.totalBonus };
       return { ...item, score: tabScores.all, tabScores, scoreBreakdown, ladder, sortMetrics, status, signals: effectiveSignals };
-    }).filter((item) => isEligibleNarrativeTheme(item.name) && item.tabScores.all >= ANOMALY_MIN_SCORE)
+    }).filter((item) => isEligibleNarrativeTheme(item.name) && item.tabScores.all >= minScore)
       .sort((a, b) => b.score - a.score || b.scoreBreakdown.ladderTotalBonus - a.scoreBreakdown.ladderTotalBonus || b.sortMetrics.limitCount - a.sortMetrics.limitCount).slice(0, ANOMALY_MAX_ITEMS);
     const items = await enrichThemeCandidates(day, rankedItems, news);
     const errors = results.map(reason).filter(Boolean);
@@ -1147,7 +1238,7 @@ async function loadThemeAnomalies(force = false) {
     const verifiedCandidateCodes = new Set(items.flatMap((item) => [...(item.followers || []), ...(item.rideable || [])].map((stock) => stock.code)));
     const rejectedCandidateCount = items.reduce((sum, item) => sum + (item.rejectedCandidates?.length || 0), 0);
     const output = { asOf: new Date().toISOString(), tradingDate: day, items,
-      summary: { total: items.length, rawTotal: rawItems.length, mergedTotal: mergedItems.length, filteredOut: mergedItems.length - items.length, minScore: ANOMALY_MIN_SCORE, limitThemes: items.filter((x) => x.signals.includes("limit")).length, batchThemes: items.filter((x) => x.signals.includes("batch")).length, newsThemes: items.filter((x) => x.signals.includes("news")).length, verifiedCandidates: verifiedCandidateCodes.size, rejectedCandidates: rejectedCandidateCount },
+      summary: { total: items.length, rawTotal: rawItems.length, mergedTotal: mergedItems.length, filteredOut: mergedItems.length - items.length, minScore, relaxedThreshold: minScore !== ANOMALY_MIN_SCORE, limitThemes: items.filter((x) => x.signals.includes("limit")).length, batchThemes: items.filter((x) => x.signals.includes("batch")).length, newsThemes: items.filter((x) => x.signals.includes("news")).length, verifiedCandidates: verifiedCandidateCodes.size, rejectedCandidates: rejectedCandidateCount },
       limitData: { source: limitDataSource, stockCount: limitStocks.length, complete: !limitDataIncomplete, streakSource: "current_limits_intersect_consecutive_historical_close_limits", streakTradingDates: streakResult.dates, streakCounts },
       newsDiagnostics: { sourceArticles: news.length, windowStart: newsWindowStart, windowEnd: day, excludedStaleArticles: excludedStaleNewsArticles, excludedUndatedArticles: excludedUndatedNewsArticles, excludedRecapArticles: excludedNewsArticles, matchedArticles: matchedNewsArticles, maxThemesPerArticle: 2 },
       momentumDiagnostics: { source: "wind_current_price_vs_5m_ago_price", field: "(current_price/price_5m_ago-1)*100", validatedCount: shorts.length, strictField: true, requestCacheSeconds: cacheTtlMs / 1000, ...momentum.diagnostics },
@@ -1202,7 +1293,12 @@ function aggregateDailyHistory(history) {
   });
 }
 
-async function loadEmotion() {
+// 评分口径 v3（2026-10-20，合作者算法 短线情绪看板20261020）：权重、跌停权重、溢价中位数与不对称斜率、
+// 连板只看质量、题材普涨度、成交 U 型外推、阶段判断加入方向与连续热区（新增「启动」）。
+// 历史曲线在口径交界处断线，每日均值只合并同一口径的快照（store.js）；方向与热区只参考同一口径的历史。
+export const SCORE_VERSION = 3;
+
+async function loadEmotion(continuity = null) {
   if (inflight) return inflight;
   inflight = (async () => {
     const day = localDate();
@@ -1233,7 +1329,7 @@ async function loadEmotion() {
     const limitDown = screenerCount(calls[2], indexPayload);
     const bigUp = aggregatedStockCount(fulfilled(calls[3]), /涨幅大于5%.*家数$/);
     const bigDown = aggregatedStockCount(fulfilled(calls[4]), /跌幅大于5%.*家数$/);
-    const premiumDetail = averageColumn(fulfilled(calls[5]), /^(?:(?:最新|今日|当日).*|\d{8}|\d{4}年\d{1,2}月\d{1,2}日)涨跌幅$/);
+    const premiumDetail = percentileColumn(fulfilled(calls[5]), /^(?:(?:最新|今日|当日).*|\d{8}|\d{4}年\d{1,2}月\d{1,2}日)涨跌幅$/);
     const premium = premiumDetail.value;
     const themes = normalizeThemes(fulfilled(calls[6]));
     const up = Number(indexRow["上涨家数"]);
@@ -1241,23 +1337,24 @@ async function loadEmotion() {
     const flat = Number(indexRow["平盘家数"]);
     const upRatio = Number.isFinite(up + down) && up + down > 0 ? up / (up + down) * 100 : null;
     const errors = calls.map(reason).filter(Boolean);
-    let ladderScore = 50;
-    let ladderAvailable = false;
+    // 连板梯队（v3）：只衡量连板质量；没有涨停或历史名单不全时给中性 30（见 scoreLadder）。
+    let ladderScore = 30;
+    let ladderComplete = false;
     try {
       const streakResult = await loadLimitHistory(day);
       errors.push(...streakResult.errors.map((error) => `连板梯队: ${error}`));
-      ladderAvailable = streakResult.complete && limitUp != null;
-      if (ladderAvailable) {
-        const enrichedLimitStocks = limitUpStocks.map((stock) => {
-          let limitStreak = 1;
+      ladderComplete = streakResult.complete;
+      const enrichedLimitStocks = limitUpStocks.map((stock) => {
+        let limitStreak = 1;
+        if (streakResult.complete) {
           for (const codes of streakResult.sets) {
             if (!codes.has(stock.code)) break;
             limitStreak += 1;
           }
-          return { ...stock, limitStreak };
-        });
-        ladderScore = scoreLadder(enrichedLimitStocks, true);
-      }
+        }
+        return { ...stock, limitStreak };
+      });
+      ladderScore = scoreLadder(enrichedLimitStocks, streakResult.complete);
     } catch (ladderError) {
       errors.push(`连板梯队: ${String(ladderError?.message || ladderError)}`);
     }
@@ -1273,8 +1370,12 @@ async function loadEmotion() {
       errors.push(`成交环境: ${String(liqError?.message || liqError)}`);
     }
     const dimensions = { breadth: Math.round(scoreBreadth(up, down)), limits: Math.round(scoreLimit(limitUp, limitDown, bigUp, bigDown)), ladder: Math.round(ladderScore), profit: Math.round(scorePremium(premium)), themes: Math.round(scoreTheme(themes)), liquidity: Math.round(liquidityScore) };
-    const score = Math.round(clamp(dimensions.breadth * .15 + dimensions.limits * .20 + dimensions.ladder * .20 + dimensions.profit * .20 + dimensions.themes * .15 + dimensions.liquidity * .10));
-    const regime = classify(score, { upRatio, changePct: Number(indexRow["涨跌幅"]), dimensions });
+    // 权重（v3）：赚钱效应上调、连板梯队下调，突出追涨是否真正盈利这一短线核心。
+    const score = Math.round(clamp(dimensions.breadth * .20 + dimensions.limits * .20 + dimensions.ladder * .10 + dimensions.profit * .25 + dimensions.themes * .15 + dimensions.liquidity * .10));
+    const regime = classify(score, { upRatio, changePct: Number(indexRow["涨跌幅"]), dimensions, continuity });
+    // 情绪方向：对比昨日（缺失时近 5 日平均），相差 6 分以上才算转强 / 转弱
+    const refScore = Number.isFinite(continuity?.prevScore) ? continuity.prevScore : Number.isFinite(continuity?.avg5) ? continuity.avg5 : null;
+    const trend = Number.isFinite(refScore) ? (score - refScore >= 6 ? "up" : score - refScore <= -6 ? "down" : "flat") : null;
     const missing = [
       [!indexPayload, "市场广度"], [limitUp == null, "涨停家数"], [limitDown == null, "跌停家数"],
       [bigUp == null, "大涨家数"], [bigDown == null, "大跌家数"], [premium == null, "昨日涨停溢价"],
@@ -1286,20 +1387,21 @@ async function loadEmotion() {
       capturedAt: new Date().toISOString(),
       quoteTime: latestQuoteTime(indexRow, themes),
       source: "Wind AI Fin Market",
-      scoreVersion: 2,
+      scoreVersion: SCORE_VERSION,
       score,
       regime,
+      trend,
       dimensions,
       market: { index: Number(indexRow["最新成交价"]), changePct: Number(indexRow["涨跌幅"]), amount: Number(indexRow["成交额"]), up: Number.isFinite(up) ? up : null, down: Number.isFinite(down) ? down : null, flat: Number.isFinite(flat) ? flat : null, upRatio },
       extremes: { limitUp, limitDown, bigUp, bigDown },
-      profit: { premium, sampleSize: premiumDetail.sampleSize, baseTradingDate: previousDay, currentTradingDate: day, method: "前一交易日涨停股票今日涨跌幅等权平均" },
+      profit: { premium, sampleSize: premiumDetail.sampleSize, baseTradingDate: previousDay, currentTradingDate: day, method: "前一交易日涨停股票今日涨跌幅中位数" },
       themes,
       coverage: [
         { name: "市场广度", status: indexPayload ? "direct" : "error", note: "全A指数直接返回上涨、下跌、平盘与成交额" },
         { name: "涨跌停与大涨大跌", status: [limitUp, limitDown, bigUp, bigDown].some((item) => item != null) ? "direct" : "error", note: "Wind结构化取数" },
-        { name: "昨日涨停溢价", status: premium != null ? "derived" : "error", note: premium != null ? "Wind明细本地等权平均（" + premiumDetail.sampleSize + "只）" : "Wind未返回前一交易日涨停股今日涨跌幅明细" },
-        { name: "连板与晋级率", status: ladderAvailable ? "derived" : "limited", note: ladderAvailable ? "多日涨停名单本地计算最高板、梯队完整度与涨停总数" : "历史涨停名单不足，连板梯队暂用中性分" },
-        { name: "成交额", status: liquidityAvailable ? "derived" : "limited", note: liquidityAvailable ? "近60交易日成交额分位数，盘中按时间外推全天" : "交易时间过早或历史成交额不足，成交环境暂用中性分" },
+        { name: "昨日涨停溢价", status: premium != null ? "derived" : "error", note: premium != null ? "Wind明细本地中位数（" + premiumDetail.sampleSize + "只）" : "Wind未返回前一交易日涨停股今日涨跌幅明细" },
+        { name: "连板与晋级率", status: ladderComplete ? "derived" : "limited", note: ladderComplete ? "多日涨停名单本地计算最高板、梯队完整度与连板家数" : "历史涨停名单不足，连板梯队暂用中性分" },
+        { name: "成交额", status: liquidityAvailable ? "derived" : "limited", note: liquidityAvailable ? "近60交易日成交额分位数，盘中按A股成交节奏外推全天" : "历史成交额不足，成交环境暂用中性分" },
         { name: "炸板率与盘中曲线", status: "derived", note: "依赖分钟级快照持续沉淀" },
         { name: "L2排撤单", status: "limited", note: "需要额外高频或L2数据授权" }
       ],
@@ -1362,7 +1464,7 @@ export {
   limitStreakLabel
 };
 
-export { scoreLiquidity, predictFullDayAmount, limitLadderMetrics, screenerCount };
+export { scoreLiquidity, predictFullDayAmount, limitLadderMetrics, screenerCount, scoreLadder, scoreTheme };
 
 export {
   loadEmotion,

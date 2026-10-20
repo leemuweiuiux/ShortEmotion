@@ -103,10 +103,62 @@ describe("Wind 调用统计", () => {
   it("每次更新把调用次数写进 last-run（按工具、按 Key）", async () => {
     process.env.WIND_MOCK = "1";
     const { runScheduledRefresh } = await import("../api/_lib/short-emotion/service.js");
-    const result = await runScheduledRefresh({ force: true, market: "cn" });
+    // 固定在今天盘中，避免收盘后「只更新新闻」的收缩影响测试
+    const { localDate } = await import("../api/_lib/short-emotion/engine.js");
+    const day = localDate();
+    const now = new Date(`${day.slice(0, 4)}-${day.slice(4, 6)}-${day.slice(6, 8)}T10:30:00+08:00`);
+    const result = await runScheduledRefresh({ force: true, market: "cn", now });
     expect(result.windCalls.total).toBeGreaterThan(5);
     expect(result.windCalls.byKey.MOCK).toBe(result.windCalls.total);
     expect(Object.values(result.windCalls.byTool).reduce((sum, value) => sum + value, 0)).toBe(result.windCalls.total);
     expect(result.windCalls.byTool["stock_data/search_stocks"]).toBeGreaterThan(0);
+  });
+});
+
+describe("评分连续性（只取同一评分口径）", () => {
+  it("排除今天、只取同版本的日均分", async () => {
+    process.env.WIND_MOCK = "1";
+    const { scoreContinuity } = await import("../api/_lib/short-emotion/service.js");
+    const store = { dailyHistory: async () => [
+      { tradingDate: "20261014", scoreVersion: 2, score: 90 },
+      { tradingDate: "20261015", scoreVersion: 3, score: 60 },
+      { tradingDate: "20261016", scoreVersion: 3, score: 72 },
+      { tradingDate: "20261019", scoreVersion: 3, score: 75 },
+      { tradingDate: "20261020", scoreVersion: 3, score: 40 }
+    ] };
+    const result = await scoreContinuity(store, "20261020", 3);
+    expect(result.prevScore).toBe(75);
+    expect(result.lastScores).toEqual([60, 72, 75]);
+    expect(result.avg5).toBeCloseTo(69);
+    expect(await scoreContinuity({ dailyHistory: async () => [{ tradingDate: "20261019", scoreVersion: 2, score: 80 }] }, "20261020", 3)).toBeNull();
+  });
+});
+
+describe("收盘后收缩", () => {
+  it("当日已有 15:00 收盘快照时，收盘后的刷新只更新新闻", async () => {
+    process.env.WIND_MOCK = "1";
+    const { runScheduledRefresh } = await import("../api/_lib/short-emotion/service.js");
+    const { getStore } = await import("../api/_lib/short-emotion/store.js");
+    const { localDate } = await import("../api/_lib/short-emotion/engine.js");
+    const day = localDate();
+    const store = getStore("cn");
+    const previous = await store.kvGet("emotion:latest");
+    await store.kvSet("emotion:latest", { ...(previous?.value || {}), quoteTime: `${day} 15:00:00` });
+    const now = new Date(`${day.slice(0, 4)}-${day.slice(4, 6)}-${day.slice(6, 8)}T15:20:00+08:00`);
+    const result = await runScheduledRefresh({ force: true, market: "cn", now });
+    expect(result.ran).not.toContain("emotion");
+    expect(result.ran).not.toContain("anomalies");
+    expect(result.skipped.join(" ")).toContain("收盘后只更新新闻");
+  });
+});
+
+describe("题材异动门槛", () => {
+  it("门槛放宽只写在 summary，不进 errors（不会触发「部分数据可用」）", async () => {
+    process.env.WIND_MOCK = "1";
+    const { readResource } = await import("../api/_lib/short-emotion/service.js");
+    const anomalies = await readResource("anomalies");
+    expect([55, 60]).toContain(anomalies.summary.minScore);
+    expect(anomalies.summary.relaxedThreshold).toBe(anomalies.summary.minScore !== 60);
+    expect((anomalies.errors || []).some((item) => /门槛/.test(String(item)))).toBe(false);
   });
 });
