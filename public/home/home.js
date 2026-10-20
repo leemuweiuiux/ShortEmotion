@@ -73,11 +73,8 @@ const hint = $("#ta-hint");
 let analysis = { configured: true, cost: 10 };
 
 function renderAnalysisHint() {
-  runButton.innerHTML = `开始分析${unlimited ? "" : `<small>−${analysis.cost} 积分</small>`}`;
   runButton.disabled = !analysis.configured;
-  if (!analysis.configured) hint.textContent = "个股分析暂未开通，开通后即可使用。";
-  else if (unlimited) hint.textContent = "不限额账号，分析不扣积分。";
-  else hint.textContent = `每次分析扣 ${analysis.cost} 积分；认不出股票或分析失败不扣分。`;
+  hint.textContent = !analysis.configured ? "*个股分析暂未开通。" : unlimited ? "*不限额账号，分析不扣积分。" : `*每次分析扣 ${analysis.cost} 积分。`;
 }
 
 readAnalysisConfig().then((config) => {

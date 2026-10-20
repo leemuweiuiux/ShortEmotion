@@ -22,21 +22,12 @@ const setText = (selector, value) => { const element = $(selector); if (element)
 
 // ── 积分与按钮 ──
 function renderButton() {
-  runButton.innerHTML = busy ? "分析中…" : `开始分析${config.unlimited ? "" : `<small>−${config.cost} 积分</small>`}`;
+  runButton.textContent = busy ? "分析中…" : "开始分析";
   runButton.disabled = busy || !config.configured;
 }
 
 function renderHint() {
-  if (!config.configured) {
-    hint.textContent = "个股分析暂未开通，开通后即可使用。";
-    return;
-  }
-  if (config.unlimited) {
-    hint.textContent = "不限额账号，分析不扣积分。";
-    return;
-  }
-  const balance = Number.isFinite(Number(config.balance)) ? `，当前余额 ${config.balance}` : "";
-  hint.innerHTML = `每次分析扣 ${config.cost} 积分${esc(balance)}；认不出股票或分析失败不扣分。<a href="/account">签到获取积分</a>`;
+  hint.textContent = !config.configured ? "*个股分析暂未开通。" : config.unlimited ? "*不限额账号，分析不扣积分。" : `*每次分析扣 ${config.cost} 积分。`;
 }
 
 async function loadConfig() {
@@ -58,7 +49,6 @@ async function analyze(query) {
   if (busy) return;
   busy = true;
   renderButton();
-  $("#ta-intro").hidden = true;
   $("#ta-loading").hidden = false;
   try {
     const response = await fetch("/api/technical-analysis", {
@@ -71,7 +61,11 @@ async function analyze(query) {
     if (payload.code === "login_required") return goLogin();
     if (Number.isFinite(Number(payload.balance))) config.balance = payload.balance;
     if (payload.code === "not_configured") config.configured = false;
-    if (!response.ok) throw new Error(payload.error || "分析失败，请稍后再试");
+    if (!response.ok) {
+      // 失败时说明有没有扣分：积分不足、已退回的提示本身已写明；其余（认不出股票等）没扣分
+      const note = payload.code === "insufficient_points" || payload.refunded || payload.charged ? "" : "，未扣分";
+      throw new Error(`${payload.error || "分析失败，请稍后再试"}${note}`);
+    }
     current = payload.data;
     render();
     const url = new URL(location.href);
@@ -80,7 +74,6 @@ async function analyze(query) {
     toast(payload.charged > 0 ? `已扣 ${payload.charged} 积分` : "分析完成");
   } catch (error) {
     toast(error.message, true);
-    if (!current) $("#ta-intro").hidden = false;
   } finally {
     busy = false;
     $("#ta-loading").hidden = true;
@@ -109,7 +102,6 @@ function render() {
   const data = current;
   const decision = data.finalDecision || {};
   $("#ta-result").hidden = false;
-  $("#ta-intro").hidden = true;
   document.title = `${data.name} · 个股技术分析`;
 
   setText("#ta-name", data.name);

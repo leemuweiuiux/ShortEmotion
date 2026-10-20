@@ -1,20 +1,30 @@
 /* 个股技术分析：在看板 twsvp.css 的基础上补充本页的版式（600px 单列、直角描边卡片、红涨绿跌随设置）。 */
 main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; }
 .ta-result { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
-.ta-result[hidden], .ta-intro[hidden], .ta-loading[hidden] { display: none; }
+.ta-result[hidden], .ta-loading[hidden] { display: none; }
 
-/* 搜索 */
+/* 输入：放大镜、输入框、按钮在同一条圆角搜索栏里 */
 .ta-search { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
-.ta-search-label { color: var(--muted); font-size: 12px; }
-.ta-search-row { display: flex; gap: 8px; }
-.ta-search input {
+.ta-search .card-desc { margin-top: 0; }
+.ta-searchbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 4px 4px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+}
+.ta-searchbar:focus-within { border-color: var(--ink); background: var(--surface); }
+.ta-searchbar svg { flex: none; width: 18px; height: 18px; color: var(--muted); }
+.ta-searchbar input {
   flex: 1;
   min-width: 0;
-  height: 40px;
-  padding: 0 12px;
-  border: 1px solid var(--border);
-  border-radius: 0;
-  background: var(--panel);
+  height: 36px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--ink);
   font: inherit;
   font-size: 15px;
@@ -22,17 +32,11 @@ main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-co
   -webkit-appearance: none;
   appearance: none;
 }
-.ta-search input:focus { border-color: var(--ink); background: var(--surface); }
-.ta-run { min-height: 40px; padding: 0 16px; }
-.ta-run small { margin-left: 6px; font-size: 12px; font-weight: 500; opacity: .75; }
+.ta-searchbar input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.ta-run { min-height: 36px; padding: 0 16px; }
 .ta-hint { color: var(--muted); font-size: 12px; line-height: 1.5; }
-.ta-hint a { color: var(--ink); text-underline-offset: 3px; }
 
-/* 说明 / 载入 */
-.ta-intro-list { display: grid; gap: 10px; margin: 12px 0 0; padding: 0; list-style: none; }
-.ta-intro-list li { display: grid; gap: 2px; padding-left: 10px; border-left: 2px solid var(--border); }
-.ta-intro-list b { font-size: 14px; font-weight: 600; }
-.ta-intro-list span { color: var(--muted); font-size: 13px; line-height: 1.55; }
+/* 载入 */
 .ta-note { margin-top: 10px; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .ta-loading { display: grid; justify-items: center; gap: 12px; padding: 32px 12px; color: var(--muted); font-size: 13px; text-align: center; }
 .ta-spinner { width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--ink); border-radius: 50%; animation: se-spin .8s linear infinite; }
