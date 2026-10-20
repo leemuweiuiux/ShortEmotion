@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#ffffff">
   <meta name="robots" content="noindex">
-  <title>个人资料 · ShortEmotion</title>
+  <title>个人页面 · ShortEmotion</title>
   <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
   <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
@@ -27,57 +27,49 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/about/about.css?v=7">
-  <link rel="stylesheet" href="/account/account.css?v=3">
+  <link rel="stylesheet" href="/account/account.css?v=5">
 </head>
 <body class="sub-page">
   <nav class="subnav">
     <a id="back" class="subnav-btn" href="/shortemotion/cn" aria-label="返回">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </a>
-    <div class="subnav-title">个人资料</div>
+    <div class="subnav-title">个人页面</div>
   </nav>
 
   <main class="sub-frame">
     <header>
-      <h1 class="sub-title">个人资料</h1>
+      <h1 class="sub-title">个人页面</h1>
     </header>
 
     <section class="sub-card">
-      <div class="section-title">账号</div>
-      <div class="setting-item">
-        <div class="setting-meta">
-          <strong>邮箱</strong>
-          <span id="email">读取中…</span>
-        </div>
+      <div class="card-row">
+        <div class="section-title">个人信息</div>
+        <a class="row-link" href="/account/edit">编辑<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
       </div>
+      <dl class="info-list">
+        <div><dt>姓名</dt><dd id="info-name">读取中…</dd></div>
+        <div><dt>邮箱</dt><dd id="info-email">读取中…</dd></div>
+        <div><dt>电话</dt><dd id="info-phone">读取中…</dd></div>
+      </dl>
+    </section>
 
-      <div class="section-title">基本资料</div>
-      <form id="profile-form" class="profile-form" novalidate>
-        <label class="field">
-          <span>姓名</span>
-          <input id="name" name="name" type="text" autocomplete="name" maxlength="40" placeholder="输入你的姓名">
-        </label>
-        <div class="field">
-          <span id="phone-label">电话</span>
-          <div class="phone-row" role="group" aria-labelledby="phone-label">
-            <select id="phone-country" name="phoneCountryCode" aria-label="区号">
-              <option value="+86">+86 中国大陆</option>
-              <option value="+886">+886 台湾</option>
-              <option value="+852">+852 香港</option>
-              <option value="+853">+853 澳门</option>
-              <option value="+65">+65 新加坡</option>
-              <option value="+60">+60 马来西亚</option>
-              <option value="+81">+81 日本</option>
-              <option value="+82">+82 韩国</option>
-              <option value="+1">+1 美国／加拿大</option>
-              <option value="+44">+44 英国</option>
-              <option value="+61">+61 澳大利亚</option>
-            </select>
-            <input id="phone" name="phoneNumber" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="15" placeholder="手机号">
-          </div>
+    <section class="sub-card points-card">
+      <div class="points-head">
+        <div class="points-meta">
+          <span>我的积分</span>
+          <strong id="points-balance">—</strong>
         </div>
-        <button id="save" class="btn-primary" type="submit" disabled>保存</button>
-      </form>
+        <button id="signin" class="btn-primary" type="button" disabled>签到 +10</button>
+      </div>
+    </section>
+
+    <section class="sub-card ledger-card">
+      <div class="card-row">
+        <div class="section-title">积分流水</div>
+        <a class="row-link" href="/account/points">查看全部<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+      </div>
+      <ol id="ledger" class="ledger-list"><li class="ledger-empty">读取中…</li></ol>
     </section>
 
     <button id="logout" class="logout-link" type="button">退出登录</button>
@@ -85,6 +77,6 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/account/account.js?v=8"></script>
+  <script type="module" src="/account/account.js?v=11"></script>
 </body>
 </html>

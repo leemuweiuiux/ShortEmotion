@@ -2,7 +2,7 @@
 //
 //   /                  已登录 → /shortemotion/cn；未登录 → /about（介绍页）
 //   /login             已登录 → 直接去 next（默认 /shortemotion/cn）
-//   /account           个人资料，需登录（未登录 → /login?next=/account）
+//   /account/...       个人页面（及编辑个人信息、积分流水），需登录（未登录 → /login?next=原网址）
 //   /shortemotion/...  未登录 → /login?next=原网址；凭证过期时顺手换新 cookie（滚动 90 天）；
 //                      已登录时记一笔当天的活跃（每人每天一次，只记「哪天来过」，见 session.js recordActivity）
 //
@@ -11,7 +11,7 @@ import { next } from "@vercel/functions/middleware";
 import { authConfig, resolveSession, safeNext, isSecureRequest, seenCookieFor, recordActivity } from "./api/_lib/session.js";
 
 export const config = {
-  matcher: ["/", "/login", "/login/", "/account", "/account/", "/shortemotion/:path*"]
+  matcher: ["/", "/login", "/login/", "/account/:path*", "/shortemotion/:path*"]
 };
 
 function redirect(location, setCookies = []) {

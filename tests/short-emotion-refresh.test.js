@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { vi } from "vitest";
 import handler from "../api/short-emotion.js";
 
 function call(method, query) {
@@ -16,9 +17,15 @@ function call(method, query) {
 
 describe("short-emotion refresh API", () => {
   const realFetch = globalThis.fetch;
+  beforeEach(() => {
+    // 手动刷新只在交易时段开放：固定在周二盘中
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-20T10:30:00+08:00"));
+  });
   afterEach(() => {
     globalThis.fetch = realFetch;
     delete process.env.GITHUB_ACTIONS_TOKEN;
+    vi.useRealTimers();
   });
 
   it("reports not configured without a GitHub token", async () => {

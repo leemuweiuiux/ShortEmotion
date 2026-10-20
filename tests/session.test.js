@@ -329,6 +329,9 @@ describe("个人资料 /account", () => {
     expect((await visit("/account")).headers.get("location")).toBe("/login?next=%2Faccount");
     const ok = await visit("/account", loggedIn());
     expect(ok.headers.get("x-middleware-next")).toBe("1");
+    // 二级页：编辑个人信息、积分流水
+    expect((await visit("/account/edit")).headers.get("location")).toBe("/login?next=%2Faccount%2Fedit");
+    expect((await visit("/account/points", loggedIn())).headers.get("x-middleware-next")).toBe("1");
     expect(activity).toEqual([]);
   });
 

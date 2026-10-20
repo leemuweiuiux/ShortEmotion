@@ -1,75 +1,52 @@
-// 个人资料 /account：姓名、邮箱（只读）、电话区号与手机号（不做验证码）。资料存在 Supabase 的用户资料里（/api/auth?action=profile）。
-import { initLanguage, setText } from "/shared/lang.js?v=8";
+// 个人页面 /account：个人信息（只显示，编辑在 /account/edit）、积分（余额 + 签到）、积分流水（最近 3 笔，全部在 /account/points）。
+import { $, setText, toast, readProfile, readPoints, signin, renderLedger } from "/account/common.js?v=1";
 
-const $ = (selector) => document.querySelector(selector);
+const signinButton = $("#signin");
 
-initLanguage();
-
-const form = $("#profile-form");
-const saveButton = $("#save");
-const nameInput = $("#name");
-const countrySelect = $("#phone-country");
-const phoneInput = $("#phone");
-
-function goLogin() {
-  location.replace(`/login?next=${encodeURIComponent("/account")}`);
+function setSigned(signed) {
+  signinButton.disabled = signed;
+  setText(signinButton, signed ? "今日已签到" : "签到 +10");
 }
 
-// 保存结果用页面底部的轻提示（几秒后自动消失），不占版面。
-let toastTimer = null;
-function toast(message, error = false) {
-  const element = $("#toast");
-  setText(element, message);
-  element.className = `toast show${error ? " error" : ""}`;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { element.className = "toast"; }, 2400);
+/** 手机号中间隐码：保留前 3 位与后 4 位（例如 138****0000）；较短的号码只保留后 2 位。 */
+function maskPhone(number) {
+  const digits = String(number || "");
+  if (digits.length >= 8) return `${digits.slice(0, 3)}****${digits.slice(-4)}`;
+  if (digits.length > 2) return `${"*".repeat(digits.length - 2)}${digits.slice(-2)}`;
+  return digits;
 }
 
-function fill(profile) {
-  setText($("#email"), profile.email || "—");
-  nameInput.value = profile.name || "";
-  const fallback = document.documentElement.dataset.lang === "hant" ? "+886" : "+86";
-  const code = profile.phoneCountryCode || fallback;
-  if (![...countrySelect.options].some((option) => option.value === code)) countrySelect.add(new Option(code, code));
-  countrySelect.value = code;
-  phoneInput.value = profile.phoneNumber || "";
+function fillProfile(profile) {
+  setText($("#info-name"), profile.name || "未填写");
+  $("#info-name").classList.toggle("empty", !profile.name);
+  setText($("#info-email"), profile.email || "—");
+  const phone = profile.phoneNumber ? `${profile.phoneCountryCode || ""} ${maskPhone(profile.phoneNumber)}`.trim() : "未填写";
+  setText($("#info-phone"), phone);
+  $("#info-phone").classList.toggle("empty", !profile.phoneNumber);
 }
 
-async function request(method, body) {
-  const response = await fetch("/api/auth?action=profile", {
-    method,
-    credentials: "same-origin",
-    headers: { Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) },
-    body: body ? JSON.stringify(body) : undefined
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (payload.code === "login_required") goLogin();
-  if (!response.ok) throw new Error(payload.error || "暂时无法读取资料，请稍后再试。");
-  return payload.profile;
-}
-
-phoneInput.addEventListener("input", () => {
-  phoneInput.value = phoneInput.value.replace(/[^\d]/g, "").slice(0, 15);
-});
-
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const phoneNumber = phoneInput.value.trim();
-  if (phoneNumber && !/^\d{4,15}$/.test(phoneNumber)) {
-    toast("手机号只能是 4–15 位数字", true);
-    phoneInput.focus();
-    return;
-  }
-  saveButton.disabled = true;
-  setText(saveButton, "保存中…");
+async function loadPoints() {
   try {
-    fill(await request("POST", { name: nameInput.value, phoneCountryCode: countrySelect.value, phoneNumber }));
-    toast("已保存");
+    const payload = await readPoints();
+    setText($("#points-balance"), String(payload.balance));
+    setSigned(Boolean(payload.signedToday));
+    renderLedger($("#ledger"), (payload.history || []).slice(0, 3));
   } catch (error) {
+    setText($("#points-balance"), "—");
+    $("#ledger").textContent = "";
     toast(error.message, true);
-  } finally {
-    saveButton.disabled = false;
-    setText(saveButton, "保存");
+  }
+}
+
+signinButton.addEventListener("click", async () => {
+  signinButton.disabled = true;
+  try {
+    const result = await signin();
+    toast(result.ok ? "签到成功 +10" : "今天已经签到过了");
+    await loadPoints();
+  } catch (error) {
+    signinButton.disabled = false;
+    toast(error.message, true);
   }
 });
 
@@ -79,9 +56,5 @@ $("#logout").addEventListener("click", async (event) => {
   location.replace("/about");
 });
 
-request("GET")
-  .then((profile) => {
-    fill(profile);
-    saveButton.disabled = false;
-  })
-  .catch((error) => toast(error.message, true));
+readProfile().then(fillProfile).catch((error) => toast(error.message, true));
+loadPoints();

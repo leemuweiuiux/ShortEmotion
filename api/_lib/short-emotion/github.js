@@ -57,20 +57,29 @@ export async function latestRefreshRun(market) {
 }
 
 const ACTIVE = new Set(["queued", "in_progress", "waiting", "requested", "pending"]);
-// 同一市场 2 分钟内只触发一次，多个用户同时点刷新时共用同一次更新，避免重复消耗 Wind 额度。
-const MIN_INTERVAL_MS = 2 * 60_000;
+// 同一市场 10 分钟内只触发一次手动刷新，多个用户同时点刷新时共用同一次更新，避免重复消耗 Wind 额度。
+export const MIN_INTERVAL_MS = 10 * 60_000;
 
-/** 触发一次真实刷新；已有进行中或刚完成的刷新时直接复用。 */
-export async function requestRefresh(market) {
+/**
+ * 触发一次真实刷新；已有进行中或刚触发过的刷新时直接复用（不调用 charge）。
+ * charge：真正触发前调用（扣积分），返回 { result, refund }；触发失败时调用 refund 退回。
+ */
+export async function requestRefresh(market, { charge } = {}) {
   const latest = await latestRefreshRun(market).catch(() => null);
   if (latest && ACTIVE.has(latest.status)) return { dispatched: false, reason: "running", run: latest };
   if (latest && Date.now() - Date.parse(latest.createdAt) < MIN_INTERVAL_MS) return { dispatched: false, reason: "recent", run: latest };
+  const charged = charge ? await charge() : null;
   const requestedAt = new Date().toISOString();
-  await github(`/repos/${REPO}/actions/workflows/${WORKFLOW}/dispatches`, {
-    method: "POST",
-    body: { ref: "main", inputs: { target: "short-emotion", force: "true", market } }
-  });
-  return { dispatched: true, requestedAt, run: null };
+  try {
+    await github(`/repos/${REPO}/actions/workflows/${WORKFLOW}/dispatches`, {
+      method: "POST",
+      body: { ref: "main", inputs: { target: "short-emotion", force: "true", market } }
+    });
+  } catch (error) {
+    if (charged?.refund) await charged.refund().catch(() => {});
+    throw error;
+  }
+  return { dispatched: true, requestedAt, run: null, ...(charged?.result || {}) };
 }
 
 /** 数据分支最新提交（读快照时按提交读取，绕开 raw.githubusercontent.com 约 5 分钟的缓存）。 */

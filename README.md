@@ -67,6 +67,16 @@ Supabase Auth                     寄送與驗證郵箱驗證碼（經 Resend �
 - 存在 Supabase 用戶資料的 user_metadata（`full_name` / `display_name`、`phone_country_code`、`phone_number`），
   透過 `GET / POST /api/auth?action=profile` 用登入用戶自己的憑證讀寫，不另建表；Supabase 後台 Users 的 Display name 會顯示姓名。
 
+## 積分
+
+- 規則（2026-10-20）：註冊贈送 +50（已註冊的人第一次打開時補發）、每日簽到 +10；手動刷新 −5、解鎖當日題材異動 −5（12 小時內有效，看板顯示倒計時）。
+- 簽到按瀏覽器所在時區的 00:00 換日；時區在第一次簽到時記下，之後固定（避免改時區重複簽到）。
+- 題材異動未解鎖時，接口只回傳題材數量，不回傳內容。
+- 手動刷新只在交易時段（工作日北京時間 09:15–15:05）開放；別人正在刷新或 10 分鐘內剛更新過時不觸發、不扣分；觸發失敗自動退回。定時更新照舊，不扣分。
+- 餘額與流水存在 Supabase（`supabase/migrations/20261020_points.sql`，在 SQL Editor 執行一次），只能經由 `points_*` 函數用登入者自己的憑證存取；
+  流水只記類型（註冊贈送／簽到／刷新／解鎖異動／退回），永久保留。營運概況：`select * from points_overview;`
+- 個人資料頁 `/account` 顯示餘額、簽到按鈕與積分記錄。
+
 ## 部署設定（只需做一次）
 
 1. **GitHub 倉庫 Secret**：Settings → Secrets and variables → Actions → 新增 `WIND_API_KEY`。
