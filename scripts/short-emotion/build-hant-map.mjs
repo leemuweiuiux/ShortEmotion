@@ -10,6 +10,11 @@ const sources = [
   "public/login/login.js",
   "public/account/index.html",
   "public/account/account.js",
+  "public/account/common.js",
+  "public/account/edit/index.html",
+  "public/account/edit.js",
+  "public/account/points/index.html",
+  "public/account/points.js",
   "api/auth.js",
   "api/_lib/session.js",
   "api/_lib/points.js"

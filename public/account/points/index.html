@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="robots" content="noindex">
+  <title>积分流水 · ShortEmotion</title>
+  <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
+  <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <script>
+    // 与介绍页、看板共用外观设置：深浅色跟随系统（或 twsvp_theme），语言：简体 / 繁体
+    (function () {
+      var root = document.documentElement;
+      var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
+      var theme = get("twsvp_theme");
+      if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      root.dataset.theme = theme;
+      if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
+      var lang = get("shortemotion:lang");
+      if (lang !== "hans" && lang !== "hant") lang = /^zh-(tw|hk|mo|hant)/i.test(navigator.language || "") ? "hant" : "hans";
+      root.dataset.lang = lang;
+      if (lang === "hant") root.lang = "zh-Hant-TW";
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/about/about.css?v=7">
+  <link rel="stylesheet" href="/account/account.css?v=5">
+</head>
+<body class="sub-page">
+  <nav class="subnav">
+    <a id="back" class="subnav-btn" href="/account" aria-label="返回">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+    <div class="subnav-title">积分流水</div>
+  </nav>
+
+  <main class="sub-frame">
+    <section class="sub-card ledger-card">
+      <ol id="ledger" class="ledger-list"><li class="ledger-empty">读取中…</li></ol>
+      <button id="ledger-more" class="ledger-more" type="button" hidden>加载更多</button>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="/account/points.js?v=1"></script>
+</body>
+</html>

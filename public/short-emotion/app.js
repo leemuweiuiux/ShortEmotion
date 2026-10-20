@@ -816,7 +816,7 @@ function toggleAccountMenu(event) {
   who.className = "account-who";
   who.href = "/account";
   who.setAttribute("role", "menuitem");
-  who.innerHTML = `<small>已登录 · 查看个人资料</small><b></b><span class="account-points"></span>`;
+  who.innerHTML = `<small>已登录 · 个人页面</small><b></b><span class="account-points"></span>`;
   who.querySelector("b").textContent = accountEmail || "—";
   who.querySelector(".account-points").textContent = pointsBalance != null ? `积分 ${pointsBalance}` : "积分 —";
   const logout = document.createElement("button");

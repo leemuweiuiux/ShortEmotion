@@ -47,7 +47,7 @@ describe("网址：介绍页、登录页与看板", () => {
 
   it("页面里的站内链接都指向存在的网址", () => {
     const known = new Set([...Object.keys(rewrites), ...Object.keys(redirects)]);
-    for (const file of ["public/short-emotion/index.html", "public/about/index.html", "public/login/index.html", "public/account/index.html"]) {
+    for (const file of ["public/short-emotion/index.html", "public/about/index.html", "public/login/index.html", "public/account/index.html", "public/account/edit/index.html", "public/account/points/index.html"]) {
       const html = readFileSync(resolve(root, file), "utf8");
       const links = [...html.matchAll(/<a[^>]+href="(\/[^"#?]*)"/g)].map((m) => m[1]);
       expect(links.length).toBeGreaterThan(0);
@@ -82,7 +82,7 @@ describe("页面脚本", () => {
 
   it("中间件只拦介绍页以外的入口：/、/login、看板", async () => {
     const { config } = await import("../middleware.js");
-    expect(config.matcher).toEqual(["/", "/login", "/login/", "/account", "/account/", "/shortemotion/:path*"]);
+    expect(config.matcher).toEqual(["/", "/login", "/login/", "/account/:path*", "/shortemotion/:path*"]);
   });
 });
 
