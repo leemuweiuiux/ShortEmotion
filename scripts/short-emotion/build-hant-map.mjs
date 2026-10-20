@@ -11,7 +11,8 @@ const sources = [
   "public/account/index.html",
   "public/account/account.js",
   "api/auth.js",
-  "api/_lib/session.js"
+  "api/_lib/session.js",
+  "api/_lib/points.js"
 ];
 const text = (await Promise.all(sources.map((file) => readFile(file, "utf8")))).join("");
 const chars = [...new Set(text.match(/[一-鿿]/g))].sort();

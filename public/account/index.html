@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/about/about.css?v=7">
-  <link rel="stylesheet" href="/account/account.css?v=3">
+  <link rel="stylesheet" href="/account/account.css?v=4">
 </head>
 <body class="sub-page">
   <nav class="subnav">
@@ -41,6 +41,16 @@
     <header>
       <h1 class="sub-title">个人资料</h1>
     </header>
+
+    <section class="sub-card points-card">
+      <div class="points-head">
+        <div class="points-meta">
+          <span>我的积分</span>
+          <strong id="points-balance">—</strong>
+        </div>
+        <button id="signin" class="btn-primary" type="button" disabled>签到 +10</button>
+      </div>
+    </section>
 
     <section class="sub-card">
       <div class="section-title">账号</div>
@@ -80,11 +90,17 @@
       </form>
     </section>
 
+    <section class="sub-card ledger-card">
+      <div class="section-title">积分记录</div>
+      <ol id="ledger" class="ledger-list"><li class="ledger-empty">读取中…</li></ol>
+      <button id="ledger-more" class="ledger-more" type="button" hidden>加载更多</button>
+    </section>
+
     <button id="logout" class="logout-link" type="button">退出登录</button>
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/account/account.js?v=8"></script>
+  <script type="module" src="/account/account.js?v=9"></script>
 </body>
 </html>

@@ -632,3 +632,27 @@ body.gallery-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   @view-transition { navigation: none; }
 }
+
+/* 题材异动积分锁：未解锁时只显示题材数量，模糊的占位卡上盖一层锁 */
+.anomaly-panel.locked .anomaly-toolbar, .anomaly-panel.locked .anomaly-time, .anomaly-panel.locked .anomaly-note { display: none; }
+.anomaly-panel.locked .anomaly-list { position: relative; min-height: 260px; margin-top: 14px; }
+.lock-skeleton { display: grid; gap: 10px; filter: blur(3px); opacity: .55; }
+.lock-skeleton i { display: block; height: 76px; background: linear-gradient(90deg, var(--panel) 0 30%, var(--border) 30% 34%, var(--panel) 34%); border: 1px solid var(--border); }
+.anomaly-lock {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 16px;
+  text-align: center;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+}
+.anomaly-lock svg { width: 28px; height: 28px; color: var(--ink); }
+.anomaly-lock b { font-size: 15px; font-weight: 600; }
+.anomaly-lock p { margin: 0; color: var(--muted); font-size: 13px; }
+.anomaly-lock small { color: var(--muted); font-size: 12px; }
+.anomaly-lock .lock-link { color: var(--ink); font-size: 13px; text-underline-offset: 3px; }
+#anomaly-unlock { font-variant-numeric: tabular-nums; }
+.account-points { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }

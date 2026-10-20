@@ -327,10 +327,93 @@ function renderAnomalies() {
   }).join("");
 }
 
+// ── 题材异动的积分锁：未解锁时服务器只给题材数量；解锁扣 5 积分，12 小时内有效（倒计时到 0 自动重新上锁）──
+let pointsBalance = null;
+let unlockTimer = null;
+const POINTS_TEXT = "积分不足，签到获取 +10积分";
+
+function setBalance(value) {
+  if (Number.isFinite(Number(value))) pointsBalance = Number(value);
+}
+
+function countdownText(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${pad(Math.floor(total / 3600))}:${pad(Math.floor(total % 3600 / 60))}:${pad(total % 60)}`;
+}
+
+function renderUnlockCountdown() {
+  clearInterval(unlockTimer);
+  const pill = $("#anomaly-unlock");
+  const until = Date.parse(anomalyData?.unlockUntil || "");
+  if (!pill) return;
+  if (!Number.isFinite(until)) {
+    pill.hidden = true;
+    return;
+  }
+  const tick = () => {
+    const left = until - Date.now();
+    if (left <= 0) {
+      clearInterval(unlockTimer);
+      pill.hidden = true;
+      loadAnomalies().catch(() => {});
+      return;
+    }
+    pill.hidden = false;
+    pill.textContent = `已解锁 · 剩余 ${countdownText(left)}`;
+  };
+  tick();
+  unlockTimer = setInterval(tick, 1000);
+}
+
+function renderLockedAnomalies() {
+  const panel = $(".anomaly-panel");
+  panel?.classList.add("locked");
+  const total = Number(anomalyData?.total) || 0;
+  const cost = anomalyData?.cost || 5;
+  const hours = anomalyData?.hours || 12;
+  $("#anomaly-summary").innerHTML = `<span>今日识别到 ${total} 个题材</span>`;
+  setText("#anomaly-time", "");
+  const skeleton = '<div class="lock-skeleton" aria-hidden="true">' + "<i></i>".repeat(3) + "</div>";
+  const balance = pointsBalance != null ? `<small>当前积分 ${pointsBalance}</small>` : "";
+  const body = anomalyData?.unavailable
+    ? '<p>积分服务暂时不可用，请稍后再试</p>'
+    : `<button id="unlock-anomalies" class="pill-btn" type="button">解锁 · ${cost} 积分</button>${balance}${pointsBalance != null && pointsBalance < cost ? '<a class="lock-link" href="/account">去签到</a>' : ""}`;
+  $("#anomaly-list").innerHTML = `${skeleton}<div class="anomaly-lock" role="group" aria-label="题材异动已锁定"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><b>解锁后 ${hours} 小时内可查看</b>${body}</div>`;
+  $("#unlock-anomalies")?.addEventListener("click", unlockAnomalies);
+}
+
+async function unlockAnomalies(event) {
+  const button = event?.currentTarget;
+  if (button) { button.disabled = true; button.textContent = "解锁中…"; }
+  try {
+    const response = await fetch(`${API_BASE}?market=${MARKET}&action=unlock-anomalies`, { method: "POST", headers: { Accept: "application/json" }, credentials: "same-origin" });
+    const payload = await response.json().catch(() => ({}));
+    if (payload.code === "login_required") return goLogin();
+    setBalance(payload.balance);
+    if (response.status === 402) {
+      toast(POINTS_TEXT, true);
+      renderLockedAnomalies();
+      return;
+    }
+    if (!response.ok) throw new Error(payload.error || `请求失败 (${response.status})`);
+    if (payload.charged) toast(`已解锁，扣除 5 积分（剩余 ${payload.balance}）`);
+    await loadAnomalies(true);
+  } catch (error) {
+    toast(error.message, true);
+    if (button) { button.disabled = false; button.textContent = "解锁"; }
+  }
+}
+
 async function loadAnomalies(force = false) {
-  $("#anomaly-list").innerHTML = '<div class="loading">正在读取分钟异动、涨停映射和新闻催化…</div>';
-  anomalyData = await api("anomalies");
-  renderAnomalies();
+  $("#anomaly-list").innerHTML = '<div class="loading">正在读取题材异动…</div>';
+  anomalyData = await api("anomalies", force ? { fresh: true } : undefined);
+  setBalance(anomalyData.balance);
+  const locked = Boolean(anomalyData.locked);
+  $(".anomaly-panel")?.classList.toggle("locked", locked);
+  renderUnlockCountdown();
+  if (locked) renderLockedAnomalies();
+  else renderAnomalies();
 }
 
 function renderDailyTimeline() {
@@ -733,8 +816,9 @@ function toggleAccountMenu(event) {
   who.className = "account-who";
   who.href = "/account";
   who.setAttribute("role", "menuitem");
-  who.innerHTML = `<small>已登录 · 查看个人资料</small><b></b>`;
+  who.innerHTML = `<small>已登录 · 查看个人资料</small><b></b><span class="account-points"></span>`;
   who.querySelector("b").textContent = accountEmail || "—";
+  who.querySelector(".account-points").textContent = pointsBalance != null ? `积分 ${pointsBalance}` : "积分 —";
   const logout = document.createElement("button");
   logout.type = "button";
   logout.setAttribute("role", "menuitem");
@@ -757,20 +841,16 @@ document.addEventListener("click", (event) => {
 });
 document.addEventListener("keydown", (event) => { if (event.key === "Escape") { closeExportMenu(); closeAccountMenu(); closeGallery(); } });
 
-// 「刷新」每个浏览器每小时只能按一次（打开页面只读快照，不计入、也不触发更新）。
-// 点刷新 = 真实调用 Wind MCP：服务端触发 GitHub Actions 数据任务，页面显示「数据更新中」并轮询进度，
-// 任务完成后读取新快照，状态回到「定时快照」并显示新的快照时间。
-const REFRESH_COOLDOWN_MS = 60 * 60 * 1000;
-const REFRESH_KEY = `short-emotion:last-manual-refresh:${MARKET}`;
+// 「刷新」= 真实调用 Wind MCP，每次真正触发更新扣 5 积分（别人正在刷新、10 分钟内刚更新过、非交易时段时不触发也不扣分）。
+// 服务端触发 GitHub Actions 数据任务，页面显示「数据更新中」并轮询进度，任务完成后读取新快照。
 const REFRESH_TIMEOUT_MS = 6 * 60_000;
 const refreshRun = { active: false, step: "", startedAt: 0, requestedAt: null, runId: null, timer: null, ticker: null };
 
-function lastManualRefresh() {
-  try { return Number(localStorage.getItem(REFRESH_KEY)) || 0; } catch { return 0; }
-}
-
-function refreshCooldownLeft() {
-  return Math.max(0, REFRESH_COOLDOWN_MS - (Date.now() - lastManualRefresh()));
+/** 与服务端一致：工作日北京时间 09:15–15:05 可以手动刷新。 */
+function refreshWindowOpen(date = new Date()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Shanghai", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(date).map((part) => [part.type, part.value]));
+  const minute = Number(parts.hour) * 60 + Number(parts.minute);
+  return !["Sat", "Sun"].includes(parts.weekday) && minute >= 9 * 60 + 15 && minute <= 15 * 60 + 5;
 }
 
 function updateRefreshButton() {
@@ -783,10 +863,9 @@ function updateRefreshButton() {
     return;
   }
   if (button.dataset.loading === "1") return;
-  const left = refreshCooldownLeft();
-  button.disabled = left > 0;
-  button.textContent = left > 0 ? `${Math.ceil(left / 60_000)}分钟后可刷新` : "刷新";
-  button.title = left > 0 ? "刷新每小时只能使用一次；交易时段也会定时自动更新" : "获取最新数据";
+  button.disabled = false;
+  button.textContent = "刷新";
+  button.title = refreshWindowOpen() ? "获取最新数据（5 积分）" : "非交易时段";
 }
 
 const REFRESH_STEPS = {
@@ -890,19 +969,25 @@ async function pollRefresh() {
 
 async function handleManualRefresh() {
   if (refreshRun.active) return;
-  if (refreshCooldownLeft() > 0) {
-    updateRefreshButton();
-    toast("刷新每小时只能使用一次，交易时段也会定时自动更新");
+  if (!refreshWindowOpen()) {
+    toast("非交易时段，当前已是最新数据");
     return;
   }
-  try { localStorage.setItem(REFRESH_KEY, String(Date.now())); } catch {}
   beginRefresh({ step: "submitted", poll: false }); // 先显示「数据更新中」，提交成功后再轮询进度
   try {
     const response = await fetch(`${API_BASE}?market=${MARKET}&action=refresh`, { method: "POST", headers: { Accept: "application/json" } });
     const payload = await response.json().catch(() => ({}));
+    setBalance(payload.balance);
     if (!response.ok) throw Object.assign(new Error(payload.error || `请求失败 (${response.status})`), { code: payload.code });
+    if (payload.reason === "closed" || payload.reason === "fresh") {
+      stopRefresh();
+      const label = shanghaiTimeLabel(payload.storedAt)?.split(" ").at(-1);
+      toast(payload.reason === "closed" ? "非交易时段，当前已是最新数据" : `数据刚更新${label ? `（快照 ${label}）` : ""}，无需刷新`);
+      return;
+    }
     if (payload.dispatched) {
       refreshRun.requestedAt = payload.requestedAt;
+      if (payload.charged) toast(`已扣除 ${payload.charged} 积分，正在获取最新数据`);
     } else if (payload.run) {
       // 其他人刚刚发起过刷新：直接跟随那一次的进度
       refreshRun.runId = payload.run.id;
@@ -910,9 +995,9 @@ async function handleManualRefresh() {
     }
     pollRefresh();
   } catch (error) {
-    try { localStorage.removeItem(REFRESH_KEY); } catch {} // 没刷新成功不占用每小时一次的额度
     stopRefresh();
     if (error.code === "login_required") return goLogin();
+    if (error.code === "insufficient_points") return toast(POINTS_TEXT, true);
     toast(error.code === "not_configured" ? "实时刷新服务尚未开通，页面显示的是最近一次定时快照" : `刷新失败：${error.message}`, true);
   }
 }

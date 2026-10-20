@@ -41,6 +41,7 @@ body.sub-page { background: var(--bg); }
 }
 .sub-title { margin: 12px 0 16px; font-size: 22px; font-weight: 700; line-height: 1.3; }
 
+.sub-card + .sub-card { margin-top: 12px; }
 .sub-card {
   display: grid;
   gap: 16px;
@@ -122,3 +123,22 @@ body.sub-page { background: var(--bg); }
 @media (max-width: 360px) {
   .phone-row { grid-template-columns: 1fr; }
 }
+
+/* 积分：余额 + 签到；积分记录（流水） */
+.points-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.points-meta { display: grid; gap: 2px; }
+.points-meta span { color: var(--muted); font-size: 13px; }
+.points-meta strong { font-family: "Manrope", sans-serif; font-size: 34px; font-weight: 800; line-height: 1.1; letter-spacing: -0.02em; }
+.points-head .btn-primary { flex: none; min-width: 108px; }
+.ledger-list { display: grid; margin: 0; padding: 0; list-style: none; }
+.ledger-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); }
+.ledger-list li:first-child { border-top: 0; padding-top: 0; }
+.ledger-what { display: grid; gap: 2px; min-width: 0; }
+.ledger-what b { font-size: 14px; font-weight: 600; }
+.ledger-what small, .ledger-amount small { color: var(--muted); font-size: 12px; }
+.ledger-amount { display: grid; gap: 2px; text-align: right; }
+.ledger-amount b { font-family: "Manrope", sans-serif; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ledger-amount b.plus { color: var(--price-up, #e6252b); }
+.ledger-empty { justify-content: center !important; color: var(--muted); font-size: 13px; }
+.ledger-more { justify-self: center; padding: 8px 12px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
+.ledger-more:hover { color: var(--ink); }

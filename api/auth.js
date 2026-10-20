@@ -5,6 +5,9 @@
 // POST /api/auth?action=session  body { access_token, refresh_token }：验证码通过后，把凭证换成 HttpOnly cookie
 // POST /api/auth?action=logout   退出登录：注销这台设备的凭证并清除 cookie
 // GET  /api/auth?action=profile  个人资料（姓名、邮箱、电话区号与号码）；POST 同一地址保存（不做手机验证码）
+// GET  /api/auth?action=points   积分余额、今天是否已签到、题材异动解锁到何时，以及最近 20 笔流水；带 before=<id> 时只返回更早的流水
+// POST /api/auth?action=signin   每日签到 +10，body { timezone }（浏览器所在时区，第一次签到后固定）
+import { pointsStatus, pointsSignin, pointsHistory } from "./_lib/points.js";
 import { authConfig, resolveSession, fetchUser, sessionCookies, clearSessionCookies, parseCookies, isSecureNodeRequest, ACCESS_COOKIE, readProfile, saveProfile, PHONE_COUNTRY_CODES } from "./_lib/session.js";
 
 function readJson(body) {
@@ -62,6 +65,32 @@ export default async function handler(req, res) {
       send(res, 200, { profile, phoneCountryCodes: PHONE_COUNTRY_CODES }, session.setCookies);
     } catch (error) {
       send(res, error.statusCode || 503, { error: error.message, code: error.code || "auth_unavailable" });
+    }
+    return;
+  }
+
+  // 积分：GET 余额与流水，POST signin 签到
+  if ((action === "points" && req.method === "GET") || (action === "signin" && req.method === "POST")) {
+    if (!config) return send(res, 404, { error: "登录未开启", code: "auth_disabled" });
+    if (req.method === "POST" && !sameOrigin(req)) return send(res, 403, { error: "来源不允许", code: "forbidden" });
+    try {
+      const session = await resolveSession(req.headers?.cookie, { config, secure, clearOnFailure: false });
+      if (!session.user) return send(res, 401, { error: "请先登录", code: "login_required" }, session.setCookies);
+      if (!session.accessToken) return send(res, 503, { error: "积分服务暂时不可用，请稍后再试", code: "points_unavailable" }, session.setCookies);
+      if (action === "signin") {
+        const result = await pointsSignin(config, session.accessToken, readJson(req.body).timezone);
+        return send(res, 200, result, session.setCookies);
+      }
+      if (req.query?.before) {
+        return send(res, 200, { history: await pointsHistory(config, session.accessToken, { before: req.query.before }) }, session.setCookies);
+      }
+      const [status, history] = await Promise.all([
+        pointsStatus(config, session.accessToken, req.query?.tz),
+        pointsHistory(config, session.accessToken)
+      ]);
+      send(res, 200, { ...status, history }, session.setCookies);
+    } catch (error) {
+      send(res, error.statusCode || 503, { error: error.message, code: error.code || "points_unavailable" });
     }
     return;
   }
