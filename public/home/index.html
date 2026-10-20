@@ -24,7 +24,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=15">
   <link rel="stylesheet" href="/technical-analysis/ta.css?v=1">
-  <link rel="stylesheet" href="/home/home.css?v=1">
+  <link rel="stylesheet" href="/home/home.css?v=2">
 </head>
 <body>
   <div class="app-shell">
@@ -37,6 +37,15 @@
     </nav>
 
     <main>
+      <section id="points-card" class="card home-points" aria-label="我的积分">
+        <div class="home-points-meta">
+          <span>我的积分</span>
+          <strong id="points-balance">—</strong>
+        </div>
+        <a class="home-more" href="/account/points">积分记录</a>
+        <button id="signin" class="pill-btn" type="button" disabled>签到 +10</button>
+      </section>
+
       <form id="ta-form" class="card ta-search home-card" autocomplete="off">
         <div class="card-head"><h2 class="card-title">个股技术分析</h2><a class="home-more" href="/technicalanalysis">打开</a></div>
         <p class="card-desc">输入股票，生成趋势结构、胜率与赔率、历史同类量价结构和事件驱动分析。</p>
@@ -51,10 +60,22 @@
         <div class="card-head"><h2 class="card-title">今日短线情绪</h2><span id="emotion-posture" class="pill pill-solid">—</span></div>
         <div class="pulse-main">
           <div id="emotion-ring" class="score-ring"><div><strong id="emotion-score">—</strong><small>/ 100</small></div></div>
-          <div class="phase-copy"><span>当前情绪阶段</span><h3 id="emotion-phase">读取中</h3><p id="emotion-copy">A股短线情绪分数与阶段。</p></div>
+          <div class="phase-copy"><span>当前情绪阶段</span><h3 id="emotion-phase">读取中</h3><p id="emotion-copy"></p></div>
+        </div>
+        <div class="home-market" aria-label="市场概况">
+          <div><span>全A涨跌幅</span><b id="market-change">—</b></div>
+          <div><span>两市成交额</span><b id="market-amount">—</b></div>
+          <div><span>上涨 / 下跌</span><b id="market-breadth"><em class="up-text">—</em><i>/</i><em class="down-text">—</em></b></div>
+          <div><span>涨停 / 跌停</span><b id="market-limits"><em class="up-text">—</em><i>/</i><em class="down-text">—</em></b></div>
         </div>
         <span class="home-enter">进入看板<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       </a>
+
+      <section id="anomaly-card" class="card home-card home-anomaly">
+        <div class="card-head"><h2 class="card-title">当日题材异动</h2><span id="anomaly-pill" class="pill">读取中</span></div>
+        <p class="card-desc">按涨停点火、批量拉升与消息催化筛出的高价值题材方向。</p>
+        <div id="anomaly-body" class="home-anomaly-body"><div class="loading">正在读取题材异动…</div></div>
+      </section>
 
       <footer class="legal">
         <p>仅用于研究与情绪观察，不构成投资建议。</p>
@@ -62,6 +83,6 @@
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/home/home.js?v=1"></script>
+  <script type="module" src="/home/home.js?v=2"></script>
 </body>
 </html>

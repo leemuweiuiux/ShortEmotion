@@ -9,3 +9,29 @@
 .home-emotion:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .home-enter { display: inline-flex; align-items: center; justify-self: end; gap: 2px; font-size: 13px; font-weight: 600; }
 .home-enter svg { width: 16px; height: 16px; }
+
+/* 积分与签到 */
+.home-points { display: flex; align-items: center; gap: 12px; }
+.home-points-meta { margin-right: auto; display: flex; align-items: baseline; gap: 10px; }
+.home-points-meta span { color: var(--muted); font-size: 13px; }
+.home-points-meta strong { font-family: "Manrope", sans-serif; font-size: 24px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+
+/* 市场概况（情绪卡内） */
+.home-market { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.home-market div { min-width: 0; padding: 10px; background: var(--panel); }
+.home-market span { display: block; color: var(--muted); font-size: 12px; }
+.home-market b { display: flex; align-items: baseline; gap: 4px; margin-top: 4px; font-family: "Manrope", sans-serif; font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.home-market em { font-style: normal; }
+.home-market i { color: var(--muted); font-style: normal; font-weight: 500; }
+
+/* 题材异动：未解锁时模糊占位 + 锁；解锁后列前 3 个 */
+.home-anomaly-body { position: relative; }
+.home-anomaly-body.locked { min-height: 230px; }
+.home-anomaly-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.home-anomaly-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; padding: 10px; background: var(--panel); }
+.home-anomaly-list b { font-size: 14px; font-weight: 600; }
+.home-anomaly-list strong { grid-row: span 2; align-self: center; font-family: "Manrope", sans-serif; font-size: 20px; font-weight: 700; }
+.home-anomaly-list small { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.home-anomaly-more { display: inline-flex; align-items: center; gap: 2px; justify-self: end; margin-top: 2px; color: var(--ink); font-size: 13px; font-weight: 600; text-decoration: none; }
+.home-anomaly-more svg { width: 16px; height: 16px; }
+.home-anomaly-foot { display: grid; gap: 4px; }

@@ -143,6 +143,13 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     globalThis.fetch = realFetch;
   });
 
+  it("只接受本站页面发起", async () => {
+    const res = mockRes();
+    await api({ method: "POST", query: {}, body: { q: "603936" }, headers: { host: "www.lfjmwl.com", origin: "https://evil.example", "x-forwarded-proto": "https", cookie: COOKIE } }, res);
+    expect(res.statusCode).toBe(403);
+    expect(ledger.filter((row) => row.kind === "analysis")).toHaveLength(0);
+  });
+
   it("未登录不能分析", async () => {
     expect((await call({ body: { q: "603936" }, cookie: "" })).statusCode).toBe(401);
   });

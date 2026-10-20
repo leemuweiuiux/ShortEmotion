@@ -63,6 +63,13 @@ export default async function handler(req, res) {
     res.setHeader("Allow", "GET, POST");
     return send(res, 405, { error: "Method Not Allowed" });
   }
+  // 只接受本站页面发起（会扣积分）
+  const origin = req.headers?.origin;
+  if (origin) {
+    let host = null;
+    try { host = new URL(origin).host; } catch {}
+    if (host !== req.headers?.host) return send(res, 403, { error: "来源不允许", code: "forbidden" });
+  }
 
   let charged = null;
   try {
