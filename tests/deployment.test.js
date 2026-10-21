@@ -69,6 +69,16 @@ describe("网址：介绍页、登录页与看板", () => {
   });
 });
 
+describe("流量统计", () => {
+  it("每个页面都加载 Vercel Web Analytics（只记页面浏览量）", () => {
+    for (const file of ["public/about/index.html", "public/login/index.html", "public/home/index.html", "public/technical-analysis/index.html", "public/short-emotion/index.html", "public/account/index.html", "public/account/edit/index.html", "public/account/points/index.html"]) {
+      const html = readFileSync(resolve(root, file), "utf8");
+      expect(html, file).toContain('<script defer src="/_vercel/insights/script.js"></script>');
+      expect(html, file).not.toMatch(/googletagmanager|google-analytics/);
+    }
+  });
+});
+
 describe("页面脚本", () => {
   it("介绍页、登录页、共用模块 import 的文件都存在，简繁字表版本号一致", () => {
     const files = ["public/about/about.js", "public/login/login.js", "public/account/account.js", "public/shared/lang.js", "public/short-emotion/app.js", "public/home/home.js", "public/technical-analysis/ta.js", "public/shared/nav-account.js"];

@@ -78,6 +78,8 @@ Supabase Auth                     寄送與驗證郵箱驗證碼（經 Resend �
 - **活躍用戶（只保留 30 天）**：`daily_active` 表每人每天一行，只記「哪天來過」（不記看了哪個市場、用了哪個功能）。
   打開看板時由 middleware 寫入（每人每天一次，`se_seen` cookie 去重）；寫入用登入用戶自己的憑證呼叫 `record_activity()`，
   不需要 secret key，函數每次寫入時順手刪除 30 天前的記錄。SQL 見 `supabase/migrations/`（依檔名順序執行）。
+- **頁面瀏覽量**：Vercel Web Analytics（Hobby 方案免費，每月 5 萬次瀏覽，報表保留 1 個月；不用 cookie、不能自訂事件）。
+  每個頁面載入 `/_vercel/insights/script.js`，在 Vercel 專案的 Analytics 查看。需要先在 Vercel 專案的 Analytics 頁按 Enable。
 - 查看：Supabase → Table Editor 的 `activity_summary`（註冊數、近 7 天新註冊、今日 / 7 天 / 30 天活躍）與 `activity_daily`（每天活躍人數）。
   表與視圖都不對網站訪客開放。
 
