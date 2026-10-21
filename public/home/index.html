@@ -24,7 +24,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=16">
   <link rel="stylesheet" href="/technical-analysis/ta.css?v=10">
-  <link rel="stylesheet" href="/home/home.css?v=3">
+  <link rel="stylesheet" href="/home/home.css?v=4">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -74,7 +74,10 @@
           <div><span>上涨 / 下跌</span><b id="market-breadth"><em class="up-text">—</em><i>/</i><em class="down-text">—</em></b></div>
           <div><span>涨停 / 跌停</span><b id="market-limits"><em class="up-text">—</em><i>/</i><em class="down-text">—</em></b></div>
         </div>
-        <span class="home-enter">进入看板<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <div class="home-emotion-foot">
+          <span id="emotion-time" class="home-time"></span>
+          <span class="home-enter">进入看板<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        </div>
       </a>
 
       <section id="anomaly-card" class="card home-card home-anomaly">
@@ -89,6 +92,6 @@
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/home/home.js?v=5"></script>
+  <script type="module" src="/home/home.js?v=6"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 // 个人页面 /account：个人信息（只显示，编辑在 /account/edit）、积分（余额 + 签到）、邀请好友入口（/account/invite）、积分流水（最近 3 笔，全部在 /account/points）。
-import { $, setText, toast, readProfile, readPoints, signin, renderLedger } from "/account/common.js?v=6";
+import { $, setText, toast, readProfile, readPoints, signin, renderLedger } from "/account/common.js?v=7";
 
 const signinButton = $("#signin");
 
