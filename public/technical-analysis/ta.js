@@ -102,6 +102,7 @@ function render() {
   const data = current;
   const decision = data.finalDecision || {};
   $("#ta-result").hidden = false;
+  $("#export-image").disabled = false;
   document.title = `${data.name} · 个股技术分析`;
 
   setText("#ta-name", data.name);
@@ -232,10 +233,11 @@ function colors() {
   return { ink: read("--ink", "#121417"), muted: read("--muted", "#6b7280"), border: read("--border", "#e0e0e0"), up: read("--price-up", "#ff4015"), down: read("--price-down", "#76bb40"), warn: read("--warn", "#c98a12") };
 }
 
-function prepareCanvas() {
-  const canvas = $("#ta-canvas");
-  const rect = canvas.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
+// target 省略时画在页面上的图表；导出图片时传入离屏 canvas 与固定尺寸（2 倍清晰度）
+function prepareCanvas(target = null) {
+  const canvas = target?.canvas || $("#ta-canvas");
+  const rect = target?.size || canvas.getBoundingClientRect();
+  const dpr = target ? 2 : window.devicePixelRatio || 1;
   canvas.width = Math.round(rect.width * dpr);
   canvas.height = Math.round(rect.height * dpr);
   const ctx = canvas.getContext("2d");
@@ -264,8 +266,8 @@ function yLabels(ctx, c, min, max, top, bottom) {
 }
 
 // 分时：横轴固定 240 分钟（09:30–11:30、13:00–15:00），盘中只画到当前
-function drawIntraday() {
-  const { ctx, w, h } = prepareCanvas();
+function drawIntraday(target) {
+  const { ctx, w, h } = prepareCanvas(target);
   const c = colors();
   const points = current.intraday || [];
   if (!points.length) return;
@@ -312,8 +314,8 @@ function drawIntraday() {
 }
 
 // 日 K：近 60 根 + MA5/10/20
-function drawDaily() {
-  const { ctx, w, h } = prepareCanvas();
+function drawDaily(target) {
+  const { ctx, w, h } = prepareCanvas(target);
   const c = colors();
   const all = current.daily || [];
   const bars = all.slice(-60);
@@ -369,14 +371,27 @@ function drawDaily() {
   });
 }
 
-function drawChart() {
-  if (!current) return;
+function legendHtml(mode) {
   const c = colors();
-  $("#ta-legend").innerHTML = chartMode === "intraday"
+  return mode === "intraday"
     ? `<span><i style="background:${c.ink}"></i>价格</span><span><i style="background:${c.warn}"></i>均价</span><span><i style="background:${c.up}"></i>成交量</span>`
     : `<span><i style="background:${c.warn}"></i>MA5</span><span><i style="background:#8b5cf6"></i>MA10</span><span><i style="background:#3b82f6"></i>MA20</span>`;
+}
+
+function drawChart() {
+  if (!current) return;
+  $("#ta-legend").innerHTML = legendHtml(chartMode);
   if (chartMode === "intraday") drawIntraday();
   else drawDaily();
+}
+
+/** 导出用：把分时或日 K 画到离屏 canvas，返回图片网址。 */
+function chartImage(mode, width) {
+  const canvas = document.createElement("canvas");
+  const target = { canvas, size: { width, height: 260 } };
+  if (mode === "intraday") drawIntraday(target);
+  else drawDaily(target);
+  return canvas.toDataURL("image/png");
 }
 
 $$(".ta-tabs .timeline-toggle").forEach((button) => button.addEventListener("click", () => {
@@ -389,6 +404,222 @@ $$(".ta-tabs .timeline-toggle").forEach((button) => button.addEventListener("cli
 }));
 let resizeTimer = null;
 window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(drawChart, 120); });
+
+// ── 导出图片：长图（整份分析一张）、小卡（每个区块一张，抬头写公司名称）──
+// 只用页面上已经算好的结果，不调用行情接口、不扣积分。仓位风险测算是用户自己填的，不导出。
+const EXPORT_WIDTH = 600;
+const CHART_WIDTH = EXPORT_WIDTH - 32 - 24 - 2; // 外框留白 16×2、卡片内距 12×2、边框
+const CHART_MODES = { intraday: "当日分时", daily: "日K结构" };
+let exporting = false;
+
+function exportBase() {
+  const day = String(current?.asOf || "").slice(0, 10).replaceAll("-", "");
+  return `个股技术分析-${current?.name || ""}-${String(current?.code || "").split(".")[0]}-${day}`;
+}
+
+function exportHeader(subtitle = "") {
+  const head = document.createElement("div");
+  head.className = "export-head";
+  head.innerHTML = `<img src="/short-emotion/logo.svg?v=2" alt="ShortEmotion"><div><b>${esc(`${current.name} ${current.code}`)}${subtitle ? ` · ${esc(subtitle)}` : ""}</b><small>${esc(current.date)}</small></div>`;
+  return head;
+}
+
+function exportFooter() {
+  const footer = document.createElement("div");
+  footer.className = "export-footer";
+  footer.innerHTML = `<div class="export-footer-text"><b>ShortEmotion · 个股技术分析</b><span>扫码查看个股技术分析与每日短线情绪</span><small>lfjmwl.com · 仅用于研究与技术观察，不构成投资建议</small></div><img class="export-qr" src="/short-emotion/qr-site.svg?v=1" alt="lfjmwl.com">`;
+  return footer;
+}
+
+/** 克隆一个区块：去掉按钮、输入框、隐藏内容与 id。 */
+function cloneCard(node) {
+  const clone = node.cloneNode(true);
+  clone.querySelectorAll("button, input, [hidden]").forEach((item) => item.remove());
+  clone.removeAttribute("id");
+  clone.querySelectorAll("[id]").forEach((item) => item.removeAttribute("id"));
+  return clone;
+}
+
+/** 走势卡：分时、日 K 各出一张（不管页面停在哪个分页）。 */
+function chartCard(node, mode) {
+  const clone = cloneCard(node);
+  clone.querySelector(".ta-tabs")?.remove();
+  const title = clone.querySelector(".card-title");
+  if (title) title.textContent = `走势 · ${CHART_MODES[mode]}`;
+  const legend = clone.querySelector(".ta-legend");
+  if (legend) legend.innerHTML = legendHtml(mode);
+  const wrap = clone.querySelector(".ta-chart");
+  if (wrap) wrap.innerHTML = `<img src="${chartImage(mode, CHART_WIDTH)}" alt="">`;
+  return clone;
+}
+
+/** 按页面顺序列出要导出的区块：[{ name, node }]。 */
+function exportSources() {
+  const sources = [];
+  for (const card of $$("#ta-result > .card")) {
+    if (card.querySelector("#ta-position")) continue; // 仓位风险测算
+    if (card.querySelector("#ta-events") && !current.surge?.trigger) continue; // 事件驱动没触发
+    if (card.querySelector("#ta-links") && !card.querySelector("#ta-links a")) continue; // 没有新闻与公告
+    if (card.querySelector("#ta-canvas")) {
+      for (const mode of Object.keys(CHART_MODES)) sources.push({ name: `走势 · ${CHART_MODES[mode]}`, node: chartCard(card, mode) });
+      continue;
+    }
+    const isHead = card.classList.contains("ta-head");
+    const node = cloneCard(card);
+    if (isHead) node.querySelectorAll(".ta-time, .ta-session").forEach((item) => item.remove()); // 时间已写在抬头
+    sources.push({ name: isHead ? "结论" : card.querySelector(".card-title")?.textContent?.trim() || "", node });
+  }
+  return sources;
+}
+
+function exportBackground() {
+  return getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#efefef";
+}
+
+async function renderShell(nodes, extraClass = "") {
+  const host = document.createElement("div");
+  host.className = "export-host";
+  const shell = document.createElement("div");
+  shell.className = `export-shell ta-export ${extraClass}`.trim();
+  shell.style.width = `${EXPORT_WIDTH}px`;
+  shell.append(...nodes);
+  host.append(shell);
+  document.body.append(host);
+  try {
+    await document.fonts?.ready;
+    await Promise.all([...shell.querySelectorAll("img")].map((img) => (img.complete ? null : new Promise((resolve) => { img.onload = img.onerror = resolve; }))));
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const height = Math.ceil(shell.scrollHeight);
+    if (height > 30000) throw new Error("内容过长，请改用「导出小卡」");
+    // iOS Safari 单张 canvas 约 1600 万像素上限；canvas 单边最多约 16384 像素
+    const pixelRatio = Math.max(0.5, Math.min(2, window.devicePixelRatio || 1, Math.sqrt(16_000_000 / (EXPORT_WIDTH * height)), 16_000 / height));
+    const blob = await window.htmlToImage.toBlob(shell, { width: EXPORT_WIDTH, height, pixelRatio, backgroundColor: exportBackground() });
+    if (!blob) throw new Error("浏览器未能生成图片");
+    return blob;
+  } finally {
+    host.remove();
+  }
+}
+
+async function exportLongImage() {
+  const blob = await renderShell([exportHeader(), ...exportSources().map((item) => item.node), exportFooter()]);
+  return [{ blob, name: `${exportBase()}.png`, title: "长图" }];
+}
+
+async function exportSmallCards(onProgress) {
+  const sources = exportSources();
+  const files = [];
+  for (let index = 0; index < sources.length; index += 1) {
+    onProgress?.(index + 1, sources.length);
+    const blob = await renderShell([exportHeader(sources[index].name), sources[index].node, exportFooter()], "export-card");
+    files.push({ blob, name: `${exportBase()}-${String(index + 1).padStart(2, "0")}.png`, title: sources[index].name });
+  }
+  return files;
+}
+
+function downloadBlob(blob, name) {
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = name;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 4000);
+}
+
+async function shareOrDownload(files) {
+  const asFiles = typeof File === "function" ? files.map((item) => new File([item.blob], item.name, { type: "image/png" })) : [];
+  if (asFiles.length && window.matchMedia("(pointer: coarse)").matches && navigator.canShare?.({ files: asFiles })) {
+    await navigator.share({ files: asFiles, title: "个股技术分析" }).catch((error) => { if (error?.name !== "AbortError") throw error; });
+    return;
+  }
+  for (const item of files) {
+    downloadBlob(item.blob, item.name);
+    await new Promise((resolve) => setTimeout(resolve, 350));
+  }
+}
+
+/** 小卡预览：可逐张保存，也可一次全部保存；手机上长按图片也能存到相册。 */
+function showGallery(files) {
+  closeGallery();
+  const urls = files.map((item) => URL.createObjectURL(item.blob));
+  const overlay = document.createElement("div");
+  overlay.className = "export-gallery";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-label", "导出小卡");
+  overlay.innerHTML = `<div class="gallery-sheet"><div class="gallery-head"><b>导出小卡 · ${files.length} 张</b><button class="pill-btn gallery-all" type="button">全部保存</button><button class="nav-btn gallery-close" type="button" aria-label="关闭">✕</button></div><p class="gallery-hint">点单张图片下方的「保存」逐张保存；手机上也可以长按图片存到相册。</p><div class="gallery-grid">${files.map((item, index) => `<figure><img src="${urls[index]}" alt="${esc(item.title)}"><figcaption><span>${esc(item.title)}</span><button class="gallery-save" type="button" data-index="${index}">保存</button></figcaption></figure>`).join("")}</div></div>`;
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay || event.target.closest(".gallery-close")) return closeGallery();
+    const save = event.target.closest(".gallery-save");
+    if (save) return shareOrDownload([files[Number(save.dataset.index)]]).catch((error) => toast(`保存失败：${error.message}`, true));
+    if (event.target.closest(".gallery-all")) return shareOrDownload(files).catch((error) => toast(`保存失败：${error.message}`, true));
+  });
+  overlay._urls = urls;
+  document.body.append(overlay);
+  document.body.classList.add("gallery-open");
+}
+
+function closeGallery() {
+  const overlay = $(".export-gallery");
+  if (!overlay) return;
+  (overlay._urls || []).forEach((url) => URL.revokeObjectURL(url));
+  overlay.remove();
+  document.body.classList.remove("gallery-open");
+}
+
+async function runExport(kind) {
+  closeExportMenu();
+  if (exporting) return;
+  if (!current) return toast("请先分析一支股票", true);
+  if (!window.htmlToImage) return toast("导出组件尚未加载完成，请稍后重试", true);
+  const button = $("#export-image");
+  exporting = true;
+  button.disabled = true;
+  button.setAttribute("aria-busy", "true");
+  try {
+    if (kind === "cards") {
+      toast("正在生成小卡…");
+      const files = await exportSmallCards((index, total) => toast(`正在生成小卡 ${index}/${total}…`));
+      showGallery(files);
+      toast(`已生成 ${files.length} 张小卡`);
+    } else {
+      toast("正在生成长图…");
+      await shareOrDownload(await exportLongImage());
+      toast("长图已生成");
+    }
+  } catch (error) {
+    toast(`导出图片失败：${error instanceof Error ? error.message : String(error)}`, true);
+  } finally {
+    exporting = false;
+    button.disabled = !current;
+    button.removeAttribute("aria-busy");
+  }
+}
+
+function closeExportMenu() {
+  $(".export-menu:not(.account-menu)")?.remove();
+  $("#export-image")?.setAttribute("aria-expanded", "false");
+}
+
+$("#export-image").addEventListener("click", (event) => {
+  event.stopPropagation();
+  $(".account-menu")?.remove();
+  $("#account")?.setAttribute("aria-expanded", "false");
+  if ($(".export-menu:not(.account-menu)")) return closeExportMenu();
+  const menu = document.createElement("div");
+  menu.className = "export-menu";
+  menu.setAttribute("role", "menu");
+  menu.innerHTML = '<button type="button" role="menuitem" data-export="long"><b>导出长图</b><small>整份分析一张，适合存档</small></button><button type="button" role="menuitem" data-export="cards"><b>导出小卡</b><small>每个区块一张，适合分享</small></button>';
+  menu.addEventListener("click", (clickEvent) => {
+    const item = clickEvent.target.closest("[data-export]");
+    if (item) runExport(item.dataset.export);
+  });
+  $(".nav").append(menu);
+  $("#export-image").setAttribute("aria-expanded", "true");
+});
+$("#account")?.addEventListener("click", closeExportMenu);
+document.addEventListener("click", (event) => { if (!event.target.closest(".export-menu")) closeExportMenu(); });
+document.addEventListener("keydown", (event) => { if (event.key === "Escape") { closeExportMenu(); closeGallery(); } });
 
 // ── 启动 ──
 initAccountMenu();

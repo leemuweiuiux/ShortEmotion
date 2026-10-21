@@ -149,3 +149,8 @@ main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-co
   .ta-market-row { grid-template-columns: minmax(0, 1fr) 60px 76px; }
   .ta-event { grid-template-columns: 1fr; gap: 2px; }
 }
+
+/* 导出图片：长图里各区块之间留间距；顶栏导出按钮与账号按钮之间留间距 */
+.nav #export-image + #account { margin-left: 0; }
+.ta-export > .card + .card { margin-top: 10px; }
+.ta-export .ta-chart img { display: block; width: 100%; height: 260px; }
