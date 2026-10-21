@@ -407,6 +407,14 @@ window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer
 // ── 导出图片：长图（整份分析一张）、小卡（每个区块一张，抬头写公司名称）──
 // 只用页面上已经算好的结果，不调用行情接口、不扣积分。仓位风险测算是用户自己填的，不导出。
 const EXPORT_WIDTH = 600;
+const EXPORT_TIMEOUT_MS = 20_000; // 每张图最多等 20 秒，超时提示重试，按钮不会锁死
+function withTimeout(promise, ms) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("生成超时，请重试")), ms); })
+  ]).finally(() => clearTimeout(timer));
+}
 const CHART_WIDTH = EXPORT_WIDTH - 32 - 24 - 2; // 外框留白 16×2、卡片内距 12×2、边框
 const CHART_MODES = { intraday: "当日分时", daily: "日K结构" };
 let exporting = false;
@@ -416,17 +424,38 @@ function exportBase() {
   return `个股技术分析-${current?.name || ""}-${String(current?.code || "").split(".")[0]}-${day}`;
 }
 
+// Logo、二维码先转成内嵌图片：导出时不用等图片加载（iPhone Safari 对画面外的图片有时不触发加载完成）
+const EXPORT_ASSETS = { logo: "/short-emotion/logo.svg?v=2", qr: "/short-emotion/qr-site.svg?v=1" };
+const assetCache = {};
+async function prepareExportAssets() {
+  await Promise.all(Object.entries(EXPORT_ASSETS).map(async ([key, url]) => {
+    if (assetCache[key]) return;
+    try {
+      const blob = await (await fetch(url)).blob();
+      assetCache[key] = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      assetCache[key] = url;
+    }
+  }));
+}
+const asset = (key) => assetCache[key] || EXPORT_ASSETS[key];
+
 function exportHeader(subtitle = "") {
   const head = document.createElement("div");
   head.className = "export-head";
-  head.innerHTML = `<img src="/short-emotion/logo.svg?v=2" alt="ShortEmotion"><div><b>${esc(`${current.name} ${current.code}`)}${subtitle ? ` · ${esc(subtitle)}` : ""}</b><small>${esc(current.date)}</small></div>`;
+  head.innerHTML = `<img src="${asset("logo")}" alt="ShortEmotion"><div><b>${esc(`${current.name} ${current.code}`)}${subtitle ? ` · ${esc(subtitle)}` : ""}</b><small>${esc(current.date)}</small></div>`;
   return head;
 }
 
 function exportFooter() {
   const footer = document.createElement("div");
   footer.className = "export-footer";
-  footer.innerHTML = `<div class="export-footer-text"><b>ShortEmotion · 个股技术分析</b><span>扫码查看个股技术分析与每日短线情绪</span><small>lfjmwl.com · 仅用于研究与技术观察，不构成投资建议</small></div><img class="export-qr" src="/short-emotion/qr-site.svg?v=1" alt="lfjmwl.com">`;
+  footer.innerHTML = `<div class="export-footer-text"><b>ShortEmotion · 个股技术分析</b><span>扫码查看个股技术分析与每日短线情绪</span><small>lfjmwl.com · 仅用于研究与技术观察，不构成投资建议</small></div><img class="export-qr" src="${asset("qr")}" alt="lfjmwl.com">`;
   return footer;
 }
 
@@ -485,14 +514,16 @@ async function renderShell(nodes, extraClass = "") {
   host.append(shell);
   document.body.append(host);
   try {
-    await document.fonts?.ready;
-    await Promise.all([...shell.querySelectorAll("img")].map((img) => (img.complete ? null : new Promise((resolve) => { img.onload = img.onerror = resolve; }))));
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await new Promise((resolve) => setTimeout(resolve, 60)); // 等一帧排版（不用 requestAnimationFrame：页面在后台时它不会触发）
     const height = Math.ceil(shell.scrollHeight);
     if (height > 30000) throw new Error("内容过长，请改用「导出小卡」");
     // iOS Safari 单张 canvas 约 1600 万像素上限；canvas 单边最多约 16384 像素
     const pixelRatio = Math.max(0.5, Math.min(2, window.devicePixelRatio || 1, Math.sqrt(16_000_000 / (EXPORT_WIDTH * height)), 16_000 / height));
-    const blob = await window.htmlToImage.toBlob(shell, { width: EXPORT_WIDTH, height, pixelRatio, backgroundColor: exportBackground() });
+    // skipFonts：不去下载网页字体（大陆网络下 Google 字体请求可能一直挂着），直接用系统字体
+    const blob = await withTimeout(
+      window.htmlToImage.toBlob(shell, { width: EXPORT_WIDTH, height, pixelRatio, backgroundColor: exportBackground(), skipFonts: true }),
+      EXPORT_TIMEOUT_MS
+    );
     if (!blob) throw new Error("浏览器未能生成图片");
     return blob;
   } finally {
@@ -576,6 +607,7 @@ async function runExport(kind) {
   button.disabled = true;
   button.setAttribute("aria-busy", "true");
   try {
+    await withTimeout(prepareExportAssets(), 8_000).catch(() => {});
     if (kind === "cards") {
       toast("正在生成小卡…");
       const files = await exportSmallCards((index, total) => toast(`正在生成小卡 ${index}/${total}…`));
