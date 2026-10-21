@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=15">
-  <link rel="stylesheet" href="/technical-analysis/ta.css?v=2">
+  <link rel="stylesheet" href="/technical-analysis/ta.css?v=4">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -69,10 +69,13 @@
               <strong id="ta-price">—</strong>
               <span id="ta-change">—</span>
             </div>
+            <button id="export-image" class="nav-btn ta-share" type="button" aria-label="导出图片" title="导出图片" aria-haspopup="menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 4v11M7.5 8.5 12 4l4.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
           </div>
           <div class="ta-meta-row">
             <span id="ta-time" class="ta-time">—</span>
-            <span id="ta-session" class="pill" hidden>盘中快照</span>
+            <span id="ta-session" class="pill ta-session" hidden>盘中快照</span>
             <span id="ta-opportunity" class="pill pill-solid">综合评分 —</span>
           </div>
           <div class="ta-verdict">
@@ -172,6 +175,7 @@
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/technical-analysis/ta.js?v=2"></script>
+  <script src="/short-emotion/vendor/html-to-image.js" defer></script>
+  <script type="module" src="/technical-analysis/ta.js?v=4"></script>
 </body>
 </html>
