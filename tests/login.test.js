@@ -71,6 +71,13 @@ describe("发送验证码（服务器代发）", () => {
     expect(await post("otp", { email: "a@example.com" })).toMatchObject({ statusCode: 503, body: { code: "auth_unavailable" } });
   });
 
+  it("同一个邮箱 60 秒内重复申请：带上还要等的秒数，页面接着倒数", async () => {
+    otpResponse = () => Response.json({ code: 429, error_code: "over_email_send_rate_limit", msg: "For security purposes, you can only request this after 42 seconds." }, { status: 429 });
+    expect(await post("otp", { email: "a@example.com" })).toMatchObject({ statusCode: 429, body: { code: "over_email_send_rate_limit", retryAfter: 42 } });
+    otpResponse = () => Response.json({ code: 429, error_code: "over_email_send_rate_limit", msg: "email rate limit exceeded" }, { status: 429 });
+    expect((await post("otp", { email: "a@example.com" })).body.retryAfter).toBeUndefined();
+  });
+
   it("只接受本站页面发出的请求", async () => {
     expect((await post("otp", { email: "a@example.com" }, { origin: "https://evil.example" })).statusCode).toBe(403);
     expect(calls).toEqual([]);
@@ -116,5 +123,16 @@ describe("登录页只连本站", () => {
     expect(code).not.toMatch(/auth\/v1\//);
     expect(code).toContain('authPost("otp"');
     expect(code).toContain('authPost("verify"');
+  });
+
+  it("登录页记住每个邮箱的发送时间，倒数 60 秒（换邮箱、重新整理都接着走）", () => {
+    const code = readFileSync(resolve(import.meta.dirname, "../public/login/login.js"), "utf8");
+    expect(code).toContain('const SENT_KEY = "se_otp_sent"');
+    expect(code).toMatch(/const RESEND_SECONDS = 60;/);
+    expect(code).toContain("if (waitLeft(email) > 0) showCodeForm(false)");
+  });
+
+  it("首页情绪卡显示行情时间", () => {
+    expect(readFileSync(resolve(import.meta.dirname, "../public/home/index.html"), "utf8")).toContain('id="emotion-time"');
   });
 });

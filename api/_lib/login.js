@@ -36,9 +36,13 @@ async function authCall(config, path, body) {
     console.error(`short-emotion auth ${path} ${response.status} ${code}`);
     // 4xx（频率限制、验证码错误、邮箱格式等）原样转给页面；5xx 一律当作服务暂时不可用
     const statusCode = response.status >= 500 ? 503 : response.status;
-    throw Object.assign(new Error(payload.msg || payload.error_description || payload.message || "登录服务暂时不可用，请稍后再试"), {
+    const message = payload.msg || payload.error_description || payload.message || "登录服务暂时不可用，请稍后再试";
+    // 同一个邮箱 60 秒内重复申请：Supabase 回「only request this after 42 seconds」，取出秒数给页面接着倒数
+    const wait = statusCode === 429 ? Number(String(message).match(/(\d+)\s*seconds?/i)?.[1]) : NaN;
+    throw Object.assign(new Error(message), {
       code: statusCode === 503 ? "auth_unavailable" : code || "auth_error",
-      statusCode
+      statusCode,
+      ...(wait > 0 && wait <= 3600 ? { retryAfter: wait } : {})
     });
   }
   return payload;

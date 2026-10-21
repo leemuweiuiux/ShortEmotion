@@ -29,7 +29,6 @@ const inviteInput = $("#invite");
 const inviteNote = $("#invite-note");
 let email = "";
 let invite = "";
-let resendTimer = null;
 
 // ── 邀请码 ──
 const INVITE_KEY = "se_invite";
@@ -120,12 +119,14 @@ async function authPost(action, body) {
     body: JSON.stringify(body)
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw Object.assign(new Error(payload.error || String(response.status)), { status: response.status, code: payload.code });
+  if (!response.ok) throw Object.assign(new Error(payload.error || String(response.status)), { status: response.status, code: payload.code, retryAfter: Number(payload.retryAfter) || 0 });
   return payload;
 }
 
 function friendly(error, step) {
   const code = String(error.code || "");
+  if (step === "send" && error.retryAfter > 0) return `同一个邮箱 60 秒内只能发送一次，请 ${error.retryAfter} 秒后再试；刚才的验证码仍然有效。`;
+  if (step === "send" && code === "over_email_send_rate_limit") return "现在申请验证码的人比较多，请过几分钟再试。";
   if (error.status === 429 || /rate_limit/.test(code)) return step === "send" ? "发送太频繁了，请稍等一分钟再试。" : "尝试次数太多，请稍后再试。";
   if (step === "verify" && code === "validation_failed") return "请输入邮件里的完整验证码。";
   if (code === "email_address_invalid" || code === "validation_failed") return "邮箱格式不正确，请检查后再试。";
@@ -136,32 +137,70 @@ function friendly(error, step) {
   return step === "send" ? "验证码发送失败，请稍后再试。" : "登录失败，请稍后再试。";
 }
 
-function startResendCountdown() {
-  clearInterval(resendTimer);
-  let left = RESEND_SECONDS;
-  const tick = () => {
-    if (left <= 0) {
-      clearInterval(resendTimer);
-      resendButton.disabled = false;
-      setText(resendButton, "重新发送");
-      return;
-    }
-    resendButton.disabled = true;
-    setText(resendButton, `重新发送（${left} 秒）`);
-    left -= 1;
-  };
-  tick();
-  resendTimer = setInterval(tick, 1000);
+// ── 验证码倒数：同一个邮箱 60 秒只能发送一次（Supabase 也这样限制）──
+// 记在这台设备（localStorage「se_otp_sent」：邮箱 → 可以再发的时间）；换一个邮箱再回来、或重新整理页面，倒数都接着走。
+// 倒数期间按「发送验证码」直接去输入验证码（刚才那封仍然有效），不会再发一次；换别的邮箱不用等。
+const SENT_KEY = "se_otp_sent";
+const memorySent = {};
+let sending = false;
+
+function readSent() {
+  try { return { ...memorySent, ...(JSON.parse(localStorage.getItem(SENT_KEY) || "{}") || {}) }; } catch { return { ...memorySent }; }
 }
 
-async function sendCode() {
-  await authPost("otp", { email });
+function markSent(address, seconds = RESEND_SECONDS) {
+  const now = Date.now();
+  const sent = readSent();
+  for (const [key, until] of Object.entries(sent)) if (!(Number(until) > now)) delete sent[key];
+  sent[address] = now + seconds * 1000;
+  memorySent[address] = sent[address];
+  try { localStorage.setItem(SENT_KEY, JSON.stringify(sent)); } catch {}
+  refreshCountdown();
+}
+
+function waitLeft(address) {
+  const until = Number(readSent()[address]);
+  return until > Date.now() ? Math.ceil((until - Date.now()) / 1000) : 0;
+}
+
+const labels = new WeakMap();
+function label(button, text) {
+  if (labels.get(button) === text) return; // 文字没变就不重写（避免每秒重设简繁对照）
+  labels.set(button, text);
+  setText(button, text);
+}
+
+function refreshCountdown() {
+  if (sending) return;
+  const typed = emailInput.value.trim().toLowerCase();
+  const leftHere = EMAIL_PATTERN.test(typed) ? waitLeft(typed) : 0;
+  sendButton.disabled = false;
+  label(sendButton, leftHere > 0 ? `已发送，去输入验证码（${leftHere} 秒后可重发）` : "发送验证码");
+  const leftSent = email ? waitLeft(email) : 0;
+  resendButton.disabled = leftSent > 0;
+  label(resendButton, leftSent > 0 ? `重新发送（${leftSent} 秒）` : "重新发送");
+}
+setInterval(refreshCountdown, 1000);
+emailInput.addEventListener("input", refreshCountdown);
+
+function showCodeForm(clear) {
   setText($("#sent-email"), email);
   emailForm.hidden = true;
   codeForm.hidden = false;
-  codeInput.value = "";
+  if (clear) codeInput.value = "";
   codeInput.focus();
-  startResendCountdown();
+  refreshCountdown();
+}
+
+async function sendCode() {
+  try {
+    await authPost("otp", { email });
+  } catch (error) {
+    if (error.retryAfter > 0) markSent(email, error.retryAfter); // 被挡下时接着倒数剩下的秒数
+    throw error;
+  }
+  markSent(email);
+  showCodeForm(true);
 }
 
 emailForm.addEventListener("submit", async (event) => {
@@ -179,7 +218,9 @@ emailForm.addEventListener("submit", async (event) => {
     inviteInput.focus();
     return;
   }
-  busy(sendButton, "发送中…", "发送验证码");
+  sending = true;
+  sendButton.disabled = true;
+  label(sendButton, "发送中…");
   try {
     if (code) {
       let result = null;
@@ -192,27 +233,33 @@ emailForm.addEventListener("submit", async (event) => {
       }
     }
     invite = code;
-    await sendCode();
+    if (waitLeft(email) > 0) showCodeForm(false); // 60 秒内发过：刚才那封验证码仍然有效
+    else await sendCode();
   } catch (error) {
     showError(friendly(error, "send"));
   } finally {
-    busy(sendButton, "", "发送验证码");
+    sending = false;
+    refreshCountdown();
   }
 });
 
 resendButton.addEventListener("click", async () => {
+  if (sending || waitLeft(email) > 0) return;
   showError("");
-  busy(resendButton, "发送中…", "重新发送");
+  sending = true;
+  resendButton.disabled = true;
+  label(resendButton, "发送中…");
   try {
     await sendCode();
   } catch (error) {
     showError(friendly(error, "send"));
-    busy(resendButton, "", "重新发送");
+  } finally {
+    sending = false;
+    refreshCountdown();
   }
 });
 
 $("#change-email").addEventListener("click", () => {
-  clearInterval(resendTimer);
   showError("");
   codeForm.hidden = true;
   emailForm.hidden = false;
@@ -279,4 +326,5 @@ codeForm.addEventListener("submit", async (event) => {
   }
 });
 
+refreshCountdown(); // 重新整理后：浏览器自动填回邮箱时，倒数接着显示
 emailInput.focus();

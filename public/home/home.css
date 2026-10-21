@@ -9,6 +9,9 @@
 .home-emotion:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .home-enter { display: inline-flex; align-items: center; justify-self: end; gap: 2px; font-size: 13px; font-weight: 600; }
 .home-enter svg { width: 16px; height: 16px; }
+/* 情绪卡底部：行情时间（避免把旧数据看成当下）+ 进入看板 */
+.home-emotion-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.home-time { min-width: 0; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 
 /* 积分与签到 */
 .home-points { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }

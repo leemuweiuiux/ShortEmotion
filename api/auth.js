@@ -148,7 +148,7 @@ export default async function handler(req, res) {
     try {
       send(res, 200, await sendOtp(config, email));
     } catch (error) {
-      send(res, error.statusCode || 503, { error: error.message, code: error.code || "auth_unavailable" });
+      send(res, error.statusCode || 503, { error: error.message, code: error.code || "auth_unavailable", ...(error.retryAfter ? { retryAfter: error.retryAfter } : {}) });
     }
     return;
   }

@@ -1,7 +1,7 @@
 // 首页 /home（登录后打开 / 会到这里），都只读现有数据，不调用 Wind：
 //   1. 我的积分：余额 + 签到 +10
 //   2. 个股技术分析：输入股票按「开始分析」→ 跳到 /technicalanalysis 并由那边发起分析（扣 10 积分）
-//   3. 今日短线情绪：分数、阶段与市场概况（全A涨跌幅、成交额、涨跌家数、涨跌停），点卡片进入看板
+//   3. 今日短线情绪：分数、阶段与市场概况（全A涨跌幅、成交额、涨跌家数、涨跌停）、行情时间，点卡片进入看板
 //   4. 当日题材异动：未解锁时只显示题材数量，可在首页直接解锁（−5 积分，12 小时）；解锁后列出前 3 个
 import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderRecent } from "/shared/nav-account.js?v=2";
 
@@ -119,6 +119,16 @@ function pair(selector, left, right) {
   b.textContent = Number.isFinite(Number(right)) ? Number(right).toLocaleString("zh-CN") : "—";
 }
 
+/** 行情时间「20261021 11:26:00」→「行情时间 10-21 11:26」；不是今天（北京时间）的数据加注「最近交易日」。 */
+function quoteTimeLabel(value) {
+  const match = String(value || "").match(/^(\d{4})(\d{2})(\d{2})\s*(\d{2}):(\d{2})/);
+  if (!match) return "";
+  const [, year, month, day, hour, minute] = match;
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const stale = `${year}-${month}-${day}` !== today;
+  return `行情时间 ${month}-${day} ${hour}:${minute}${stale ? " · 最近交易日" : ""}`;
+}
+
 async function loadEmotion() {
   try {
     const { response, payload } = await request("/api/short-emotion?market=cn&resource=emotion");
@@ -129,6 +139,7 @@ async function loadEmotion() {
     $("#emotion-phase").textContent = payload.regime?.phase || "—";
     $("#emotion-posture").textContent = payload.regime?.posture ? `当前姿态 · ${payload.regime.posture}` : "—";
     $("#emotion-copy").textContent = payload.regime?.summary || "";
+    $("#emotion-time").textContent = quoteTimeLabel(payload.quoteTime);
     const market = payload.market || {};
     const change = $("#market-change");
     change.textContent = pct(market.changePct);
