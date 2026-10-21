@@ -3,7 +3,7 @@
 //   2. 个股技术分析：输入股票按「开始分析」→ 跳到 /technicalanalysis 并由那边发起分析（扣 10 积分）
 //   3. 今日短线情绪：分数、阶段与市场概况（全A涨跌幅、成交额、涨跌家数、涨跌停），点卡片进入看板
 //   4. 当日题材异动：未解锁时只显示题材数量，可在首页直接解锁（−5 积分，12 小时）；解锁后列出前 3 个
-import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery } from "/shared/nav-account.js?v=1";
+import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderRecent } from "/shared/nav-account.js?v=2";
 
 initAccountMenu();
 
@@ -79,6 +79,7 @@ function renderAnalysisHint() {
 
 readAnalysisConfig().then((config) => {
   analysis = config;
+  renderRecent($("#ta-recent"), config.recent); // 点了到 /technicalanalysis?id=… 看当时的结果，不扣分
   if (config.unlimited) unlimited = true;
   renderAnalysisHint();
 }).catch(() => {});

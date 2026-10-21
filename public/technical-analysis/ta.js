@@ -1,7 +1,7 @@
 // 个股技术分析 /technicalanalysis
 // 输入六位代码或准确简称 → POST /api/technical-analysis（每次扣 10 积分，认不出股票或分析失败不扣分）。
 // 版面与图表沿用 lfjDashboard「个股技术分析助手」，改成本站的单列卡片样式；页面不标注数据来源。
-import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, takePendingAnalysis, validQuery } from "/shared/nav-account.js?v=1";
+import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, takePendingAnalysis, validQuery, renderRecent, readAnalysisResult, shortTime } from "/shared/nav-account.js?v=2";
 
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const form = $("#ta-form");
@@ -36,7 +36,44 @@ async function loadConfig() {
   } catch {}
   renderButton();
   renderHint();
+  renderRecent($("#ta-recent"), config.recent, (row) => openHistory(row.id));
 }
+
+function setUrl(params) {
+  const url = new URL(location.href);
+  url.search = "";
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+  history.replaceState(null, "", url);
+}
+
+// ── 最近分析：打开保存的结果（不调用行情、不扣分），顶部标明分析时间与「重新分析」 ──
+async function openHistory(id) {
+  if (busy) return;
+  busy = true;
+  renderButton();
+  $("#ta-loading").hidden = false;
+  try {
+    const payload = await readAnalysisResult(id);
+    current = payload.data;
+    render();
+    $("#ta-history-time").textContent = `历史结果 · 分析于 ${shortTime(payload.analyzedAt)}`;
+    $("#ta-history-bar").hidden = false;
+    input.value = String(current.code || "").split(".")[0];
+    setUrl({ id: payload.id });
+  } catch (error) {
+    toast(error.message, true);
+  } finally {
+    busy = false;
+    $("#ta-loading").hidden = true;
+    renderButton();
+  }
+}
+
+$("#ta-reanalyze").addEventListener("click", () => {
+  if (!current?.code) return;
+  input.value = String(current.code).split(".")[0];
+  analyze(current.code);
+});
 
 // ── 发起分析 ──
 async function analyze(query) {
@@ -67,10 +104,10 @@ async function analyze(query) {
       throw new Error(`${payload.error || "分析失败，请稍后再试"}${note}`);
     }
     current = payload.data;
+    $("#ta-history-bar").hidden = true;
     render();
-    const url = new URL(location.href);
-    url.searchParams.set("q", current.code || q);
-    history.replaceState(null, "", url);
+    setUrl({ q: current.code || q });
+    if (payload.recent) renderRecent($("#ta-recent"), payload.recent, (row) => openHistory(row.id));
     toast(payload.charged > 0 ? `已扣 ${payload.charged} 积分` : "分析完成");
   } catch (error) {
     toast(error.message, true);
@@ -494,7 +531,7 @@ function exportSources() {
     }
     const isHead = card.classList.contains("ta-head");
     const node = cloneCard(card);
-    if (isHead) node.querySelectorAll(".ta-time, .ta-session").forEach((item) => item.remove()); // 时间已写在抬头
+    if (isHead) node.querySelectorAll(".ta-time, .ta-session, .ta-history-bar").forEach((item) => item.remove()); // 时间已写在抬头
     sources.push({ name: isHead ? "结论" : card.querySelector(".card-title")?.textContent?.trim() || "", node });
   }
   return sources;
@@ -658,8 +695,11 @@ renderButton();
 const prefill = new URLSearchParams(location.search).get("q");
 if (prefill && validQuery(prefill)) input.value = prefill.trim(); // 链接里的股票只预填，不自动分析（避免打开链接就扣分）
 const pending = takePendingAnalysis(); // 从首页按「开始分析」过来：直接发起
+const historyId = new URLSearchParams(location.search).get("id"); // 从「最近分析」过来：打开保存的结果
 await loadConfig();
 if (pending) {
   input.value = pending;
   analyze(pending);
+} else if (historyId) {
+  openHistory(historyId);
 }

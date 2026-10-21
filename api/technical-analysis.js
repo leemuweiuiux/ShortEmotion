@@ -5,11 +5,14 @@
 //      顺序：检查输入 → 余额是否够 → 认出股票（1 次 Wind 调用，认不出不扣分）→ 扣分 → 取其余数据并计算；
 //      扣分后分析失败自动退回。
 //      与短线情绪不同，这里由网站服务器直接调用 Wind（需要 Vercel 环境变量 WIND_API_KEY）；没配置时返回 503 not_configured，不扣分。
-// GET  /api/technical-analysis?action=config   需要登录：是否已开通、每次扣几分、当前余额。
+// GET  /api/technical-analysis?action=config   需要登录：是否已开通、每次扣几分、当前余额、最近分析（3 条）。
+// GET  /api/technical-analysis?action=result&id=<记录 id>   需要登录：读取本人保存的一笔分析结果（不调用行情、不扣分）。
+// 分析成功后把完整结果存进 Supabase 的分析记录（每人保留最近 10 笔，见 _lib/analysis-history.js）。
 import { resolveStock, analyzeStock } from "./_lib/technical-analysis/engine.js";
 import { getApiKeys, isMockMode } from "./_lib/short-emotion/wind-client.js";
 import { requireSession, authConfig } from "./_lib/session.js";
 import { POINTS, pointsStatus, pointsChargeAnalysis, pointsRefundAnalysis, InsufficientPointsError } from "./_lib/points.js";
+import { historySave, historyRecent, historyGet } from "./_lib/analysis-history.js";
 
 // 函数最长 60 秒（vercel.json）：认股票 ≤12 秒，扣分后其余数据 ≤40 秒，超时当作失败并退回积分。
 const ANALYSIS_TIMEOUT_MS = 40_000;
@@ -49,14 +52,29 @@ export default async function handler(req, res) {
   if (req.method === "GET" && req.query?.action === "config") {
     let balance = null;
     let unlimited = false;
+    let recent = [];
     if (needsPoints && session.accessToken) {
-      try {
-        const status = await pointsStatus(config, session.accessToken);
-        balance = status.balance;
-        unlimited = Boolean(status.unlimited);
-      } catch {}
+      const [status, rows] = await Promise.all([
+        pointsStatus(config, session.accessToken).catch(() => null),
+        historyRecent(config, session.accessToken).catch(() => [])
+      ]);
+      balance = status?.balance ?? null;
+      unlimited = Boolean(status?.unlimited);
+      recent = rows;
     }
-    return send(res, 200, { configured: analysisConfigured(), cost: POINTS.analysis, balance, unlimited });
+    return send(res, 200, { configured: analysisConfigured(), cost: POINTS.analysis, balance, unlimited, recent });
+  }
+
+  // 最近分析：读取保存的结果，不调用行情、不扣分
+  if (req.method === "GET" && req.query?.action === "result") {
+    if (!needsPoints || !session.accessToken) return send(res, 404, { error: "找不到这笔分析记录", code: "not_found" });
+    try {
+      const record = await historyGet(config, session.accessToken, req.query?.id);
+      if (!record?.result) return send(res, 404, { error: "找不到这笔分析记录（只保留最近 10 笔）", code: "not_found" });
+      return send(res, 200, { ok: true, id: record.id, analyzedAt: record.createdAt, data: record.result });
+    } catch {
+      return send(res, 503, { error: "暂时无法读取分析记录，请稍后再试", code: "history_unavailable" });
+    }
   }
 
   if (req.method !== "POST") {
@@ -102,12 +120,24 @@ export default async function handler(req, res) {
       throw error;
     }
     if (session.user) console.log(`technical-analysis ${stock.code} by user ${session.user.id}`);
+    // 保存到分析记录（失败不影响这次结果）
+    let historyId = null;
+    let recent = null;
+    if (needsPoints && session.accessToken) {
+      historyId = await historySave(config, session.accessToken, data).catch((error) => {
+        console.error(`technical-analysis history save failed: ${error?.message || error}`);
+        return null;
+      });
+      recent = await historyRecent(config, session.accessToken).catch(() => null);
+    }
     send(res, 200, {
       ok: true,
       data,
       charged: charged ? charged.charged : 0,
       balance: charged ? charged.balance : null,
-      unlimited: Boolean(charged?.unlimited)
+      unlimited: Boolean(charged?.unlimited),
+      historyId,
+      recent
     });
   } catch (error) {
     if (error instanceof InsufficientPointsError) {
