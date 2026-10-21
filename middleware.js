@@ -3,22 +3,29 @@
 //   /                  已登录 → /home（首页：个股技术分析 + 今日短线情绪）；未登录 → /about（介绍页）
 //   /login             已登录 → 直接去 next（默认 /home）
 //   /account/...       个人页面（及编辑个人信息、积分流水），需登录（未登录 → /login?next=原网址）
+//   /admin/...         管理后台：只给管理员名单里的人（数据库 admin_me 检查）；未登录或不是管理员 → 与不存在的网址一样（404）
 //   /home、/technicalanalysis、/shortemotion/...
 //                      未登录 → /login?next=原网址；凭证过期时顺手换新 cookie（滚动 90 天）；
 //                      已登录时记一笔当天的活跃（每人每天一次，只记「哪天来过」，见 session.js recordActivity）
 //
 // 登录判断见 api/_lib/session.js；数据接口 /api/short-emotion 另外在函数里检查，不经过这里。
-import { next } from "@vercel/functions/middleware";
+import { next, rewrite } from "@vercel/functions/middleware";
+import { isAdmin } from "./api/_lib/admin.js";
 import { authConfig, resolveSession, safeNext, isSecureRequest, seenCookieFor, recordActivity } from "./api/_lib/session.js";
 
 export const config = {
-  matcher: ["/", "/login", "/login/", "/home", "/home/", "/technicalanalysis", "/technicalanalysis/", "/account/:path*", "/shortemotion/:path*"]
+  matcher: ["/", "/login", "/login/", "/home", "/home/", "/technicalanalysis", "/technicalanalysis/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]
 };
 
 function redirect(location, setCookies = []) {
   const headers = new Headers({ Location: location, "Cache-Control": "no-store" });
   for (const value of setCookies) headers.append("Set-Cookie", value);
   return new Response(null, { status: 307, headers });
+}
+
+/** 显示与不存在的网址相同的 404（改写到一个不存在的路径，由 Vercel 回它自己的 404 页）。 */
+function notFound(request) {
+  return rewrite(new URL("/__not_found__", request.url), { headers: { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
 }
 
 function proceed(setCookies = []) {
@@ -32,6 +39,16 @@ export default async function middleware(request) {
   const url = new URL(request.url);
   const path = url.pathname;
   const settings = authConfig();
+
+  if (path === "/admin" || path.startsWith("/admin/")) {
+    if (!settings) return notFound(request);
+    const secureAdmin = isSecureRequest(request.url, request.headers.get("x-forwarded-proto"));
+    const adminSession = await resolveSession(request.headers.get("cookie"), { config: settings, secure: secureAdmin }).catch(() => ({ user: null, setCookies: [] }));
+    if (!adminSession.user || !adminSession.accessToken || !(await isAdmin(settings, adminSession.accessToken))) return notFound(request);
+    const headers = new Headers({ "Cache-Control": "no-store", "X-Robots-Tag": "noindex" });
+    for (const value of adminSession.setCookies) headers.append("Set-Cookie", value);
+    return next({ headers });
+  }
 
   if (!settings) return path === "/" ? redirect("/about") : next(); // 登录关闭：看板公开
 
