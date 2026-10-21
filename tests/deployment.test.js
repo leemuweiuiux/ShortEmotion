@@ -79,6 +79,19 @@ describe("流量统计", () => {
   });
 });
 
+describe("手机输入体验", () => {
+  it("输入框字号不小于 16px（否则 iPhone 聚焦会放大页面且不还原）", () => {
+    for (const file of ["public/technical-analysis/ta.css", "public/account/account.css", "public/login/login.css", "public/home/home.css", "public/short-emotion/twsvp.css", "public/about/about.css"]) {
+      const css = readFileSync(resolve(root, file), "utf8");
+      for (const [, selector, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        if (!/\b(input|select|textarea)\b/.test(selector) || /::?(placeholder|-webkit)/.test(selector)) continue;
+        const size = body.match(/font-size:\s*(\d+)px/);
+        if (size) expect(Number(size[1]), `${file}: ${selector.trim()}`).toBeGreaterThanOrEqual(16);
+      }
+    }
+  });
+});
+
 describe("页面脚本", () => {
   it("介绍页、登录页、共用模块 import 的文件都存在，简繁字表版本号一致", () => {
     const files = ["public/about/about.js", "public/login/login.js", "public/account/account.js", "public/shared/lang.js", "public/short-emotion/app.js", "public/home/home.js", "public/technical-analysis/ta.js", "public/shared/nav-account.js"];
