@@ -478,6 +478,11 @@ main {
 
 /* 长图导出 */
 .export-host { position: fixed; top: 0; left: -20000px; z-index: -1; pointer-events: none; }
+/* 导出图片时用系统字体：导出组件会把排版尺寸（宽度）原样带进图片，若页面用了网页字体、图片里却换成系统字体，
+   文字变宽就会在固定宽度里换行。导出区一律用系统字体排版，前后一致。 */
+.export-host .export-shell, .export-host .export-shell * {
+  font-family: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important;
+}
 .export-shell { padding: 16px; background: var(--bg); }
 .export-shell main { padding: 0; }
 .export-shell .status-bar .pill-btn { display: none; }
