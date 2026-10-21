@@ -1,5 +1,5 @@
 // 积分流水 /account/points：全部记录，每次 20 笔，「加载更多」往前翻。
-import { $, toast, readPoints, readPointsBefore, renderLedger } from "/account/common.js?v=4";
+import { $, toast, readPoints, readPointsBefore, renderLedger } from "/account/common.js?v=5";
 
 const list = $("#ledger");
 const more = $("#ledger-more");

@@ -80,7 +80,7 @@ a { color: inherit; }
 section, .hero { background: var(--surface); border: 1px solid var(--border); padding: 20px; }
 
 /* ── 主视觉 ── */
-.hero { position: relative; overflow: hidden; display: grid; gap: 14px; }
+.hero { position: relative; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .hero::before {
   content: "";
   position: absolute;
@@ -106,12 +106,16 @@ section, .hero { background: var(--surface); border: 1px solid var(--border); pa
   line-height: 1.2;
   letter-spacing: -0.02em;
 }
-.hero-word { display: inline-block; min-width: 2em; transition: opacity .28s ease, transform .28s ease; }
-.hero-word.swap { opacity: 0; transform: translateY(6px); }
+/* 两段成对轮换（动词 + 对象），后段都是 7 个字，切换时不换行、不抖动 */
+.hero-word, .hero-object { display: inline-block; transition: opacity .28s ease, transform .28s ease; }
+.hero-word { min-width: 2em; }
+.hero-object { transition-delay: .06s; }
+.hero-word.swap, .hero-object.swap { opacity: 0; transform: translateY(6px); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .hero-lead { color: var(--muted); font-size: 15px; line-height: 1.7; max-width: 34em; }
 
 /* 今日情绪：A股实时分数（与看板同款圆环） */
-.live { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 4px; }
+.live { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 4px; }
 .live-tile {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -143,12 +147,54 @@ section, .hero { background: var(--surface); border: 1px solid var(--border); pa
 .live-phase { grid-area: phase; font-size: 20px; font-weight: 700; line-height: 1.25; }
 .live-phase small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; font-weight: 500; }
 .live-time { grid-area: time; padding-top: 8px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; line-height: 1.4; }
+
+/* 个股技术分析入口：输入后到 /technicalanalysis?q=（未登录先去登录，回来时已填好） */
+.ta-tile { display: grid; gap: 10px; padding: 14px; background: var(--panel); border: 1px solid var(--border); }
+.ta-tile:focus-within { border-color: var(--ink); }
+.ta-tile .live-market { margin-bottom: 0; }
+.ta-tile .live-market, .ta-tile .live-time { grid-area: auto; } /* 不沿用 A股卡片的命名区域，否则会多出隐式行列 */
+.ta-searchbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 4px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.ta-searchbar input {
+  flex: 1;
+  width: 0; /* 不按输入框默认宽度撑开卡片 */
+  min-width: 0;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.ta-searchbar input:focus { outline: none; }
+.ta-searchbar button {
+  flex: none;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--surface);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
 .hero-note { padding-top: 12px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; line-height: 1.6; }
 
 /* ── 四步阅读 ── */
 .steps-intro { display: grid; gap: 6px; }
 h2 { font-size: 20px; font-weight: 700; line-height: 1.35; }
-.steps-intro p, .feature-text p, .markets p, .board p, .boards-more { color: var(--muted); font-size: 14px; line-height: 1.7; }
+.steps-intro p, .feature-text p, .markets p, .board p { color: var(--muted); font-size: 14px; line-height: 1.7; }
+.steps-intro .steps-note { font-size: 12px; }
 .feature { display: grid; gap: 16px; }
 .feature-text { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; row-gap: 4px; align-items: baseline; }
 .step-no {
@@ -169,18 +215,21 @@ h3 { font-size: 17px; font-weight: 700; line-height: 1.4; }
   -webkit-mask-image: linear-gradient(180deg, #000 72%, transparent);
   mask-image: linear-gradient(180deg, #000 72%, transparent);
 }
+.fade-tail img {
+  -webkit-mask-image: linear-gradient(180deg, #000 90%, transparent);
+  mask-image: linear-gradient(180deg, #000 90%, transparent);
+}
 
 /* ── 数据来源（Wind MCP） ── */
 .data-source { display: grid; gap: 12px; }
 .data-source > p { color: var(--muted); font-size: 14px; line-height: 1.7; }
-.source-list { display: grid; grid-template-columns: repeat(3, 1fr); margin: 0; padding: 0; list-style: none; border: 1px solid var(--border); }
-.source-list li { display: grid; gap: 4px; align-content: start; padding: 12px; }
-.source-list li + li { border-left: 1px solid var(--border); }
+/* 2×2 格子：用 1px 间隙透出底色当分隔线 */
+.source-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; margin: 0; padding: 0; list-style: none; background: var(--border); border: 1px solid var(--border); }
+.source-list li { display: grid; gap: 4px; align-content: start; padding: 12px; background: var(--surface); }
 .source-list b { font-size: 14px; font-weight: 600; }
 .source-list span { color: var(--muted); font-size: 12px; line-height: 1.5; }
-@media (max-width: 420px) {
+@media (max-width: 360px) {
   .source-list { grid-template-columns: 1fr; }
-  .source-list li + li { border-left: 0; border-top: 1px solid var(--border); }
 }
 
 /* ── 看板 ── */
@@ -200,7 +249,6 @@ h3 { font-size: 17px; font-weight: 700; line-height: 1.4; }
   text-decoration: none;
 }
 .board-link:hover { border-color: var(--ink); }
-.boards-more { font-size: 13px; }
 
 /* ── 页脚 ── */
 .footer { display: grid; gap: 2px; padding: 4px 4px 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
@@ -245,5 +293,5 @@ h3 { font-size: 17px; font-weight: 700; line-height: 1.4; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-word, .live-tile, .board-link { transition: none; }
+  .hero-word, .hero-object, .live-tile, .board-link { transition: none; }
 }

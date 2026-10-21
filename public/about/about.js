@@ -1,25 +1,45 @@
-// 介绍页 /about：简繁切换、主视觉轮换词、今日情绪（公开摘要接口，不调用 Wind）、底部登录按钮。
-import { initLanguage, setText, setAttributeText } from "/shared/lang.js?v=12";
+// 介绍页 /about：简繁切换、主视觉轮换标题、今日情绪（公开摘要接口，不调用 Wind）、个股分析入口、底部登录按钮。
+import { initLanguage, setText, setAttributeText } from "/shared/lang.js?v=13";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
 initLanguage();
 
-// ── 主视觉轮换词 ──
-const WORDS = ["量化", "拆解", "追踪"];
+// ── 主视觉轮换标题：动词与对象成对一起换（后段都是 7 个字） ──
+const PAIRS = [
+  ["量化", "每天的短线情绪"],
+  ["追踪", "当日的题材异动"],
+  ["拆解", "个股的技术走势"],
+  ["测算", "个股的胜率赔率"]
+];
 const word = $(".hero-word");
-if (word && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+const object = $(".hero-object");
+if (word && object && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
   let index = 0;
   setInterval(() => {
-    index = (index + 1) % WORDS.length;
+    index = (index + 1) % PAIRS.length;
     word.classList.add("swap");
+    object.classList.add("swap");
     setTimeout(() => {
-      setText(word, WORDS[index]);
+      setText(word, PAIRS[index][0]);
+      setText(object, PAIRS[index][1]);
       word.classList.remove("swap");
-    }, 280);
-  }, 2800);
+      object.classList.remove("swap");
+    }, 340);
+  }, 3200);
 }
+
+// ── 个股技术分析入口：去掉多余空白；空白时不提交 ──
+const taForm = $(".ta-tile");
+taForm?.addEventListener("submit", (event) => {
+  const input = taForm.elements.q;
+  input.value = input.value.trim();
+  if (!input.value) {
+    event.preventDefault();
+    input.focus();
+  }
+});
 
 // ── 今日情绪：A股最新分数（公开摘要） ──
 function quoteLabel(payload) {

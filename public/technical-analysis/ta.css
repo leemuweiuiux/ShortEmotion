@@ -87,6 +87,16 @@ main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-co
 .ta-history dt { color: var(--muted); white-space: nowrap; }
 .ta-history dd { margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ta-history .ta-empty { grid-column: 1 / -1; }
+/* 卡片窄时（手机）三栏放不下「25%–75% -2.64%～2.15%」：改成每个周期一行，左边周期与上涨频率，右边四项明细。
+   用容器宽度判断：导出图固定 600 宽，仍是三栏。 */
+.ta-history-card { container-type: inline-size; }
+@container (max-width: 460px) {
+  .ta-history { grid-template-columns: 1fr; }
+  .ta-history > div { display: grid; grid-template-columns: 76px minmax(0, 1fr); column-gap: 14px; align-items: center; }
+  .ta-history h4 { grid-column: 1; }
+  .ta-history strong { grid-column: 1; margin: 2px 0 0; }
+  .ta-history dl { grid-column: 2; grid-row: 1 / span 2; }
+}
 
 /* 事件驱动 */
 .ta-events { display: grid; gap: 10px; margin-top: 12px; }

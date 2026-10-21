@@ -28,6 +28,26 @@ describe("网址：介绍页、登录页与看板", () => {
     expect(html).toMatch(/<a class="drawer-cta" href="\/login">登录<\/a>/);
   });
 
+  it("介绍页介绍个股技术分析：主视觉入口、四项说明、看板卡片", () => {
+    const html = readFileSync(resolve(root, "public/about/index.html"), "utf8");
+    expect(html).toMatch(/<form class="ta-tile" action="\/technicalanalysis" method="get"/);
+    expect(html).toContain('<a class="board-link" href="/technicalanalysis">');
+    expect(html).toContain("看懂A股情绪与走势");
+    expect(html).toContain("以下截图为示例数据");
+    expect(html).not.toContain("更多看板陆续上线");
+  });
+
+  it("介绍页轮换标题：动词与对象成对，对象都是 7 个字（切换时不换行）", () => {
+    const code = readFileSync(resolve(root, "public/about/about.js"), "utf8");
+    const pairs = [...code.matchAll(/\["([^"]+)", "([^"]+)"\]/g)].map((m) => [m[1], m[2]]);
+    expect(pairs[0]).toEqual(["量化", "每天的短线情绪"]);
+    expect(pairs.some(([, object]) => object.startsWith("个股"))).toBe(true);
+    for (const [verb, object] of pairs) {
+      expect([...verb]).toHaveLength(2);
+      expect([...object]).toHaveLength(7);
+    }
+  });
+
   it("个股技术分析在 /technicalanalysis", () => {
     for (const path of ["/technicalanalysis", "/technicalanalysis/"]) expect(rewrites[path]).toBe("/technical-analysis/index.html");
     expect(vercel.functions["api/technical-analysis.js"].maxDuration).toBe(60);

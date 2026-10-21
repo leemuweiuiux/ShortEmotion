@@ -1,5 +1,5 @@
 // 个人页面共用：/account（个人信息、积分、积分流水）、/account/edit（编辑个人信息）、/account/points（积分流水）。
-import { initLanguage, setText } from "/shared/lang.js?v=12";
+import { initLanguage, setText } from "/shared/lang.js?v=13";
 
 export { setText };
 export const $ = (selector) => document.querySelector(selector);
