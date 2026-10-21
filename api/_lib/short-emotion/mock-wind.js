@@ -49,7 +49,8 @@ const MOCK_STOCKS = [
   { code: "603936.SH", name: "样本电子", base: 18, drift: 0.0006 },
   { code: "300986.SZ", name: "样本新材", base: 11, drift: -0.0002, surge: true }, // 近 3 日连续大涨，会触发事件检索
   { code: "688001.SH", name: "样本科技", base: 42, drift: 0.0003 },
-  { code: "600999.SH", name: "样本故障", base: 9, drift: 0, failKline: true } // 认得出、但取日 K 失败（测试「失败退回积分」）
+  { code: "600999.SH", name: "样本故障", base: 9, drift: 0, failKline: true }, // 认得出、但取日 K 失败（测试「失败退回积分」）
+  { code: "688002.SH", name: "样本新高", base: 5, drift: 0.0012, surge: true } // 一路上涨、近 6 年都在新高（测试「波动推算」）
 ];
 const MOCK_INDEXES = { "000001.SH": 3100, "399001.SZ": 10200, "399006.SZ": 2100, "000688.SH": 950 };
 
@@ -90,7 +91,8 @@ function mockDaily(windcode, begin, end) {
     const change = surgeDay ? 0.1 : drift + (random() - 0.5) * 2 * vol;
     close = Math.max(base * 0.3, prev * (1 + change));
     const open = prev * (1 + (random() - 0.5) * vol * 0.6);
-    const high = Math.max(open, close) * (1 + random() * vol * 0.5);
+    const upper = random();
+    const high = surgeDay ? Math.max(open, close) : Math.max(open, close) * (1 + upper * vol * 0.5); // 大涨日收在最高价（类似涨停）
     const low = Math.min(open, close) * (1 - random() * vol * 0.5);
     const volume = Math.round((stock ? 8e6 : 3e10) * (0.6 + random() * 0.9) * (surgeDay ? 2.2 : 1));
     const avg = (open + close + high + low) / 4;

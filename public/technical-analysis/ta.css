@@ -116,7 +116,9 @@ main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-co
 
 /* 关键价位 */
 .ta-levels { display: grid; margin: 8px 0 0; padding: 0 0 0 16px; list-style: none; border-left: 1px solid var(--border); }
-.ta-levels li { position: relative; display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.ta-levels li { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: baseline; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.ta-levels small { min-width: 0; color: var(--muted); font-size: 11px; text-align: right; }
+.ta-levels span, .ta-levels b { white-space: nowrap; }
 .ta-levels li:last-child { border-bottom: 0; }
 .ta-levels li::before { content: ""; position: absolute; left: -20px; top: 50%; width: 7px; height: 7px; margin-top: -4px; border-radius: 50%; background: var(--border); }
 .ta-levels li.current::before { background: var(--ink); }
@@ -165,3 +167,9 @@ main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-co
 .ta-recent a:hover { text-decoration-color: var(--ink); }
 .ta-history-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 12px; padding: 8px 10px; background: var(--panel); color: var(--muted); font-size: 12px; }
 .ta-history-bar .pill-btn { min-height: 28px; padding: 0 12px; font-size: 12px; }
+
+/* 关键价位的补充参考（不进赔率计算） */
+.ta-supplements[hidden] { display: none; }
+.ta-supplements-title { margin: 12px 0 0; padding-top: 10px; border-top: 1px dashed var(--border); color: var(--muted); font-size: 12px; }
+.ta-supplements .ta-levels { margin-top: 4px; }
+.ta-supplements .ta-levels li::before { background: transparent; border: 1px solid var(--muted); }

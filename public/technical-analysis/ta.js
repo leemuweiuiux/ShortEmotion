@@ -173,6 +173,7 @@ function render() {
   // 赔率
   const buy = data.buyValue || {};
   setLevel("#ta-odds-level", buy.oddsLevel || decision.oddsLevel);
+  if (buy.noRecentPressure) $("#ta-odds-level").textContent = `${buy.oddsLevel || decision.oddsLevel}（${buy.pressureNote || "上方无近120日压力"}）`;
   setText("#ta-upside", Number.isFinite(Number(buy.upsidePct)) ? signed(buy.upsidePct, "%") : "—");
   setText("#ta-downside", Number.isFinite(Number(buy.downsidePct)) ? `-${Number(buy.downsidePct).toFixed(2)}%` : "—");
   setText("#ta-odds-rr", Number.isFinite(Number(buy.rr)) ? `${Number(buy.rr).toFixed(2)}×` : "—");
@@ -229,7 +230,13 @@ function render() {
     </div>`).join("");
 
   // 关键价位
-  $("#ta-levels").innerHTML = (data.levels || []).map(([label, value, cls]) => `<li class="${cls === "current" ? "current" : ""}"><span>${esc(label)}</span><b>${esc(value)}</b></li>`).join("");
+  // 关键价位：名称、来源（取自哪个价位、哪段时间）、价位；补充参考另列，不进赔率计算
+  $("#ta-levels").innerHTML = (data.levels || []).map(([label, value, cls, source]) => `<li class="${cls === "current" ? "current" : ""}"><span>${esc(label)}</span><small>${esc(source || "")}</small><b>${esc(value)}</b></li>`).join("");
+  const supplements = data.supplements || [];
+  $("#ta-supplements").hidden = !supplements.length;
+  $("#ta-supplements").innerHTML = supplements.length
+    ? `<p class="ta-supplements-title">补充参考</p><ol class="ta-levels">${supplements.map((item) => `<li><span>${esc(item.label)}</span><small>${esc(item.note || "")}</small><b>${esc(item.value)}</b></li>`).join("")}</ol>`
+    : "";
 
   // 仓位风险
   const stop = (data.levels || []).find((item) => item[0] === "结构失效");

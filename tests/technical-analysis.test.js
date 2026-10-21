@@ -72,6 +72,57 @@ describe("个股技术分析算法（离线样本）", () => {
   });
 });
 
+describe("关键价位：来源标注与补充参考（原算法数值不变）", () => {
+  const bar = (time, high, low = high - 1, close = high - 0.5) => ({ time, high, low, close });
+
+  it("每个关键价位都标出来源", async () => {
+    engine.clearAnalysisCache();
+    const result = await engine.analyze("603936");
+    const sources = Object.fromEntries(result.levels.map(([label, , , source]) => [label, source]));
+    expect(sources["日内防守"]).toBe("今日最低");
+    expect(sources["平台上沿"]).toMatch(/前20日最高|今日最高/);
+    for (const label of ["波段压力", "再确认位", "修复位", "结构失效"]) expect(sources[label], label).toBeTruthy();
+    expect(sources["当前价"]).toBe("");
+  });
+
+  it("创新高：赔率照原算法（0%、极低），另给历史前高", async () => {
+    engine.clearAnalysisCache();
+    const result = await engine.analyze("样本新材"); // 离线样本：近 3 日连续大涨、收在最高价
+    expect(result.buyValue.upsidePct).toBe(0);
+    expect(result.buyValue.noRecentPressure).toBe(true);
+    expect(result.buyValue.pressureNote).toBe("上方无近120日压力");
+    expect(result.supplements[0]).toMatchObject({ label: "历史前高", note: expect.stringMatching(/^\d{4}-\d{2}-\d{2}（近6年）$/) });
+    expect(Number(result.supplements[0].value)).toBeGreaterThan(result.price);
+  });
+
+  it("近 6 年都在新高：按 现价 + 2 倍 14 日平均波幅 推算", async () => {
+    engine.clearAnalysisCache();
+    const result = await engine.analyze("样本新高");
+    expect(result.supplements[0]).toMatchObject({ label: "波动推算", note: expect.stringContaining("近6年无更高价位") });
+    expect(Number(result.supplements[0].value)).toBeGreaterThan(result.price);
+  });
+
+  it("历史前高取波段高点：现价上方最近的一个，不含今天", () => {
+    const rows = [bar("2021-01-01", 10), bar("2021-01-02", 12), bar("2021-01-03", 9), bar("2021-01-04", 11), bar("2021-01-05", 15), bar("2021-01-06", 8), bar("2021-01-07", 16)];
+    expect(engine.swingHighs(rows, 1).map((row) => row.high)).toEqual([12, 15, 16]);
+    // 默认前后各 5 根：12 旁边有更高的 15，不算前高
+    expect(engine.nearestHistoricalHigh(rows, 11).high).toBe(15);
+    expect(engine.nearestHistoricalHigh(rows, 15)).toBeNull(); // 16 是今天，不算
+  });
+
+  it("平均真实波幅（ATR）含跳空", () => {
+    const rows = [bar("d1", 10, 9, 9.5), bar("d2", 11, 9.8, 10.5), bar("d3", 10.8, 10, 10.2)];
+    expect(engine.averageTrueRange(rows, 2)).toBeCloseTo((1.5 + 0.8) / 2);
+  });
+
+  it("波段压力取自布林上轨且离现价不到 2%：补下一档压力", () => {
+    const highSources = [[10.4, "前20日最高"], [11, "前60日最高"], [12, "近120日最高"]];
+    expect(engine.pressureSupplements({ price: 10, target: 10.1, targetSource: "布林上轨", highSources })).toEqual([{ label: "下一档压力", value: "10.40", note: "前20日最高" }]);
+    expect(engine.pressureSupplements({ price: 10, target: 10.5, targetSource: "布林上轨", highSources })).toEqual([]); // 离现价 5%，不补
+    expect(engine.pressureSupplements({ price: 10, target: 10.1, targetSource: "前20日最高", highSources })).toEqual([]);
+  });
+});
+
 // ── 接口：登录 + 积分 ──
 const SUPABASE = "https://awrpzbxdhrwbweskgipj.supabase.co";
 const b64 = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
