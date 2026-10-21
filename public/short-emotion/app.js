@@ -626,14 +626,18 @@ async function renderShell(nodes, extraClass = "") {
   host.append(shell);
   document.body.append(host);
   try {
-    await document.fonts?.ready;
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await new Promise((resolve) => setTimeout(resolve, 60)); // 等一帧排版（不用 requestAnimationFrame：页面在后台时它不会触发）
     const height = Math.ceil(shell.scrollHeight);
     if (height > 30000) throw new Error("页面过长，请改用「导出小卡」");
     // iOS Safari 单张 canvas 约 1600 万像素上限，按尺寸自动降低倍率。
     // 浏览器 canvas 单边最多约 16384 像素，长图再按高度限制倍率，避免底部被截掉。
     const pixelRatio = Math.max(0.5, Math.min(2, window.devicePixelRatio || 1, Math.sqrt(16_000_000 / (EXPORT_WIDTH * height)), 16_000 / height));
-    const blob = await window.htmlToImage.toBlob(shell, { width: EXPORT_WIDTH, height, pixelRatio, backgroundColor: exportBackground() });
+    // skipFonts：不去下载网页字体（大陆网络下 Google 字体请求可能一直挂着），直接用系统字体；每张最多 20 秒
+    let timer;
+    const blob = await Promise.race([
+      window.htmlToImage.toBlob(shell, { width: EXPORT_WIDTH, height, pixelRatio, backgroundColor: exportBackground(), skipFonts: true }),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("生成超时，请重试")), 20_000); })
+    ]).finally(() => clearTimeout(timer));
     if (!blob) throw new Error("浏览器未能生成图片");
     return blob;
   } finally {
