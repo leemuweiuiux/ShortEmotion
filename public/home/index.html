@@ -24,7 +24,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=16">
   <link rel="stylesheet" href="/technical-analysis/ta.css?v=10">
-  <link rel="stylesheet" href="/home/home.css?v=2">
+  <link rel="stylesheet" href="/home/home.css?v=3">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -47,6 +47,7 @@
         </div>
         <a class="home-more" href="/account/points">积分记录</a>
         <button id="signin" class="pill-btn" type="button" disabled>签到 +10</button>
+        <p id="invite-pending" class="home-invite-pending" hidden>完成第一次签到，你和邀请人各得 <em>50</em> 积分</p>
       </section>
 
       <form id="ta-form" class="card ta-search home-card" autocomplete="off">
@@ -88,6 +89,6 @@
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/home/home.js?v=4"></script>
+  <script type="module" src="/home/home.js?v=5"></script>
 </body>
 </html>

@@ -40,6 +40,7 @@ async function loadPoints() {
     balance = payload.balance;
     unlimited = Boolean(payload.unlimited);
     renderPoints(payload.signedToday);
+    $("#invite-pending").hidden = !payload.invitePending || Boolean(payload.signedToday); // 受邀的新用户：第一次签到双方各 +50
   } catch {
     $("#points-balance").textContent = "—";
   }
@@ -56,7 +57,8 @@ signinButton.addEventListener("click", async () => {
     if (!response.ok) throw new Error(payload.error || "签到失败，请稍后再试");
     balance = payload.balance;
     renderPoints(true);
-    toast(payload.ok ? `签到成功 +${payload.delta || 10}` : "今天已经签到过了");
+    toast(!payload.ok ? "今天已经签到过了" : payload.inviteBonus ? `签到成功 +${payload.delta || 10}，邀请奖励 +${payload.inviteBonus}` : `签到成功 +${payload.delta || 10}`);
+    $("#invite-pending").hidden = true;
     renderAnalysisHint();
     if (anomalyData?.locked) renderLocked();
   } catch (error) {

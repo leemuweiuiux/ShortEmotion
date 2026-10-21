@@ -44,3 +44,15 @@
 .login-error[hidden] { display: none; }
 .login-note { padding-top: 14px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; line-height: 1.7; }
 .back-link { justify-self: center; color: var(--muted); font-size: 13px; text-underline-offset: 3px; }
+
+/* 邀请码（选填）：从邀请链接进来时自动填好，并显示邀请人 */
+.field span small { margin-left: 4px; color: var(--muted); font-size: 12px; font-weight: 400; }
+#invite { font-family: "Manrope", sans-serif; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+#invite::placeholder { font-family: "Noto Sans SC", sans-serif; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.invite-note { margin-top: -4px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.invite-note b { color: var(--ink); }
+.invite-note em { color: var(--heat); font-style: normal; font-weight: 700; }
+.invite-note.bad { color: var(--heat); }
+.invite-note[hidden] { display: none; }
+.login-done { padding: 10px 12px; border: 1px solid var(--ink); font-size: 13px; line-height: 1.6; }
+.login-done[hidden] { display: none; }

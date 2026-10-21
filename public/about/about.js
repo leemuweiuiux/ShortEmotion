@@ -1,5 +1,5 @@
-// 介绍页 /about：简繁切换、主视觉轮换标题、今日情绪（公开摘要接口，不调用 Wind）、个股分析入口、底部登录按钮。
-import { initLanguage, setText, setAttributeText } from "/shared/lang.js?v=13";
+// 介绍页 /about：简繁切换、主视觉轮换标题、今日情绪（公开摘要接口，不调用 Wind）、个股分析入口、邀请横幅、底部登录按钮。
+import { initLanguage, setText, setAttributeText } from "/shared/lang.js?v=14";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -76,7 +76,28 @@ async function loadLive(tile) {
 }
 $$(".live-tile").forEach(loadLive);
 
-// ── 底部按钮：未登录「登录」，已登录直接「进入看板」 ──
+// ── 邀请链接 /about?invite=SE…：记下邀请码（7 天，登录页自动填好），显示谁邀请你 ──
+const INVITE_PATTERN = /^SE[A-HJKMNP-Z2-9]{6}$/;
+const inviteCode = String(new URLSearchParams(location.search).get("invite") || "").replace(/\s+/g, "").toUpperCase();
+const accountReady = loadAccount();
+if (INVITE_PATTERN.test(inviteCode)) {
+  try { localStorage.setItem("se_invite", JSON.stringify({ code: inviteCode, at: Date.now() })); } catch {}
+  showInvite(inviteCode);
+}
+
+async function showInvite(code) {
+  try {
+    const response = await fetch(`/api/auth?action=invite-check&code=${encodeURIComponent(code)}`, { headers: { Accept: "application/json" } });
+    const result = response.ok ? await response.json() : null;
+    if (!result?.valid || (await accountReady)) return; // 邀请码不能用，或已经登录：不显示
+    const banner = $(".invite-banner");
+    if (result.name) $(".invite-banner-name", banner).textContent = result.name; // 姓名原样显示
+    banner.hidden = false;
+    setText($(".drawer-copy"), "接受邀请，免费注册");
+  } catch {}
+}
+
+// ── 底部按钮：未登录「登录」，已登录直接「进入首页」；返回是否已登录 ──
 async function loadAccount() {
   try {
     const response = await fetch("/api/auth?action=me", { headers: { Accept: "application/json" }, credentials: "same-origin" });
@@ -86,10 +107,12 @@ async function loadAccount() {
       setText($(".drawer-copy"), "免费使用，打开网页就能看");
     } else if (payload.user) {
       setText($(".drawer-copy"), `已登录 ${payload.user.email || ""}`.trim());
-    } else return;
+    } else return false;
     const cta = $(".drawer-cta");
     cta.href = "/home";
     setText(cta, "进入首页");
-  } catch {}
+    return true;
+  } catch {
+    return false;
+  }
 }
-loadAccount();

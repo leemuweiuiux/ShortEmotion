@@ -1,5 +1,5 @@
-// 个人页面 /account：个人信息（只显示，编辑在 /account/edit）、积分（余额 + 签到）、积分流水（最近 3 笔，全部在 /account/points）。
-import { $, setText, toast, readProfile, readPoints, signin, renderLedger } from "/account/common.js?v=5";
+// 个人页面 /account：个人信息（只显示，编辑在 /account/edit）、积分（余额 + 签到）、邀请好友入口（/account/invite）、积分流水（最近 3 笔，全部在 /account/points）。
+import { $, setText, toast, readProfile, readPoints, signin, renderLedger } from "/account/common.js?v=6";
 
 const signinButton = $("#signin");
 
@@ -69,6 +69,7 @@ async function loadPoints() {
     // 不限额账号不需要签到
     signinButton.hidden = Boolean(payload.unlimited);
     setSigned(Boolean(payload.signedToday));
+    $("#invite-pending").hidden = !payload.invitePending; // 受邀的新用户：第一次签到双方各 +50
     renderLedger($("#ledger"), (payload.history || []).slice(0, 3));
   } catch (error) {
     setText($("#points-balance"), "—");
@@ -81,7 +82,7 @@ signinButton.addEventListener("click", async () => {
   signinButton.disabled = true;
   try {
     const result = await signin();
-    toast(result.ok ? "签到成功 +10" : "今天已经签到过了");
+    toast(!result.ok ? "今天已经签到过了" : result.inviteBonus ? `签到成功 +10，邀请奖励 +${result.inviteBonus}` : "签到成功 +10");
     await loadPoints();
   } catch (error) {
     signinButton.disabled = false;

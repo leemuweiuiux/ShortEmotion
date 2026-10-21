@@ -48,6 +48,24 @@ describe("网址：介绍页、登录页与看板", () => {
     }
   });
 
+  it("邀请好友在 /account/invite；个人页面有入口", () => {
+    for (const path of ["/account/invite", "/account/invite/"]) expect(rewrites[path]).toBe("/account/invite/index.html");
+    expect(readFileSync(resolve(root, "public/account/index.html"), "utf8")).toContain('href="/account/invite"');
+  });
+
+  it("邀请码只出现在邀请卡：看板与个股分析的导出不带邀请码", () => {
+    for (const file of ["public/short-emotion/app.js", "public/technical-analysis/ta.js"]) {
+      expect(readFileSync(resolve(root, file), "utf8"), file).not.toMatch(/invite|邀请码/);
+    }
+  });
+
+  it("登录页有选填的邀请码，介绍页会记下邀请链接里的邀请码", () => {
+    expect(readFileSync(resolve(root, "public/login/index.html"), "utf8")).toMatch(/<input id="invite"[^>]*>/);
+    const about = readFileSync(resolve(root, "public/about/about.js"), "utf8");
+    expect(about).toContain('localStorage.setItem("se_invite"');
+    expect(readFileSync(resolve(root, "public/login/login.js"), "utf8")).toContain('const INVITE_KEY = "se_invite"');
+  });
+
   it("个股技术分析在 /technicalanalysis", () => {
     for (const path of ["/technicalanalysis", "/technicalanalysis/"]) expect(rewrites[path]).toBe("/technical-analysis/index.html");
     expect(vercel.functions["api/technical-analysis.js"].maxDuration).toBe(60);
@@ -71,7 +89,7 @@ describe("网址：介绍页、登录页与看板", () => {
 
   it("页面里的站内链接都指向存在的网址", () => {
     const known = new Set([...Object.keys(rewrites), ...Object.keys(redirects)]);
-    for (const file of ["public/short-emotion/index.html", "public/about/index.html", "public/login/index.html", "public/account/index.html", "public/account/edit/index.html", "public/account/points/index.html", "public/home/index.html", "public/technical-analysis/index.html"]) {
+    for (const file of ["public/short-emotion/index.html", "public/about/index.html", "public/login/index.html", "public/account/index.html", "public/account/edit/index.html", "public/account/points/index.html", "public/account/invite/index.html", "public/home/index.html", "public/technical-analysis/index.html"]) {
       const html = readFileSync(resolve(root, file), "utf8");
       const links = [...html.matchAll(/<a[^>]+href="(\/[^"#?]*)"/g)].map((m) => m[1]);
       expect(links.length).toBeGreaterThan(0);
@@ -80,7 +98,7 @@ describe("网址：介绍页、登录页与看板", () => {
   });
 
   it("页面引用的静态文件都存在", () => {
-    for (const [file, prefix] of [["public/short-emotion/index.html", "short-emotion"], ["public/about/index.html", "(?:about|short-emotion)"], ["public/login/index.html", "(?:about|login|short-emotion)"], ["public/account/index.html", "(?:about|login|account|short-emotion)"], ["public/home/index.html", "(?:home|technical-analysis|short-emotion)"], ["public/technical-analysis/index.html", "(?:technical-analysis|short-emotion)"]]) {
+    for (const [file, prefix] of [["public/short-emotion/index.html", "short-emotion"], ["public/about/index.html", "(?:about|short-emotion)"], ["public/login/index.html", "(?:about|login|short-emotion)"], ["public/account/index.html", "(?:about|login|account|short-emotion)"], ["public/account/invite/index.html", "(?:about|account|short-emotion)"], ["public/home/index.html", "(?:home|technical-analysis|short-emotion)"], ["public/technical-analysis/index.html", "(?:technical-analysis|short-emotion)"]]) {
       const html = readFileSync(resolve(root, file), "utf8");
       const refs = [...html.matchAll(new RegExp(`(?:href|src|srcset)="(\\/${prefix}\\/[^"?]+\\.[a-z0-9]+)`, "g"))].map((m) => m[1]);
       expect(refs.length).toBeGreaterThan(3);
@@ -91,7 +109,7 @@ describe("网址：介绍页、登录页与看板", () => {
 
 describe("流量统计", () => {
   it("每个页面都加载 Vercel Web Analytics（只记页面浏览量）", () => {
-    for (const file of ["public/about/index.html", "public/login/index.html", "public/home/index.html", "public/technical-analysis/index.html", "public/short-emotion/index.html", "public/account/index.html", "public/account/edit/index.html", "public/account/points/index.html"]) {
+    for (const file of ["public/about/index.html", "public/login/index.html", "public/home/index.html", "public/technical-analysis/index.html", "public/short-emotion/index.html", "public/account/index.html", "public/account/edit/index.html", "public/account/points/index.html", "public/account/invite/index.html"]) {
       const html = readFileSync(resolve(root, file), "utf8");
       expect(html, file).toContain('<script defer src="/_vercel/insights/script.js"></script>');
       expect(html, file).not.toMatch(/googletagmanager|google-analytics/);
@@ -114,7 +132,7 @@ describe("手机输入体验", () => {
 
 describe("页面脚本", () => {
   it("介绍页、登录页、共用模块 import 的文件都存在，简繁字表版本号一致", () => {
-    const files = ["public/about/about.js", "public/login/login.js", "public/account/account.js", "public/shared/lang.js", "public/short-emotion/app.js", "public/home/home.js", "public/technical-analysis/ta.js", "public/shared/nav-account.js"];
+    const files = ["public/about/about.js", "public/login/login.js", "public/account/account.js", "public/account/invite.js", "public/shared/lang.js", "public/short-emotion/app.js", "public/home/home.js", "public/technical-analysis/ta.js", "public/shared/nav-account.js"];
     const versions = new Set();
     for (const file of files) {
       const code = readFileSync(resolve(root, file), "utf8");
@@ -140,7 +158,7 @@ describe("页面文字：不到处标注数据供应商", () => {
     .replace(/function plain\([\s\S]*?\n}\n/, "");    // 去除供应商字样的函数本身
 
   it("看板、首页、个股分析与登录页不出现 Wind / 万得", () => {
-    for (const file of ["public/short-emotion/index.html", "public/short-emotion/app.js", "public/login/index.html", "public/login/login.js", "public/account/index.html", "public/account/account.js", "public/home/index.html", "public/home/home.js", "public/technical-analysis/index.html", "public/technical-analysis/ta.js", "public/shared/nav-account.js"]) {
+    for (const file of ["public/short-emotion/index.html", "public/short-emotion/app.js", "public/login/index.html", "public/login/login.js", "public/account/index.html", "public/account/account.js", "public/account/invite/index.html", "public/account/invite.js", "public/home/index.html", "public/home/home.js", "public/technical-analysis/index.html", "public/technical-analysis/ta.js", "public/shared/nav-account.js"]) {
       const text = visible(readFileSync(resolve(root, file), "utf8")).replace(/window|Window/g, "");
       expect(text, file).not.toMatch(/Wind|万得|萬得/);
     }

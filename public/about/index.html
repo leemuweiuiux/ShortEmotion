@@ -29,7 +29,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/about/about.css?v=8">
+  <link rel="stylesheet" href="/about/about.css?v=9">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -51,6 +51,12 @@
   </nav>
 
   <main class="page">
+    <!-- 从邀请链接（/about?invite=SE…）进来时显示：谁邀请你、奖励 -->
+    <div class="invite-banner" hidden>
+      <p class="invite-banner-title"><b class="invite-banner-name">好友</b><span>邀请你加入 ShortEmotion</span></p>
+      <p class="invite-banner-copy">免费注册并完成第一次签到，你和邀请人各得 <em>50</em> 积分。</p>
+    </div>
+
     <header class="hero">
       <h1 class="hero-title">
         <span class="sr-only">量化每天的短线情绪，拆解个股的技术走势</span>
@@ -232,6 +238,6 @@
     </div>
   </div>
 
-  <script type="module" src="/about/about.js?v=17"></script>
+  <script type="module" src="/about/about.js?v=18"></script>
 </body>
 </html>

@@ -26,8 +26,8 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/about/about.css?v=8">
-  <link rel="stylesheet" href="/account/account.css?v=8">
+  <link rel="stylesheet" href="/about/about.css?v=9">
+  <link rel="stylesheet" href="/account/account.css?v=9">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -61,7 +61,16 @@
         </div>
         <button id="signin" class="btn-primary" type="button" disabled>签到 +10</button>
       </div>
+      <p id="invite-pending" class="invite-entry-copy" hidden>你是受邀注册的新用户：完成第一次签到，你和邀请人各得 <em>50</em> 积分。</p>
     </section>
+
+    <a class="sub-card invite-entry" href="/account/invite">
+      <div class="card-row">
+        <div class="section-title">邀请好友</div>
+        <span class="row-link">去邀请<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </div>
+      <p class="invite-entry-copy">好友完成第一次签到，双方各得 <em>50</em> 积分，最多邀请 5 位。</p>
+    </a>
 
     <section class="sub-card appearance-card">
       <div class="section-title">外观</div>
@@ -86,6 +95,6 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/account/account.js?v=16"></script>
+  <script type="module" src="/account/account.js?v=17"></script>
 </body>
 </html>

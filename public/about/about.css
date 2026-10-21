@@ -79,6 +79,13 @@ a { color: inherit; }
 }
 section, .hero { background: var(--surface); border: 1px solid var(--border); padding: 20px; }
 
+/* ── 邀请横幅（/about?invite=SE…） ── */
+.invite-banner { display: grid; gap: 4px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--ink); }
+.invite-banner[hidden] { display: none; }
+.invite-banner-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; font-size: 16px; font-weight: 700; line-height: 1.4; }
+.invite-banner-copy { color: var(--muted); font-size: 13px; line-height: 1.6; }
+.invite-banner em { color: var(--heat); font-style: normal; font-weight: 700; }
+
 /* ── 主视觉 ── */
 .hero { position: relative; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .hero::before {

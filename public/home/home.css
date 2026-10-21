@@ -11,7 +11,9 @@
 .home-enter svg { width: 16px; height: 16px; }
 
 /* 积分与签到 */
-.home-points { display: flex; align-items: center; gap: 12px; }
+.home-points { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.home-invite-pending { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.home-invite-pending em { color: #ff4015; font-style: normal; font-weight: 700; }
 .home-points-meta { margin-right: auto; display: flex; align-items: baseline; gap: 10px; }
 .home-points-meta span { color: var(--muted); font-size: 13px; }
 .home-points-meta strong { font-family: "Manrope", sans-serif; font-size: 24px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }

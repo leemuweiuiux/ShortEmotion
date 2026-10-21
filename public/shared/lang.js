@@ -1,7 +1,7 @@
 // 介绍页、登录页共用：简体 / 繁体切换（页面原文是简体）。
 // 语言记在 localStorage「shortemotion:lang」；首次访问按浏览器语言（zh-TW / zh-HK 用繁体）。
 // 用法：initLanguage() 收集页面文字；动态文字用 setText / setAttributeText 写入，切换语言时会一起转换。
-import { HANT, HANT_FIXES } from "/short-emotion/hant-map.js?v=17";
+import { HANT, HANT_FIXES } from "/short-emotion/hant-map.js?v=18";
 
 const root = document.documentElement;
 const HANS = Object.fromEntries(Object.entries(HANT).map(([hans, hant]) => [hant, hans]));
