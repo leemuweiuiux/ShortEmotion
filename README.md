@@ -90,6 +90,10 @@ Supabase Auth                     寄送與驗證郵箱驗證碼（經 Resend �
 - 存在 Supabase 用戶資料的 user_metadata（`full_name` / `display_name`、`phone_country_code`、`phone_number`），
   透過 `GET / POST /api/auth?action=profile` 用登入用戶自己的憑證讀寫，不另建表；Supabase 後台 Users 的 Display name 會顯示姓名。
 
+## 外觀
+
+- 個人頁面 `/account` 的「外觀」：白版、黑版、自適應（預設，跟隨系統深淺色）。記在這台裝置的瀏覽器（localStorage `twsvp_theme`，沿用 TWSVP 時期的鍵名），所有頁面打開時讀取。
+
 ## 積分
 
 - 規則（2026-10-20）：註冊贈送 +50（已註冊的人第一次打開時補發）、每日簽到 +10；手動刷新 −5、解鎖當日題材異動 −5（12 小時內有效，看板顯示倒計時）、個股技術分析 −10（見上節）。

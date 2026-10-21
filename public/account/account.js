@@ -1,7 +1,35 @@
 // 个人页面 /account：个人信息（只显示，编辑在 /account/edit）、积分（余额 + 签到）、积分流水（最近 3 笔，全部在 /account/points）。
-import { $, setText, toast, readProfile, readPoints, signin, renderLedger } from "/account/common.js?v=3";
+import { $, setText, toast, readProfile, readPoints, signin, renderLedger } from "/account/common.js?v=4";
 
 const signinButton = $("#signin");
+
+// 外观：白版 / 黑版 / 自适应。记在这台设备的浏览器（localStorage「twsvp_theme」，各页面打开时读取；没有设置 = 自适应）。
+const THEME_KEY = "twsvp_theme";
+const darkQuery = window.matchMedia?.("(prefers-color-scheme: dark)");
+function readThemeChoice() {
+  try {
+    const value = localStorage.getItem(THEME_KEY);
+    return value === "light" || value === "dark" ? value : "auto";
+  } catch {
+    return "auto";
+  }
+}
+function applyTheme(choice) {
+  const theme = choice === "auto" ? (darkQuery?.matches ? "dark" : "light") : choice;
+  document.documentElement.dataset.theme = theme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#151922" : "#ffffff");
+  document.querySelectorAll("[data-theme-choice]").forEach((button) => button.setAttribute("aria-checked", String(button.dataset.themeChoice === choice)));
+}
+document.querySelectorAll("[data-theme-choice]").forEach((button) => button.addEventListener("click", () => {
+  const choice = button.dataset.themeChoice;
+  try {
+    if (choice === "auto") localStorage.removeItem(THEME_KEY);
+    else localStorage.setItem(THEME_KEY, choice);
+  } catch {}
+  applyTheme(choice);
+}));
+darkQuery?.addEventListener?.("change", () => { if (readThemeChoice() === "auto") applyTheme("auto"); });
+applyTheme(readThemeChoice());
 
 // 返回：从首页、个股分析或看板进来就回到原页面；直接打开时回首页
 (() => {

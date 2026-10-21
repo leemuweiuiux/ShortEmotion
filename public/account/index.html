@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/about/about.css?v=7">
-  <link rel="stylesheet" href="/account/account.css?v=7">
+  <link rel="stylesheet" href="/account/account.css?v=8">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -63,6 +63,16 @@
       </div>
     </section>
 
+    <section class="sub-card appearance-card">
+      <div class="section-title">外观</div>
+      <div class="theme-switch" role="radiogroup" aria-label="外观">
+        <button type="button" role="radio" aria-checked="false" data-theme-choice="light">白版</button>
+        <button type="button" role="radio" aria-checked="false" data-theme-choice="dark">黑版</button>
+        <button type="button" role="radio" aria-checked="false" data-theme-choice="auto">自适应</button>
+      </div>
+      <p class="theme-hint">自适应跟随手机或电脑的深浅色设置；只对这台设备的浏览器生效。</p>
+    </section>
+
     <section class="sub-card ledger-card">
       <div class="card-row">
         <div class="section-title">积分流水</div>
@@ -76,6 +86,6 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/account/account.js?v=14"></script>
+  <script type="module" src="/account/account.js?v=15"></script>
 </body>
 </html>

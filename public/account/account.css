@@ -167,3 +167,10 @@ body.sub-page { background: var(--bg); }
 .sheet-btn.primary { border-color: var(--ink); background: var(--ink); color: var(--surface); font-weight: 600; }
 @media (min-width: 600px) { .sheet-backdrop { place-items: center; } }
 .points-head [hidden] { display: none; }
+
+/* 外观：白版 / 黑版 / 自适应（分段按钮） */
+.theme-switch { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 3px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); }
+.theme-switch button { min-height: 36px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font: inherit; font-size: 14px; cursor: pointer; }
+.theme-switch button[aria-checked="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px rgba(15, 20, 25, 0.12); }
+.theme-switch button:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.theme-hint { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
