@@ -46,7 +46,7 @@ main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-co
 .ta-identity { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .ta-identity h2 { font-size: 22px; font-weight: 600; line-height: 1.3; }
 .ta-code { color: var(--muted); font-family: "Manrope", sans-serif; font-size: 13px; }
-.ta-price { text-align: right; }
+.ta-price { margin-left: auto; text-align: right; }
 .ta-price strong { display: block; font-family: "Manrope", sans-serif; font-size: 28px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .ta-price span { display: block; margin-top: 4px; font-family: "Manrope", sans-serif; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .ta-meta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
@@ -151,6 +151,8 @@ main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-co
 }
 
 /* 导出图片：长图里各区块之间留间距；顶栏导出按钮与账号按钮之间留间距 */
-.nav #export-image + #account { margin-left: 0; }
+.ta-head { position: relative; }
+.ta-share { flex: none; }
+.ta-head .export-menu { top: 56px; right: 12px; }
 .ta-export > .card + .card { margin-top: 10px; }
 .ta-export .ta-chart img { display: block; width: 100%; height: 260px; }

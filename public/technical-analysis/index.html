@@ -27,16 +27,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=15">
-  <link rel="stylesheet" href="/technical-analysis/ta.css?v=3">
+  <link rel="stylesheet" href="/technical-analysis/ta.css?v=4">
 </head>
 <body>
   <div class="app-shell">
     <nav class="nav">
       <a class="nav-logo" href="/home" aria-label="首页"><img src="/short-emotion/logo.svg?v=2" alt="ShortEmotion"></a>
       <div class="nav-title">个股技术分析</div>
-      <button id="export-image" class="nav-btn" type="button" aria-label="导出图片" title="导出图片" aria-haspopup="menu" aria-expanded="false" disabled>
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 4v11M7.5 8.5 12 4l4.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-      </button>
       <button id="account" class="nav-btn" type="button" aria-label="账号" title="账号" aria-haspopup="menu" aria-expanded="false">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5" stroke="currentColor" stroke-width="1.6"/><path d="M5 19.5c1.2-3.3 3.8-5 7-5s5.8 1.7 7 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
       </button>
@@ -69,6 +66,9 @@
               <strong id="ta-price">—</strong>
               <span id="ta-change">—</span>
             </div>
+            <button id="export-image" class="nav-btn ta-share" type="button" aria-label="导出图片" title="导出图片" aria-haspopup="menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 4v11M7.5 8.5 12 4l4.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
           </div>
           <div class="ta-meta-row">
             <span id="ta-time" class="ta-time">—</span>
@@ -173,6 +173,6 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="/short-emotion/vendor/html-to-image.js" defer></script>
-  <script type="module" src="/technical-analysis/ta.js?v=3"></script>
+  <script type="module" src="/technical-analysis/ta.js?v=4"></script>
 </body>
 </html>

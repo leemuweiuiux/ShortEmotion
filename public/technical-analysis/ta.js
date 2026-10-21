@@ -102,7 +102,6 @@ function render() {
   const data = current;
   const decision = data.finalDecision || {};
   $("#ta-result").hidden = false;
-  $("#export-image").disabled = false;
   document.title = `${data.name} · 个股技术分析`;
 
   setText("#ta-name", data.name);
@@ -591,7 +590,7 @@ async function runExport(kind) {
     toast(`导出图片失败：${error instanceof Error ? error.message : String(error)}`, true);
   } finally {
     exporting = false;
-    button.disabled = !current;
+    button.disabled = false;
     button.removeAttribute("aria-busy");
   }
 }
@@ -614,7 +613,7 @@ $("#export-image").addEventListener("click", (event) => {
     const item = clickEvent.target.closest("[data-export]");
     if (item) runExport(item.dataset.export);
   });
-  $(".nav").append(menu);
+  $(".ta-head").append(menu); // 分享按钮在个股信息右上角，菜单从这里展开
   $("#export-image").setAttribute("aria-expanded", "true");
 });
 $("#account")?.addEventListener("click", closeExportMenu);
