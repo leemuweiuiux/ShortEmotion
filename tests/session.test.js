@@ -9,8 +9,8 @@ vi.mock("../api/_lib/short-emotion/service.js", () => ({
     return market || "cn";
   },
   readResource: vi.fn(async (resource, market) => ({
-    market, resource, score: 62, regime: { phase: "分歧", posture: "轻仓试错", detail: "完整内容" },
-    quoteTime: "20261014 14:30", endOfDay: false, dimensions: { breadth: 70 }
+    market, resource, score: 62, regime: { phase: "分歧", posture: "轻仓试错", summary: "阶段说明", detail: "完整内容" },
+    quoteTime: "20261014 14:30", endOfDay: false, dimensions: { breadth: 70.4, limits: 55, extra: 1 }
   }))
 }));
 
@@ -259,10 +259,15 @@ describe("登录接口 /api/auth", () => {
 });
 
 describe("数据接口 /api/short-emotion", () => {
-  it("summary 公开：只有分数、阶段、行情时间，可以 CDN 缓存", async () => {
+  it("summary 公开：只有分数、阶段、姿态、阶段说明、六维度与行情时间，可以 CDN 缓存", async () => {
     const res = await call(dataApi, { query: { market: "cn", resource: "summary" } });
     expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual({ market: "cn", score: 62, regime: { phase: "分歧", posture: "轻仓试错" }, quoteTime: "20261014 14:30" });
+    expect(res.body).toEqual({
+      market: "cn", score: 62,
+      regime: { phase: "分歧", posture: "轻仓试错", summary: "阶段说明" },
+      dimensions: { breadth: 70, limits: 55 },
+      quoteTime: "20261014 14:30"
+    });
     expect(res.headers["cache-control"]).toMatch(/^public/);
   });
 

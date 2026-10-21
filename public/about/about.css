@@ -121,51 +121,78 @@ section, .hero { background: var(--surface); border: 1px solid var(--border); pa
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .hero-lead { color: var(--muted); font-size: 15px; line-height: 1.7; max-width: 34em; }
 
-/* 今日情绪：A股实时分数（与看板同款圆环） */
+/* 今日情绪：与看板「A股短线情绪」卡同款（twsvp.css 的 .card / .pulse-main / .score-ring / .dimension-bars） */
 .live { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 4px; }
 .live-tile {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  grid-template-areas: "market market" "ring phase" "time time";
-  align-items: center;
-  column-gap: 12px;
-  row-gap: 6px;
-  padding: 14px;
-  background: var(--panel);
+  display: block;
+  min-width: 0;
+  padding: 14px 12px;
+  background: var(--surface);
   border: 1px solid var(--border);
+  color: var(--ink);
   text-decoration: none;
   transition: border-color .15s ease;
 }
 .live-tile:hover { border-color: var(--ink); }
-.live-market { grid-area: market; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.live-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.live-title { font-size: 15px; font-weight: 600; line-height: 1.45; }
+.live-posture {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.live-main { display: flex; align-items: center; gap: 18px; margin: 16px 0; }
 .live-ring {
-  grid-area: ring;
-  --size: 60px;
-  width: var(--size);
-  height: var(--size);
+  --score: 0;
+  position: relative;
+  flex: none;
   display: grid;
   place-items: center;
+  width: 112px;
+  height: 112px;
   border-radius: 50%;
-  background:
-    radial-gradient(closest-side, var(--panel) calc(100% - 6px), transparent calc(100% - 5px)),
-    conic-gradient(var(--ink) calc(var(--score) * 1%), var(--border) 0);
+  background: conic-gradient(var(--ink) calc(var(--score) * 1%), var(--panel) 0);
 }
-.live-score { font-family: "Manrope", sans-serif; font-size: 24px; font-weight: 800; letter-spacing: -0.03em; }
-.live-phase { grid-area: phase; font-size: 20px; font-weight: 700; line-height: 1.25; }
-.live-phase small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; font-weight: 500; }
-.live-time { grid-area: time; padding-top: 8px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; line-height: 1.4; }
+.live-ring::before { content: ""; position: absolute; inset: 8px; border-radius: 50%; background: var(--surface); }
+.live-ring > div { position: relative; text-align: center; }
+.live-score { display: block; font-family: "Manrope", sans-serif; font-size: 38px; font-weight: 700; line-height: 1; }
+.live-ring small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
+.live-copy { min-width: 0; }
+.live-copy > span { color: var(--muted); font-size: 12px; }
+.live-phase { display: block; margin: 2px 0 6px; font-size: 28px; font-weight: 600; line-height: 1.25; }
+.live-summary { color: var(--muted); font-size: 13px; line-height: 1.6; }
+.live-summary:empty { display: none; }
+.live-dims {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.live-dim span { display: block; margin-bottom: 6px; color: var(--muted); font-size: 12px; }
+.live-dim i { display: block; height: 4px; overflow: hidden; background: var(--panel); }
+.live-dim em { display: block; width: 0; height: 100%; background: var(--ink); }
+.live-dim b { display: block; margin-top: 5px; font-family: "Manrope", sans-serif; font-size: 14px; font-weight: 600; }
+.live-time { display: block; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; line-height: 1.4; font-variant-numeric: tabular-nums; }
+.live-market { margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
 
 /* 个股技术分析入口：输入后到 /technicalanalysis?q=（未登录先去登录，回来时已填好） */
-.ta-tile { display: grid; gap: 10px; padding: 14px; background: var(--panel); border: 1px solid var(--border); }
+.ta-tile { display: grid; gap: 10px; padding: 14px 12px; background: var(--surface); border: 1px solid var(--border); }
 .ta-tile:focus-within { border-color: var(--ink); }
-.ta-tile .live-market { margin-bottom: 0; }
-.ta-tile .live-market, .ta-tile .live-time { grid-area: auto; } /* 不沿用 A股卡片的命名区域，否则会多出隐式行列 */
+.ta-tile .live-market { margin-bottom: 0; color: var(--ink); font-size: 15px; line-height: 1.45; } /* 与情绪卡标题同款 */
+.ta-tile .live-time { margin-top: 0; padding-top: 8px; }
 .ta-searchbar {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 4px 4px 4px 14px;
-  background: var(--surface);
+  background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 999px;
 }
@@ -182,6 +209,7 @@ section, .hero { background: var(--surface); border: 1px solid var(--border); pa
   -webkit-appearance: none;
   appearance: none;
 }
+.ta-searchbar:focus-within { border-color: var(--ink); background: var(--surface); }
 .ta-searchbar input:focus { outline: none; }
 .ta-searchbar button {
   flex: none;
@@ -295,6 +323,10 @@ h3 { font-size: 17px; font-weight: 700; line-height: 1.4; }
 }
 @media (max-width: 380px) {
   .hero-title { font-size: 28px; }
+  .live-main { gap: 14px; }
+  .live-ring { width: 96px; height: 96px; }
+  .live-score { font-size: 32px; }
+  .live-phase { font-size: 24px; }
   .drawer-copy { display: none; }
   .drawer-cta { flex: 1; text-align: center; }
 }

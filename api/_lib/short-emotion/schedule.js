@@ -1,12 +1,15 @@
 // 短线情绪工作台 — 定时更新节奏（唯一需要改频率的地方）
 //
 // 只有 GitHub Actions 定时任务（scripts/short-emotion/refresh.mjs）会调用 Wind；页面访问只读最新快照。
-// 工作流在北京时间工作日 09:00–15:30 每 30 分钟唤醒一次，跑哪些任务由下面的窗口决定。所有时间单位：分钟（UTC+8）。
+// 工作流在北京时间工作日 09:07–16:37 每 30 分钟唤醒一次（避开整点、半点，GitHub 在那时最容易延迟或丢弃任务），
+// 跑哪些任务由下面的窗口决定。所有时间单位：分钟（UTC+8）。
 //
 // A股（cn）：交易时段每 30 分钟一次，午休不跑。
 //   - 情绪指标 + 题材异动：09:30–11:30、13:00–15:00 每 30 分钟（共 10 次；11:30 为上午收盘，15:00 为全天收盘）
 //   - 新闻：每小时整点（09:00 盘前、10:00、11:00、13:00、14:00、15:00）
-//   - 同一个 30 分钟时段只调用一次 Wind；GitHub 定时任务延迟时仍落在原时段，被跳过的时段就少一个点。
+//   - 同一个 30 分钟时段只调用一次 Wind；按任务实际开始的时间归入时段。
+//   - 收盘补抓（closes）：GitHub 定时任务常晚 20–40 分钟，原定 11:30 / 15:00 的那次会落到窗口外而被跳过。
+//     所以窗口外的定时任务还要看一眼：当天还没有收盘时点的快照，就补抓一次（拿到后不再调用 Wind）。
 
 export const SCHEDULES = {
   cn: {
@@ -16,6 +19,11 @@ export const SCHEDULES = {
       anomalies: { everyMinutes: 30, windows: [[9 * 60 + 30, 11 * 60 + 30], [13 * 60, 15 * 60]] },
       news: { everyMinutes: 60, windows: [[9 * 60, 11 * 60 + 30], [13 * 60, 15 * 60]] }
     },
+    // 收盘补抓：在 [at, until) 之间的定时任务，若当日快照的行情时间早于 at，就跑一次 jobs。
+    closes: [
+      { at: 11 * 60 + 30, until: 13 * 60, jobs: ["emotion", "anomalies"] },
+      { at: 15 * 60, until: 24 * 60, jobs: ["emotion", "anomalies", "news", "cleanup"] }
+    ],
     // 连续竞价开始时间：行情时间早于它（集合竞价）不保存；手动刷新拿到上一交易日数据时保存为非交易时段快照
     sessionStart: 9 * 60 + 30,
     // 最后一次更新后清理：保留最近 60 个交易日的盘中快照
@@ -67,7 +75,22 @@ export function duePlan(date = new Date(), market = "cn") {
     jobs[name] = clock.isWeekday && inWindows(clock.slot, rule.windows) && clock.slot % rule.everyMinutes === 0;
   }
   jobs.cleanup = clock.isWeekday && clock.slot === schedule.cleanupAt;
-  return { ...clock, jobs, anyDue: Object.values(jobs).some(Boolean) };
+  const anyDue = Object.values(jobs).some(Boolean);
+  // 窗口外才考虑补抓；是否真的要补，由调用方对照当日快照的行情时间决定（见 needsCloseCatchUp）。
+  const close = !anyDue && clock.isWeekday
+    ? (schedule.closes || []).find((item) => clock.minute >= item.at && clock.minute < item.until) || null
+    : null;
+  return { ...clock, jobs, anyDue, close };
+}
+
+/**
+ * 收盘补抓：当日最新快照的行情时间早于收盘时点（或还不是今天的行情）时返回 true。
+ * quoteDay「20261021」、quoteMinute 为分钟数（UTC+8），拿不到时按缺失处理。
+ */
+export function needsCloseCatchUp(close, { day, quoteDay, quoteMinute }) {
+  if (!close) return false;
+  if (quoteDay !== day) return true;
+  return quoteMinute == null || quoteMinute < close.at;
 }
 
 /** Plain-language description shown on the page. */

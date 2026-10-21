@@ -4,7 +4,7 @@
 import * as cnEngine from "./engine.js";
 import { resetWindCallStats, windCallStats } from "./wind-client.js";
 import { getStore, storageMode } from "./store.js";
-import { duePlan, scheduleSummary, scheduleFor, MARKETS } from "./schedule.js";
+import { duePlan, needsCloseCatchUp, scheduleSummary, scheduleFor, MARKETS } from "./schedule.js";
 import { getApiKeys, isMockMode } from "./wind-client.js";
 
 const MARKET_CONFIG = {
@@ -38,6 +38,7 @@ const quoteMinuteOf = (snapshot) => {
   return match ? Number(match[1]) * 60 + Number(match[2]) : null;
 };
 const ALL_JOBS = { emotion: true, anomalies: true, news: true, cleanup: false };
+const minuteLabel = (minute) => `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
 
 /**
  * 情绪方向与连续热区的参照：最近交易日的每日均分（不含今天，只取同一评分口径）。
@@ -86,22 +87,31 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
   };
 
   let jobs = { ...plan.jobs };
+  // 收盘补抓：原定 11:30 / 15:00 的那次被 GitHub 延迟到窗口外，当日快照还停在收盘前，就补抓一次。
+  const latestEmotion = force || plan.anyDue ? null : (await store.kvGet(KEY.emotion).catch(() => null))?.value;
+  const catchUp = Boolean(latestEmotion) && needsCloseCatchUp(plan.close, {
+    day: plan.day, quoteDay: quoteDayOf(latestEmotion), quoteMinute: quoteMinuteOf(latestEmotion)
+  });
   if (force) {
     jobs = { ...ALL_JOBS };
     result.mode = "force";
-  } else if (!plan.anyDue) {
-    if (await store.kvGet(KEY.emotion)) return { ...result, status: "idle", reason: "不在定时窗口内，未调用 Wind" };
+  } else if (!plan.anyDue && !catchUp) {
+    if (latestEmotion) return { ...result, status: "idle", reason: "不在定时窗口内，未调用 Wind" };
     if (!(await store.kvSetIfAbsent(KEY.bootstrapLock(plan.day), { at: now.toISOString() }))) {
       return { ...result, status: "idle", reason: "今日已尝试过初始化" };
     }
     jobs = { ...ALL_JOBS };
     result.mode = "bootstrap";
   } else {
+    if (catchUp) {
+      jobs = Object.fromEntries(Object.keys(ALL_JOBS).map((name) => [name, plan.close.jobs.includes(name)]));
+      result.catchUp = minuteLabel(plan.close.at);
+    }
     const calendar = await store.kvGet(KEY.calendar(plan.day));
     if (calendar?.value?.trading === false) return { ...result, status: "holiday", reason: "今日已判定为休市" };
     // Several triggers in the same slot (cron retries, manual hits) call Wind only once.
     if (!(await store.kvSetIfAbsent(KEY.slotLock(plan.day, plan.slot), { at: now.toISOString() }))) {
-      return { ...result, status: "duplicate", reason: `本时段（${plan.label}）已更新过` };
+      return { ...result, status: "duplicate", reason: `本时段（${plan.label}）已${catchUp ? "补抓" : "更新"}过` };
     }
   }
 

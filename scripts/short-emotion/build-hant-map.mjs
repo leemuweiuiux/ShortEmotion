@@ -1,4 +1,4 @@
-// 生成介绍页、登录页、个人资料页「繁体」切换用的简→繁字表（public/short-emotion/hant-map.js）。
+// 生成介绍页（含情绪卡的阶段说明）、登录页、个人资料页「繁体」切换用的简→繁字表（public/short-emotion/hant-map.js）。
 // 页面文字改动后重新运行：npm install --no-save opencc-js@1.0.5 && node scripts/short-emotion/build-hant-map.mjs
 import { readFile, writeFile } from "node:fs/promises";
 import * as OpenCC from "opencc-js";
@@ -20,7 +20,8 @@ const sources = [
   "api/_lib/invite.js",
   "api/auth.js",
   "api/_lib/session.js",
-  "api/_lib/points.js"
+  "api/_lib/points.js",
+  "api/_lib/short-emotion/engine.js" // 介绍页情绪卡的阶段说明来自评分引擎
 ];
 const text = (await Promise.all(sources.map((file) => readFile(file, "utf8")))).join("");
 const chars = [...new Set(text.match(/[一-鿿]/g))].sort();
