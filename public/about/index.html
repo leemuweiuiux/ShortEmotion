@@ -29,7 +29,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/about/about.css?v=9">
+  <link rel="stylesheet" href="/about/about.css?v=10">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -66,10 +66,21 @@
       <p class="hero-lead">把涨跌家数、涨跌停、连板、溢价、题材和成交合成一个情绪分，告诉你现在该进攻还是防守；输入一只股票，看懂它的趋势结构、胜率与赔率。</p>
 
       <div class="live">
+        <!-- 与看板「A股短线情绪」卡同款：姿态、分数环、阶段与说明、六个维度 -->
         <a class="live-tile" data-market="cn" href="/shortemotion/cn" aria-label="A股今日情绪">
-          <span class="live-market">A股</span>
-          <span class="live-ring" style="--score: 0"><b class="live-score">—</b></span>
-          <span class="live-phase">读取中</span>
+          <div class="live-head"><span class="live-title">A股短线情绪</span><span class="live-posture">—</span></div>
+          <div class="live-main">
+            <div class="live-ring" style="--score: 0"><div><strong class="live-score">—</strong><small>/ 100</small></div></div>
+            <div class="live-copy"><span>当前情绪阶段</span><b class="live-phase">读取中</b><p class="live-summary"></p></div>
+          </div>
+          <div class="live-dims">
+            <div class="live-dim" data-key="breadth"><span>市场广度</span><i><em></em></i><b>—</b></div>
+            <div class="live-dim" data-key="limits"><span>极端反馈</span><i><em></em></i><b>—</b></div>
+            <div class="live-dim" data-key="ladder"><span>连板梯队</span><i><em></em></i><b>—</b></div>
+            <div class="live-dim" data-key="profit"><span>赚钱效应</span><i><em></em></i><b>—</b></div>
+            <div class="live-dim" data-key="themes"><span>题材聚焦</span><i><em></em></i><b>—</b></div>
+            <div class="live-dim" data-key="liquidity"><span>成交环境</span><i><em></em></i><b>—</b></div>
+          </div>
           <small class="live-time">盘中数据</small>
         </a>
         <form class="ta-tile" action="/technicalanalysis" method="get" autocomplete="off">
@@ -238,6 +249,6 @@
     </div>
   </div>
 
-  <script type="module" src="/about/about.js?v=19"></script>
+  <script type="module" src="/about/about.js?v=20"></script>
 </body>
 </html>

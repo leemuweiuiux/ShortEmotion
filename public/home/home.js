@@ -1,7 +1,8 @@
 // 首页 /home（登录后打开 / 会到这里），都只读现有数据，不调用 Wind：
 //   1. 我的积分：余额 + 签到 +10
 //   2. 个股技术分析：输入股票按「开始分析」→ 跳到 /technicalanalysis 并由那边发起分析（扣 10 积分）
-//   3. 今日短线情绪：分数、阶段与市场概况（全A涨跌幅、成交额、涨跌家数、涨跌停）、行情时间，点卡片进入看板
+//   3. 今日短线情绪：与看板「A股短线情绪」卡同款（姿态、分数、阶段与说明、六个维度），
+//      下面再加市场概况（全A涨跌幅、成交额、涨跌家数、涨跌停）与行情时间，点卡片进入看板
 //   4. 当日题材异动：未解锁时只显示题材数量，可在首页直接解锁（−5 积分，12 小时）；解锁后列出前 3 个
 import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderRecent } from "/shared/nav-account.js?v=2";
 
@@ -129,6 +130,17 @@ function quoteTimeLabel(value) {
   return `行情时间 ${month}-${day} ${hour}:${minute}${stale ? " · 最近交易日" : ""}`;
 }
 
+// 六个维度：名称与顺序同看板（public/short-emotion/app.js dimensionNames）
+const DIMENSIONS = [["breadth", "市场广度"], ["limits", "极端反馈"], ["ladder", "连板梯队"], ["profit", "赚钱效应"], ["themes", "题材聚焦"], ["liquidity", "成交环境"]];
+function renderDimensions(dimensions = {}) {
+  $("#emotion-dims").innerHTML = DIMENSIONS.map(([key, name]) => {
+    const value = Number(dimensions?.[key]);
+    const known = Number.isFinite(value);
+    return `<div class="dimension-item"><span>${name}</span><div class="dimension-track"><i style="width:${known ? Math.max(2, Math.min(100, value)) : 0}%"></i></div><b>${known ? Math.round(value) : "—"}</b></div>`;
+  }).join("");
+}
+renderDimensions();
+
 async function loadEmotion() {
   try {
     const { response, payload } = await request("/api/short-emotion?market=cn&resource=emotion");
@@ -140,6 +152,7 @@ async function loadEmotion() {
     $("#emotion-posture").textContent = payload.regime?.posture ? `当前姿态 · ${payload.regime.posture}` : "—";
     $("#emotion-copy").textContent = payload.regime?.summary || "";
     $("#emotion-time").textContent = quoteTimeLabel(payload.quoteTime);
+    renderDimensions(payload.dimensions);
     const market = payload.market || {};
     const change = $("#market-change");
     change.textContent = pct(market.changePct);

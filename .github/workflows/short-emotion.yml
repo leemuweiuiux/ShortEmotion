@@ -2,8 +2,8 @@
 #
 # 在 Actions 里直接调用 Wind 计算快照，结果推送到 `short-emotion-data` 分支；
 # 网站页面只读该分支，不需要数据库。需要仓库 Secret：WIND_API_KEY。
-# 北京时间工作日 09:00–15:30 每 30 分钟唤醒，
-# 各市场跑哪些任务见 api/_lib/short-emotion/schedule.js。
+# 北京时间工作日 09:07–16:37 每 30 分钟唤醒（避开整点、半点：GitHub 在那时负载最高，定时任务最容易延迟或被丢弃），
+# 收盘后多唤醒几次，用来补抓被延迟到窗口外的 15:00 收盘快照；各时段跑哪些任务见 api/_lib/short-emotion/schedule.js。
 #
 # 页面「刷新」按钮通过 GitHub API 手动运行本工作流（api/_lib/short-emotion/github.js），
 # 传入 target / force / market 三个参数；改这里的 inputs 时要同步改那边，否则手动运行会被 GitHub 拒绝。
@@ -15,7 +15,7 @@ run-name: ${{ github.event_name == 'workflow_dispatch' && inputs.target == 'shor
 
 on:
   schedule:
-    - cron: "0,30 1-7 * * 1-5"   # 短线情绪工作台
+    - cron: "7,37 1-8 * * 1-5"   # 短线情绪工作台
   workflow_dispatch:
     inputs:
       target:
@@ -41,7 +41,7 @@ permissions:
 
 jobs:
   short-emotion:
-    if: github.event.schedule == '0,30 1-7 * * 1-5' || (github.event_name == 'workflow_dispatch' && inputs.target == 'short-emotion')
+    if: github.event.schedule == '7,37 1-8 * * 1-5' || (github.event_name == 'workflow_dispatch' && inputs.target == 'short-emotion')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:

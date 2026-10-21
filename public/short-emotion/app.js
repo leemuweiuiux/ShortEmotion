@@ -543,6 +543,9 @@ async function loadEmotion(force = false) {
       data.dailyHistory = historyPayload.dailyHistory || data.dailyHistory || [];
     }
     renderAll();
+    // 情绪数据一显示就放开「刷新」，不等题材异动（含积分检查）读完
+    delete button.dataset.loading;
+    updateRefreshButton();
     loadNews();
     await loadAnomalies(force);
 
@@ -853,15 +856,44 @@ document.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => { if (event.key === "Escape") { closeExportMenu(); closeAccountMenu(); closeGallery(); } });
 
 // 「刷新」= 真实调用 Wind MCP，每次真正触发更新扣 5 积分（别人正在刷新、10 分钟内刚更新过、非交易时段时不触发也不扣分）。
+// 收盘后若当日快照还停在 15:00 之前（定时任务被延迟），也可以刷新补收盘数据。
 // 服务端触发 GitHub Actions 数据任务，页面显示「数据更新中」并轮询进度，任务完成后读取新快照。
 const REFRESH_TIMEOUT_MS = 6 * 60_000;
 const refreshRun = { active: false, step: "", startedAt: 0, requestedAt: null, runId: null, timer: null, ticker: null };
 
-/** 与服务端一致：工作日北京时间 09:15–15:05 可以手动刷新。 */
+/** 与服务端（api/short-emotion.js refreshAllowed）一致：工作日 09:15–15:05，或收盘后当日快照还早于 15:00。 */
+function shanghaiNow(date = new Date()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", weekday: "short", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(date).map((part) => [part.type, part.value]));
+  return { day: `${parts.year}${parts.month}${parts.day}`, minute: Number(parts.hour) * 60 + Number(parts.minute), weekday: !["Sat", "Sun"].includes(parts.weekday) };
+}
+
 function refreshWindowOpen(date = new Date()) {
-  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Shanghai", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(date).map((part) => [part.type, part.value]));
-  const minute = Number(parts.hour) * 60 + Number(parts.minute);
-  return !["Sat", "Sun"].includes(parts.weekday) && minute >= 9 * 60 + 15 && minute <= 15 * 60 + 5;
+  const { minute, weekday } = shanghaiNow(date);
+  return weekday && minute >= 9 * 60 + 15 && minute <= 15 * 60 + 5;
+}
+
+/** 当日快照的行情时间（分钟），不是今天的行情时返回 null。 */
+function todayQuoteMinute(date = new Date()) {
+  const match = String(data?.quoteTime || "").match(/^(\d{8})\s+(\d{2}):(\d{2})/);
+  if (!match || match[1] !== shanghaiNow(date).day) return null;
+  return Number(match[2]) * 60 + Number(match[3]);
+}
+
+function closeSnapshotMissing(date = new Date()) {
+  const { minute, weekday } = shanghaiNow(date);
+  const quoteMinute = todayQuoteMinute(date);
+  return weekday && minute > 15 * 60 + 5 && quoteMinute != null && quoteMinute < 15 * 60;
+}
+
+function refreshAllowed(date = new Date()) {
+  return refreshWindowOpen(date) || closeSnapshotMissing(date);
+}
+
+/** 不能刷新时的提示：收盘后已有收盘数据，或开盘前 / 周末 / 休市。 */
+function closedMessage() {
+  const { minute, weekday } = shanghaiNow();
+  if (weekday && minute > 15 * 60 + 5 && (todayQuoteMinute() ?? 0) >= 15 * 60) return "已是今日收盘数据，无需刷新";
+  return "非交易时段，当前显示最近一次收盘数据";
 }
 
 function updateRefreshButton() {
@@ -876,7 +908,7 @@ function updateRefreshButton() {
   if (button.dataset.loading === "1") return;
   button.disabled = false;
   button.textContent = "刷新";
-  button.title = refreshWindowOpen() ? "获取最新数据（5 积分）" : "非交易时段";
+  button.title = refreshAllowed() ? (refreshWindowOpen() ? "获取最新数据（5 积分）" : "补取今日收盘数据（5 积分）") : closedMessage();
 }
 
 const REFRESH_STEPS = {
@@ -980,8 +1012,8 @@ async function pollRefresh() {
 
 async function handleManualRefresh() {
   if (refreshRun.active) return;
-  if (!refreshWindowOpen()) {
-    toast("非交易时段，当前已是最新数据");
+  if (!refreshAllowed()) {
+    toast(closedMessage());
     return;
   }
   beginRefresh({ step: "submitted", poll: false }); // 先显示「数据更新中」，提交成功后再轮询进度
@@ -993,7 +1025,7 @@ async function handleManualRefresh() {
     if (payload.reason === "closed" || payload.reason === "fresh") {
       stopRefresh();
       const label = shanghaiTimeLabel(payload.storedAt)?.split(" ").at(-1);
-      toast(payload.reason === "closed" ? "非交易时段，当前已是最新数据" : `数据刚更新${label ? `（快照 ${label}）` : ""}，无需刷新`);
+      toast(payload.reason === "closed" ? closedMessage() : `数据刚更新${label ? `（快照 ${label}）` : ""}，无需刷新`);
       return;
     }
     if (payload.dispatched) {

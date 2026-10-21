@@ -1,5 +1,5 @@
 // 介绍页 /about：简繁切换、主视觉轮换标题、今日情绪（公开摘要接口，不调用 Wind）、个股分析入口、邀请横幅、底部登录按钮。
-import { initLanguage, setText, setAttributeText } from "/shared/lang.js?v=15";
+import { initLanguage, setText, setAttributeText } from "/shared/lang.js?v=16";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -41,12 +41,12 @@ taForm?.addEventListener("submit", (event) => {
   }
 });
 
-// ── 今日情绪：A股最新分数（公开摘要） ──
+// ── 今日情绪：A股最新分数（公开摘要），与看板「A股短线情绪」卡同款 ──
 function quoteLabel(payload) {
   const match = String(payload.quoteTime || "").match(/^\d{4}(\d{2})(\d{2})\s+(\d{2}):(\d{2})/);
   if (!match) return "盘中数据";
   const [, month, day, hour, minute] = match;
-  return `${month}-${day} ${hour}:${minute}`;
+  return `行情时间 ${month}-${day} ${hour}:${minute}`;
 }
 
 async function loadLive(tile) {
@@ -59,15 +59,16 @@ async function loadLive(tile) {
     if (payload.score == null || !Number.isFinite(score)) throw new Error("no score");
     $(".live-ring", tile).style.setProperty("--score", score);
     setText($(".live-score", tile), String(score));
-    const phase = $(".live-phase", tile);
-    phase.textContent = "";
-    phase.append(document.createTextNode(""));
-    setText(phase, payload.regime?.phase || "—");
-    if (payload.regime?.posture) {
-      const posture = document.createElement("small");
-      phase.append(posture);
-      setText(posture, payload.regime.posture);
-    }
+    setText($(".live-phase", tile), payload.regime?.phase || "—");
+    setText($(".live-posture", tile), payload.regime?.posture ? `当前姿态 · ${payload.regime.posture}` : "—");
+    setText($(".live-summary", tile), payload.regime?.summary || "");
+    const dimensions = payload.dimensions || {};
+    $$(".live-dim", tile).forEach((item) => {
+      const value = Number(dimensions[item.dataset.key]);
+      if (!Number.isFinite(value)) return;
+      $("em", item).style.width = `${Math.max(2, Math.min(100, value))}%`;
+      $("b", item).textContent = String(Math.round(value));
+    });
     setText($(".live-time", tile), quoteLabel(payload));
     setAttributeText(tile, "aria-label", `A股情绪分 ${score}，${payload.regime?.phase || ""}`);
   } catch {

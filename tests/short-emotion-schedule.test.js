@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { duePlan } from "../api/_lib/short-emotion/schedule.js";
+import { duePlan, needsCloseCatchUp } from "../api/_lib/short-emotion/schedule.js";
 
 // Beijing time helper: 2026-10-12 is a Monday.
 const bj = (date, time) => new Date(`${date}T${time}:00+08:00`);
@@ -32,6 +32,26 @@ describe("短线情绪 schedule (A股 every 30 min in session, news hourly)", ()
   it("a delayed GitHub run stays in its 30-minute slot", () => {
     expect(duePlan(bj("2026-10-12", "10:17")).slot).toBe(600);
     expect(due("2026-10-12", "10:47")).toEqual(["anomalies", "emotion"]);
+  });
+
+  it("runs delayed past a close are flagged for catch-up (11:30 lunch, 15:00 close)", () => {
+    expect(duePlan(bj("2026-10-12", "15:34")).close).toMatchObject({ at: 900 });
+    expect(duePlan(bj("2026-10-12", "16:40")).close).toMatchObject({ at: 900 });
+    expect(duePlan(bj("2026-10-12", "12:05")).close).toMatchObject({ at: 690, jobs: ["emotion", "anomalies"] });
+    // 窗口内照常按时段跑，不需要补抓
+    expect(duePlan(bj("2026-10-12", "15:10")).close).toBeNull();
+    expect(duePlan(bj("2026-10-12", "13:05")).close).toBeNull();
+    // 开盘前、周末不补抓
+    expect(duePlan(bj("2026-10-12", "08:40")).close).toBeNull();
+    expect(duePlan(bj("2026-10-17", "15:34")).close).toBeNull();
+  });
+
+  it("catch-up only when today's snapshot is still before the close", () => {
+    const close = { at: 900 };
+    expect(needsCloseCatchUp(close, { day: "20261021", quoteDay: "20261021", quoteMinute: 14 * 60 + 35 })).toBe(true);
+    expect(needsCloseCatchUp(close, { day: "20261021", quoteDay: "20261021", quoteMinute: 15 * 60 })).toBe(false);
+    expect(needsCloseCatchUp(close, { day: "20261021", quoteDay: "20261020", quoteMinute: 15 * 60 })).toBe(true);
+    expect(needsCloseCatchUp(null, { day: "20261021", quoteDay: "20261021", quoteMinute: 600 })).toBe(false);
   });
 
   it("weekends and off-hours never call Wind", () => {
@@ -70,7 +90,8 @@ describe("runScheduledRefresh (mock Wind, memory store)", () => {
   });
 
   it("outside the schedule with data present it stays idle", async () => {
-    const result = await runScheduledRefresh({ now: bj("2026-10-12", "20:00") });
+    // 开盘前不补抓；收盘后已有收盘快照时保持空闲另见 short-emotion-catchup.test.js
+    const result = await runScheduledRefresh({ now: bj("2026-10-12", "08:30") });
     expect(result.status).toBe("idle");
   });
 

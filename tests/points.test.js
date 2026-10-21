@@ -7,13 +7,14 @@ vi.mock("../api/_lib/short-emotion/service.js", () => ({
   normalizeMarket: (market) => market || "cn",
   readResource: vi.fn(async (resource) => resource === "anomalies"
     ? { items: [{ name: "机器人" }, { name: "CPO" }], summary: { total: 2 }, asOf: "2026-10-20T02:00:00Z", storedAt: "2026-10-20T02:00:00Z" }
-    : { score: 60, storedAt: emotionStoredAt })
+    : { score: 60, storedAt: emotionStoredAt, quoteTime: emotionQuoteTime })
 }));
 
 let emotionStoredAt = "2026-10-20T01:00:00Z";
+let emotionQuoteTime = null;
 const session = await import("../api/_lib/session.js");
 const { default: authApi } = await import("../api/auth.js");
-const { default: dataApi, refreshWindowOpen } = await import("../api/short-emotion.js");
+const { default: dataApi, refreshWindowOpen, closeSnapshotMissing } = await import("../api/short-emotion.js");
 const { cleanTimezone } = await import("../api/_lib/points.js");
 
 const SUPABASE = "https://awrpzbxdhrwbweskgipj.supabase.co";
@@ -78,6 +79,7 @@ beforeEach(() => {
   runs = [];
   dispatchFails = false;
   emotionStoredAt = "2026-10-20T01:00:00Z";
+  emotionQuoteTime = null;
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-20T10:30:00+08:00")); // 周二盘中
   globalThis.fetch = vi.fn(async (url, options = {}) => {
@@ -185,6 +187,20 @@ describe("积分：手动刷新", () => {
     expect(ledger.filter((row) => row.kind === "refresh")).toEqual([]);
   });
 
+  it("收盘后当日还缺 15:00 收盘数据：可以刷新（扣分）；已有收盘数据则不触发", async () => {
+    vi.setSystemTime(new Date("2026-10-20T18:40:00+08:00"));
+    emotionStoredAt = "2026-10-20T06:36:00Z";
+    emotionQuoteTime = "20261020 14:35:00";
+    const res = await call(dataApi, { method: "POST", query: { action: "refresh" } });
+    expect(res.statusCode).toBe(202);
+    expect(res.body).toMatchObject({ dispatched: true, charged: 5 });
+    runs = [];
+    vi.setSystemTime(new Date("2026-10-20T19:00:00+08:00"));
+    emotionQuoteTime = "20261020 15:00:00";
+    expect((await call(dataApi, { method: "POST", query: { action: "refresh" } })).body).toMatchObject({ dispatched: false, reason: "closed" });
+    expect(dispatches).toBe(1);
+  });
+
   it("触发失败时退回扣掉的分", async () => {
     dispatchFails = true;
     const res = await call(dataApi, { method: "POST", query: { action: "refresh" } });
@@ -207,6 +223,16 @@ describe("积分：手动刷新", () => {
     expect(refreshWindowOpen(new Date("2026-10-20T15:05:00+08:00"))).toBe(true);
     expect(refreshWindowOpen(new Date("2026-10-20T15:06:00+08:00"))).toBe(false);
     expect(refreshWindowOpen(new Date("2026-10-24T10:00:00+08:00"))).toBe(false);
+  });
+
+  it("收盘后缺收盘数据：只看当日快照的行情时间", () => {
+    const at = (time) => new Date(`2026-10-21T${time}:00+08:00`);
+    expect(closeSnapshotMissing(at("18:40"), { quoteTime: "20261021 14:35:00" })).toBe(true);
+    expect(closeSnapshotMissing(at("18:40"), { quoteTime: "20261021 15:00:00" })).toBe(false);
+    expect(closeSnapshotMissing(at("15:03"), { quoteTime: "20261021 14:35:00" })).toBe(false); // 还在交易时段内，按正常刷新
+    expect(closeSnapshotMissing(at("18:40"), { quoteTime: "20261020 15:00:00" })).toBe(false); // 当日没快照（多半休市）
+    expect(closeSnapshotMissing(new Date("2026-10-24T18:40:00+08:00"), { quoteTime: "20261024 14:35:00" })).toBe(false); // 周末
+    expect(closeSnapshotMissing(at("18:40"), null)).toBe(false);
   });
 });
 
