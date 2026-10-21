@@ -77,15 +77,15 @@ main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-co
 
 /* 历史同类结构 */
 .ta-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-.ta-badges span { padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font-size: 12px; }
+.ta-badges span { padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .ta-history { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
 .ta-history > div { min-width: 0; padding: 10px; background: var(--panel); }
 .ta-history h4 { margin: 0; color: var(--muted); font-size: 12px; font-weight: 500; }
 .ta-history strong { display: block; margin: 4px 0 6px; font-family: "Manrope", sans-serif; font-size: 18px; font-weight: 700; }
 .ta-history dl { display: grid; gap: 3px; margin: 0; font-size: 11px; }
-.ta-history dl div { display: flex; justify-content: space-between; gap: 4px; }
-.ta-history dt { color: var(--muted); }
-.ta-history dd { margin: 0; font-variant-numeric: tabular-nums; }
+.ta-history dl div { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; }
+.ta-history dt { color: var(--muted); white-space: nowrap; }
+.ta-history dd { margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ta-history .ta-empty { grid-column: 1 / -1; }
 
 /* 事件驱动 */
@@ -96,6 +96,7 @@ main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-co
 /* 走势图 */
 .ta-tabs { margin-top: 0; }
 .ta-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; color: var(--muted); font-size: 11px; }
+.ta-legend span, .ta-ohlc span, .ta-ohlc b, .ta-history h4 { white-space: nowrap; }
 .ta-legend i { display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 50%; vertical-align: 0; }
 .ta-chart { position: relative; height: 260px; margin-top: 8px; }
 .ta-chart canvas { display: block; width: 100%; height: 100%; }
