@@ -100,3 +100,41 @@ export async function readAnalysisConfig() {
 export function validQuery(value) {
   return /^[一-龥A-Za-z0-9.\-*]{2,30}$/.test(String(value || "").trim());
 }
+
+// ── 最近分析（首页、个股分析页的输入框下方）：「最近分析：公司名称（代码）」，最多 3 条，点开看当时的结果、不扣分 ──
+function shortTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (number) => String(number).padStart(2, "0");
+  return `${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+export { shortTime };
+
+/** onPick 省略时链接到 /technicalanalysis?id=<记录 id>。没有记录时隐藏整行。 */
+export function renderRecent(element, recent, onPick) {
+  if (!element) return;
+  const rows = Array.isArray(recent) ? recent.slice(0, 3) : [];
+  element.textContent = "";
+  element.hidden = !rows.length;
+  if (!rows.length) return;
+  const label = document.createElement("span");
+  label.textContent = "最近分析：";
+  element.append(label);
+  for (const row of rows) {
+    const link = document.createElement("a");
+    link.href = `/technicalanalysis?id=${encodeURIComponent(row.id)}`;
+    link.textContent = `${row.name}（${String(row.code || "").split(".")[0]}）`;
+    link.title = `查看 ${shortTime(row.createdAt)} 的分析结果，不扣积分`;
+    if (onPick) link.addEventListener("click", (event) => { event.preventDefault(); onPick(row); });
+    element.append(link);
+  }
+}
+
+/** 读取保存的一笔分析结果（不扣分）。 */
+export async function readAnalysisResult(id) {
+  const response = await fetch(`/api/technical-analysis?action=result&id=${encodeURIComponent(id)}`, { headers: { Accept: "application/json" }, credentials: "same-origin" });
+  const payload = await response.json().catch(() => ({}));
+  if (payload.code === "login_required") goLogin();
+  if (!response.ok) throw new Error(payload.error || "暂时无法读取分析记录");
+  return payload;
+}

@@ -80,6 +80,7 @@ const COOKIE = `${session.ACCESS_COOKIE}=${TOKEN}; ${session.REFRESH_COOKIE}=rt`
 
 let account;
 let ledger;
+let history;
 
 /** 与 SQL 同样规则的内存版积分账户（只含本接口用到的函数）。 */
 function rpc(name, args) {
@@ -106,6 +107,20 @@ function rpc(name, args) {
       change("analysis_refund", -row.delta, row.id, row.note);
       return { ok: true, balance: account.balance };
     }
+    case "analysis_save": {
+      history.push({ id: history.length + 1, code: args.p_code, name: args.p_name, result: args.p_result, created_at: "2026-10-21T02:39:00Z" });
+      history = history.slice(-10);
+      return history.at(-1).id;
+    }
+    case "analysis_recent": {
+      const seen = new Set();
+      return [...history].reverse().filter((row) => !seen.has(row.code) && seen.add(row.code)).slice(0, args.p_limit)
+        .map(({ id, code, name, created_at }) => ({ id, code, name, created_at }));
+    }
+    case "analysis_get": {
+      const row = history.find((item) => item.id === args.p_id);
+      return row ? { id: row.id, code: row.code, name: row.name, createdAt: row.created_at, result: row.result } : null;
+    }
     default: throw new Error(name);
   }
 }
@@ -131,6 +146,7 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     engine.clearAnalysisCache();
     account = null;
     ledger = [];
+    history = [];
     globalThis.fetch = vi.fn(async (url, options = {}) => {
       const href = String(url);
       if (href === `${SUPABASE}/auth/v1/user`) return Response.json({ id: "user-1", email: "u@example.com" });
@@ -188,6 +204,28 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     expect(res.body).toMatchObject({ refunded: true, balance: 50 });
     expect(res.body.error).toContain("已退回 10 积分");
     expect(ledger.map((row) => row.kind)).toEqual(["signup", "analysis", "analysis_refund"]);
+  });
+
+  it("分析成功后存进分析记录；最近分析同一支股票只留最新一次；按记录打开不扣分", async () => {
+    const first = await call({ body: { q: "603936" } });
+    expect(first.body.historyId).toBe(1);
+    await call({ body: { q: "300986" } });
+    const again = await call({ body: { q: "603936" } });
+    expect(again.body.recent.map((row) => row.code)).toEqual(["603936.SH", "300986.SZ"]);
+    const config = await call({ method: "GET", query: { action: "config" } });
+    expect(config.body.recent.map((row) => [row.name, row.code])).toEqual([["样本电子", "603936.SH"], ["样本新材", "300986.SZ"]]);
+    const balance = account.balance;
+    const opened = await call({ method: "GET", query: { action: "result", id: String(again.body.historyId) } });
+    expect(opened.body).toMatchObject({ ok: true, analyzedAt: "2026-10-21T02:39:00Z" });
+    expect(opened.body.data.code).toBe("603936.SH");
+    expect(account.balance).toBe(balance); // 不扣分
+    expect((await call({ method: "GET", query: { action: "result", id: "999" } })).statusCode).toBe(404);
+    expect((await call({ method: "GET", query: { action: "result", id: "x" } })).statusCode).toBe(404);
+  });
+
+  it("认不出股票不会存进分析记录", async () => {
+    await call({ body: { q: "999999" } });
+    expect(history).toHaveLength(0);
   });
 
   it("不限额账号不扣分", async () => {
