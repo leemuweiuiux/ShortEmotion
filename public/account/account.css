@@ -174,3 +174,78 @@ body.sub-page { background: var(--bg); }
 .theme-switch button[aria-checked="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px rgba(15, 20, 25, 0.12); }
 .theme-switch button:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
 .theme-hint { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+
+/* ── 邀请好友 ── */
+/* 个人页面入口卡片 */
+a.invite-entry { color: inherit; text-decoration: none; }
+a.invite-entry:hover .row-link, a.invite-entry:focus-visible .row-link { color: var(--ink); }
+.invite-entry-copy { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.invite-entry-copy em { color: var(--heat, #ff4015); font-style: normal; font-weight: 700; }
+
+/* 邀请卡：页面预览与生成的图片同一份排版 */
+.invite-card {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--ink);
+}
+.invite-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(18, 20, 23, 0.16) 1px, transparent 1px), radial-gradient(rgba(255, 64, 21, 0.22) 1px, transparent 1px);
+  background-size: 12px 12px, 22px 22px;
+  background-position: 0 0, 40px 30px;
+  opacity: .35;
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 55%);
+  mask-image: linear-gradient(180deg, #000 0%, transparent 55%);
+  pointer-events: none;
+}
+:root[data-theme="dark"] .invite-card::before { background-image: radial-gradient(rgba(245, 247, 251, 0.16) 1px, transparent 1px), radial-gradient(rgba(255, 64, 21, 0.28) 1px, transparent 1px); }
+.invite-card > * { position: relative; }
+.ic-brand { display: flex; align-items: center; gap: 10px; }
+.ic-brand img { display: block; width: 32px; height: 32px; }
+.ic-brand span { display: grid; gap: 1px; }
+.ic-brand b { font-family: "Manrope", sans-serif; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+.ic-brand small { color: var(--muted); font-size: 11px; line-height: 1.3; }
+.ic-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; margin: 8px 0 0; font-size: 24px; font-weight: 700; line-height: 1.3; }
+.ic-title b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ic-title span { white-space: nowrap; }
+.ic-reward { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+.ic-reward em { color: var(--heat, #ff4015); font-family: "Manrope", sans-serif; font-size: 18px; font-style: normal; font-weight: 800; }
+.ic-features { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.ic-features li { padding: 3px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel); font-size: 12px; line-height: 1.5; white-space: nowrap; }
+.ic-code { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 14px; background: var(--panel); border: 1px solid var(--border); }
+.ic-code-text { display: grid; gap: 4px; min-width: 0; }
+.ic-code-text span { color: var(--muted); font-size: 12px; }
+.ic-code-text strong { font-family: "Manrope", ui-monospace, monospace; font-size: 26px; font-weight: 800; line-height: 1.15; letter-spacing: 0.06em; white-space: nowrap; }
+.ic-code-text small { color: var(--muted); font-size: 11px; line-height: 1.4; }
+.ic-qr { width: 92px; height: 92px; background: #ffffff; }
+.ic-qr svg { display: block; width: 100%; height: 100%; }
+.ic-foot { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+
+.invite-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.btn-secondary { padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--ink); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.btn-secondary:disabled { opacity: .6; cursor: default; }
+.invite-link { margin: -6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; word-break: break-all; -webkit-user-select: all; user-select: all; }
+.invite-hint { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.invite-hint a { color: var(--ink); }
+.invite-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.invite-stats div { display: grid; gap: 4px; min-width: 0; padding: 10px; background: var(--panel); }
+.invite-stats span { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.invite-stats strong { font-family: "Manrope", sans-serif; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.friend-status { flex: none; padding: 2px 10px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.friend-status.done { border-color: var(--ink); background: var(--ink); color: var(--surface); }
+.invite-rules { display: grid; gap: 6px; margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+
+/* 生成图片：画面外排版；图片里用不到网页字体，统一用系统字体 */
+.invite-export-host { position: fixed; top: 0; left: -20000px; z-index: -1; pointer-events: none; }
+.invite-export, .invite-export * { font-family: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important; }
+/* 不能直接分享时的预览：长按保存或下载 */
+.invite-sheet { max-height: calc(100vh - 32px); overflow: auto; }
+.invite-sheet img { display: block; width: 100%; height: auto; border: 1px solid var(--border); }
+.invite-sheet p { margin: 10px 0 12px; color: var(--muted); font-size: 12px; text-align: center; }

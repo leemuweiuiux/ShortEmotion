@@ -40,6 +40,8 @@
     {"source": "/account/edit/", "destination": "/account/edit/index.html"},
     {"source": "/account/points", "destination": "/account/points/index.html"},
     {"source": "/account/points/", "destination": "/account/points/index.html"},
+    {"source": "/account/invite", "destination": "/account/invite/index.html"},
+    {"source": "/account/invite/", "destination": "/account/invite/index.html"},
     {"source": "/home", "destination": "/home/index.html"},
     {"source": "/home/", "destination": "/home/index.html"},
     {"source": "/technicalanalysis", "destination": "/technical-analysis/index.html"},

@@ -2,7 +2,9 @@
 // 1. 浏览器直接向 Supabase 申请验证码（/auth/v1/otp，未注册的邮箱自动注册），频率限制按访客自己的 IP 计算；
 // 2. 填入验证码后向 Supabase 验证（/auth/v1/verify），拿到登录凭证；
 // 3. 把凭证交给 POST /api/auth?action=session，服务端写入 HttpOnly cookie（90 天），再跳回原本要看的页面。
-import { initLanguage, setText } from "/shared/lang.js?v=13";
+// 邀请码（选填）：从邀请链接来的会自动填好（链接 ?invite= 或介绍页记下的 localStorage「se_invite」）；
+//   按「发送验证码」时先检查能不能用；登录完成后才上报（POST /api/auth?action=invite-redeem），失败只提示、不影响登录。
+import { initLanguage, setText } from "/shared/lang.js?v=14";
 
 const $ = (selector) => document.querySelector(selector);
 initLanguage();
@@ -23,8 +25,68 @@ const codeInput = $("#code");
 const sendButton = $("#send");
 const verifyButton = $("#verify");
 const resendButton = $("#resend");
+const inviteInput = $("#invite");
+const inviteNote = $("#invite-note");
 let email = "";
+let invite = "";
 let resendTimer = null;
+
+// ── 邀请码 ──
+const INVITE_KEY = "se_invite";
+const INVITE_PATTERN = /^SE[A-HJKMNP-Z2-9]{6}$/;
+const INVITE_DAYS = 7;
+const cleanInvite = (value) => String(value || "").replace(/\s+/g, "").toUpperCase();
+
+function storedInvite() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(INVITE_KEY) || "null");
+    if (saved && INVITE_PATTERN.test(saved.code) && Date.now() - saved.at < INVITE_DAYS * 86_400_000) return saved.code;
+  } catch {}
+  return "";
+}
+function forgetInvite() {
+  try { localStorage.removeItem(INVITE_KEY); } catch {}
+}
+
+async function checkInvite(code) {
+  const response = await fetch(`/api/auth?action=invite-check&code=${encodeURIComponent(code)}`, { headers: { Accept: "application/json" } });
+  if (!response.ok) throw new Error(String(response.status));
+  return response.json();
+}
+
+/** 邀请码下方的说明：「李牧微 邀请你加入……」或不能用的原因。姓名原样显示。 */
+function renderInviteNote(result) {
+  inviteNote.textContent = "";
+  inviteNote.hidden = !result;
+  if (!result) return;
+  inviteNote.classList.toggle("bad", !result.valid);
+  if (!result.valid) return setText(inviteNote, result.message || "邀请码无效，请检查后再试");
+  const who = document.createElement("b");
+  if (result.name) who.textContent = result.name;
+  else setText(who, "好友");
+  const parts = [who, document.createElement("span"), document.createElement("em"), document.createElement("span")];
+  setText(parts[1], " 邀请你加入：注册并完成第一次签到，双方各得 ");
+  parts[2].textContent = "50";
+  setText(parts[3], " 积分");
+  inviteNote.append(...parts);
+}
+
+async function refreshInviteNote() {
+  const code = cleanInvite(inviteInput.value);
+  if (!code) return renderInviteNote(null);
+  if (!INVITE_PATTERN.test(code)) return renderInviteNote({ valid: false, message: "邀请码是 SE 开头加 6 位，请检查后再试" });
+  try { renderInviteNote(await checkInvite(code)); } catch { renderInviteNote(null); }
+}
+
+const fromLink = cleanInvite(new URLSearchParams(location.search).get("invite"));
+inviteInput.value = INVITE_PATTERN.test(fromLink) ? fromLink : storedInvite();
+if (inviteInput.value) refreshInviteNote();
+inviteInput.addEventListener("input", () => {
+  const value = cleanInvite(inviteInput.value).slice(0, 8);
+  if (inviteInput.value !== value) inviteInput.value = value;
+  if (!value) renderInviteNote(null);
+});
+inviteInput.addEventListener("change", refreshInviteNote);
 
 const configReady = fetch("/api/auth?action=config", { headers: { Accept: "application/json" } })
   .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
@@ -107,8 +169,25 @@ emailForm.addEventListener("submit", async (event) => {
     emailInput.focus();
     return;
   }
+  const code = cleanInvite(inviteInput.value);
+  if (code && !INVITE_PATTERN.test(code)) {
+    showError("邀请码是 SE 开头加 6 位；没有邀请码可以留空。");
+    inviteInput.focus();
+    return;
+  }
   busy(sendButton, "发送中…", "发送验证码");
   try {
+    if (code) {
+      let result = null;
+      try { result = await checkInvite(code); } catch {} // 检查不了时不挡登录，登录后再上报
+      if (result) renderInviteNote(result);
+      if (result && !result.valid) {
+        showError(`${result.message}。可以清空邀请码后继续登录。`);
+        inviteInput.focus();
+        return;
+      }
+    }
+    invite = code;
     await sendCode();
   } catch (error) {
     showError(friendly(error, "send"));
@@ -141,6 +220,38 @@ codeInput.addEventListener("input", () => {
   codeInput.value = codeInput.value.replace(/\D/g, "").slice(0, 10);
 });
 
+/** 登录完成后上报邀请码；显示结果时返回 true（稍后再跳转）。失败不影响登录。 */
+async function redeemInvite(code) {
+  let payload = null;
+  try {
+    const response = await fetch("/api/auth?action=invite-redeem", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ code })
+    });
+    payload = await response.json().catch(() => null);
+  } catch {}
+  if (!payload || (!payload.ok && !payload.reason)) return false;
+  forgetInvite();
+  const done = $("#login-done");
+  done.textContent = "";
+  if (payload.ok) {
+    const lead = document.createElement("span");
+    const who = document.createElement("b");
+    const rest = document.createElement("span");
+    setText(lead, "已接受 ");
+    if (payload.name) who.textContent = payload.name;
+    else setText(who, "好友");
+    setText(rest, ` 的邀请：完成第一次签到，你们各得 ${payload.reward || 50} 积分。`);
+    done.append(lead, who, rest);
+  } else {
+    setText(done, `邀请码未生效：${payload.message || "邀请码无效"}。`);
+  }
+  done.hidden = false;
+  return true;
+}
+
 codeForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   showError("");
@@ -162,6 +273,10 @@ codeForm.addEventListener("submit", async (event) => {
     if (!response.ok) {
       const payload = await response.json().catch(() => ({}));
       throw Object.assign(new Error(payload.error || String(response.status)), { status: response.status, code: payload.code });
+    }
+    if (invite && await redeemInvite(invite)) {
+      setTimeout(() => location.replace(NEXT), 2600); // 留一点时间看邀请结果
+      return;
     }
     location.replace(NEXT);
   } catch (error) {

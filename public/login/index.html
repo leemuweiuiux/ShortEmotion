@@ -26,8 +26,8 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/about/about.css?v=8">
-  <link rel="stylesheet" href="/login/login.css?v=1">
+  <link rel="stylesheet" href="/about/about.css?v=9">
+  <link rel="stylesheet" href="/login/login.css?v=2">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -38,7 +38,7 @@
       <img class="brand-logo" src="/short-emotion/logo.svg?v=2" alt="">
       <span class="brand-text">
         <b>ShortEmotion</b>
-        <small>看懂A股的短线情绪</small>
+        <small>看懂A股情绪与走势</small>
       </span>
     </a>
     <div class="lang-toggle" role="group" aria-label="语言">
@@ -60,6 +60,11 @@
           <span>邮箱</span>
           <input id="email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com" required>
         </label>
+        <label class="field">
+          <span>邀请码<small>（选填，新用户注册时填写）</small></span>
+          <input id="invite" name="invite" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="10" placeholder="例如 SEK7MX2Q">
+        </label>
+        <p id="invite-note" class="invite-note" hidden></p>
         <button id="send" class="primary-btn" type="submit">发送验证码</button>
       </form>
 
@@ -74,12 +79,13 @@
       </form>
 
       <p id="login-error" class="login-error" role="alert" hidden></p>
+      <p id="login-done" class="login-done" role="status" hidden></p>
       <p class="login-note">没收到邮件？看看垃圾邮件；同一个邮箱 60 秒内只能发送一次，验证码 1 小时内有效。<br>登录即表示同意我们记录近 30 天内哪几天使用过（只用于统计活跃人数），以及积分的获得与使用记录。</p>
     </section>
 
     <a class="back-link" href="/about">了解 ShortEmotion</a>
   </main>
 
-  <script type="module" src="/login/login.js?v=13"></script>
+  <script type="module" src="/login/login.js?v=14"></script>
 </body>
 </html>
