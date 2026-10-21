@@ -17,7 +17,8 @@ if (!process.env.SHORT_EMOTION_STORE) process.env.SHORT_EMOTION_STORE = process.
 const API_ROUTES = {
   "short-emotion": () => import("../api/short-emotion.js"),
   auth: () => import("../api/auth.js"),
-  "technical-analysis": () => import("../api/technical-analysis.js")
+  "technical-analysis": () => import("../api/technical-analysis.js"),
+  admin: () => import("../api/admin.js")
 };
 const { default: middleware, config: middlewareConfig } = await import("../middleware.js");
 
@@ -39,6 +40,10 @@ async function runMiddleware(req, res, url) {
   if (!(result instanceof Response)) return { setCookies: [] };
   const setCookies = result.headers.getSetCookie();
   if (result.headers.get("x-middleware-next") === "1") return { setCookies };
+  if (result.headers.get("x-middleware-rewrite")) { // 改写到别的路径（例如管理后台不给看时改写成不存在的网址 → 404）
+    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" }).end("Not Found");
+    return null;
+  }
   const out = {};
   for (const [key, value] of result.headers) if (key !== "set-cookie") out[key] = value;
   if (setCookies.length) out["set-cookie"] = setCookies;

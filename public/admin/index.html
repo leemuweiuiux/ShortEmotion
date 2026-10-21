@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="robots" content="noindex, nofollow">
+  <title>管理后台 · ShortEmotion</title>
+  <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
+  <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <script>
+    // 与介绍页、看板共用外观设置：深浅色跟随系统（或 twsvp_theme），语言：简体 / 繁体
+    (function () {
+      var root = document.documentElement;
+      var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
+      var theme = get("twsvp_theme");
+      if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      root.dataset.theme = theme;
+      if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
+      var lang = get("shortemotion:lang");
+      if (lang !== "hans" && lang !== "hant") lang = /^zh-(tw|hk|mo|hant)/i.test(navigator.language || "") ? "hant" : "hans";
+      root.dataset.lang = lang;
+      if (lang === "hant") root.lang = "zh-Hant-TW";
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/about/about.css?v=9">
+  <link rel="stylesheet" href="/account/account.css?v=10">
+  <link rel="stylesheet" href="/admin/admin.css?v=1">
+  </head>
+<body class="sub-page admin-page">
+  <nav class="subnav">
+    <a class="subnav-btn" href="/home" aria-label="返回首页">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+    <div class="subnav-title">管理后台</div>
+  </nav>
+
+  <main class="sub-frame">
+    <div class="theme-switch admin-tabs" role="tablist" aria-label="管理后台">
+      <button type="button" role="tab" id="tab-btn-overview" data-tab="overview" aria-selected="true" aria-controls="tab-overview">总览</button>
+      <button type="button" role="tab" id="tab-btn-ledger" data-tab="ledger" aria-selected="false" aria-controls="tab-ledger">积分列表</button>
+      <button type="button" role="tab" id="tab-btn-grant" data-tab="grant" aria-selected="false" aria-controls="tab-grant">积分发放</button>
+    </div>
+
+    <!-- 1. 总览：只有统计数字，不含任何用户资料 -->
+    <div id="tab-overview" class="admin-panel" role="tabpanel" aria-labelledby="tab-btn-overview">
+      <section class="sub-card">
+        <div class="section-title">用户</div>
+        <div class="admin-stats">
+          <div><span>注册用户</span><strong id="users-total">—</strong></div>
+          <div><span>今日新增</span><strong id="users-new-today">—</strong></div>
+          <div><span>今日活跃</span><strong id="users-active-today">—</strong></div>
+          <div><span>近 7 日活跃</span><strong id="users-active-7d">—</strong></div>
+        </div>
+      </section>
+
+      <section class="sub-card">
+        <div class="card-row">
+          <div class="section-title">积分</div>
+          <span class="admin-muted">流通 <b id="points-circulating">—</b> · 账户 <b id="points-accounts">—</b></span>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>类型</th><th>今日</th><th>近 7 日</th></tr></thead>
+            <tbody id="points-kinds"><tr><td colspan="3" class="admin-empty">读取中…</td></tr></tbody>
+            <tfoot id="points-totals"></tfoot>
+          </table>
+        </div>
+      </section>
+
+      <section class="sub-card">
+        <div class="section-title">邀请与个股分析</div>
+        <div class="admin-stats">
+          <div><span>邀请绑定</span><strong id="invites-bound">—</strong></div>
+          <div><span>邀请完成签到</span><strong id="invites-rewarded">—</strong></div>
+          <div><span>个股分析 今日 / 近 7 日</span><strong id="analyses-count">—</strong></div>
+          <div><span>估算数据成本 近 7 日</span><strong id="analyses-cost">—</strong></div>
+        </div>
+      </section>
+      <p class="admin-note">统计按北京时间；个股分析已扣除失败退回的次数，数据成本按每次约 ¥0.03 估算。</p>
+    </div>
+
+    <!-- 2. 积分列表：全站流水，只有时间、类型、变动 -->
+    <div id="tab-ledger" class="admin-panel" role="tabpanel" aria-labelledby="tab-btn-ledger" hidden>
+      <section class="sub-card">
+        <form id="ledger-filter" class="admin-filter">
+          <label class="field"><span>类型</span><select id="ledger-kind"><option value="">全部</option></select></label>
+          <label class="field"><span>开始日期</span><input id="ledger-from" type="date"></label>
+          <label class="field"><span>结束日期</span><input id="ledger-to" type="date"></label>
+          <button class="btn-primary" type="submit">查询</button>
+        </form>
+        <ol id="ledger" class="ledger-list"><li class="ledger-empty">读取中…</li></ol>
+        <button id="ledger-more" class="ledger-more" type="button" hidden>加载更多</button>
+      </section>
+      <p class="admin-note">只显示时间、类型与积分变动，不显示是哪位用户。</p>
+    </div>
+
+    <!-- 3. 积分发放：按登录邮箱发给某位用户 -->
+    <div id="tab-grant" class="admin-panel" role="tabpanel" aria-labelledby="tab-btn-grant" hidden>
+      <section class="sub-card">
+        <form id="grant-form" class="profile-form" novalidate>
+          <label class="field"><span>用户登录邮箱</span><input id="grant-email" type="email" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="user@example.com" required></label>
+          <label class="field"><span>积分（每次 1–1000）</span><input id="grant-amount" type="number" inputmode="numeric" min="1" max="1000" step="1" placeholder="例如 100" required></label>
+          <div class="field">
+            <span id="grant-reason-label">原因</span>
+            <div class="theme-switch admin-reasons" role="radiogroup" aria-labelledby="grant-reason-label">
+              <button type="button" role="radio" aria-checked="true" data-reason="recharge">积分充值</button>
+              <button type="button" role="radio" aria-checked="false" data-reason="campaign">活动奖励</button>
+            </div>
+          </div>
+          <button id="grant-submit" class="btn-primary" type="submit">发放积分</button>
+        </form>
+        <p class="admin-muted">今天已发放 <b id="grant-count">—</b> 笔（每天最多 50 笔）。只能发放，不能扣除；用户会在积分记录看到「平台发放 · 原因」。</p>
+      </section>
+    </div>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/admin/admin.js?v=1"></script>
+</body>
+</html>
