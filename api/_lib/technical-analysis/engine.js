@@ -104,6 +104,79 @@ function maxOf(arr, key) {
 function minOf(arr, key) {
   return Math.min(...arr.map((x) => x[key]));
 }
+// ── 关键价位的来源与补充参考（2026-10-21 与产品确认）：原算法的数值不变，只标出来源并补充参考 ──
+const CHART_BARS = 60; // 页面日 K 图画最近 60 根；取自更早的价位标「（图外）」
+
+/** 一段日 K（下标 start 到 end，不含 end）里最高价与它所在的下标。 */
+function highInfo(rows, start, end) {
+  let value = -Infinity;
+  let index = -1;
+  for (let i = Math.max(0, start); i < Math.min(rows.length, end); i += 1) {
+    if (rows[i].high > value) {
+      value = rows[i].high;
+      index = i;
+    }
+  }
+  return { value, index };
+}
+
+/** 前高（波段高点）：前后各 radius 根 K 线里最高的那一根。 */
+function swingHighs(rows, radius = 5) {
+  const peaks = [];
+  for (let i = 0; i < rows.length; i += 1) {
+    let isPeak = true;
+    for (let j = Math.max(0, i - radius); j <= Math.min(rows.length - 1, i + radius); j += 1) {
+      if (rows[j].high > rows[i].high) {
+        isPeak = false;
+        break;
+      }
+    }
+    if (isPeak) peaks.push(rows[i]);
+  }
+  return peaks;
+}
+
+/** 平均真实波幅（ATR）。 */
+function averageTrueRange(rows, n = 14) {
+  const last = rows.slice(-(n + 1));
+  let sum = 0;
+  let count = 0;
+  for (let i = 1; i < last.length; i += 1) {
+    const prevClose = last[i - 1].close;
+    sum += Math.max(last[i].high - last[i].low, Math.abs(last[i].high - prevClose), Math.abs(last[i].low - prevClose));
+    count += 1;
+  }
+  return count ? sum / count : 0;
+}
+
+/** 现价（或某价位）上方最近的历史前高（不含今天），找不到返回 null。 */
+function nearestHistoricalHigh(allDaily, above) {
+  return swingHighs(allDaily.slice(0, -1)).filter((row) => row.high > above * 1.003).sort((a, b) => a.high - b.high)[0] || null;
+}
+
+/**
+ * 关键价位的补充参考（不进赔率计算）：
+ *   A. 创新高（原算法的波段压力不高于现价）：6 年日 K 里现价上方最近的历史前高；没有就按 现价 + 2 倍 14 日平均波幅 推算
+ *   B. 波段压力取自布林上轨且离现价不到 2%：下一档压力（前 20 / 60 日最高、近 120 日最高，都没有再找历史前高）
+ * highSources：[[价位, 来源名称], …]
+ */
+function pressureSupplements({ price, target, targetSource, highSources = [], allDaily = [] }) {
+  const money = (value) => round(value).toFixed(2);
+  const day = (row) => String(row.time).slice(0, 10);
+  if (target <= price) {
+    const peak = nearestHistoricalHigh(allDaily, price);
+    if (peak) return [{ label: "历史前高", value: money(peak.high), note: `${day(peak)}（近6年）` }];
+    return [{ label: "波动推算", value: money(price + 2 * averageTrueRange(allDaily, 14)), note: "现价 + 2 倍 14 日平均波幅；近6年无更高价位" }];
+  }
+  if (targetSource === "布林上轨" && (target - price) / price < 0.02) {
+    const next = highSources.filter(([value]) => value > target * 1.003).sort((a, b) => a[0] - b[0])[0];
+    if (next) return [{ label: "下一档压力", value: money(next[0]), note: next[1] }];
+    const peak = nearestHistoricalHigh(allDaily, target);
+    if (peak) return [{ label: "下一档压力", value: money(peak.high), note: `历史前高 ${day(peak)}（近6年）` }];
+  }
+  return [];
+}
+
 function nearestAbove(values, price, fallback) {
   const v = values.filter((x) => x > price * 1.003).sort((a, b) => a - b)[0];
   return v || fallback;
@@ -1380,14 +1453,41 @@ function buildAnalysis(snapshotRows, stockQuote, stockDaily, markets, styleMarke
     ["市场适配", Math.round(marketScore), 10],
     ["历史验证", round(historyScore, 1), 10],
   ];
+  // 关键价位的来源：原算法选中的是哪一项（数值不变）；取自日 K 图 60 根以外的标「（图外）」
+  const dailyCount = daily.length,
+    p20 = highInfo(daily, dailyCount - 21, dailyCount - 1),
+    p60 = highInfo(daily, dailyCount - 61, dailyCount - 1),
+    h120 = highInfo(daily, 0, dailyCount),
+    chartLabel = (name, info) =>
+      info.index === dailyCount - 1 ? "今日最高" : info.index >= 0 && info.index < dailyCount - CHART_BARS ? `${name}（图外）` : name,
+    labelOf = (value, list) => list.find(([candidate]) => candidate === value)?.[1] || "",
+    highSources = [
+      [prior20High, chartLabel("前20日最高", p20)],
+      [prior60High, chartLabel("前60日最高", p60)],
+      [h120.value, chartLabel("近120日最高", h120)],
+    ],
+    repairSource = labelOf(repair, [[ma5, "5日均线"], [ma10, "10日均线"], [ma20, "20日均线"], [dayVwap, "今日均价"]]),
+    confirmSource = labelOf(confirm, [[dayHigh, "今日最高"], ...highSources.slice(0, 2), [bollUpper, "布林上轨"]]),
+    targetSource = labelOf(target, [...highSources.slice(0, 2), [bollUpper, "布林上轨"], highSources[2]]),
+    invalidationSource = labelOf(invalidation, price > ma20 ? [[ma20, "20日均线"], [low10, "近10日最低"]] : [[low10, "近10日最低"], [bollLower, "布林下轨"]]);
+  // 补充参考（不进赔率计算）：
+  //   A. 创新高（原算法的波段压力不高于现价）：往 6 年日 K 找现价上方最近的历史前高；没有就按 现价 + 2 倍 14 日平均波幅 推算
+  //   B. 波段压力取自布林上轨且离现价不到 2%：补「下一档压力」
+  const noRecentPressure = target <= price,
+    supplements = pressureSupplements({ price, target, targetSource, highSources, allDaily });
+  if (noRecentPressure) {
+    buyValue.noRecentPressure = true;
+    buyValue.pressureNote = "上方无近120日压力";
+  }
+  // [名称, 价位, 样式, 来源]
   const levels = [
-    ["波段压力", fmt(target)],
-    ["再确认位", fmt(confirm)],
-    ["修复位", fmt(repair)],
-    ["平台上沿", fmt(prior20High)],
-    ["当前价", fmt(price), "current"],
-    ["日内防守", fmt(dayLow)],
-    ["结构失效", fmt(invalidation)],
+    ["波段压力", fmt(target), "", targetSource],
+    ["再确认位", fmt(confirm), "", confirmSource],
+    ["修复位", fmt(repair), "", repairSource],
+    ["平台上沿", fmt(prior20High), "", chartLabel("前20日最高", p20)],
+    ["当前价", fmt(price), "current", ""],
+    ["日内防守", fmt(dayLow), "", "今日最低"],
+    ["结构失效", fmt(invalidation), "", invalidationSource],
   ];
   const scenarios = [
     ["#20c997", "偏强情景", `守住${fmt(dayLow)}并放量站回${fmt(confirm)}，突破或修复得到确认。`],
@@ -1453,6 +1553,7 @@ function buildAnalysis(snapshotRows, stockQuote, stockDaily, markets, styleMarke
     history,
     surge,
     levels,
+    supplements,
     scenarios,
     market: marketList.map((x) => [x.name, x.pct, x.relative, x.series]),
     intraday: intraday.map((x, i) => ({ t: x.time, p: x.close, o: x.open, h: x.high, l: x.low, v: x.volume, a: vwap[i] })),
@@ -1593,4 +1694,4 @@ export function clearAnalysisCache() {
   cache.clear();
 }
 
-export { normalizeInput, buildAnalysis, historicalAnalogs, surgeProfile, catalystAnalysis, classifyIntradayShape };
+export { normalizeInput, buildAnalysis, historicalAnalogs, surgeProfile, catalystAnalysis, classifyIntradayShape, swingHighs, averageTrueRange, nearestHistoricalHigh, pressureSupplements };
