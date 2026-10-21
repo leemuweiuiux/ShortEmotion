@@ -2,7 +2,10 @@
 //
 // GET  /api/auth?action=config   Supabase 项目地址与 Publishable key（公开值），页面用来直接申请 / 验证验证码
 // GET  /api/auth?action=me       当前登录的邮箱；未登录时 user 为 null
-// POST /api/auth?action=session  body { access_token, refresh_token }：验证码通过后，把凭证换成 HttpOnly cookie
+// POST /api/auth?action=otp      body { email }：由服务器向 Supabase 申请邮箱验证码（未注册的邮箱自动注册）
+// POST /api/auth?action=verify   body { email, token }：由服务器验证验证码，成功后直接写入 HttpOnly cookie（90 天）
+//   （浏览器只连本站：大陆手机网络、微信内置浏览器直连 supabase.co 时常失败）
+// POST /api/auth?action=session  body { access_token, refresh_token }：旧版登录页用：浏览器自己验证后，把凭证换成 HttpOnly cookie
 // POST /api/auth?action=logout   退出登录：注销这台设备的凭证并清除 cookie
 // GET  /api/auth?action=profile  个人资料（姓名、邮箱、电话区号与号码）；POST 同一地址保存（不做手机验证码）
 // GET  /api/auth?action=points   积分余额、今天是否已签到、题材异动解锁到何时，以及最近 20 笔流水；带 before=<id> 时只返回更早的流水
@@ -12,6 +15,7 @@
 // POST /api/auth?action=invite-redeem  body { code }：登录完成后绑定邀请人（只限刚注册的账号）
 import { pointsStatus, pointsSignin, pointsHistory } from "./_lib/points.js";
 import { inviteCheck, inviteMine, inviteRedeem } from "./_lib/invite.js";
+import { cleanEmail, cleanToken, sendOtp, verifyOtp } from "./_lib/login.js";
 import { authConfig, resolveSession, fetchUser, sessionCookies, clearSessionCookies, parseCookies, isSecureNodeRequest, ACCESS_COOKIE, readProfile, saveProfile, PHONE_COUNTRY_CODES } from "./_lib/session.js";
 
 function readJson(body) {
@@ -129,13 +133,41 @@ export default async function handler(req, res) {
     return;
   }
 
-  if (req.method !== "POST" || !["session", "logout"].includes(action)) {
+  if (req.method !== "POST" || !["otp", "verify", "session", "logout"].includes(action)) {
     res.setHeader("Allow", "GET, POST");
     send(res, 404, { error: "接口不存在" });
     return;
   }
   if (!sameOrigin(req)) return send(res, 403, { error: "来源不允许", code: "forbidden" });
   if (!config) return send(res, 404, { error: "登录未开启", code: "auth_disabled" });
+
+  // 邮箱验证码：发送
+  if (action === "otp") {
+    const email = cleanEmail(readJson(req.body).email);
+    if (!email) return send(res, 400, { error: "邮箱格式不正确，请检查后再试", code: "email_address_invalid" });
+    try {
+      send(res, 200, await sendOtp(config, email));
+    } catch (error) {
+      send(res, error.statusCode || 503, { error: error.message, code: error.code || "auth_unavailable" });
+    }
+    return;
+  }
+
+  // 邮箱验证码：验证，成功后写入登录 cookie
+  if (action === "verify") {
+    const body = readJson(req.body);
+    const email = cleanEmail(body.email);
+    const token = cleanToken(body.token);
+    if (!email || !token) return send(res, 400, { error: "请输入邮件里的完整验证码", code: "validation_failed" });
+    try {
+      const session = await verifyOtp(config, email, token);
+      console.log(`short-emotion login ${session.user.id}`);
+      send(res, 200, { user: { email: session.user.email } }, sessionCookies(session, { secure }));
+    } catch (error) {
+      send(res, error.statusCode || 503, { error: error.message, code: error.code || "auth_unavailable" });
+    }
+    return;
+  }
 
   if (action === "session") {
     const { access_token: accessToken, refresh_token: refreshToken } = readJson(req.body);

@@ -1,5 +1,5 @@
 // 介绍页 /about：简繁切换、主视觉轮换标题、今日情绪（公开摘要接口，不调用 Wind）、个股分析入口、邀请横幅、底部登录按钮。
-import { initLanguage, setText, setAttributeText } from "/shared/lang.js?v=14";
+import { initLanguage, setText, setAttributeText } from "/shared/lang.js?v=15";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];

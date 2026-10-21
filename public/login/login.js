@@ -1,10 +1,10 @@
 // 登录页 /login：邮箱 → 验证码，同一页完成。
-// 1. 浏览器直接向 Supabase 申请验证码（/auth/v1/otp，未注册的邮箱自动注册），频率限制按访客自己的 IP 计算；
-// 2. 填入验证码后向 Supabase 验证（/auth/v1/verify），拿到登录凭证；
-// 3. 把凭证交给 POST /api/auth?action=session，服务端写入 HttpOnly cookie（90 天），再跳回原本要看的页面。
+// 1. POST /api/auth?action=otp：由我们的服务器向 Supabase 申请验证码（未注册的邮箱自动注册）；
+// 2. 填入验证码后 POST /api/auth?action=verify：服务器验证并写入 HttpOnly cookie（90 天），再跳回原本要看的页面。
+// 浏览器只连本站：大陆手机网络、微信内置浏览器直连 supabase.co 时常失败（只显示「网络连接失败」）。
 // 邀请码（选填）：从邀请链接来的会自动填好（链接 ?invite= 或介绍页记下的 localStorage「se_invite」）；
 //   按「发送验证码」时先检查能不能用；登录完成后才上报（POST /api/auth?action=invite-redeem），失败只提示、不影响登录。
-import { initLanguage, setText } from "/shared/lang.js?v=14";
+import { initLanguage, setText } from "/shared/lang.js?v=15";
 
 const $ = (selector) => document.querySelector(selector);
 initLanguage();
@@ -110,22 +110,26 @@ function busy(button, text, label) {
   setText(button, text || label);
 }
 
-async function supabase(path, body) {
-  const config = await configReady;
-  const response = await fetch(`${config.supabaseUrl}/auth/v1/${path}`, {
+/** 调用本站的登录接口（otp / verify）；失败时带上状态码与错误代码，交给 friendly() 翻成提示。 */
+async function authPost(action, body) {
+  await configReady;
+  const response = await fetch(`/api/auth?action=${action}`, {
     method: "POST",
-    headers: { apikey: config.supabaseKey, "Content-Type": "application/json", Accept: "application/json" },
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(body)
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw Object.assign(new Error(payload.msg || payload.error_description || payload.message || String(response.status)), { status: response.status, code: payload.error_code || payload.code });
+  if (!response.ok) throw Object.assign(new Error(payload.error || String(response.status)), { status: response.status, code: payload.code });
   return payload;
 }
 
 function friendly(error, step) {
   const code = String(error.code || "");
   if (error.status === 429 || /rate_limit/.test(code)) return step === "send" ? "发送太频繁了，请稍等一分钟再试。" : "尝试次数太多，请稍后再试。";
+  if (step === "verify" && code === "validation_failed") return "请输入邮件里的完整验证码。";
   if (code === "email_address_invalid" || code === "validation_failed") return "邮箱格式不正确，请检查后再试。";
+  if (code === "auth_unavailable") return step === "send" ? "验证码暂时发不出去，请稍后再试。" : "登录服务暂时不可用，请稍后再试。";
   if (code === "signup_disabled") return "暂时不开放新用户注册。";
   if (code === "otp_expired" || /expired|invalid/i.test(error.message)) return "验证码不正确或已过期，请检查或重新发送。";
   if (error instanceof TypeError) return "网络连接失败，请检查网络后再试。";
@@ -151,7 +155,7 @@ function startResendCountdown() {
 }
 
 async function sendCode() {
-  await supabase("otp", { email, create_user: true });
+  await authPost("otp", { email });
   setText($("#sent-email"), email);
   emailForm.hidden = true;
   codeForm.hidden = false;
@@ -263,17 +267,7 @@ codeForm.addEventListener("submit", async (event) => {
   }
   busy(verifyButton, "登录中…", "登录");
   try {
-    const session = await supabase("verify", { type: "email", email, token });
-    const response = await fetch("/api/auth?action=session", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ access_token: session.access_token, refresh_token: session.refresh_token })
-    });
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      throw Object.assign(new Error(payload.error || String(response.status)), { status: response.status, code: payload.code });
-    }
+    await authPost("verify", { email, token });
     if (invite && await redeemInvite(invite)) {
       setTimeout(() => location.replace(NEXT), 2600); // 留一点时间看邀请结果
       return;
