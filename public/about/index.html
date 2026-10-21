@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#ffffff">
-  <title>ShortEmotion · 看懂A股的短线情绪</title>
-  <meta name="description" content="把涨跌家数、涨跌停、连板、溢价、题材和成交合成一个情绪分，告诉你现在该进攻还是防守。">
-  <meta property="og:title" content="ShortEmotion · 看懂A股的短线情绪">
-  <meta property="og:description" content="一个分数看清短线情绪：情绪总览、市场广度、题材雷达、情绪路径。">
+  <title>ShortEmotion · 看懂A股情绪与走势</title>
+  <meta name="description" content="把涨跌家数、涨跌停、连板、溢价、题材和成交合成一个情绪分，告诉你现在该进攻还是防守；输入一只股票，看懂它的趋势结构、胜率与赔率。">
+  <meta property="og:title" content="ShortEmotion · 看懂A股情绪与走势">
+  <meta property="og:description" content="一个分数看清短线情绪，一只股票看懂趋势结构、胜率与赔率。">
   <meta property="og:image" content="/about/img/pulse-light.webp">
   <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
   <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
@@ -29,7 +29,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/about/about.css?v=7">
+  <link rel="stylesheet" href="/about/about.css?v=8">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -40,7 +40,7 @@
       <img class="brand-logo" src="/short-emotion/logo.svg?v=2" alt="">
       <span class="brand-text">
         <b>ShortEmotion</b>
-        <small>看懂A股的短线情绪</small>
+        <small>看懂A股情绪与走势</small>
       </span>
     </a>
     <div class="lang-toggle" role="group" aria-label="语言">
@@ -53,20 +53,29 @@
   <main class="page">
     <header class="hero">
       <h1 class="hero-title">
-        <span class="hero-word" aria-live="polite">量化</span>
-        <span>每天的短线情绪</span>
+        <span class="sr-only">量化每天的短线情绪，拆解个股的技术走势</span>
+        <span class="hero-word" aria-hidden="true">量化</span>
+        <span class="hero-object" aria-hidden="true">每天的短线情绪</span>
       </h1>
-      <p class="hero-lead">把涨跌家数、涨跌停、连板、溢价、题材和成交合成一个情绪分，告诉你现在该进攻还是防守。</p>
+      <p class="hero-lead">把涨跌家数、涨跌停、连板、溢价、题材和成交合成一个情绪分，告诉你现在该进攻还是防守；输入一只股票，看懂它的趋势结构、胜率与赔率。</p>
 
-      <div class="live" aria-label="今日情绪">
-        <a class="live-tile" data-market="cn" href="/shortemotion/cn">
+      <div class="live">
+        <a class="live-tile" data-market="cn" href="/shortemotion/cn" aria-label="A股今日情绪">
           <span class="live-market">A股</span>
           <span class="live-ring" style="--score: 0"><b class="live-score">—</b></span>
           <span class="live-phase">读取中</span>
           <small class="live-time">盘中数据</small>
         </a>
+        <form class="ta-tile" action="/technicalanalysis" method="get" autocomplete="off">
+          <span class="live-market">个股技术分析</span>
+          <div class="ta-searchbar">
+            <input name="q" type="search" inputmode="search" enterkeyhint="go" maxlength="30" placeholder="股票代码或简称" aria-label="股票代码或简称" required>
+            <button type="submit">开始分析</button>
+          </div>
+          <small class="live-time">趋势结构、胜率与赔率、历史同类量价结构、事件驱动</small>
+        </form>
       </div>
-      <p class="hero-note">分数 0–100，越高代表短线情绪越热。</p>
+      <p class="hero-note">情绪分 0–100，越高代表短线情绪越热。</p>
     </header>
 
     <section class="steps-intro">
@@ -122,14 +131,69 @@
       </picture>
     </section>
 
+    <section class="steps-intro" id="technical-analysis">
+      <h2>个股技术分析：一只股票看四件事</h2>
+      <p>输入股票代码或简称，生成趋势结构、胜率与赔率、历史同类量价结构和事件驱动分析。</p>
+      <p class="steps-note">每次分析 10 积分；注册送 50，每日签到 +10。以下截图为示例数据。</p>
+    </section>
+
+    <section class="feature">
+      <div class="feature-text">
+        <span class="step-no" aria-hidden="true">01</span>
+        <h3>结论</h3>
+        <p>趋势结构、胜率与赔率合成一个结论，从「合理参与」到「暂不买入」，同时列出相对强弱、当日振幅、量能和风险收益比。</p>
+      </div>
+      <picture class="feature-shot">
+        <source srcset="/about/img/ta-verdict-dark.webp" media="(prefers-color-scheme: dark)">
+        <img src="/about/img/ta-verdict-light.webp" alt="个股技术分析：结构、胜率与赔率的结论" width="776" height="1038" loading="lazy">
+      </picture>
+    </section>
+
+    <section class="feature">
+      <div class="feature-text">
+        <span class="step-no" aria-hidden="true">02</span>
+        <h3>关键价位</h3>
+        <p>由近及远列出波段压力、再确认位、修复位到结构失效，每个价位都标明来源，例如前20日最高、布林上轨、20日均线；走势图以外的价位另外标注，上方没有近期压力时补充历史前高。</p>
+      </div>
+      <picture class="feature-shot">
+        <source srcset="/about/img/ta-levels-dark.webp" media="(prefers-color-scheme: dark)">
+        <img src="/about/img/ta-levels-light.webp" alt="关键价位：每个价位标明来源" width="776" height="628" loading="lazy">
+      </picture>
+    </section>
+
+    <section class="feature">
+      <div class="feature-text">
+        <span class="step-no" aria-hidden="true">03</span>
+        <h3>历史同类量价结构</h3>
+        <p>在这只股票近 6 年的日 K 里，找出与今天量价结构相似的交易日，统计之后 5、10、20 日的上涨比例与中位涨跌，并标明样本数和置信度。</p>
+      </div>
+      <picture class="feature-shot">
+        <source srcset="/about/img/ta-history-dark.webp" media="(prefers-color-scheme: dark)">
+        <img src="/about/img/ta-history-light.webp" alt="历史同类量价结构：之后 5、10、20 日的表现" width="776" height="890" loading="lazy">
+      </picture>
+    </section>
+
+    <section class="feature">
+      <div class="feature-text">
+        <span class="step-no" aria-hidden="true">04</span>
+        <h3>事件驱动与分享</h3>
+        <p>连续大涨或触及涨停时，整理近 3 日的公告与新闻，判断上涨有没有可核验的事件。分析结果可导出长图或小卡，每张小卡都标明公司名称和代码。</p>
+      </div>
+      <picture class="feature-shot fade-tail">
+        <source srcset="/about/img/ta-share-dark.webp" media="(prefers-color-scheme: dark)">
+        <img src="/about/img/ta-share-light.webp" alt="分享小卡：标明公司名称与代码" width="840" height="1290" loading="lazy">
+      </picture>
+    </section>
+
 
     <section class="data-source">
       <h2>用 Wind MCP 数据搭建</h2>
-      <p>ShortEmotion 的数据来自 Wind Alice Market 的 MCP 服务。行情、涨跌停与连板、概念板块和财经新闻都通过 MCP 接口按交易时段定时取得，再由我们的算法合成情绪分、整理成题材雷达。</p>
+      <p>ShortEmotion 的数据来自 Wind Alice Market 的 MCP 服务。行情、涨跌停与连板、概念板块和财经新闻都通过 MCP 接口按交易时段定时取得，再由我们的算法合成情绪分、整理成题材雷达；个股技术分析则在你发起分析时，即时取得这只股票的行情与公告新闻。</p>
       <ul class="source-list">
         <li><b>行情与涨跌停</b><span>涨跌家数、涨跌停、连板与溢价</span></li>
         <li><b>概念板块</b><span>板块分钟行情与成分股</span></li>
         <li><b>财经新闻</b><span>消息催化与个股归因</span></li>
+        <li><b>个股行情</b><span>分时、近 6 年日 K、公告与新闻</span></li>
       </ul>
     </section>
 
@@ -144,7 +208,15 @@
           <a class="board-link" href="/shortemotion/cn">A股</a>
         </div>
       </article>
-      <p class="boards-more">更多看板陆续上线。</p>
+      <article class="board">
+        <div>
+          <h3>个股技术分析</h3>
+          <p>趋势结构、胜率与赔率、关键价位、历史同类量价结构和事件驱动；可导出长图或小卡分享。登录后使用，每次分析 10 积分。</p>
+        </div>
+        <div class="board-links">
+          <a class="board-link" href="/technicalanalysis">开始分析</a>
+        </div>
+      </article>
     </section>
 
     <footer class="footer">
@@ -160,6 +232,6 @@
     </div>
   </div>
 
-  <script type="module" src="/about/about.js?v=16"></script>
+  <script type="module" src="/about/about.js?v=17"></script>
 </body>
 </html>
