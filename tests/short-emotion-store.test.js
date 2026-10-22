@@ -38,6 +38,15 @@ describe("short-emotion data branch (file store → GitHub read store)", () => {
     expect(codes.count).toBeGreaterThan(0);
     expect(codes.codes["8841416.WI"]).toMatchObject({ name: "人形机器人指数", firstSeen: "20261021", days: 1 });
 
+    // 板块资金：跟着一起取（固定接口一次调用），盘中只存最新快照与盘中点，还没有收盘值
+    expect(result.ran.some((item) => item.startsWith("sectorflow("))).toBe(true);
+    expect(result.windCalls.byTool["index_data/get_index_price_indicators"]).toBeGreaterThanOrEqual(2);
+    const flow = JSON.parse(readFileSync(join(dir, "kv", "sectorflow_latest.json"), "utf8")).value;
+    expect(flow).toMatchObject({ tradingDate: "20261021", label: "10:30" });
+    expect(flow.boards.length).toBe(12);
+    const intraday = JSON.parse(readFileSync(join(dir, "kv", "sectorflow_intraday_20261021.json"), "utf8")).value;
+    expect(intraday.points.map((point) => point.t)).toEqual(["10:30"]);
+
     // Vercel side: read-only store over raw.githubusercontent.com, served here from the same files.
     process.env.SHORT_EMOTION_STORE = "github";
     process.env.SHORT_EMOTION_DATA_URL = "https://raw.example/short-emotion-data";

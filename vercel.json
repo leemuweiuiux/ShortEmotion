@@ -48,6 +48,8 @@
     {"source": "/home/", "destination": "/home/index.html"},
     {"source": "/technicalanalysis", "destination": "/technical-analysis/index.html"},
     {"source": "/technicalanalysis/", "destination": "/technical-analysis/index.html"},
+    {"source": "/sectorflow", "destination": "/sectorflow/index.html"},
+    {"source": "/sectorflow/", "destination": "/sectorflow/index.html"},
     {"source": "/shortemotion/cn", "destination": "/short-emotion/index.html"},
     {"source": "/shortemotion/cn/", "destination": "/short-emotion/index.html"}
   ]

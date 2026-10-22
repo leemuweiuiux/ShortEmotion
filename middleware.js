@@ -4,7 +4,7 @@
 //   /login             已登录 → 直接去 next（默认 /home）
 //   /account/...       个人页面（及编辑个人信息、积分流水），需登录（未登录 → /login?next=原网址）
 //   /admin/...         管理后台：只给管理员名单里的人（数据库 admin_me 检查）；未登录或不是管理员 → 与不存在的网址一样（404）
-//   /home、/technicalanalysis、/shortemotion/...
+//   /home、/technicalanalysis、/sectorflow、/shortemotion/...
 //                      未登录 → /login?next=原网址；凭证过期时顺手换新 cookie（滚动 90 天）；
 //                      已登录时记一笔当天的活跃（每人每天一次，只记「哪天来过」，见 session.js recordActivity）
 //
@@ -14,7 +14,7 @@ import { isAdmin } from "./api/_lib/admin.js";
 import { authConfig, resolveSession, safeNext, isSecureRequest, seenCookieFor, recordActivity } from "./api/_lib/session.js";
 
 export const config = {
-  matcher: ["/", "/login", "/login/", "/home", "/home/", "/technicalanalysis", "/technicalanalysis/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]
+  matcher: ["/", "/login", "/login/", "/home", "/home/", "/technicalanalysis", "/technicalanalysis/", "/sectorflow", "/sectorflow/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]
 };
 
 function redirect(location, setCookies = []) {
