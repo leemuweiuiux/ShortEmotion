@@ -94,6 +94,7 @@
 .admin-filter { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 8px; }
 /* 输入框、下拉、按钮：/shared/form.css（全站统一，直角、高 44px） */
 .admin-filter:has(#ledger-clear[hidden]) .btn-primary { grid-column: 1 / -1; }
+.admin-range { grid-column: 1 / -1; } /* 日期：起讫合成一栏，点开日历（/shared/date-range.js） */
 .admin-filter .btn-secondary[hidden] { display: none; }
 .admin-ledger small { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 .admin-code { padding: 1px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel); color: var(--ink); font-family: "Manrope", ui-monospace, monospace; font-size: 11px; cursor: pointer; }

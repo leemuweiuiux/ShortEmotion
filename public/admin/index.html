@@ -28,8 +28,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/about/about.css?v=11">
   <link rel="stylesheet" href="/shared/form.css?v=1">
+  <link rel="stylesheet" href="/shared/date-range.css?v=1">
   <link rel="stylesheet" href="/account/account.css?v=12">
-  <link rel="stylesheet" href="/admin/admin.css?v=3">
+  <link rel="stylesheet" href="/admin/admin.css?v=4">
   </head>
 <body class="sub-page admin-page">
   <nav class="subnav">
@@ -128,8 +129,7 @@
         <form id="ledger-filter" class="admin-filter">
           <label class="field"><span>类型</span><select id="ledger-kind" class="se-input"><option value="">全部</option></select></label>
           <label class="field"><span>用户代号</span><input id="ledger-user" class="se-input se-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="8" placeholder="U-XXXXXX"></label>
-          <label class="field"><span>开始日期</span><input id="ledger-from" class="se-input" type="date"></label>
-          <label class="field"><span>结束日期</span><input id="ledger-to" class="se-input" type="date"></label>
+          <div class="field admin-range"><span id="ledger-range-label">日期</span><button id="ledger-range" class="se-input dr-field" type="button" aria-haspopup="dialog" aria-labelledby="ledger-range-label ledger-range-text"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14" stroke="currentColor" stroke-width="1.6"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" stroke="currentColor" stroke-width="1.6"/></svg><span id="ledger-range-text" class="dr-field-text empty">全部日期</span><span id="ledger-range-days" class="dr-field-days"></span></button></div>
           <button class="btn-primary" type="submit">查询</button>
           <button id="ledger-clear" class="btn-secondary" type="button" hidden>清除筛选</button>
         </form>
@@ -173,6 +173,6 @@
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/admin/admin.js?v=2"></script>
+  <script type="module" src="/admin/admin.js?v=3"></script>
 </body>
 </html>
