@@ -1,5 +1,7 @@
 // 管理后台 /admin（只给管理员；middleware 已挡掉其他人）：总览、积分列表、积分发放。
 // 功能菜单收在导航栏左侧；只显示统计与流水（匿名用户代号），不显示邮箱、余额、备注。接口见 api/admin.js。
+import { openDateRange, rangeLabel } from "/shared/date-range.js?v=1";
+
 const $ = (selector) => document.querySelector(selector);
 const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
 const KIND_ORDER = ["signup", "signin", "invite_bonus", "invite_reward", "admin_grant", "admin_revoke", "refresh", "unlock", "refund", "analysis", "analysis_refund"];
@@ -188,9 +190,27 @@ let oldestId = null;
 const userInput = $("#ledger-user");
 userInput.addEventListener("input", () => { userInput.value = userInput.value.toUpperCase().replace(/[^U0-9A-F-]/g, ""); });
 
+// 日期：起讫合成一栏，点开日历选（/shared/date-range.js）；最早到积分系统上线那天（第一笔流水）
+const LEDGER_FIRST_DAY = "2026-10-20";
+let range = { from: "", to: "" };
+function renderRange() {
+  const label = rangeLabel(range.from, range.to);
+  const text = $("#ledger-range-text");
+  text.textContent = label ? label.text : "全部日期";
+  text.classList.toggle("empty", !label);
+  $("#ledger-range-days").textContent = label ? `${label.days} 天` : "";
+}
+$("#ledger-range").addEventListener("click", async () => {
+  const picked = await openDateRange({ ...range, min: LEDGER_FIRST_DAY });
+  if (!picked) return; // 关掉：不改
+  range = picked;
+  renderRange();
+  $("#ledger-filter").requestSubmit(); // 选好直接查询
+});
+
 function ledgerQuery(before) {
   const params = new URLSearchParams({ action: "ledger" });
-  const filters = { kind: $("#ledger-kind").value, user: userInput.value.trim(), from: $("#ledger-from").value, to: $("#ledger-to").value };
+  const filters = { kind: $("#ledger-kind").value, user: userInput.value.trim(), from: range.from, to: range.to };
   for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
   $("#ledger-clear").hidden = !Object.values(filters).some(Boolean);
   if (before) params.set("before", String(before));
@@ -231,6 +251,8 @@ $("#ledger-filter").addEventListener("submit", (event) => {
 });
 $("#ledger-clear").addEventListener("click", () => {
   $("#ledger-filter").reset();
+  range = { from: "", to: "" };
+  renderRange();
   oldestId = null;
   loadLedger(false);
 });
