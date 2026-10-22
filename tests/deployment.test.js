@@ -59,6 +59,18 @@ describe("网址：介绍页、登录页与看板", () => {
     }
   });
 
+  it("首页与个人页面的积分卡：注册当天还没填邀请码的新用户，在签到的位置补填", () => {
+    for (const [html, js] of [["public/home/index.html", "public/home/home.js"], ["public/account/index.html", "public/account/account.js"]]) {
+      expect(readFileSync(resolve(root, html), "utf8"), html).toContain('id="invite-entry"');
+      const code = readFileSync(resolve(root, js), "utf8");
+      expect(code, js).toContain("mountInviteEntry(");
+      expect(code, js).toContain("payload.inviteEligible");
+    }
+    const entry = readFileSync(resolve(root, "public/shared/invite-entry.js"), "utf8");
+    expect(entry).toContain('"/api/auth?action=invite-redeem"');
+    expect(entry).toContain('const KEY = "se_invite"');
+  });
+
   it("登录页有选填的邀请码，介绍页会记下邀请链接里的邀请码", () => {
     expect(readFileSync(resolve(root, "public/login/index.html"), "utf8")).toMatch(/<input id="invite"[^>]*>/);
     const about = readFileSync(resolve(root, "public/about/about.js"), "utf8");
@@ -132,7 +144,7 @@ describe("手机输入体验", () => {
 
 describe("页面脚本", () => {
   it("介绍页、登录页、共用模块 import 的文件都存在，简繁字表版本号一致", () => {
-    const files = ["public/about/about.js", "public/login/login.js", "public/account/account.js", "public/account/invite.js", "public/shared/lang.js", "public/short-emotion/app.js", "public/home/home.js", "public/technical-analysis/ta.js", "public/shared/nav-account.js"];
+    const files = ["public/about/about.js", "public/login/login.js", "public/account/account.js", "public/account/invite.js", "public/shared/invite-entry.js", "public/shared/lang.js", "public/short-emotion/app.js", "public/home/home.js", "public/technical-analysis/ta.js", "public/shared/nav-account.js"];
     const versions = new Set();
     for (const file of files) {
       const code = readFileSync(resolve(root, file), "utf8");

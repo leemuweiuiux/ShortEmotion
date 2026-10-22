@@ -1,5 +1,6 @@
 // 个人页面 /account：个人信息（只显示，编辑在 /account/edit）、积分（余额 + 签到）、邀请好友入口（/account/invite）、积分流水（最近 3 笔，全部在 /account/points）。
 import { $, setText, toast, readProfile, readPoints, signin, renderLedger } from "/account/common.js?v=7";
+import { mountInviteEntry } from "/shared/invite-entry.js?v=1";
 
 const signinButton = $("#signin");
 
@@ -40,10 +41,24 @@ applyTheme(readThemeChoice());
   } catch {}
 })();
 
-function setSigned(signed) {
+function setSigned(signed, invitePending = false) {
   signinButton.disabled = signed;
-  setText(signinButton, signed ? "今日已签到" : "签到 +10");
+  setText(signinButton, signed ? "今日已签到" : invitePending ? "签到 +60" : "签到 +10");
 }
+
+// 注册 1 天内、还没签到、还没绑定邀请：在签到的位置先显示「填写邀请码」
+const inviteEntry = mountInviteEntry($("#invite-entry"), {
+  setText,
+  onRedeemed: () => {
+    toast("已接受邀请：完成第一次签到，双方各得 50 积分");
+    signinButton.hidden = false;
+    loadPoints();
+  },
+  onSkip: () => {
+    signinButton.hidden = false;
+    signinButton.click();
+  }
+});
 
 /** 手机号中间隐码：保留前 3 位与后 4 位（例如 138****0000）；较短的号码只保留后 2 位。 */
 function maskPhone(number) {
@@ -67,9 +82,12 @@ async function loadPoints() {
     const payload = await readPoints();
     setText($("#points-balance"), payload.unlimited ? "不限额" : String(payload.balance));
     // 不限额账号不需要签到
-    signinButton.hidden = Boolean(payload.unlimited);
-    setSigned(Boolean(payload.signedToday));
-    $("#invite-pending").hidden = !payload.invitePending; // 受邀的新用户：第一次签到双方各 +50
+    const invitePending = Boolean(payload.invitePending) && !payload.signedToday;
+    const showEntry = Boolean(payload.inviteEligible) && !payload.signedToday;
+    signinButton.hidden = Boolean(payload.unlimited) || showEntry;
+    setSigned(Boolean(payload.signedToday), invitePending);
+    inviteEntry.show(showEntry);
+    $("#invite-pending").hidden = !invitePending; // 受邀的新用户：第一次签到双方各 +50
     renderLedger($("#ledger"), (payload.history || []).slice(0, 3));
   } catch (error) {
     setText($("#points-balance"), "—");

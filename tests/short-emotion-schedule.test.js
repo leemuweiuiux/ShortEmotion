@@ -72,7 +72,15 @@ describe("runScheduledRefresh (mock Wind, memory store)", () => {
   });
 
   it("forced run stores snapshots that the read API serves", async () => {
-    const result = await runScheduledRefresh({ force: true });
+    // 固定在周三盘中：模拟行情的时间取自当前时钟，开盘前（集合竞价）跑会跳过情绪与题材
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(bj("2026-10-21", "10:30"));
+    let result;
+    try {
+      result = await runScheduledRefresh({ force: true });
+    } finally {
+      vi.useRealTimers();
+    }
     expect(result.status).toBe("ok");
     expect(result.ran).toEqual(expect.arrayContaining(["emotion", "anomalies", "news"]));
     const emotion = await readResource("emotion");
