@@ -5,7 +5,7 @@
 // GET  /api/admin?action=lookup&email=                         发放前确认对方：打码邮箱、注册日期
 // POST /api/admin?action=grant  body { email, amount, reason }  积分发放（上限由数据库决定；原因 recharge / campaign）
 // POST /api/admin?action=undo   body { ledgerId }               撤销自己几分钟内的一笔发放
-import { adminOverview, adminLedger, adminLookup, adminGrant, adminUndo, ADMIN } from "./_lib/admin.js";
+import { adminOverview, adminLedger, adminLookup, adminGrant, adminUndo, adminMessage, ADMIN } from "./_lib/admin.js";
 import { cleanEmail } from "./_lib/login.js";
 import { authConfig, resolveSession, isSecureNodeRequest } from "./_lib/session.js";
 
@@ -51,7 +51,8 @@ export default async function handler(req, res) {
     if (action === "lookup") {
       const email = cleanEmail(req.query?.email);
       if (!email) return send(res, 400, { found: false, reason: "bad_email", message: "请输入正确的邮箱" }, session.setCookies);
-      return send(res, 200, await adminLookup(config, token, email), session.setCookies);
+      const who = await adminLookup(config, token, email);
+      return send(res, 200, who.found ? who : { ...who, message: adminMessage(who) }, session.setCookies); // 没注册或还没完成验证
     }
     const body = readJson(req.body);
     if (action === "undo") {
