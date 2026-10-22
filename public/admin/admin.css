@@ -92,22 +92,9 @@
 
 /* 积分列表 */
 .admin-filter { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 8px; }
-.admin-filter .field { gap: 6px; min-width: 0; }
-.admin-filter .btn-primary, .admin-filter .btn-secondary { min-height: 42px; }
+/* 输入框、下拉、按钮：/shared/form.css（全站统一，直角、高 44px） */
 .admin-filter:has(#ledger-clear[hidden]) .btn-primary { grid-column: 1 / -1; }
 .admin-filter .btn-secondary[hidden] { display: none; }
-.admin-filter select, .admin-filter input {
-  width: 100%;
-  min-width: 0;
-  min-height: 42px;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel);
-  color: var(--ink);
-  font: inherit;
-  font-size: 16px; /* 小于 16px 时 iOS 聚焦会放大页面 */
-}
 .admin-ledger small { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 .admin-code { padding: 1px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel); color: var(--ink); font-family: "Manrope", ui-monospace, monospace; font-size: 11px; cursor: pointer; }
 .admin-code:hover { border-color: var(--ink); }
@@ -116,7 +103,6 @@
 .admin-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .admin-chips button { min-height: 32px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
 .admin-chips button:hover { border-color: var(--ink); }
-.admin-page .field > label { color: var(--ink); font-weight: 600; }
 .admin-reasons { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .admin-error { margin: 0; padding: 10px 12px; border: 1px solid var(--heat, #ff4015); color: var(--heat, #ff4015); font-size: 13px; line-height: 1.6; }
 .admin-error[hidden] { display: none; }

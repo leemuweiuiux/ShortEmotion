@@ -2,6 +2,7 @@
 // 只给注册 1 天内、还没签到、还没绑定邀请的新用户（积分接口回传 inviteEligible）：盖住签到按钮，
 // 领取成功后变回签到（签到 +60：签到 10 + 邀请奖励 50）；也可以「没有邀请码，直接签到」。
 // 从邀请链接进来时记在 localStorage「se_invite」的邀请码会自动填好（与登录页同一份）。
+// 输入框样式：/shared/form.css 的 .se-bar（按钮在框内，全站统一）。
 const PATTERN = /^SE[A-HJKMNP-Z2-9]{6}$/;
 const KEY = "se_invite";
 const DAYS = 7;
@@ -24,7 +25,7 @@ function forgetInvite() {
  */
 export function mountInviteEntry(host, { setText = (element, text) => { element.textContent = text; }, onRedeemed, onSkip } = {}) {
   host.innerHTML = '<p class="invite-entry-title"><span></span><em>50</em><span></span></p>'
-    + '<form class="invite-entry-form" novalidate><input name="code" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="10" placeholder="SE + 6 位" aria-label="邀请码"><button type="submit"></button></form>'
+    + '<form class="invite-entry-form se-bar" novalidate><input class="se-code" name="code" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="10" placeholder="SE + 6 位" aria-label="邀请码"><button type="submit"></button></form>'
     + '<p class="invite-entry-error" role="alert" hidden></p>'
     + '<button type="button" class="invite-entry-skip"></button>';
   const [lead, tail] = host.querySelectorAll(".invite-entry-title span");
@@ -41,6 +42,8 @@ export function mountInviteEntry(host, { setText = (element, text) => { element.
 
   const showError = (message) => {
     error.hidden = !message;
+    if (message) input.setAttribute("aria-invalid", "true");
+    else input.removeAttribute("aria-invalid");
     if (message) setText(error, message);
   };
   input.addEventListener("input", () => {
