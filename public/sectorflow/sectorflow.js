@@ -1,7 +1,7 @@
 // 板块资金 /sectorflow（需登录，不扣积分）：读 /api/sectorflow（只读存好的数据，不调用数据源）。
-//   1. 资金流入增速前三（收盘数据；盘中显示上一交易日）
+//   1. 资金流入增速前三：今日主力净流入比前 5 日日均多出最多（盘中按已交易时间折算；10:00 前显示上一交易日）
 //   2. 今日资金趋势：主力资金累计净流入，高亮流入、流出前 3
-//   3. 近 20 日资金：增量（累计曲线）／增速（每个收盘日的近 5 日日均 − 前 5 日日均）
+//   3. 近 20 日资金：增量（累计曲线）／5 日增速（每个收盘日的近 5 日日均 − 前 5 日日均）
 //   4. 全部板块：可排序；点一行在两张图里高亮（最多 5 个）
 // 盘中每 5 分钟重新读一次（只读存好的数据）。图表手写 SVG，与看板一致；页面不标注数据来源。
 import { $, toast, goLogin, initAccountMenu } from "/shared/nav-account.js?v=2";
@@ -18,7 +18,7 @@ const MAX_PINNED = 5;
 let data = null;
 let view = "amount";
 let pinned = [];
-let sort = { key: "accel", dir: -1 };
+let sort = { key: "vsAvg", dir: -1 };
 
 // ── 时间 ──
 function clock(text) {
@@ -49,31 +49,33 @@ async function load() {
 
 // ── 版面 ──
 function render() {
-  const ready = data?.ready && data.close;
-  $("#sf-empty").hidden = Boolean(ready || data?.intraday);
-  for (const id of ["#sf-top-card", "#sf-trend-card", "#sf-table-card"]) $(id).hidden = !ready;
+  const ready = Boolean(data?.ready && data.rank);
+  $("#sf-empty").hidden = ready || Boolean(data?.intraday?.times?.length);
+  for (const id of ["#sf-top-card", "#sf-table-card"]) $(id).hidden = !ready;
+  $("#sf-trend-card").hidden = !(ready && data.close);
   $("#sf-intraday-card").hidden = !(data?.intraday?.times?.length);
   renderIntro();
   if (data?.intraday?.times?.length) renderIntraday();
   if (!ready) return;
   renderTop();
-  renderTrend();
+  if (data.close) renderTrend();
   renderTable();
 }
 
 function renderIntro() {
-  const close = data?.close;
+  const rank = data?.rank;
   const time = clock(data?.quoteTime);
   $("#sf-time").textContent = time ? `行情时间 ${time.md} ${time.hm}${data.live ? " · 盘中" : ""}` : "";
-  if (!close) {
-    $("#sf-headline").textContent = data?.intraday ? "今日资金趋势已更新，收盘后给出增速排名" : "板块资金数据准备中";
+  if (!rank) {
+    $("#sf-headline").textContent = data?.intraday ? "今日资金趋势已更新，10:00 后给出增速排名" : "板块资金数据准备中";
     return;
   }
-  const inflow = close.rows.filter((row) => Number(row.n5) > 0).length;
-  const top = close.top[0];
+  const inflow = data.rows.filter((row) => Number(row.today) > 0).length;
+  const top = rank.top[0];
+  const when = rank.live ? `截至 ${rank.label}` : `${dayLabel(rank.day)} 收盘`;
   $("#sf-headline").textContent = top
-    ? `近 5 日 ${inflow}/${close.rows.length} 个板块主力净流入；${top.name}增速最快，日均比前 5 日多流入 ${Math.abs(top.accel).toFixed(1)} 亿`
-    : `近 5 日 ${inflow}/${close.rows.length} 个板块主力净流入，暂无流入加速的板块`;
+    ? `${when}，${inflow}/${data.rows.length} 个板块主力净流入；${top.name}比前 5 日日均${rank.live ? "同期" : ""}多流入 ${Math.abs(top.vsAvg).toFixed(1)} 亿，加速最快`
+    : `${when}，${inflow}/${data.rows.length} 个板块主力净流入，暂无比前 5 日日均流入更多的板块`;
 }
 
 function streakText(streak) {
@@ -82,17 +84,17 @@ function streakText(streak) {
 }
 
 function renderTop() {
-  const close = data.close;
-  const list = $("#sf-top");
-  list.innerHTML = close.top.length
-    ? close.top.map((row, index) => `<li>
+  const rank = data.rank;
+  $("#sf-top").innerHTML = rank.top.length
+    ? rank.top.map((row, index) => `<li>
         <span class="sf-rank">${index + 1}</span>
-        <div class="sf-top-main"><b>${esc(row.name)}</b><small>近5日 ${signed(row.n5)} 亿 · 前5日 ${signed(row.prev5)} 亿 · ${streakText(row.streak)}</small></div>
-        <div class="sf-top-value"><strong class="${signClass(row.accel)}">${signed(row.accel)}</strong><small>亿/日</small></div>
+        <div class="sf-top-main"><b>${esc(row.name)}</b><small>今日 ${signed(row.today)} 亿 · 前5日日均 ${signed(row.avg5)} 亿${streakText(row.streak) === "—" ? "" : ` · ${streakText(row.streak)}`}</small></div>
+        <div class="sf-top-value"><strong class="${signClass(row.vsAvg)}">${signed(row.vsAvg)}</strong><small>亿</small></div>
       </li>`).join("")
-    : '<li class="sf-top-empty">暂无近 5 日净流入且在加速的板块</li>';
-  const time = clock(close.quoteTime);
-  $("#sf-top-note").textContent = `收盘数据 · ${dayLabel(close.day)} ${time?.hm || "15:00"}${data.live ? "；盘中显示上一交易日，收盘后更新" : ""}`;
+    : '<li class="sf-top-empty">暂无比前 5 日日均流入更多的板块</li>';
+  $("#sf-top-note").textContent = rank.live
+    ? `截至 ${rank.label}，前 5 日日均按已交易时间折算（已交易 ${Math.round(rank.fraction * 100)}%）。主力资金多集中在开盘，10:00 前显示上一交易日收盘的榜。`
+    : `${dayLabel(rank.day)} 收盘：今日全天主力净流入比前 5 日日均多出的金额。${data.live ? "10:00 后换成今天盘中的榜。" : ""}`;
 }
 
 // ── 高亮：默认按数值取前几名；点表格行后改为手动选的板块 ──
@@ -236,35 +238,30 @@ function renderTrend() {
       : [{ x: lastIndex, label: dayLabel(days[0]), anchor: "end" }],
     unit: "亿/日"
   });
-  sub.textContent = "每个收盘日的增速：近 5 日日均 − 前 5 日日均（亿元/日）· 零轴上方＝加速";
+  sub.textContent = "每个收盘日的 5 日增速：近 5 日日均 − 前 5 日日均（亿元/日）· 零轴上方＝加速";
   note.textContent = `零轴上方＝这 5 天平均每天比前 5 天流入更多（加速），下方＝减速。${days.length < 20 ? `已存 ${days.length} 个收盘日，之后每天收盘后补一个点。` : ""}`;
 }
 
 // ── 全部板块 ──
 function renderTable() {
-  const rows = [...data.close.rows];
-  const live = data.live;
-  const value = (row, key) => (key === "today" && live ? row.live : row[key]);
+  const rows = [...data.rows];
   rows.sort((a, b) => {
     if (sort.key === "name") return sort.dir * a.name.localeCompare(b.name, "zh-CN");
-    return sort.dir * ((value(a, sort.key) ?? -Infinity) - (value(b, sort.key) ?? -Infinity));
+    return sort.dir * ((a[sort.key] ?? -Infinity) - (b[sort.key] ?? -Infinity));
   });
-  $("#sf-rows").innerHTML = rows.map((row) => {
-    const today = value(row, "today");
-    return `<tr data-code="${esc(row.code)}" class="${pinned.includes(row.code) ? "pinned" : ""}" tabindex="0" aria-pressed="${pinned.includes(row.code)}">
+  $("#sf-rows").innerHTML = rows.map((row) => `<tr data-code="${esc(row.code)}" class="${pinned.includes(row.code) ? "pinned" : ""}" tabindex="0" aria-pressed="${pinned.includes(row.code)}">
       <th scope="row">${esc(row.name)}</th>
       <td class="${signClass(row.streak)}">${isNum(row.streak) && row.streak !== 0 ? `${row.streak > 0 ? "入" : "出"} ${Math.abs(row.streak)}` : "—"}</td>
-      <td class="num ${signClass(today)}">${signed(today)}</td>
-      <td class="num ${signClass(row.n5)}">${signed(row.n5)}${isNum(row.n5Days) ? `<small>${row.n5Days}/5</small>` : ""}</td>
+      <td class="num ${signClass(row.today)}">${signed(row.today)}</td>
+      <td class="num ${signClass(row.vsAvg)}">${signed(row.vsAvg)}</td>
       <td class="num ${signClass(row.accel)}">${signed(row.accel)}</td>
-    </tr>`;
-  }).join("");
+    </tr>`).join("");
   $$(".sf-table th[data-sort]").forEach((th) => {
     th.setAttribute("aria-sort", th.dataset.sort === sort.key ? (sort.dir > 0 ? "ascending" : "descending") : "none");
-    if (th.dataset.sort === "today") th.textContent = live ? "今日盘中" : "今日";
   });
   $("#sf-reset").hidden = !pinned.length;
-  $("#sf-table-note").textContent = `单位：亿元；增速为亿元/日。「连续」是连续净流入（入）或净流出（出）的天数，近5日下方是 5 天里净流入的天数。${live ? "今日盘中为截至行情时间的数字，其余为上一交易日收盘。" : ""}`;
+  const rank = data.rank;
+  $("#sf-table-note").textContent = `单位：亿元。「今日」「较5日均」${rank.live ? `截至 ${rank.label}（盘中按已交易时间折算）` : `为 ${dayLabel(rank.day)} 收盘`}；「5日增速」＝近 5 日日均 − 前 5 日日均（亿元/日），「连续」＝连续净流入（入）或净流出（出）的天数，这两项按最近收盘日。`;
 }
 
 // ── 互动 ──

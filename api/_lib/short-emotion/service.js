@@ -180,19 +180,6 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
   }
 
   const tasks = [];
-  // 板块资金：跟着短线情绪一起取（固定接口，一次调用）；收盘后只在还没存到收盘值时取
-  let sectorflowDue = false;
-  if (market === "cn") {
-    if (force || sectorflowCatchUp) sectorflowDue = true;
-    else if (jobs.emotion) sectorflowDue = marketLive;
-    else if (plan.anyDue && plan.minute >= 15 * 60) sectorflowDue = await sectorflowNeedsClose(store, plan.day).catch(() => false);
-  }
-  if (sectorflowDue) {
-    tasks.push(refreshSectorFlow(store, engine, { day: plan.day }).then((output) => {
-      if (output.skipped) result.skipped.push(`sectorflow: ${output.skipped}`);
-      else result.ran.push(`sectorflow(${output.quote})`);
-    }).catch((error) => { result.errors.push(`sectorflow: ${errorText(error)}`); }));
-  }
   if (jobs.anomalies && !marketLive && (result.mode === "scheduled" || inAuction)) {
     result.skipped.push("anomalies: 当日行情未就绪，跳过以免覆盖为旧数据");
   } else if (jobs.anomalies) {
@@ -224,6 +211,20 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
     } catch (error) {
       result.errors.push(`concept-codes: ${errorText(error)}`);
     }
+  }
+
+  // 板块资金：跟着短线情绪一起取（固定接口，一次调用），放在概念代码合并之后（当天清单要用到）；收盘后只在还没存到收盘值时取
+  let sectorflowDue = false;
+  if (market === "cn") {
+    if (force || sectorflowCatchUp) sectorflowDue = true;
+    else if (jobs.emotion) sectorflowDue = marketLive;
+    else if (plan.anyDue && plan.minute >= 15 * 60) sectorflowDue = await sectorflowNeedsClose(store, plan.day).catch(() => false);
+  }
+  if (sectorflowDue) {
+    await refreshSectorFlow(store, engine, { day: plan.day }).then((output) => {
+      if (output.skipped) result.skipped.push(`sectorflow: ${output.skipped}`);
+      else result.ran.push(`sectorflow(${output.quote})`);
+    }).catch((error) => { result.errors.push(`sectorflow: ${errorText(error)}`); });
   }
 
   const engineState = exportEngineState(plan.day);

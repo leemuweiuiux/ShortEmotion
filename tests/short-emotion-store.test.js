@@ -43,7 +43,10 @@ describe("short-emotion data branch (file store → GitHub read store)", () => {
     expect(result.windCalls.byTool["index_data/get_index_price_indicators"]).toBeGreaterThanOrEqual(2);
     const flow = JSON.parse(readFileSync(join(dir, "kv", "sectorflow_latest.json"), "utf8")).value;
     expect(flow).toMatchObject({ tradingDate: "20261021", label: "10:30" });
-    expect(flow.boards.length).toBe(12);
+    const boards = JSON.parse(readFileSync(join(dir, "kv", "sectorflow_boards.json"), "utf8")).value;
+    expect(boards.day).toBe("20261021");
+    expect(boards.boards.map((board) => board.name)).toContain("人形机器人"); // 名称去掉「指数」
+    expect(flow.boards.length).toBe(boards.boards.length);
     const intraday = JSON.parse(readFileSync(join(dir, "kv", "sectorflow_intraday_20261021.json"), "utf8")).value;
     expect(intraday.points.map((point) => point.t)).toEqual(["10:30"]);
 

@@ -1,11 +1,14 @@
 // 板块资金：计算（纯函数，可测试）。金额一律换算成「亿元」。
 //
 // 口径（2026-10-22 与产品确认）：
-//   增量（绝对值）：当日主力净流入、近 5 日主力净流入
-//   增速（加速度）：近 5 日日均 − 前 5 日日均，前 5 日 = 近 10 日 − 近 5 日（亿元/日）
+//   增量（绝对值）：当日主力净流入、近 5 日 / 近 20 日主力净流入
+//   较前 5 日日均（增速前三、首页卡片）：今日主力净流入 − 前 5 日日均 × 已交易比例
+//     · 已交易比例＝已交易分钟 ÷ 240（午休不算），收盘后为 1，即「今日全天 − 前 5 日日均」
+//     · 前 5 日日均＝上一个收盘日存下的「近 5 日」÷ 5（完全不含今天）；还没存到时用（近 10 日 − 今日）÷ 9 代替
+//     · 主力资金习惯集中在开盘，10:00 前不出盘中榜，显示上一交易日收盘的榜
+//   5 日增速（近 20 日图「增速」、全部板块）：近 5 日日均 − 前 5 日日均，前 5 日＝近 10 日 − 近 5 日（亿元/日）
 //   延续性：连红天数（连续净流入天数，负数为连续净流出）、近 5 日有几天净流入
-//   增速前三：只用收盘数据排（盘中只有半天的钱，跟前 5 日整天平均比会偏低），近 5 日为净流入且增速为正
-//   近 20 日累计：每天收盘存一笔；上线初期用区间值补点（20 日前＝0、10 日前、5 日前、今天）
+//   近 20 日累计：每天收盘存一笔；没存到的日子用区间值补点（20 日前＝0、10 日前、5 日前）
 
 export const FIELDS = [
   "最新交易日", "交易时间", "成交额",
@@ -90,12 +93,21 @@ export function boardMetrics(row) {
   };
 }
 
-/** 增速前三：近 5 日为净流入、增速为正，按增速排。 */
-export function topAccelerating(rows, count = TOP_COUNT) {
-  return rows.map(boardMetrics)
-    .filter((row) => row.accel != null && row.accel > 0 && row.n5 != null && row.n5 > 0)
-    .sort((a, b) => b.accel - a.accel || b.n5 - a.n5)
-    .slice(0, count);
+export const RANK_FROM = 10 * 60; // 10:00 前不出盘中榜
+
+/** 已交易比例：09:30–11:30、13:00–15:00 共 240 分钟。 */
+export function tradedFraction(minute) {
+  if (minute == null) return 1;
+  const m = Math.min(minute, SESSION_CLOSE);
+  const traded = m <= 11 * 60 + 30 ? Math.max(0, m - SESSION_START) : 120 + Math.max(0, Math.min(120, m - 13 * 60));
+  return Math.max(0, Math.min(1, traded / 240));
+}
+
+/** 较前 5 日日均：prev 是上一个收盘日的记录（同一板块），没有时用（近 10 日 − 今日）÷ 9 代替。 */
+export function versusAverage(row, prev, fraction = 1) {
+  const avg5 = prev?.n5 != null ? prev.n5 / 5 : row.n10 != null && row.today != null ? (row.n10 - row.today) / 9 : null;
+  if (avg5 == null || row.today == null) return { avg5: null, vsAvg: null };
+  return { avg5: round(avg5), vsAvg: round(row.today - avg5 * fraction) };
 }
 
 const dailyBoards = (snapshot) => Object.fromEntries(snapshot.boards.map((row) => [row.code, {
@@ -157,26 +169,58 @@ export function accelSeries(daily, code) {
   });
 }
 
-/** 页面用的完整数据。latest：最新快照；daily：每日记录；intraday：今日盘中各点。 */
+const recordRows = (record, names) => Object.entries(record?.boards || {}).map(([code, row]) => ({ ...row, code, name: names.get(code) || code }));
+
+/** 排名用的数据：10:00 之后用最新快照（盘中或收盘），之前用上一个收盘日。 */
+function rankingSource({ latest, daily, names }) {
+  if (latest?.tradingDate && latest.minute != null && latest.minute >= RANK_FROM && latest.boards?.length) {
+    const closed = latest.minute >= SESSION_CLOSE;
+    return { day: latest.tradingDate, minute: Math.min(latest.minute, SESSION_CLOSE), label: closed ? "15:00" : latest.label, live: !closed, rows: latest.boards.map((row) => ({ ...row, name: names.get(row.code) || row.name })) };
+  }
+  const record = daily?.days?.at(-1);
+  return record ? { day: record.day, minute: SESSION_CLOSE, label: "15:00", live: false, rows: recordRows(record, names) } : null;
+}
+
+/** 页面用的完整数据。boards：当天的板块清单；latest：最新快照；daily：每日记录；intraday：今日盘中各点。 */
 export function buildPayload({ boards, latest, daily, intraday }) {
-  const closeRecord = daily?.days?.at(-1) || null;
-  const closeRows = closeRecord
-    ? boards.filter((board) => closeRecord.boards[board.code]).map((board) => ({ ...closeRecord.boards[board.code], code: board.code, name: board.name }))
-    : [];
-  const live = Boolean(latest?.tradingDate && closeRecord?.day !== latest.tradingDate && latest.minute != null && latest.minute < SESSION_CLOSE);
-  const latestToday = Object.fromEntries((latest?.boards || []).map((row) => [row.code, round(row.today)]));
+  const names = new Map(boards.map((board) => [board.code, board.name]));
+  const days = daily?.days || [];
+  const closeRecord = days.at(-1) || null;
+  const source = rankingSource({ latest, daily, names });
+  const prev = source ? days.filter((record) => record.day < source.day).at(-1) : null;
+  const fraction = source ? tradedFraction(source.minute) : 1;
+  const bySource = new Map((source?.rows || []).map((row) => [row.code, { ...row, ...versusAverage(row, prev?.boards?.[row.code], fraction) }]));
+  const rows = boards.map((board) => {
+    const current = bySource.get(board.code) || null;
+    const close = closeRecord?.boards?.[board.code] || null;
+    // 5 日增速、连续天数按最近收盘日；最新快照本身就是更新的收盘时用快照
+    const newerClose = source && !source.live && source.day > (closeRecord?.day || "");
+    const trend = boardMetrics({ ...((newerClose ? current : close) || current || {}), code: board.code, name: board.name });
+    return {
+      code: board.code,
+      name: board.name,
+      today: round(current?.today ?? null),
+      avg5: current?.avg5 ?? null,
+      vsAvg: current?.vsAvg ?? null,
+      accel: trend.accel,
+      n5: trend.n5,
+      n5Days: trend.n5Days,
+      n20: trend.n20,
+      streak: trend.streak
+    };
+  }).filter((row) => row.today != null || row.accel != null);
+  const top = rows.filter((row) => row.vsAvg != null && row.vsAvg > 0 && row.today > 0)
+    .sort((a, b) => b.vsAvg - a.vsAvg || b.today - a.today)
+    .slice(0, TOP_COUNT);
   const points = intraday?.points || [];
   return {
-    ready: boards.length > 0 && Boolean(closeRecord || latest),
+    ready: boards.length > 0 && Boolean(source),
     boards: boards.map(({ code, name }) => ({ code, name })),
     quoteTime: latest?.quoteTime || closeRecord?.quoteTime || null,
-    live,
-    close: closeRecord ? {
-      day: closeRecord.day,
-      quoteTime: closeRecord.quoteTime,
-      top: topAccelerating(closeRows),
-      rows: closeRows.map(boardMetrics).map((row) => ({ ...row, live: live ? latestToday[row.code] ?? null : null }))
-    } : null,
+    live: Boolean(latest?.minute != null && latest.minute < SESSION_CLOSE && latest.tradingDate !== closeRecord?.day),
+    rank: source ? { day: source.day, label: source.label, live: source.live, fraction: round(fraction, 3), top } : null,
+    close: closeRecord ? { day: closeRecord.day, quoteTime: closeRecord.quoteTime } : null,
+    rows,
     intraday: intraday ? {
       day: intraday.day,
       times: points.map((point) => point.t),
@@ -187,12 +231,13 @@ export function buildPayload({ boards, latest, daily, intraday }) {
   };
 }
 
-/** 首页卡片：增速前三（收盘数据）。 */
+/** 首页卡片：增速前三（较前 5 日日均）。 */
 export function buildSummary(payload) {
   return {
     ready: payload.ready,
-    day: payload.close?.day || null,
-    quoteTime: payload.close?.quoteTime || null,
-    top: (payload.close?.top || []).map(({ code, name, accel, n5, streak, today }) => ({ code, name, accel, n5, streak, today }))
+    day: payload.rank?.day || null,
+    label: payload.rank?.label || null,
+    live: Boolean(payload.rank?.live),
+    top: (payload.rank?.top || []).map(({ code, name, today, avg5, vsAvg, streak }) => ({ code, name, today, avg5, vsAvg, streak }))
   };
 }

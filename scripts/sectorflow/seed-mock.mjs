@@ -1,6 +1,6 @@
 // 本地预览用：生成一份「板块资金」模拟数据（20 个收盘日 + 今日盘中），数字是合成的，不是市场数据。
 // 用法：node scripts/sectorflow/seed-mock.mjs <数据目录> [closed]
-//   之后：WIND_MOCK=1 SHORT_EMOTION_AUTH=off SHORT_EMOTION_STORE=file SHORT_EMOTION_DATA_DIR=<数据目录> node scripts/dev-server.mjs
+//   之后：SHORT_EMOTION_AUTH=off SHORT_EMOTION_STORE=file SHORT_EMOTION_DATA_DIR=<数据目录> node scripts/dev-server.mjs
 //   传 closed 时今天已收盘（增速前三换成今天的）；不传时停在盘中 14:41。
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -104,6 +104,7 @@ for (const minute of times) {
 const kv = path.join(dir, "kv");
 await mkdir(kv, { recursive: true });
 const write = (name, value) => writeFile(path.join(kv, name), JSON.stringify({ value, updatedAt: new Date().toISOString() }));
+await write("sectorflow_boards.json", { day: today, boards: MOCK_BOARDS });
 await write("sectorflow_latest.json", latest);
 await write("sectorflow_daily.json", daily);
 await write(`sectorflow_intraday_${today}.json`, intraday);

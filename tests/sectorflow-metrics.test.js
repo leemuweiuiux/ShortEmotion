@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { quoteClock, snapshotFromRows, boardMetrics, topAccelerating, upsertDaily, appendIntraday, cumulativeSeries, accelSeries, buildPayload, buildSummary } from "../api/_lib/sectorflow/metrics.js";
+import { quoteClock, snapshotFromRows, boardMetrics, tradedFraction, versusAverage, upsertDaily, appendIntraday, cumulativeSeries, accelSeries, buildPayload, buildSummary } from "../api/_lib/sectorflow/metrics.js";
+import { selectBoards, displayName } from "../api/_lib/sectorflow/boards.js";
 
 const BOARDS = [{ code: "8841902.WI", name: "宇树机器人" }, { code: "8841297.WI", name: "先进封装" }, { code: "8841079.WI", name: "挖掘机" }];
 // 2026-10-22 14:41 实测的一次返回（单位：元）
@@ -25,12 +26,18 @@ describe("板块资金：计算", () => {
     expect(packaging).toMatchObject({ today: 19.31, n5: 25.66, prev5: -26.06, accel: 10.34 });
   });
 
-  it("增速前三：只排近 5 日净流入且增速为正的", () => {
-    const top = topAccelerating(snapshotFromRows(ROWS, BOARDS).boards);
-    expect(top.map((row) => row.name)).toEqual(["先进封装", "宇树机器人", "挖掘机"]);
-    const slowing = { code: "X", name: "放缓", today: 1, n5: 5, n10: 20, n20: 30 }; // 前 5 日 15 > 近 5 日 5
-    const outflow = { code: "Y", name: "流出收窄", today: 1, n5: -5, n10: -40, n20: -50 };
-    expect(topAccelerating([slowing, outflow])).toEqual([]);
+  it("已交易比例：午休不算，收盘后为 1", () => {
+    expect(tradedFraction(9 * 60 + 30)).toBe(0);
+    expect(tradedFraction(10 * 60 + 30)).toBe(0.25);
+    expect(tradedFraction(12 * 60)).toBe(0.5);
+    expect(tradedFraction(14 * 60)).toBe(0.75);
+    expect(tradedFraction(15 * 60 + 20)).toBe(1);
+  });
+
+  it("较前 5 日日均：有上一个收盘日用它的近 5 日；没有时用（近 10 日 − 今日）÷ 9", () => {
+    expect(versusAverage({ today: 9, n10: 50 }, { n5: 60 }, 0.25)).toEqual({ avg5: 12, vsAvg: 6 }); // 9 − 12 × 25%
+    expect(versusAverage({ today: 20, n10: 101 }, null, 1)).toEqual({ avg5: 9, vsAvg: 11 });
+    expect(versusAverage({ today: null, n10: 1 }, null)).toEqual({ avg5: null, vsAvg: null });
   });
 
   it("收盘值只在 15:00 之后写入，同一天覆盖，盘中点按分钟去重", () => {
@@ -75,19 +82,37 @@ describe("板块资金：计算", () => {
     expect(accelSeries(daily, "A").map((item) => item.value)).toEqual([1, 1.6, 2.4]); // (n5 − (n10 − n5)) / 5
   });
 
-  it("页面数据：盘中显示上一交易日的增速前三，今日盘中另列；首页只带前三", () => {
-    const daily = upsertDaily(null, snapshotFromRows(atClose(ROWS, "20261021"), BOARDS));
-    const latest = snapshotFromRows(ROWS, BOARDS);
-    const intraday = appendIntraday(null, latest);
-    const payload = buildPayload({ boards: BOARDS, latest, daily, intraday });
-    expect(payload.live).toBe(true);
-    expect(payload.close.day).toBe("20261021");
-    expect(payload.close.top.map((row) => row.name)).toEqual(["先进封装", "宇树机器人", "挖掘机"]);
-    expect(payload.close.rows[0].live).toBe(15.75);
+  it("增速前三：10:00 后用盘中快照按已交易时间折算，之前显示上一交易日收盘", () => {
+    const daily = upsertDaily(null, snapshotFromRows(atClose(ROWS, "20261021"), BOARDS)); // 上一交易日：近 5 日分别 46.12 / 25.66 / 6.68 亿
+    const latest = snapshotFromRows(ROWS, BOARDS); // 10-22 14:41，已交易 221/240
+    const payload = buildPayload({ boards: BOARDS, latest, daily, intraday: appendIntraday(null, latest) });
+    expect(payload.rank).toMatchObject({ day: "20261022", label: "14:41", live: true, fraction: 0.921 });
+    // 先进封装 19.31 − 25.66/5 × 0.921 = 14.58；宇树机器人 15.75 − 46.12/5 × 0.921 = 7.26；挖掘机 3.06 − 6.68/5 × 0.921 = 1.83
+    expect(payload.rank.top.map((row) => [row.name, row.vsAvg])).toEqual([["先进封装", 14.58], ["宇树机器人", 7.26], ["挖掘机", 1.83]]);
+    expect(payload.rows.find((row) => row.name === "宇树机器人")).toMatchObject({ today: 15.75, avg5: 9.22, accel: 9.88, streak: 4 });
     expect(payload.intraday.series["8841902.WI"]).toEqual([15.75]);
+
+    const early = { ...latest, minute: 9 * 60 + 40, label: "09:40" };
+    expect(buildPayload({ boards: BOARDS, latest: early, daily, intraday: null }).rank).toMatchObject({ day: "20261021", live: false, fraction: 1 });
+
     const summary = buildSummary(payload);
-    expect(summary).toMatchObject({ ready: true, day: "20261021" });
-    expect(summary.top[0]).toEqual({ code: "8841297.WI", name: "先进封装", accel: 10.34, n5: 25.66, streak: 3, today: 19.31 });
+    expect(summary).toMatchObject({ ready: true, day: "20261022", label: "14:41", live: true });
+    expect(summary.top[0]).toEqual({ code: "8841297.WI", name: "先进封装", today: 19.31, avg5: 5.13, vsAvg: 14.58, streak: 3 });
     expect(buildPayload({ boards: [], latest: null, daily: null, intraday: null }).ready).toBe(false);
+  });
+
+  it("板块清单：近 20 个交易日出现过、排除风格资金类、按出现天数取前 50，名称去掉「指数」", () => {
+    const codes = { codes: {
+      "8841902.WI": { name: "宇树机器人指数", lastSeen: "20261022", days: 3, hits: 9 },
+      "8841297.WI": { name: "先进封装指数", lastSeen: "20261021", days: 5, hits: 4 },
+      "8841001.WI": { name: "陆股通轻仓指数", lastSeen: "20261022", days: 9, hits: 30 },
+      "8841002.WI": { name: "小市值指数", lastSeen: "20261022", days: 9, hits: 30 },
+      "8841004.WI": { name: "国家队指数", lastSeen: "20261022", days: 9, hits: 30 },
+      "8841005.WI": { name: "建材金股指数", lastSeen: "20261022", days: 9, hits: 30 },
+      "8841003.WI": { name: "老题材指数", lastSeen: "20260901", days: 9, hits: 30 }
+    } };
+    expect(selectBoards(codes, "20261022")).toEqual([{ code: "8841297.WI", name: "先进封装" }, { code: "8841902.WI", name: "宇树机器人" }]);
+    expect(selectBoards(codes, "20261022", { limit: 1 })).toHaveLength(1);
+    expect(displayName("CPO概念指数")).toBe("CPO概念");
   });
 });

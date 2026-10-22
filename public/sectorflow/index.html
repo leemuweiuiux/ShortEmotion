@@ -45,7 +45,7 @@
     <main>
       <section class="card sf-intro">
         <p id="sf-headline" class="sf-headline">读取中…</p>
-        <p class="card-desc">概念板块的主力资金净流入（亿元）。增量看绝对值，增速看加速度：近 5 日日均比前 5 日日均多流入多少。</p>
+        <p class="card-desc">短线情绪近 20 个交易日出现过的概念板块，主力资金净流入（亿元）。增量看绝对值；增速看加速度：今天比前 5 日日均多流入多少，以及这 5 天比前 5 天日均多流入多少。</p>
         <span id="sf-time" class="sf-time"></span>
       </section>
 
@@ -72,7 +72,7 @@
           <h2 class="card-title">近 20 日资金</h2>
           <div class="sf-seg" role="tablist" aria-label="切换增量与增速">
             <button type="button" role="tab" data-view="amount" aria-selected="true">增量</button>
-            <button type="button" role="tab" data-view="accel" aria-selected="false">增速</button>
+            <button type="button" role="tab" data-view="accel" aria-selected="false">5日增速</button>
           </div>
         </div>
         <p id="sf-trend-sub" class="sf-sub"></p>
@@ -90,8 +90,8 @@
               <th scope="col" data-sort="name">板块</th>
               <th scope="col" data-sort="streak">连续</th>
               <th scope="col" data-sort="today">今日</th>
-              <th scope="col" data-sort="n5">近5日</th>
-              <th scope="col" data-sort="accel" aria-sort="descending">增速</th>
+              <th scope="col" data-sort="vsAvg" aria-sort="descending">较5日均</th>
+              <th scope="col" data-sort="accel">5日增速</th>
             </tr></thead>
             <tbody id="sf-rows"></tbody>
           </table>
