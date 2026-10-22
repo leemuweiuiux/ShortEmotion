@@ -22,7 +22,15 @@ describe("short-emotion data branch (file store → GitHub read store)", () => {
 
   it("the Actions job writes snapshots that the Vercel read API can serve", async () => {
     const { runScheduledRefresh, readResource } = await import("../api/_lib/short-emotion/service.js");
-    const result = await runScheduledRefresh({ force: true });
+    // 固定在周三盘中：模拟行情的时间取自当前时钟，开盘前（集合竞价）跑会跳过情绪与题材
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-21T10:30:00+08:00"));
+    let result;
+    try {
+      result = await runScheduledRefresh({ force: true });
+    } finally {
+      vi.useRealTimers();
+    }
     expect(result.status).toBe("ok");
 
     // Vercel side: read-only store over raw.githubusercontent.com, served here from the same files.
