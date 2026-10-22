@@ -3,8 +3,9 @@
 //   2. 个股技术分析：输入股票按「开始分析」→ 跳到 /technicalanalysis 并由那边发起分析（扣 10 积分）
 //   3. 今日短线情绪：与看板「A股短线情绪」卡同款（姿态、分数、阶段与说明、六个维度），
 //      下面再加市场概况（全A涨跌幅、成交额、涨跌家数、涨跌停）与行情时间，点卡片进入看板
-//   4. 资金流入增速前三（板块资金）：今日主力净流入比前 5 日日均多出最多（盘中按已交易时间折算），点卡片进入 /sectorflow，不扣积分
-//   5. 当日题材异动：未解锁时只显示题材数量，可在首页直接解锁（−5 积分，12 小时）；解锁后列出前 3 个
+//   4. 当日题材异动：未解锁时只显示题材数量，可在首页直接解锁（−5 积分，12 小时）；解锁后列出前 3 个
+//   5. 资金流入增速前三（板块资金，放在最后）：今日主力净流入比前 5 日日均多出最多（盘中按已交易时间折算），
+//      点卡片进入 /sectorflow，不扣积分；还没有数据时也显示入口
 import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderRecent } from "/shared/nav-account.js?v=2";
 import { mountInviteEntry } from "/shared/invite-entry.js?v=2";
 
@@ -274,14 +275,17 @@ async function unlock(event) {
   }
 }
 
-// ── 4. 资金流入增速前三（板块资金）──
+// ── 5. 资金流入增速前三（板块资金，入口一直显示）──
 const streakText = (streak) => (!Number(streak) ? "" : Number(streak) > 0 ? ` · 连 ${streak} 日流入` : ` · 连 ${-streak} 日流出`);
 const yi = (value) => (Number.isFinite(Number(value)) ? `${Number(value) > 0 ? "+" : Number(value) < 0 ? "−" : ""}${Math.abs(Number(value)).toFixed(1)}` : "—");
 async function loadSectorFlow() {
   try {
     const { response, payload } = await request("/api/sectorflow?resource=summary");
-    if (!response.ok || !payload.ready || !payload.day) return; // 还没有数据：不显示
     const list = $("#sectorflow-top");
+    if (!response.ok || !payload.ready || !payload.day) { // 还没有数据：入口照常显示
+      list.innerHTML = '<li class="home-sf-empty">开盘后更新，10:00 后给出增速前三</li>';
+      return;
+    }
     list.textContent = "";
     for (const [index, row] of (payload.top || []).entries()) {
       const item = document.createElement("li");
@@ -295,11 +299,12 @@ async function loadSectorFlow() {
     if (!list.children.length) list.innerHTML = '<li class="home-sf-empty">暂无比前 5 日日均流入更多的板块</li>';
     const md = `${payload.day.slice(4, 6)}-${payload.day.slice(6, 8)}`;
     $("#sectorflow-time").textContent = payload.live ? `截至 ${md} ${payload.label}（盘中）` : `${md} 收盘`;
-    $("#sectorflow-card").hidden = false;
-  } catch {}
+  } catch {
+    $("#sectorflow-top").innerHTML = '<li class="home-sf-empty">暂时无法读取，点进去看看</li>';
+  }
 }
 
 await loadPoints();
 loadEmotion();
-loadSectorFlow();
 loadAnomalies();
+loadSectorFlow();
