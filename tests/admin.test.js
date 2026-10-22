@@ -32,9 +32,14 @@ beforeEach(() => {
       const LIMITS = { maxAmount: 1000, dailyLimit: 50, undoMinutes: 10 };
       if (name === "admin_overview") return Response.json({ generatedAt: "2026-10-21T06:40:00Z", limits: LIMITS, users: { total: 9 }, points: { circulating: 510, today: [{ kind: "signin", issued: 10, spent: 0, count: 1 }], week: [{ kind: "analysis", issued: 0, spent: -20, count: 2 }] }, balances: { accounts: 2, lt10: 1, b10to49: 0, b50to99: 0, gte100: 1 }, spend7d: { users: 1, points: 20 }, invites: { bound: 1, rewarded: 0 }, analyses: { today: 2, week: 10, users7d: 3 }, grants: { myToday: 3 } });
       if (name === "admin_ledger") return Response.json([{ id: 7, kind: "admin_grant", delta: 300, created_at: "2026-10-21T06:00:00Z", user_code: "U-3F9A1C" }]);
-      if (name === "admin_lookup") return Response.json(args.p_email === "nobody@example.com" ? { found: false } : { found: true, masked: "u***@example.com", registeredAt: "2026-10-18T02:00:00Z", userCode: "U-3F9A1C" });
+      if (name === "admin_lookup") {
+        if (args.p_email === "pending@example.com") return Response.json({ found: false, reason: "unverified" });
+        if (args.p_email === "nobody@example.com") return Response.json({ found: false, reason: "not_found" });
+      }
+      if (name === "admin_lookup") return Response.json({ found: true, masked: "u***@example.com", registeredAt: "2026-10-18T02:00:00Z", userCode: "U-3F9A1C" });
       if (name === "admin_grant") {
         if (args.p_amount > LIMITS.maxAmount) return Response.json({ ok: false, reason: "bad_amount", limits: LIMITS });
+        if (args.p_email === "pending@example.com") return Response.json({ ok: false, reason: "unverified", limits: LIMITS });
         return Response.json(args.p_email === "nobody@example.com" ? { ok: false, reason: "not_found", limits: LIMITS } : { ok: true, ledgerId: 41, amount: args.p_amount, reasonLabel: "活动奖励", masked: "u***@example.com", myToday: 4, undoUntil: "2026-10-21T06:50:00Z", limits: LIMITS });
       }
       if (name === "admin_undo") return Response.json(args.p_ledger_id === 41 ? { ok: true, amount: 300 } : { ok: false, reason: "expired", limits: LIMITS });
@@ -93,6 +98,13 @@ describe("管理后台接口", () => {
     expect((await call({ query: { action: "lookup", email: "U@Example.com" } })).body).toEqual({ found: true, masked: "u***@example.com", registeredAt: "2026-10-18T02:00:00Z", userCode: "U-3F9A1C" });
     expect(calls.at(-1).args).toEqual({ p_email: "u@example.com" });
     expect((await call({ query: { action: "lookup", email: "bad" } })).statusCode).toBe(400);
+  });
+
+  it("只能发给验证过的账号：没注册、还没完成验证都带回说明", async () => {
+    expect((await call({ query: { action: "lookup", email: "nobody@example.com" } })).body).toEqual({ found: false, reason: "not_found", message: "这个邮箱还没有注册" });
+    expect((await call({ query: { action: "lookup", email: "pending@example.com" } })).body).toEqual({ found: false, reason: "unverified", message: "这个邮箱还没完成验证，不能发放" });
+    const grant = await call({ method: "POST", query: { action: "grant" }, body: { email: "pending@example.com", amount: 5, reason: "recharge" } });
+    expect(grant.body).toMatchObject({ ok: false, reason: "unverified", message: "这个邮箱还没完成验证，不能发放" });
   });
 
   it("积分发放：接口只检查格式，上限由数据库决定并带回说明", async () => {

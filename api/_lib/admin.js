@@ -16,6 +16,7 @@ export function adminMessage(result = {}) {
     bad_amount: limits.maxAmount ? `每次发放 1–${limits.maxAmount} 积分` : "积分数不正确",
     daily_limit: limits.dailyLimit ? `今天已发放 ${limits.dailyLimit} 笔，明天再发` : "今天的发放笔数已到上限",
     not_found: "这个邮箱还没有注册",
+    unverified: "这个邮箱还没完成验证，不能发放",
     expired: limits.undoMinutes ? `已超过 ${limits.undoMinutes} 分钟，不能撤销` : "已超过可撤销的时间",
     already: "这笔已经撤销过了",
     insufficient: "对方已经用掉部分积分，不能撤销"
