@@ -2,6 +2,7 @@
 //   runScheduledRefresh — the only code path that calls Wind (GitHub Actions cron / manual trigger)
 //   readResource        — what page visitors get: stored snapshots, never a Wind call
 import * as cnEngine from "./engine.js";
+import { normalizeAnomalies } from "./role-policy.js";
 import { resetWindCallStats, windCallStats } from "./wind-client.js";
 import { getStore, storageMode } from "./store.js";
 import { duePlan, needsCloseCatchUp, scheduleSummary, scheduleFor, MARKETS } from "./schedule.js";
@@ -123,9 +124,10 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
     }
   }
 
-  // 收盘后收缩（节约 Wind 额度）：当日已有 15:00 收盘快照时，收盘后的刷新只更新新闻，
+  // 收盘后收缩（节约 Wind 额度）：显式 force 刷新必须重算，允许新规则替换旧收盘快照。
+  // 普通定时更新在当日已有 15:00 收盘快照时只更新新闻，
   // 行情与题材收盘后不会再变。若当日快照仍是盘中时点，收盘后仍要全量取一次收盘数据。
-  if (market === "cn" && plan.minute > 15 * 60) {
+  if (!force && market === "cn" && plan.minute > 15 * 60) {
     const todayEmotion = (await store.kvGet(KEY.emotion).catch(() => null))?.value;
     const closeMinute = quoteMinuteOf(todayEmotion);
     if (todayEmotion && quoteDayOf(todayEmotion) === plan.day && closeMinute != null && closeMinute >= 15 * 60) {
@@ -189,7 +191,7 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
         result.errors.push(`anomalies: 本次无有效结果，保留上一份 | ${output.errors.slice(0, 3).join(" | ")}`);
         return;
       }
-      await store.kvSet(KEY.anomalies, output);
+      await store.kvSet(KEY.anomalies, normalizeAnomalies(output));
       result.ran.push("anomalies");
     }).catch((error) => { result.errors.push(`anomalies: ${errorText(error)}`); }));
   }
@@ -273,7 +275,7 @@ export async function readResource(resource, market = "cn", { fresh = false } = 
   }
   if (resource === "anomalies") {
     const entry = await store.kvGet(KEY.anomalies);
-    return entry ? { ...entry.value, ...meta(entry) } : { ...EMPTY_ANOMALIES, pending: true, ...meta(null) };
+    return entry ? { ...normalizeAnomalies(entry.value), ...meta(entry) } : { ...EMPTY_ANOMALIES, pending: true, ...meta(null) };
   }
   if (resource === "news") {
     const entry = await store.kvGet(KEY.news);

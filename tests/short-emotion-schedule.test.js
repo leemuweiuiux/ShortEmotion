@@ -135,7 +135,7 @@ describe("市场", () => {
 describe("Wind 调用统计", () => {
   it("每次更新把调用次数写进 last-run（按工具、按 Key）", async () => {
     process.env.WIND_MOCK = "1";
-    const { runScheduledRefresh } = await import("../api/_lib/short-emotion/service.js");
+    const { runScheduledRefresh, readResource } = await import("../api/_lib/short-emotion/service.js");
     // 固定在今天盘中，避免收盘后「只更新新闻」的收缩影响测试
     const { localDate } = await import("../api/_lib/short-emotion/engine.js");
     const day = localDate();
@@ -168,9 +168,9 @@ describe("评分连续性（只取同一评分口径）", () => {
 });
 
 describe("收盘后收缩", () => {
-  it("当日已有 15:00 收盘快照时，收盘后的刷新只更新新闻", async () => {
+  it("显式force刷新可替换已有15:00旧版本收盘快照", async () => {
     process.env.WIND_MOCK = "1";
-    const { runScheduledRefresh } = await import("../api/_lib/short-emotion/service.js");
+    const { runScheduledRefresh, readResource } = await import("../api/_lib/short-emotion/service.js");
     const { getStore } = await import("../api/_lib/short-emotion/store.js");
     const { localDate } = await import("../api/_lib/short-emotion/engine.js");
     const day = localDate();
@@ -179,9 +179,10 @@ describe("收盘后收缩", () => {
     await store.kvSet("emotion:latest", { ...(previous?.value || {}), quoteTime: `${day} 15:00:00` });
     const now = new Date(`${day.slice(0, 4)}-${day.slice(4, 6)}-${day.slice(6, 8)}T15:20:00+08:00`);
     const result = await runScheduledRefresh({ force: true, market: "cn", now });
-    expect(result.ran).not.toContain("emotion");
-    expect(result.ran).not.toContain("anomalies");
-    expect(result.skipped.join(" ")).toContain("收盘后只更新新闻");
+    expect(result.ran).toContain("emotion");
+    expect(result.ran).toContain("anomalies");
+    const refreshed = await readResource("emotion");
+    expect(refreshed.scoreVersion).toBe(4);
   });
 });
 
