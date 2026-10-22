@@ -481,8 +481,25 @@ function classify(score, metrics) {
   return base;
 }
 
+// 板块资金：本次更新看到的概念指数（代码 + 名称），由 service 合并进代码清单（api/_lib/sectorflow/concepts.js）
+const seenConcepts = new Map();
+function noteConcepts(rows) {
+  for (const row of rows) {
+    const code = row["Wind代码"];
+    const name = row["证券简称"] || row["中文简称"];
+    if (code && name) seenConcepts.set(code, { code, name: String(name).trim() });
+  }
+}
+function takeSeenConcepts() {
+  const rows = [...seenConcepts.values()];
+  seenConcepts.clear();
+  return rows;
+}
+
 function normalizeThemes(payload) {
-  return tables(payload).flatMap(objects).map((row) => ({
+  const rawRows = tables(payload).flatMap(objects);
+  noteConcepts(rawRows);
+  return rawRows.map((row) => ({
     code: row["Wind代码"],
     name: row["证券简称"],
     changePct: Number(Object.entries(row).find(([key]) => key.includes("涨跌幅"))?.[1]),
@@ -694,6 +711,7 @@ function quoteDateKey(value) {
 function localThemeMomentumRows(payload) {
   const seen = new Set();
   const rawRows = tables(payload).flatMap(objects);
+  noteConcepts(rawRows);
   let pricePairCount = 0;
   let exactTimeCount = 0;
   let inferredTimeCount = 0;
@@ -1469,6 +1487,7 @@ export { scoreLiquidity, predictFullDayAmount, limitLadderMetrics, screenerCount
 export {
   loadEmotion,
   loadThemeAnomalies,
+  takeSeenConcepts,
   loadNews,
   aggregateDailyHistory,
   isTradingSessionHistory,

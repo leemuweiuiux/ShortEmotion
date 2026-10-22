@@ -33,6 +33,11 @@ describe("short-emotion data branch (file store → GitHub read store)", () => {
     }
     expect(result.status).toBe("ok");
 
+    // 板块资金：顺手记下的概念指数代码（不多调用 Wind）
+    const codes = JSON.parse(readFileSync(join(dir, "kv", "sectorflow_concept-codes.json"), "utf8")).value;
+    expect(codes.count).toBeGreaterThan(0);
+    expect(codes.codes["8841416.WI"]).toMatchObject({ name: "人形机器人指数", firstSeen: "20261021", days: 1 });
+
     // Vercel side: read-only store over raw.githubusercontent.com, served here from the same files.
     process.env.SHORT_EMOTION_STORE = "github";
     process.env.SHORT_EMOTION_DATA_URL = "https://raw.example/short-emotion-data";
