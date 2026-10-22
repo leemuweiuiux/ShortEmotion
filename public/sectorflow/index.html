@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=17">
-  <link rel="stylesheet" href="/sectorflow/sectorflow.css?v=1">
+  <link rel="stylesheet" href="/sectorflow/sectorflow.css?v=2">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -43,28 +43,22 @@
     </nav>
 
     <main>
-      <section class="card sf-intro">
-        <p id="sf-headline" class="sf-headline">读取中…</p>
-        <p class="card-desc">短线情绪近 20 个交易日出现过的概念板块，主力资金净流入（亿元）。增量看绝对值；增速看加速度：今天比前 5 日日均多流入多少，以及这 5 天比前 5 天日均多流入多少。</p>
-        <span id="sf-time" class="sf-time"></span>
-      </section>
-
-      <section id="sf-empty" class="card" hidden>
-        <p class="empty">板块资金数据准备中，开盘后更新。</p>
+      <section id="sf-empty" class="card">
+        <p id="sf-empty-text" class="empty">读取中…</p>
       </section>
 
       <section id="sf-top-card" class="card" hidden>
-        <div class="card-head"><h2 class="card-title">资金流入增速前三</h2><span class="pill">较前 5 日日均</span></div>
+        <div class="card-head"><h2 class="card-title">资金流入增速前三</h2><span id="sf-top-pill" class="pill">—</span></div>
+        <p id="sf-summary" class="sf-sub"></p>
         <ol id="sf-top" class="sf-top"></ol>
         <p id="sf-top-note" class="sf-note"></p>
       </section>
 
       <section id="sf-intraday-card" class="card" hidden>
         <div class="card-head"><h2 class="card-title">今日资金趋势</h2><span id="sf-intraday-pill" class="pill">盘中</span></div>
-        <p class="sf-sub">主力资金累计净流入（亿元）· 高亮流入、流出前 3，其余置灰</p>
+        <p class="sf-sub">累计主力净流入（亿元）</p>
         <div id="sf-intraday" class="sf-chart"></div>
         <div id="sf-intraday-keys" class="sf-keys"></div>
-        <p class="sf-note">看今天的钱怎么进来：早盘冲高后回落＝分歧，全天稳步向上＝承接好。只看一天，不代表延续。</p>
       </section>
 
       <section id="sf-trend-card" class="card" hidden>
@@ -82,8 +76,7 @@
       </section>
 
       <section id="sf-table-card" class="card" hidden>
-        <div class="card-head"><h2 class="card-title">全部板块</h2><button id="sf-reset" class="sf-link" type="button" hidden>恢复默认高亮</button></div>
-        <p class="sf-sub">点表头排序；点一行在上面两张图里高亮（最多 5 个）。</p>
+        <div class="card-head"><h2 class="card-title">全部板块</h2><span id="sf-table-pill" class="pill">点选高亮</span><button id="sf-reset" class="sf-link" type="button" hidden>恢复默认</button></div>
         <div class="sf-table-wrap">
           <table class="sf-table">
             <thead><tr>
@@ -100,11 +93,11 @@
       </section>
 
       <footer class="legal">
-        <p>主力资金＝大单与超大单的主动买入减主动卖出，属成交拆单估算。仅用于研究与资金观察，不构成投资建议。</p>
+        <p>主力资金为大单与超大单的成交拆单估算。仅用于研究，不构成投资建议。</p>
       </footer>
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/sectorflow/sectorflow.js?v=1"></script>
+  <script type="module" src="/sectorflow/sectorflow.js?v=2"></script>
 </body>
 </html>
