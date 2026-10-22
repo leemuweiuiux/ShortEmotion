@@ -129,11 +129,57 @@ function mockMinutes(windcode, now) {
   return rows;
 }
 
+// ── 板块资金（指数行情快照的主力资金字段）：按代码生成确定的数字，盘中随时间累积（数字是合成的）──
+function hashCode(text) {
+  let hash = 0;
+  for (const char of String(text)) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return hash;
+}
+function streakOf(test) {
+  let count = 0;
+  while (count < 20 && test(count)) count += 1;
+  return count;
+}
+function mockSectorFlow(params, now) {
+  const fields = String(params.indexes).split(",");
+  const [hh, mm] = now.time.split(":").map(Number);
+  const minute = hh * 60 + mm;
+  const traded = minute <= 9 * 60 + 30 ? 0 : minute >= 15 * 60 ? 240 : Math.min(240, minute <= 11 * 60 + 30 ? minute - 570 : 120 + Math.max(0, minute - 780));
+  const progress = traded / 240;
+  const rows = String(params.windcode).split(",").map((code) => {
+    const seed = hashCode(code);
+    const base = ((seed % 41) - 18) * 1e8; // 每日基准净流入：−18 至 +22 亿
+    const trend = ((seed >> 6) % 9 - 4) * 0.6e8; // 每天加速 / 减速
+    const day = (back) => base - trend * back + (((seed >> (back % 12)) % 7) - 3) * 0.5e8;
+    const sum = (from, to) => Array.from({ length: to - from }, (_, index) => day(from + index)).reduce((a, b) => a + b, 0);
+    const today = day(0) * progress;
+    const values = {
+      "Wind代码": code,
+      "最新交易日": now.day,
+      "交易时间": `${now.day.slice(0, 4)}-${now.day.slice(4, 6)}-${now.day.slice(6)}T${now.time}.000+08:00`,
+      "成交额": String(Math.round((60 + (seed % 140)) * 1e8 * Math.max(progress, 0.05))),
+      "当日主力净流入额": String(Math.round(today)),
+      "近5日主力净流入额": String(Math.round(today + sum(1, 5))),
+      "近5日主力净流入天数": String([0, 1, 2, 3, 4].filter((back) => day(back) > 0).length),
+      "近10日主力净流入额": String(Math.round(today + sum(1, 10))),
+      "近20日主力净流入额": String(Math.round(today + sum(1, 20))),
+      "近20日主力净流入天数": String(Array.from({ length: 20 }, (_, back) => back).filter((back) => day(back) > 0).length),
+      "连红天数": String(day(0) > 0 ? streakOf((back) => day(back) > 0) : -streakOf((back) => day(back) <= 0)),
+      "最新成交价": "1000"
+    };
+    return fields.map((name) => values[name] ?? null).concat(code);
+  });
+  return table([...fields, "Wind代码"], rows);
+}
+
 export function mockWindResult(serverType, toolName, params) {
   const now = beijingNow();
   const qt = quoteTime();
   const question = String(params.question || params.query || "");
 
+  if (serverType === "index_data" && toolName === "get_index_price_indicators" && String(params.indexes || "").includes("主力净流入")) {
+    return result({ data: [mockSectorFlow(params, now)] });
+  }
   if (serverType === "index_data" && toolName === "get_index_price_indicators") {
     return result({ data: [table(
       ["Wind代码", "最新成交价", "涨跌幅", "成交额", "上涨家数", "下跌家数", "平盘家数", "交易时间"],

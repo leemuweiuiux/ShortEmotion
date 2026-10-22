@@ -7,6 +7,7 @@ import { getStore, storageMode } from "./store.js";
 import { duePlan, needsCloseCatchUp, scheduleSummary, scheduleFor, MARKETS } from "./schedule.js";
 import { getApiKeys, isMockMode } from "./wind-client.js";
 import { CONCEPT_CODES_KEY, mergeConceptCodes } from "../sectorflow/concepts.js";
+import { refreshSectorFlow, sectorflowNeedsClose, SECTORFLOW_KEYS } from "../sectorflow/service.js";
 
 const MARKET_CONFIG = {
   cn: { engine: cnEngine },
@@ -93,10 +94,13 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
   const catchUp = Boolean(latestEmotion) && needsCloseCatchUp(plan.close, {
     day: plan.day, quoteDay: quoteDayOf(latestEmotion), quoteMinute: quoteMinuteOf(latestEmotion)
   });
+  // 板块资金收盘补抓：短线情绪已有收盘快照、板块资金还没存到今天的收盘值（例如上次取数失败）
+  const sectorflowCatchUp = market === "cn" && !force && !plan.anyDue && !catchUp && plan.close?.at === 15 * 60
+    && await sectorflowNeedsClose(store, plan.day).catch(() => false);
   if (force) {
     jobs = { ...ALL_JOBS };
     result.mode = "force";
-  } else if (!plan.anyDue && !catchUp) {
+  } else if (!plan.anyDue && !catchUp && !sectorflowCatchUp) {
     if (latestEmotion) return { ...result, status: "idle", reason: "不在定时窗口内，未调用 Wind" };
     if (!(await store.kvSetIfAbsent(KEY.bootstrapLock(plan.day), { at: now.toISOString() }))) {
       return { ...result, status: "idle", reason: "今日已尝试过初始化" };
@@ -107,6 +111,9 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
     if (catchUp) {
       jobs = Object.fromEntries(Object.keys(ALL_JOBS).map((name) => [name, plan.close.jobs.includes(name)]));
       result.catchUp = minuteLabel(plan.close.at);
+    } else if (sectorflowCatchUp) {
+      jobs = Object.fromEntries(Object.keys(ALL_JOBS).map((name) => [name, false]));
+      result.catchUp = "板块资金 15:00";
     }
     const calendar = await store.kvGet(KEY.calendar(plan.day));
     if (calendar?.value?.trading === false) return { ...result, status: "holiday", reason: "今日已判定为休市" };
@@ -206,6 +213,20 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
     }
   }
 
+  // 板块资金：跟着短线情绪一起取（固定接口，一次调用），放在概念代码合并之后（当天清单要用到）；收盘后只在还没存到收盘值时取
+  let sectorflowDue = false;
+  if (market === "cn") {
+    if (force || sectorflowCatchUp) sectorflowDue = true;
+    else if (jobs.emotion) sectorflowDue = marketLive;
+    else if (plan.anyDue && plan.minute >= 15 * 60) sectorflowDue = await sectorflowNeedsClose(store, plan.day).catch(() => false);
+  }
+  if (sectorflowDue) {
+    await refreshSectorFlow(store, engine, { day: plan.day }).then((output) => {
+      if (output.skipped) result.skipped.push(`sectorflow: ${output.skipped}`);
+      else result.ran.push(`sectorflow(${output.quote})`);
+    }).catch((error) => { result.errors.push(`sectorflow: ${errorText(error)}`); });
+  }
+
   const engineState = exportEngineState(plan.day);
   await store.kvSet(KEY.engineState(plan.day), engineState).catch((error) => {
     result.errors.push(`engine-state: ${errorText(error)}`);
@@ -217,6 +238,7 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
       const removedDays = await store.historyPrune(SCHEDULE.historyTradingDays);
       const cutoff = new Date(now.getTime() - 3 * 86_400_000).toISOString();
       for (const prefix of ["lock:", "engine-state:2", "calendar:"]) await store.kvDeleteOlderThan(prefix, cutoff);
+      await store.kvDeleteOlderThan(SECTORFLOW_KEYS.intradayPrefix, new Date(now.getTime() - 30 * 86_400_000).toISOString());
       result.ran.push(`cleanup(-${removedDays}d)`);
     } catch (error) {
       result.errors.push(`cleanup: ${errorText(error)}`);

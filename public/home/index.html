@@ -25,7 +25,7 @@
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=17">
   <link rel="stylesheet" href="/technical-analysis/ta.css?v=11">
   <link rel="stylesheet" href="/shared/form.css?v=1">
-  <link rel="stylesheet" href="/home/home.css?v=6">
+  <link rel="stylesheet" href="/home/home.css?v=7">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -83,6 +83,16 @@
         </div>
       </a>
 
+      <a id="sectorflow-card" class="card home-card home-sectorflow" href="/sectorflow" hidden>
+        <div class="card-head"><h2 class="card-title">资金流入增速前三</h2><span class="pill">板块资金</span></div>
+        <p class="card-desc">今日主力净流入比前 5 日日均多出最多的概念板块（盘中按已交易时间折算）。</p>
+        <ol id="sectorflow-top" class="home-sf-list"></ol>
+        <div class="home-emotion-foot">
+          <span id="sectorflow-time" class="home-time"></span>
+          <span class="home-enter">查看更多<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        </div>
+      </a>
+
       <section id="anomaly-card" class="card home-card home-anomaly">
         <div class="card-head"><h2 class="card-title">当日题材异动</h2><span id="anomaly-pill" class="pill">读取中</span></div>
         <p class="card-desc">按涨停点火、批量拉升与消息催化筛出的高价值题材方向。</p>
@@ -95,6 +105,6 @@
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/home/home.js?v=9"></script>
+  <script type="module" src="/home/home.js?v=10"></script>
 </body>
 </html>

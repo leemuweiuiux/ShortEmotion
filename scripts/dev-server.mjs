@@ -18,7 +18,8 @@ const API_ROUTES = {
   "short-emotion": () => import("../api/short-emotion.js"),
   auth: () => import("../api/auth.js"),
   "technical-analysis": () => import("../api/technical-analysis.js"),
-  admin: () => import("../api/admin.js")
+  admin: () => import("../api/admin.js"),
+  sectorflow: () => import("../api/sectorflow.js")
 };
 const { default: middleware, config: middlewareConfig } = await import("../middleware.js");
 
