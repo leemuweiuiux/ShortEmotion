@@ -26,6 +26,7 @@
   <link rel="stylesheet" href="/technical-analysis/ta.css?v=11">
   <link rel="stylesheet" href="/shared/form.css?v=1">
   <link rel="stylesheet" href="/home/home.css?v=7">
+  <link rel="stylesheet" href="/kandian/kandian.css?v=1">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -63,6 +64,12 @@
         <p id="ta-recent" class="ta-recent" hidden></p>
         <p id="ta-hint" class="ta-hint">*每次分析扣 10 积分。</p>
       </form>
+
+      <section id="latest-kandian" class="card home-card">
+        <div class="card-head"><h2 class="card-title">最新看点 <small class="kd-home-preview">示例预览</small></h2><a class="home-more" href="/kandian">查看全部</a></div>
+        <div id="latest-kandian-list" class="kd-home-list"></div>
+        <div class="kd-home-foot"><a href="/kandian">进入看点 →</a></div>
+      </section>
 
       <a id="emotion-card" class="card home-card home-emotion" href="/shortemotion/cn">
         <div class="card-head"><h2 class="card-title">今日短线情绪</h2><span id="emotion-posture" class="pill pill-solid">—</span></div>
@@ -105,5 +112,6 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script type="module" src="/home/home.js?v=12"></script>
+  <script type="module" src="/kandian/home.js?v=1"></script>
 </body>
 </html>
