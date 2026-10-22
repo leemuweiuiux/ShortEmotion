@@ -23,6 +23,7 @@ on:
         type: choice
         options:
           - short-emotion
+          - sectorflow-probe
         default: short-emotion
       force:
         description: "忽略时间窗口，立即刷新全部数据"
@@ -104,3 +105,18 @@ jobs:
           git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" short-emotion-data
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 板块资金：试一次固定接口（只读，不写数据分支）
+  sectorflow-probe:
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'sectorflow-probe'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Probe sector fund flow
+        run: node scripts/sectorflow/probe.mjs
+        env:
+          WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
