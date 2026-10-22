@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#ffffff">
   <meta name="robots" content="noindex">
   <title>登录 · ShortEmotion</title>
@@ -26,8 +26,9 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/about/about.css?v=10">
-  <link rel="stylesheet" href="/login/login.css?v=2">
+  <link rel="stylesheet" href="/about/about.css?v=11">
+  <link rel="stylesheet" href="/shared/form.css?v=1">
+  <link rel="stylesheet" href="/login/login.css?v=3">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -58,24 +59,24 @@
       <form id="email-form" class="login-form" novalidate>
         <label class="field">
           <span>邮箱</span>
-          <input id="email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com" required>
+          <input id="email" class="se-input" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com" required>
         </label>
         <label class="field">
           <span>邀请码<small>（选填，新用户注册时填写）</small></span>
-          <input id="invite" name="invite" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="10" placeholder="例如 SEK7MX2Q">
+          <input id="invite" class="se-input se-code" name="invite" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="10" placeholder="例如 SEK7MX2Q">
         </label>
         <p id="invite-note" class="invite-note" hidden></p>
-        <button id="send" class="primary-btn" type="submit">发送验证码</button>
+        <button id="send" class="btn-primary" type="submit">发送验证码</button>
       </form>
 
       <form id="code-form" class="login-form" novalidate hidden>
         <p class="sent-to">验证码已发送到 <b id="sent-email"></b><button id="change-email" class="link-btn" type="button">换一个邮箱</button></p>
         <label class="field">
           <span>验证码</span>
-          <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="10" placeholder="邮件里的数字" required>
+          <input id="code" class="se-input se-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="10" placeholder="邮件里的数字" required>
         </label>
-        <button id="verify" class="primary-btn" type="submit">登录</button>
-        <button id="resend" class="secondary-btn" type="button" disabled>重新发送</button>
+        <button id="verify" class="btn-primary" type="submit">登录</button>
+        <button id="resend" class="btn-secondary" type="button" disabled>重新发送</button>
       </form>
 
       <p id="login-error" class="login-error" role="alert" hidden></p>
@@ -86,6 +87,6 @@
     <a class="back-link" href="/about">了解 ShortEmotion</a>
   </main>
 
-  <script type="module" src="/login/login.js?v=15"></script>
+  <script type="module" src="/login/login.js?v=16"></script>
 </body>
 </html>

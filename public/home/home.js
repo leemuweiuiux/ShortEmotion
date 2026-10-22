@@ -5,7 +5,7 @@
 //      下面再加市场概况（全A涨跌幅、成交额、涨跌家数、涨跌停）与行情时间，点卡片进入看板
 //   4. 当日题材异动：未解锁时只显示题材数量，可在首页直接解锁（−5 积分，12 小时）；解锁后列出前 3 个
 import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderRecent } from "/shared/nav-account.js?v=2";
-import { mountInviteEntry } from "/shared/invite-entry.js?v=1";
+import { mountInviteEntry } from "/shared/invite-entry.js?v=2";
 
 initAccountMenu();
 

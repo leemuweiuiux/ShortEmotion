@@ -57,6 +57,8 @@ async function checkInvite(code) {
 function renderInviteNote(result) {
   inviteNote.textContent = "";
   inviteNote.hidden = !result;
+  if (result && !result.valid) inviteInput.setAttribute("aria-invalid", "true");
+  else inviteInput.removeAttribute("aria-invalid");
   if (!result) return;
   inviteNote.classList.toggle("bad", !result.valid);
   if (!result.valid) return setText(inviteNote, result.message || "邀请码无效，请检查后再试");

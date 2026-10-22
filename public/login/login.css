@@ -7,34 +7,8 @@
 
 .login-form { display: grid; gap: 12px; }
 .login-form[hidden] { display: none; }
-.field { display: grid; gap: 6px; }
-.field span { font-size: 13px; font-weight: 600; }
-.field input {
-  width: 100%;
-  height: 48px;
-  padding: 0 14px;
-  border: 1px solid var(--border);
-  border-radius: 0;
-  background: var(--panel);
-  color: var(--ink);
-  font: inherit;
-  font-size: 16px; /* 小于 16px 时 iOS 会自动放大页面 */
-}
-.field input:focus { outline: none; border-color: var(--ink); background: var(--surface); }
-#code { font-family: "Manrope", sans-serif; font-size: 22px; font-weight: 700; letter-spacing: .3em; }
-#code::placeholder { font-family: "Noto Sans SC", sans-serif; font-size: 15px; font-weight: 400; letter-spacing: 0; }
-
-.primary-btn, .secondary-btn {
-  height: 48px;
-  border-radius: 999px;
-  font: inherit;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.primary-btn { border: 0; background: var(--ink); color: var(--surface); }
-.secondary-btn { border: 1px solid var(--border); background: var(--surface); color: var(--ink); }
-.primary-btn:disabled, .secondary-btn:disabled { opacity: .5; cursor: default; }
+/* 输入框、按钮：/shared/form.css（全站统一） */
+.login-form .btn-primary, .login-form .btn-secondary { width: 100%; }
 
 .sent-to { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; color: var(--muted); font-size: 14px; line-height: 1.6; }
 .sent-to b { color: var(--ink); font-weight: 600; word-break: break-all; }
@@ -46,9 +20,6 @@
 .back-link { justify-self: center; color: var(--muted); font-size: 13px; text-underline-offset: 3px; }
 
 /* 邀请码（选填）：从邀请链接进来时自动填好，并显示邀请人 */
-.field span small { margin-left: 4px; color: var(--muted); font-size: 12px; font-weight: 400; }
-#invite { font-family: "Manrope", sans-serif; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-#invite::placeholder { font-family: "Noto Sans SC", sans-serif; font-weight: 400; letter-spacing: 0; text-transform: none; }
 .invite-note { margin-top: -4px; color: var(--muted); font-size: 13px; line-height: 1.6; }
 .invite-note b { color: var(--ink); }
 .invite-note em { color: var(--heat); font-style: normal; font-weight: 700; }

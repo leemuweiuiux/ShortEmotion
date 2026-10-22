@@ -3,37 +3,9 @@ main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-co
 .ta-result { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .ta-result[hidden], .ta-loading[hidden] { display: none; }
 
-/* 输入：放大镜、输入框、按钮在同一条圆角搜索栏里 */
+/* 输入：放大镜、输入框、按钮在同一条搜索栏里（/shared/form.css 的 .se-bar，全站统一） */
 .ta-search { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .ta-search .card-desc { margin-top: 0; }
-.ta-searchbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  padding: 4px 4px 4px 14px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--panel);
-}
-.ta-searchbar:focus-within { border-color: var(--ink); background: var(--surface); }
-.ta-searchbar svg { flex: none; width: 18px; height: 18px; color: var(--muted); }
-.ta-searchbar input {
-  flex: 1;
-  min-width: 0;
-  height: 36px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  font-size: 16px; /* 小于 16px 时 iPhone 聚焦会放大页面且不还原 */
-  outline: none;
-  -webkit-appearance: none;
-  appearance: none;
-}
-.ta-searchbar input::-webkit-search-cancel-button { -webkit-appearance: none; }
-.ta-run { min-height: 36px; padding: 0 16px; }
 .ta-hint { color: var(--muted); font-size: 12px; line-height: 1.5; }
 
 /* 载入 */
@@ -148,10 +120,7 @@ main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-co
 
 /* 仓位风险 */
 .ta-risk { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
-.ta-risk label { display: grid; gap: 6px; }
-.ta-risk span { color: var(--muted); font-size: 12px; }
-.ta-risk input { width: 100%; height: 36px; padding: 0 10px; border: 1px solid var(--border); border-radius: 0; background: var(--panel); color: var(--ink); font: inherit; font-size: 16px; outline: none; } /* 16px：避免 iPhone 聚焦放大 */
-.ta-risk input:focus { border-color: var(--ink); background: var(--surface); }
+/* 输入框：/shared/form.css 的 .field + .se-input */
 .ta-risk-result { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
 .ta-risk-result span { color: var(--muted); font-size: 12px; }
 .ta-risk-result strong { font-family: "Manrope", sans-serif; font-size: 22px; font-weight: 700; }

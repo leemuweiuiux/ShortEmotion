@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#ffffff">
   <meta name="robots" content="noindex, nofollow">
   <title>管理后台 · ShortEmotion</title>
@@ -26,9 +26,10 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/about/about.css?v=10">
-  <link rel="stylesheet" href="/account/account.css?v=11">
-  <link rel="stylesheet" href="/admin/admin.css?v=2">
+  <link rel="stylesheet" href="/about/about.css?v=11">
+  <link rel="stylesheet" href="/shared/form.css?v=1">
+  <link rel="stylesheet" href="/account/account.css?v=12">
+  <link rel="stylesheet" href="/admin/admin.css?v=3">
   </head>
 <body class="sub-page admin-page">
   <nav class="subnav">
@@ -125,10 +126,10 @@
     <div id="tab-ledger" class="admin-panel" hidden>
       <section class="sub-card">
         <form id="ledger-filter" class="admin-filter">
-          <label class="field"><span>类型</span><select id="ledger-kind"><option value="">全部</option></select></label>
-          <label class="field"><span>用户代号</span><input id="ledger-user" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="8" placeholder="U-XXXXXX"></label>
-          <label class="field"><span>开始日期</span><input id="ledger-from" type="date"></label>
-          <label class="field"><span>结束日期</span><input id="ledger-to" type="date"></label>
+          <label class="field"><span>类型</span><select id="ledger-kind" class="se-input"><option value="">全部</option></select></label>
+          <label class="field"><span>用户代号</span><input id="ledger-user" class="se-input se-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="8" placeholder="U-XXXXXX"></label>
+          <label class="field"><span>开始日期</span><input id="ledger-from" class="se-input" type="date"></label>
+          <label class="field"><span>结束日期</span><input id="ledger-to" class="se-input" type="date"></label>
           <button class="btn-primary" type="submit">查询</button>
           <button id="ledger-clear" class="btn-secondary" type="button" hidden>清除筛选</button>
         </form>
@@ -142,10 +143,10 @@
     <div id="tab-grant" class="admin-panel" hidden>
       <section class="sub-card">
         <form id="grant-form" class="profile-form" novalidate>
-          <label class="field"><span>用户登录邮箱</span><input id="grant-email" type="email" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="user@example.com" required></label>
+          <label class="field"><span>用户登录邮箱</span><input id="grant-email" class="se-input" type="email" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="user@example.com" required></label>
           <div class="field">
             <label for="grant-amount" id="grant-amount-label">积分</label>
-            <input id="grant-amount" type="number" inputmode="numeric" min="1" step="1" placeholder="输入积分" required>
+            <input id="grant-amount" class="se-input" type="number" inputmode="numeric" min="1" step="1" placeholder="输入积分" required>
             <div class="admin-chips" role="group" aria-label="常用积分">
               <button type="button" data-amount="50">50</button><button type="button" data-amount="100">100</button><button type="button" data-amount="200">200</button><button type="button" data-amount="500">500</button>
             </div>

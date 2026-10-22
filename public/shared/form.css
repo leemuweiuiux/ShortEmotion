@@ -1,0 +1,135 @@
+/* 全站表单统一样式（2026-10-22 与产品确认：方案 B · 直角，与卡片同一形状）
+   用在：登录、介绍页、首页、个股分析、个人页面（含编辑资料、邀请好友）、管理后台。
+   规则：高度 44px（框内按钮 36px）· 浅灰底，聚焦黑框白底 · 错误红框 · 停用半透明
+         字一律 16px：小于 16px 时 iPhone 聚焦输入框会放大页面
+   - .field        标签在上、控件在下（「选填」等说明用 <small>）
+   - .se-input     输入框 / 下拉 / 日期 / 数字；加 .se-code 为代码类（邀请码、验证码、用户代号）
+   - .se-bar       输入 + 按钮（按钮一律放在框内），可放放大镜图标
+   - .btn-primary / .btn-secondary  表单按钮
+   颜色都取页面的 --ink / --panel / --surface / --border / --muted，深色模式自动跟随。 */
+
+.field { display: grid; gap: 6px; min-width: 0; }
+.field > span, .field > label { color: var(--ink); font-size: 13px; font-weight: 600; line-height: 1.5; }
+.field > span small, .field > label small { margin-left: 4px; color: var(--muted); font-size: 12px; font-weight: 400; }
+
+/* ── 输入框 ── */
+.se-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  margin: 0;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background-color: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  line-height: normal;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.se-input::placeholder { color: var(--muted); opacity: 1; }
+.se-input:focus { outline: none; border-color: var(--ink); background-color: var(--surface); }
+.se-input[aria-invalid="true"] { border-color: var(--heat, #ff4015); }
+.se-input:disabled { opacity: .5; cursor: not-allowed; }
+/* 下拉：统一的灰色箭头 */
+select.se-input {
+  padding-right: 34px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5' fill='none' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px;
+  cursor: pointer;
+}
+/* 日期：内距收窄，窄栏里也放得下日期和日历图标；iPhone 上文字靠左 */
+input[type="date"].se-input { padding: 0 10px; }
+input[type="date"].se-input::-webkit-date-and-time-value { margin: 0; text-align: left; }
+input[type="date"].se-input::-webkit-calendar-picker-indicator { opacity: .55; cursor: pointer; }
+/* 数字：不显示上下小箭头 */
+input[type="number"].se-input { -moz-appearance: textfield; }
+input[type="number"].se-input::-webkit-inner-spin-button,
+input[type="number"].se-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* 代码类：数字字体、粗体、字距加宽、自动大写；提示文字仍用正文字体 */
+.se-code { font-family: "Manrope", sans-serif; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.se-code::placeholder { font-family: "Noto Sans SC", sans-serif; font-weight: 400; letter-spacing: 0; text-transform: none; }
+
+/* ── 输入 + 按钮（按钮在框内） ── */
+.se-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 44px;
+  padding: 0 3px 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--panel);
+}
+.se-bar:focus-within { border-color: var(--ink); background: var(--surface); }
+.se-bar:has(input[aria-invalid="true"]) { border-color: var(--heat, #ff4015); }
+.se-bar > svg { flex: none; width: 18px; height: 18px; color: var(--muted); }
+.se-bar input {
+  flex: 1;
+  width: 0; /* 不按输入框默认宽度撑开卡片 */
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.se-bar input::placeholder { color: var(--muted); opacity: 1; }
+.se-bar input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.se-bar input.se-code::placeholder { font-family: "Noto Sans SC", sans-serif; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.se-bar button {
+  flex: none;
+  min-width: 64px;
+  height: 36px;
+  min-height: 0;
+  margin: 0;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 0;
+  background: var(--ink);
+  color: var(--surface);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.se-bar button:disabled { border: 0; background: var(--ink); color: var(--surface); opacity: .5; cursor: default; }
+
+/* ── 表单按钮 ── */
+.btn-primary, .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 16px;
+  border-radius: 0;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn-primary { border: 1px solid var(--ink); background: var(--ink); color: var(--surface); }
+.btn-secondary { border: 1px solid var(--border); background: var(--surface); color: var(--ink); }
+.btn-secondary:hover { border-color: var(--ink); }
+.btn-primary:disabled, .btn-secondary:disabled { opacity: .5; cursor: default; }
+.btn-primary:focus-visible, .btn-secondary:focus-visible, .se-bar button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
