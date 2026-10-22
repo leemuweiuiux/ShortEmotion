@@ -276,7 +276,6 @@ async function unlock(event) {
 }
 
 // ── 5. 资金流入增速前三（板块资金，入口一直显示）──
-const streakText = (streak) => (!Number(streak) ? "" : Number(streak) > 0 ? ` · 连 ${streak} 日流入` : ` · 连 ${-streak} 日流出`);
 const yi = (value) => (Number.isFinite(Number(value)) ? `${Number(value) > 0 ? "+" : Number(value) < 0 ? "−" : ""}${Math.abs(Number(value)).toFixed(1)}` : "—");
 async function loadSectorFlow() {
   try {
@@ -292,13 +291,13 @@ async function loadSectorFlow() {
       item.innerHTML = '<span class="home-sf-rank"></span><span class="home-sf-name"><b></b><small></small></span><span class="home-sf-value"><strong class="up-text"></strong><small>亿</small></span>';
       item.querySelector(".home-sf-rank").textContent = String(index + 1);
       item.querySelector("b").textContent = row.name;
-      item.querySelector(".home-sf-name small").textContent = `今日 ${yi(row.today)} 亿 · 前5日日均 ${yi(row.avg5)} 亿${streakText(row.streak)}`;
+      item.querySelector(".home-sf-name small").textContent = `今日 ${yi(row.today)} · 5日均 ${yi(row.avg5)}${Number(row.streak) > 0 ? ` · 连${row.streak}日` : ""}`;
       item.querySelector("strong").textContent = yi(row.vsAvg);
       list.append(item);
     }
-    if (!list.children.length) list.innerHTML = '<li class="home-sf-empty">暂无比前 5 日日均流入更多的板块</li>';
+    if (!list.children.length) list.innerHTML = '<li class="home-sf-empty">暂无较前 5 日日均多流入的板块</li>';
     const md = `${payload.day.slice(4, 6)}-${payload.day.slice(6, 8)}`;
-    $("#sectorflow-time").textContent = payload.live ? `截至 ${md} ${payload.label}（盘中）` : `${md} 收盘`;
+    $("#sectorflow-time").textContent = payload.live ? `盘中 ${md} ${payload.label}` : `${md} 收盘`;
   } catch {
     $("#sectorflow-top").innerHTML = '<li class="home-sf-empty">暂时无法读取，点进去看看</li>';
   }

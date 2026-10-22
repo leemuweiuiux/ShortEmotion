@@ -2,14 +2,10 @@
 main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; }
 [hidden] { display: none !important; }
 
-.sf-intro { display: grid; gap: 6px; }
-.sf-headline { font-size: 16px; font-weight: 600; line-height: 1.55; }
-.sf-intro .card-desc { margin-top: 0; }
-.sf-time { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-.sf-time:empty { display: none; }
 .sf-sub { margin: 6px 0 4px; color: var(--muted); font-size: 12px; line-height: 1.55; }
 .sf-note { margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .sf-note:empty { display: none; }
+.card-head .sf-link { margin-left: auto; }
 .sf-link { padding: 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .sf-link:hover { color: var(--ink); }
 
