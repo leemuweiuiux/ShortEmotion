@@ -91,7 +91,11 @@ describe("runScheduledRefresh (mock Wind, memory store)", () => {
     const history = await readResource("history");
     expect(history.history.length).toBeGreaterThan(0);
     const anomalies = await readResource("anomalies");
-    expect(anomalies.summary.verifiedCandidates).toBeGreaterThan(0);
+    const roles = anomalies.items.flatMap((item) => [...item.leader, ...item.mid, ...item.followers, ...item.rideable]);
+    expect(roles.length).toBeGreaterThan(0);
+    expect(roles.every((stock) => stock.themeEvidence && stock.attributionEvidence)).toBe(true);
+    expect(anomalies.items.some((item) => item.lead.length > 0)).toBe(true);
+    expect(emotion.scoreVersion).toBe(4);
     expect(anomalies.summary.rejectedCandidates).toBeGreaterThan(0);
     expect(anomalies.items.flatMap((item) => [...item.followers, ...item.rideable])
       .every((stock) => stock.themeEvidence && stock.attributionEvidence)).toBe(true);
@@ -182,12 +186,11 @@ describe("收盘后收缩", () => {
 });
 
 describe("题材异动门槛", () => {
-  it("门槛放宽只写在 summary，不进 errors（不会触发「部分数据可用」）", async () => {
+  it("20261022口径：放宽门槛时写入原版诊断信息", async () => {
     process.env.WIND_MOCK = "1";
     const { readResource } = await import("../api/_lib/short-emotion/service.js");
     const anomalies = await readResource("anomalies");
     expect([55, 60]).toContain(anomalies.summary.minScore);
-    expect(anomalies.summary.relaxedThreshold).toBe(anomalies.summary.minScore !== 60);
-    expect((anomalies.errors || []).some((item) => /门槛/.test(String(item)))).toBe(false);
+    expect((anomalies.errors || []).some((item) => /门槛/.test(String(item)))).toBe(anomalies.summary.minScore !== 60);
   });
 });

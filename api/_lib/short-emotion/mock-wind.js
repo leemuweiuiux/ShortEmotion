@@ -233,7 +233,7 @@ export function mockWindResult(serverType, toolName, params) {
       const concept = question.split("概念成分股")[0];
       return result({ data: [table(
         ["Wind代码", "证券简称", "所属概念板块", "最新成交价", "今日开盘价", "今日最高价", "今日最低价", "涨跌幅", "成交额", "换手率", "量比", "交易时间"],
-        [0, 1, 2, 3, 4].map((index) => [`30${seed % 10}${index}1${index}.SZ`, `成分样本${index + 1}`, index === 4 ? "无关行业" : concept, 12.3 + index, 11.8, 12.6 + index, 11.6, 7.2 - index * 1.3, 8e8 - index * 1e8, 6.1 - index, 1.6, qt])
+        [0, 1, 2, 3, 4].map((index) => [`301${seed % 10}${index}0.SZ`, `成分样本${index + 1}`, index === 4 ? "无关行业" : concept, 12.3 + index, 11.8, 12.6 + index, 11.6, 7.2 - index * 1.3, 8e8 - index * 1e8, 6.1 - index, 1.6, qt])
       )] });
     }
     return result({ data: [] });

@@ -148,7 +148,7 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
   let inAuction = false;
   if (jobs.emotion) {
     try {
-      const snapshot = await loadEmotion(await scoreContinuity(store, plan.day, engine.SCORE_VERSION));
+      const snapshot = await loadEmotion(undefined, await scoreContinuity(store, plan.day, engine.SCORE_VERSION));
       const quoteDay = quoteDayOf(snapshot);
       if (quoteDay === plan.day && SCHEDULE.sessionStart && quoteMinuteOf(snapshot) != null && quoteMinuteOf(snapshot) < SCHEDULE.sessionStart) {
         // 集合竞价（09:15–09:25）的行情：涨跌家数为 0、涨跌停是虚拟撮合价，不保存，保留上一份快照。
