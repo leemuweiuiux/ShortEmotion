@@ -157,9 +157,9 @@ describe("页面脚本", () => {
     expect([...versions]).toHaveLength(1);
   });
 
-  it("中间件只拦介绍页以外的入口：/、/login、首页、个股分析、板块资金、个人页面、看板、管理后台", async () => {
+  it("中间件只拦介绍页以外的入口：/、/login、首页、看点、个股分析、板块资金、个人页面、看板、管理后台", async () => {
     const { config } = await import("../middleware.js");
-    expect(config.matcher).toEqual(["/", "/login", "/login/", "/home", "/home/", "/technicalanalysis", "/technicalanalysis/", "/sectorflow", "/sectorflow/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]);
+    expect(config.matcher).toEqual(["/", "/login", "/login/", "/home", "/home/", "/kandian", "/kandian/", "/technicalanalysis", "/technicalanalysis/", "/sectorflow", "/sectorflow/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]);
   });
 });
 
