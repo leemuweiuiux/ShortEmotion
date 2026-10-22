@@ -390,8 +390,8 @@ main {
   border-top: 1px solid var(--border);
 }
 .role-stock:first-of-type { border-top: 0; }
-.role-stock b { display: block; font-size: 14px; font-weight: 600; }
-.role-stock small { display: block; margin-top: 1px; color: var(--muted); font-size: 12px; }
+.role-stock b { display: inline; font-size: 14px; font-weight: 600; }
+.role-stock small { display: inline; margin-left: 6px; color: var(--muted); font-size: 12px; }
 .role-stock em { font-size: 13px; font-style: normal; font-weight: 600; }
 .role-stock > i { grid-column: 1 / -1; color: var(--muted); font-size: 12px; font-style: normal; }
 .stock-evidence { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
@@ -659,3 +659,9 @@ body.gallery-open { overflow: hidden; }
 .anomaly-lock small { color: var(--muted); font-size: 12px; }
 .anomaly-lock .lock-link { color: var(--ink); font-size: 13px; text-underline-offset: 3px; }
 #anomaly-unlock { font-variant-numeric: tabular-nums; }
+
+.anomaly-summary .anomaly-num { color: var(--accent, #e64d3a); margin-left: 2px; font-size: 12px; font-weight: 400; }
+.role-badge { display:inline-block; margin:0 8px 0 0; padding:1px 6px; border-radius:8px; font-size:10px; font-weight:600; line-height:1.5; vertical-align:1px; }
+.role-badge.lead { color:#fff; background:#d97706; }
+.role-badge.leader { color:#fff; background:#dc2626; }
+.role-badge.mid { color:#fff; background:#2563eb; }

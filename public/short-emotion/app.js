@@ -250,14 +250,11 @@ document.addEventListener("toggle", (event) => {
 function renderAnomalies() {
   const summary = anomalyData?.summary || {};
   const sourceItems = anomalyData?.items || [];
-  const filterLabels = { all: "全部异动", limit: "涨停点火", batch: "批量拉升", news: "消息催化" };
-  // 上榜门槛：平时 60；普涨日（没有题材涨停 ≥3）放宽到 55，由数据里的 summary.minScore 给出
-  const threshold = Number(summary.minScore) || 60;
+  const filterLabels = { all: "全部异动", limit: "涨停点火", news: "消息催化" };
   const filterCounts = {
-    all: sourceItems.filter((item) => (item.tabScores?.all ?? item.score) >= threshold).length,
-    limit: sourceItems.filter((item) => item.signals.includes("limit") && (item.tabScores?.limit ?? item.score) >= threshold).length,
-    batch: sourceItems.filter((item) => item.signals.includes("batch") && (item.tabScores?.batch ?? item.score) >= threshold).length,
-    news: sourceItems.filter((item) => item.signals.includes("news") && (item.tabScores?.news ?? item.score) >= threshold).length
+    all: sourceItems.filter((item) => (item.tabScores?.all ?? item.score) >= 60).length,
+    limit: sourceItems.filter((item) => item.signals.includes("limit") && (item.tabScores?.limit ?? item.score) >= 60).length,
+    news: sourceItems.filter((item) => item.signals.includes("news") && (item.tabScores?.news ?? item.score) >= 60).length
   };
   $$(".anomaly-filter").forEach((button) => {
     const key = button.dataset.anomalyFilter;
@@ -265,70 +262,56 @@ function renderAnomalies() {
     button.setAttribute("aria-pressed", String(key === anomalyFilter));
   });
   const streakRank = (label) => label === "首板" ? 1 : Number.parseInt(label) || 99;
-  const streakSummary = Object.entries(anomalyData?.limitData?.streakCounts || {}).sort((a, b) => streakRank(a[0]) - streakRank(b[0])).map(([label, count]) => `<span>${escapeHtml(label)} ${count}</span>`).join("");
-  const verificationSummary = Number.isFinite(Number(summary.verifiedCandidates))
-    ? `<span>已核验个股 ${summary.verifiedCandidates}</span><span>未入选归因 ${summary.rejectedCandidates || 0}</span>`
-    : "";
-  $("#anomaly-summary").innerHTML = `<span>有效题材 ${summary.total || 0}</span><span>涨停样本 ${anomalyData?.limitData?.stockCount || 0}</span>${streakSummary}<span>已合并 ${Math.max(0, (summary.rawTotal || 0) - (summary.mergedTotal || 0))}</span>${verificationSummary}<span>过滤低分 ${summary.filteredOut || 0}</span><span>门槛 ≥ ${summary.minScore || 60}</span>`;
+  const streakSummary = Object.entries(anomalyData?.limitData?.streakCounts || {}).sort((a, b) => streakRank(a[0]) - streakRank(b[0])).map(([label, count]) => `<span>${escapeHtml(label)} <b class="anomaly-num">${count}</b></span>`).join("");
+  $("#anomaly-summary").innerHTML = `<span>有效题材 <b class="anomaly-num">${summary.total || 0}</b></span><span>涨停数 <b class="anomaly-num">${anomalyData?.limitData?.stockCount || 0}</b></span>${streakSummary}`;
   const sorters = {
     all: (a, b) => (b.tabScores?.all ?? b.score) - (a.tabScores?.all ?? a.score) || (b.scoreBreakdown?.ladderTotalBonus || 0) - (a.scoreBreakdown?.ladderTotalBonus || 0) || (b.sortMetrics?.limitCount || 0) - (a.sortMetrics?.limitCount || 0),
     limit: (a, b) => (b.sortMetrics?.limitCount || b.limitStocks?.length || 0) - (a.sortMetrics?.limitCount || a.limitStocks?.length || 0) || (b.tabScores?.limit ?? b.score) - (a.tabScores?.limit ?? a.score),
-    batch: (a, b) => (b.sortMetrics?.fiveMinuteChange || b.shortMove || 0) - (a.sortMetrics?.fiveMinuteChange || a.shortMove || 0) || (b.tabScores?.batch ?? b.score) - (a.tabScores?.batch ?? a.score),
     news: (a, b) => (b.sortMetrics?.newsMomentum || 0) - (a.sortMetrics?.newsMomentum || 0) || (b.tabScores?.news ?? b.score) - (a.tabScores?.news ?? a.score)
   };
-  const sortLabels = { all: "综合分降序", limit: "涨停家数降序", batch: "5分钟涨跌幅降序", news: "涨跌幅与涨速综合降序" };
-  const items = sourceItems.filter((item) => (anomalyFilter === "all" || item.signals.includes(anomalyFilter)) && (item.tabScores?.[anomalyFilter] ?? item.score) >= threshold).sort(sorters[anomalyFilter] || sorters.all);
+  const items = sourceItems.filter((item) => (anomalyFilter === "all" || item.signals.includes(anomalyFilter)) && (item.tabScores?.[anomalyFilter] ?? item.score) >= 60).sort(sorters[anomalyFilter] || sorters.all);
   const quoteTime = anomalyData?.items?.[0]?.tradeTime ? `行情时间 ${anomalyData.items[0].tradeTime} · ` : "";
-  setText("#anomaly-time", `${quoteTime}排序：${sortLabels[anomalyFilter]}`);
-  const viewState = `<div class="anomaly-view-state"><b>${filterLabels[anomalyFilter]}</b><span>当前 ${items.length} 个题材 · ${sortLabels[anomalyFilter]}</span></div>`;
+  setText("#anomaly-time", `${quoteTime}`);
+  const viewState = `<div class="anomaly-view-state"><b>${filterLabels[anomalyFilter]}</b><span>当前 ${items.length} 个题材</span></div>`;
   if (!items.length) {
     $("#anomaly-list").innerHTML = `${viewState}<div class="anomaly-empty">当前筛选条件下没有识别到题材异动。</div>`;
     return;
   }
   const labels = { limit: "涨停点火", batch: "批量拉升", news: "消息催化" };
   const stockItems = (items, role) => items.length ? items.map((stock) => {
-    const candidateRules = role === "ride" ? `<div class="candidate-rules"><p><strong>触发</strong><span>${escapeHtml(stock.trigger || "等待个股突破日内关键价位且题材动能保持为正")}</span></p><p><strong>失效</strong><span>${escapeHtml(stock.invalidation || "跌破日内关键支撑且题材5分钟动能转负")}</span></p></div>` : "";
     const streakBadge = role === "ignition" && Number(stock.limitStreak) >= 2 ? `<i class="streak-badge">${escapeHtml(stock.streakLabel || `${stock.limitStreak}连板`)}</i>` : "";
-    const quote = Number.isFinite(Number(stock.changePct)) ? formatPct(stock.changePct) : role === "ignition" ? "涨停" : "—";
-    const evidence = stock.themeEvidence
-      ? `<p class="stock-evidence"><strong>归属依据</strong>${escapeHtml(stock.themeEvidence)}</p>`
-      : "";
-    const attribution = stock.attributionEvidence
-      ? `<p class="stock-evidence"><strong>主归因</strong>${escapeHtml(stock.attributionEvidence)}</p>`
-      : "";
-    return `<div class="role-stock"><span><b>${escapeHtml(stock.name)}</b><small>${escapeHtml(stock.code)}</small></span><span class="role-stock-metric"><em class="${signClass(stock.changePct)}">${quote}</em>${streakBadge}</span>${Number.isFinite(Number(stock.candidateScore)) ? `<i>候选分 ${stock.candidateScore}</i>` : ""}${evidence}${attribution}${candidateRules}</div>`;
+    const roleBadge = stock.roleLabel ? `<i class="role-badge ${stock.role === "龙头" ? "leader" : stock.role === "中军" ? "mid" : stock.role === "领涨" ? "lead" : ""}">${escapeHtml(stock.roleLabel)}</i>` : "";
+    const quote = Number.isFinite(Number(stock.changePct)) ? formatPct(stock.changePct) : (role === "ignition" || stock.markLimit) ? "涨停" : "—";
+    return `<div class="role-stock"><span>${roleBadge}<b>${escapeHtml(stock.name)}</b><small>${escapeHtml(stock.code)}</small></span><span class="role-stock-metric"><em class="${signClass(stock.changePct)}">${quote}</em>${streakBadge}</span>${Number.isFinite(Number(stock.candidateScore)) ? `<i>候选分 ${stock.candidateScore}</i>` : ""}</div>`;
   }).join("") : '<div class="role-empty">暂无有效标的</div>';
   $("#anomaly-list").innerHTML = viewState + items.map((item, index) => {
     const activeScore = item.tabScores?.[anomalyFilter] ?? item.score;
     const visibleSignals = anomalyFilter === "all" ? item.signals : [anomalyFilter];
     const chips = visibleSignals.map((signal) => `<span class="anomaly-chip ${signal}">${labels[signal]}</span>`).join("");
-    const limitNames = (item.limitStocks || []).map((stock) => stock.name).join("、");
     const branchNames = (item.branches || []).map((branch) => branch.name);
     const details = [];
     if (branchNames.length > 1) details.push(`合并分支：${branchNames.join("、")}`);
-    if ((anomalyFilter === "all" || anomalyFilter === "limit") && limitNames) details.push(`点火个股：${limitNames}`);
     if (item.ladder?.maxStreak >= 3) details.push(`最高${item.ladder.maxStreak}板，高度加分 +${item.ladder.highBoardBonus}`);
     if (item.ladder?.contiguousDepth >= 3) details.push(`完整首板至${item.ladder.contiguousDepth}板，梯队加分 +${item.ladder.ladderBonus}`);
-    if (anomalyFilter === "batch") details.push(`批量拉升：5分钟涨跌幅 ${formatPct(item.sortMetrics?.fiveMinuteChange ?? item.shortMove)}`);
     if (!details.length) details.push(`日内涨幅 ${formatPct(item.dayChange)}`);
     const detail = details.join("；");
     const rankingMetric = anomalyFilter === "limit"
       ? `${item.sortMetrics?.limitCount || item.limitStocks?.length || 0}家涨停`
-      : anomalyFilter === "batch"
-        ? `5分钟 ${formatPct(item.sortMetrics?.fiveMinuteChange ?? item.shortMove)}`
-        : anomalyFilter === "news"
-          ? `${item.news?.length || 0}条催化`
-          : `综合分 ${activeScore}`;
+      : anomalyFilter === "news"
+        ? `${item.news?.length || 0}条催化`
+        : `综合分 ${activeScore}`;
     const showNews = (anomalyFilter === "all" || anomalyFilter === "news") && item.news?.length;
     const newsCards = showNews ? `<div class="catalyst-news-list">${item.news.slice(0, 3).map((article) => `<article class="catalyst-news"><div class="catalyst-news-head"><b>${escapeHtml(plain(article.title, "市场消息"))}</b><span>${escapeHtml(plain(article.source, "财经新闻"))}${article.date ? ` · ${escapeHtml(article.date)}` : ""}</span></div><p><strong>刺激观点</strong>${escapeHtml(article.viewpoint || article.catalyst || "正文观点待补充")}</p><p><strong>可能影响</strong>${escapeHtml(article.impact || article.relation || `需要继续验证该消息对${item.name}基本面预期的实际影响。`)}</p>${article.matchedKeywords?.length ? `<div class="catalyst-keywords">${article.matchedKeywords.map((keyword) => `<i>${escapeHtml(keyword)}</i>`).join("")}${Number.isFinite(Number(article.relevanceScore)) ? `<em>关联度 ${article.relevanceScore}</em>` : ""}</div>` : ""}</article>`).join("")}</div>` : "";
-    const displayStatus = anomalyFilter === "limit" ? "涨停点火" : anomalyFilter === "batch" ? "批量拉升" : anomalyFilter === "news" ? "消息催化" : item.status;
-    const batchChip = (anomalyFilter === "all" || anomalyFilter === "batch") && item.shortMove != null && Number.isFinite(Number(item.shortMove)) ? `<span class="anomaly-chip batch">5分钟 ${formatPct(item.shortMove)}</span>` : "";
+    const displayStatus = anomalyFilter === "limit" ? "涨停点火" : anomalyFilter === "news" ? "消息催化" : item.status;
     const limitChip = (anomalyFilter === "all" || anomalyFilter === "limit") && item.limitStocks?.length ? `<span class="anomaly-chip limit">${item.limitStocks.length}只点火股</span>` : "";
     const highBoardChip = (anomalyFilter === "all" || anomalyFilter === "limit") && item.ladder?.maxStreak >= 3 ? `<span class="anomaly-chip ladder">最高${item.ladder.maxStreak}板 +${item.ladder.highBoardBonus}</span>` : "";
     const fullLadderChip = (anomalyFilter === "all" || anomalyFilter === "limit") && item.ladder?.contiguousDepth >= 3 ? `<span class="anomaly-chip ladder">完整1-${item.ladder.contiguousDepth}板 +${item.ladder.ladderBonus}</span>` : "";
-    return `<article class="anomaly-card filter-${anomalyFilter}${index < 3 ? " primary" : ""}"><div class="anomaly-card-head"><div><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.code || "概念板块")}</small><em class="anomaly-rank-metric">${rankingMetric}</em></div><span class="anomaly-score">${activeScore}</span></div><span class="anomaly-status">${escapeHtml(displayStatus)}</span><div class="anomaly-evidence">${chips}${batchChip}${limitChip}${highBoardChip}${fullLadderChip}</div><p class="anomaly-detail" title="${escapeHtml(detail)}">${escapeHtml(detail)}</p>${newsCards}<details class="stock-details" data-theme="${escapeHtml(item.name)}"${stockDetailsOpen(item.name) ? " open" : ""}><summary>个股分层 <small>点火 ${(item.limitStocks || []).length} · 跟风 ${(item.followers || []).length} · 候选 ${(item.rideable || []).length}</small></summary><div class="stock-layers"><section class="role-section ignition"><h4>点火个股 <small>率先封板</small></h4>${stockItems(item.limitStocks || [], "ignition")}</section><section class="role-section follower"><h4>跟风个股 <small>同步走强未封板</small></h4>${stockItems(item.followers || [], "follower")}</section><section class="role-section ride"><h4>候选上车 <small>需等待触发</small></h4>${stockItems(item.rideable || [], "ride")}</section></div></details></article>`;
+    const coreStocks = [...(item.lead || []), ...(item.leader || []), ...(item.mid || [])];
+    const coreCount = coreStocks.length;
+    return `<article class="anomaly-card filter-${anomalyFilter}${index < 3 ? " primary" : ""}"><div class="anomaly-card-head"><div><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.code || "概念板块")}</small><em class="anomaly-rank-metric">${rankingMetric}</em></div><span class="anomaly-score">${activeScore}</span></div><span class="anomaly-status">${escapeHtml(displayStatus)}</span><div class="anomaly-evidence">${chips}${limitChip}${highBoardChip}${fullLadderChip}</div><p class="anomaly-detail" title="${escapeHtml(detail)}">${escapeHtml(detail)}</p>${newsCards}<details class="stock-details" data-theme="${escapeHtml(item.name)}"${stockDetailsOpen(item.name) ? " open" : ""}><summary>个股分层 <small>${coreCount ? `核心 ${coreCount} · ` : ""}点火 ${(item.limitStocks || []).length} · 跟风 ${(item.followers || []).length} · 候选 ${(item.rideable || []).length}</small></summary><div class="stock-layers"><section class="role-section ignition"><h4>点火个股 <small>率先封板</small></h4>${stockItems(item.limitStocks || [], "ignition")}</section>${coreCount ? `<section class="role-section core"><h4>核心梯队 <small>领涨 · 龙头 · 中军</small></h4>${stockItems(coreStocks, "core")}</section>` : ""}<section class="role-section follower"><h4>跟风个股 <small>同步走强未封板</small></h4>${stockItems(item.followers || [], "follower")}</section><section class="role-section ride"><h4>候选上车 <small>需等待触发</small></h4>${stockItems(item.rideable || [], "ride")}</section></div></details></article>`;
   }).join("");
 }
+
 
 // ── 题材异动的积分锁：未解锁时服务器只给题材数量；解锁扣 5 积分，12 小时内有效（倒计时到 0 自动重新上锁）──
 let pointsBalance = null;

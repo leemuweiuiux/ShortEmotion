@@ -10,23 +10,20 @@ describe("A股看板内容计算", () => {
     expect(predictFullDayAmount(null, "20261015 10:00:00")).toBeNull();
   });
 
-  it("成交额高于全部历史样本时落在最高分位", () => {
+  it("按20261022参考代码计算成交额分位（最高为 n−1 / n）", () => {
     const history = [{ amount: 100 }, { amount: 200 }, { amount: 300 }];
-    expect(scoreLiquidity(400, history)).toBe(100);
+    expect(scoreLiquidity(400, history)).toBe(73);
     expect(scoreLiquidity(null, history)).toBe(50);
   });
 });
 
-describe("选股家数（涨停 / 跌停）", () => {
-  it("没有命中视为 0 家，调用失败才算缺数据", async () => {
-    const { screenerCount } = await import("../api/_lib/short-emotion/engine.js");
-    const market = { data: { columns: [{ name: "上涨家数" }], rows: [[1]] } };
-    const hit = { data: { columns: [{ name: "Wind代码" }, { name: "证券简称" }], rows: [["000001.SZ", "平安银行"], ["600000.SH", "浦发银行"]] } };
-    expect(screenerCount({ status: "fulfilled", value: hit }, market)).toBe(2);
-    expect(screenerCount({ status: "fulfilled", value: { data: [] } }, market)).toBe(0);
-    expect(screenerCount({ status: "rejected", reason: Object.assign(new Error("NO_RESULTS: 未获取到数据"), { code: "NO_RESULTS" }) }, market)).toBe(0);
-    expect(screenerCount({ status: "rejected", reason: Object.assign(new Error("NETWORK_ERROR"), { code: "NETWORK_ERROR" }) }, market)).toBeNull();
-    expect(screenerCount({ status: "fulfilled", value: { data: [] } }, null)).toBeNull();
+describe("选股家数（20261022口径）", () => {
+  it("有效空表为0，未返回payload为未知", async () => {
+    const { uniqueWindCodeCount } = await import("../api/_lib/short-emotion/engine.js");
+    const hit = { data: { columns: [{ name: "Wind代码" }], rows: [["000001.SZ"], ["000001.SZ"], ["600000.SH"]] } };
+    expect(uniqueWindCodeCount(hit)).toBe(2);
+    expect(uniqueWindCodeCount({ data: [] })).toBe(0);
+    expect(uniqueWindCodeCount(null)).toBeNull();
   });
 });
 
