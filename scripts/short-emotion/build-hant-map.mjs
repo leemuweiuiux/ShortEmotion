@@ -17,6 +17,7 @@ const sources = [
   "public/account/points.js",
   "public/account/invite/index.html",
   "public/account/invite.js",
+  "public/shared/invite-entry.js",
   "api/_lib/invite.js",
   "api/auth.js",
   "api/_lib/session.js",

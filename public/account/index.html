@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/about/about.css?v=10">
-  <link rel="stylesheet" href="/account/account.css?v=10">
+  <link rel="stylesheet" href="/account/account.css?v=11">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -61,6 +61,7 @@
         </div>
         <button id="signin" class="btn-primary" type="button" disabled>签到 +10</button>
       </div>
+      <div id="invite-entry" class="invite-entry" hidden></div>
       <p id="invite-pending" class="invite-entry-copy" hidden>你是受邀注册的新用户：完成第一次签到，你和邀请人各得 <em>50</em> 积分。</p>
     </section>
 
@@ -97,6 +98,6 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/account/account.js?v=18"></script>
+  <script type="module" src="/account/account.js?v=19"></script>
 </body>
 </html>

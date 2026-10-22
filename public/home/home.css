@@ -40,3 +40,35 @@
 .home-anomaly-more { display: inline-flex; align-items: center; gap: 2px; justify-self: end; margin-top: 2px; color: var(--ink); font-size: 13px; font-weight: 600; text-decoration: none; }
 .home-anomaly-more svg { width: 16px; height: 16px; }
 .home-anomaly-foot { display: grid; gap: 4px; }
+
+/* 积分卡里的「填写邀请码」（/shared/invite-entry.js）：盖住签到按钮，整行显示 */
+.home-points .invite-entry { flex-basis: 100%; }
+.invite-entry { display: grid; gap: 8px; }
+.invite-entry[hidden] { display: none; }
+.invite-entry-title { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.invite-entry-title em { color: #ff4015; font-style: normal; font-weight: 700; }
+.invite-entry-form { display: flex; gap: 8px; }
+.invite-entry-form input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  font-family: "Manrope", sans-serif;
+  font-size: 16px; /* 小于 16px 时 iOS 聚焦会放大页面 */
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.invite-entry-form input::placeholder { font-weight: 500; letter-spacing: 0; text-transform: none; }
+.invite-entry-form input:focus { outline: none; border-color: var(--ink); }
+.invite-entry-form button { flex: none; min-width: 72px; height: 40px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--ink); color: var(--surface); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.invite-entry-form button:disabled { opacity: .6; cursor: default; }
+.invite-entry-error { margin: 0; color: #ff4015; font-size: 12px; line-height: 1.5; }
+.invite-entry-error[hidden] { display: none; }
+.invite-entry-skip { justify-self: start; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+.invite-entry-skip:hover { color: var(--ink); }
+.home-points #signin[hidden] { display: none; }
