@@ -6,6 +6,7 @@ import { resetWindCallStats, windCallStats } from "./wind-client.js";
 import { getStore, storageMode } from "./store.js";
 import { duePlan, needsCloseCatchUp, scheduleSummary, scheduleFor, MARKETS } from "./schedule.js";
 import { getApiKeys, isMockMode } from "./wind-client.js";
+import { CONCEPT_CODES_KEY, mergeConceptCodes } from "../sectorflow/concepts.js";
 
 const MARKET_CONFIG = {
   cn: { engine: cnEngine },
@@ -193,6 +194,17 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
     }).catch((error) => { result.errors.push(`news: ${errorText(error)}`); }));
   }
   await Promise.all(tasks);
+
+  // 板块资金：顺手记下本次看到的概念指数代码（不多调用 Wind），失败不影响短线情绪
+  const concepts = engine.takeSeenConcepts?.() || [];
+  if (concepts.length) {
+    try {
+      const saved = (await store.kvGet(CONCEPT_CODES_KEY).catch(() => null))?.value;
+      await store.kvSet(CONCEPT_CODES_KEY, mergeConceptCodes(saved, plan.day, concepts, now));
+    } catch (error) {
+      result.errors.push(`concept-codes: ${errorText(error)}`);
+    }
+  }
 
   const engineState = exportEngineState(plan.day);
   await store.kvSet(KEY.engineState(plan.day), engineState).catch((error) => {
