@@ -3,6 +3,7 @@
   "framework": null,
   "outputDirectory": "public",
   "functions": {
+    "api/kandian.js": { "maxDuration": 60 },
     "api/short-emotion.js": {
       "maxDuration": 60
     },
