@@ -8,7 +8,15 @@ it('cleans all editions and index without changing content; rerun is idempotent'
  for(const article of articles) await store.kvSet(articleKey(article.id), article);
  await store.kvSet(INDEX, articles.map(({sections,...rest})=>rest));
  expect(await cleanReports(store)).toEqual({articles:3,changed:3});
- expect((await store.kvGet(INDEX)).value.map(a=>a.title)).toEqual(['看点早报','午间看点','看点收评']);
+ expect((await store.kvGet(INDEX)).value.map(a=>a.title)).toEqual(['看点早报｜旧标题','午间看点｜旧标题','看点收评｜旧标题']);
  for(const old of articles) expect((await store.kvGet(articleKey(old.id))).value).toEqual(normalizeReport(old));
  expect(await cleanReports(store)).toEqual({articles:3,changed:0});
+});
+
+it('normalizes future headlines without duplicated labels and preserves them on reread', () => {
+ for (const [suffix,label] of [['','看点早报'],['-noon','午间看点'],['-evening','看点收评']]) {
+  const a = normalizeReport({id:`20261026${suffix}`,title:'看点晚报｜看点收评｜市场修复的关键'});
+  expect(a.title).toBe(`${label}｜市场修复的关键`);
+  expect(normalizeReport(a)).toEqual(a);
+ }
 });
