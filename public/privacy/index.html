@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="robots" content="noindex">
+  <title>隐私政策 · ShortEmotion</title>
+  <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
+  <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <script>
+    // 与介绍页、看板共用外观设置：深浅色跟随系统（或 twsvp_theme），语言：简体 / 繁体
+    (function () {
+      var root = document.documentElement;
+      var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
+      var theme = get("twsvp_theme");
+      if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      root.dataset.theme = theme;
+      if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
+      var lang = get("shortemotion:lang");
+      if (lang !== "hans" && lang !== "hant") lang = /^zh-(tw|hk|mo|hant)/i.test(navigator.language || "") ? "hant" : "hans";
+      root.dataset.lang = lang;
+      if (lang === "hant") root.lang = "zh-Hant-TW";
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/about/about.css?v=11">
+  <link rel="stylesheet" href="/account/account.css?v=12">
+  <link rel="stylesheet" href="/legal/legal.css?v=1">
+  <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
+  <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body class="sub-page">
+  <nav class="subnav">
+    <a id="back" class="subnav-btn" href="/about" aria-label="返回">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+    <div class="subnav-title">隐私政策</div>
+  </nav>
+
+  <main class="sub-frame">
+    <article class="sub-card legal-doc">
+      <h1>ShortEmotion 隐私政策</h1>
+      <p class="legal-meta"><span>版本 1.0</span> · <span>生效日期 2026 年 10 月 24 日</span> · <span>运营者 pai</span></p>
+
+      <p class="legal-lead">pai（以下简称“我们”）运营 ShortEmotion（网址 lfjmwl.com，以下简称“本服务”）。我们按照《中华人民共和国个人信息保护法》等法律法规处理你的个人信息。本政策说明我们收集哪些信息、怎么使用、交给谁处理、存在哪里、保存多久，以及你可以怎样行使权利。</p>
+
+      <h2>一、我们收集的信息</h2>
+      <h3>1. 登录信息（必需）</h3>
+      <p>邮箱地址：用来发送验证码、识别你的账号。我们不设置、也不保存密码。</p>
+      <h3>2. 个人资料（选填）</h3>
+      <p>姓名、电话区号与号码，在“个人页面”填写。姓名会显示在你的邀请卡上，以及你邀请的人在登录页看到的邀请说明中。电话目前只保存，不做验证，也不会用来联系你推销。</p>
+      <h3>3. 积分与邀请记录</h3>
+      <p>积分余额，签到、获得与消耗的流水（时间与原因）；你的邀请码，你邀请了谁、被谁邀请，以及奖励发放时间。</p>
+      <h3>4. 使用记录</h3>
+      <p>最近 30 天内哪几天使用过、看过哪个看板、按过几次刷新。用于统计活跃人数、控制资料成本；超过 30 天自动删除。</p>
+      <h3>5. 个股分析记录</h3>
+      <p>你查询的股票与分析结果，每人保留最近 10 条，用于“最近分析”。你发起的分析会成为该股票的平台最新结果，供已取得该股票查看权的其他用户查看，但不显示你的身份。首页“大家都在看”只显示股票名称与代码。</p>
+      <h3>6. 你发布的看点</h3>
+      <p>股票、方向、周期、逻辑标签，以及发布时的价格与时间。以匿名代号（“用户”加 8 位字符）向其他登录用户展示。</p>
+      <h3>7. 设备与日志信息</h3>
+      <p>你访问时，网站托管服务会自动记录 IP 地址、浏览器类型、访问时间与请求的网址等服务器日志，用于安全防护与故障排查。页面浏览量统计不使用 cookie，只做汇总。</p>
+
+      <h2>二、Cookie 与浏览器本地存储</h2>
+      <ul>
+        <li><strong>登录 cookie</strong>（se_at、se_rt）：保持登录状态，最长 90 天；设为 HttpOnly，页面脚本读不到；退出登录时清除。</li>
+        <li><strong>使用记录 cookie</strong>（se_seen）：避免同一天重复记录，2 天后失效。</li>
+        <li><strong>浏览器本地存储</strong>：深浅色、涨跌颜色、简繁体等外观设置，邀请码（7 天）、验证码发送时间、刷新冷却时间等。只存在你的浏览器里，不上传。</li>
+        <li>我们不使用广告或跨站追踪 cookie。</li>
+      </ul>
+
+      <h2>三、我们怎么使用这些信息</h2>
+      <ul>
+        <li>提供登录、看板、个股分析、看点、积分与邀请等功能；</li>
+        <li>统计活跃人数、控制数据调用成本、改进产品；</li>
+        <li>防范批量注册、刷积分等滥用行为，保障账号与系统安全；</li>
+        <li>回复你的咨询，处理你的申请。</li>
+      </ul>
+      <p>我们不会把你的个人信息用于广告推送，也不会出售你的个人信息。只有少数经授权的管理人员可以在管理后台查看统计数据与积分记录，其中的邮箱会打码显示。</p>
+
+      <h2>四、委托处理与存储地点</h2>
+      <p>本服务使用以下服务商，你的个人信息由它们在中国境外的服务器上存储和处理：</p>
+      <ul>
+        <li><strong>Supabase</strong>（Supabase, Inc.）：账号认证与数据库。处理邮箱、个人资料、积分、邀请、使用记录、个股分析记录与你发布的看点。</li>
+        <li><strong>Vercel</strong>（Vercel Inc.）：网站托管、服务器日志与页面浏览量统计。处理 IP 地址、浏览器信息与 cookie。</li>
+        <li><strong>Resend</strong>：发送验证码邮件。处理你的邮箱地址。</li>
+        <li><strong>Google Fonts</strong>（Google LLC）：网页字体。浏览器加载字体时，Google 会收到你的 IP 地址与浏览器信息。</li>
+      </ul>
+      <p>我们只向上述服务商提供实现相应功能所必需的信息，并按其服务条款与数据处理约定处理。你可以按第七部分联系我们，对上述服务商处理的个人信息行使查阅、更正、删除等权利。</p>
+      <p>以下服务商不接触你的个人信息：金融数据服务商（只收到你查询的股票代码）、人工智能模型服务商（只收到行情与新闻资料，用来生成看点文章）、GitHub（存放网站代码与行情资料）。</p>
+
+      <h2>五、保存期限</h2>
+      <ul>
+        <li>使用记录：30 天，到期自动删除。</li>
+        <li>个股分析记录：每人最近 10 条，更早的自动删除。</li>
+        <li>登录 cookie：最长 90 天。</li>
+        <li>账号、个人资料、积分、邀请与你发布的看点：在账号存续期间保存；账号注销后 15 个工作日内删除或匿名化，法律法规另有要求的除外。</li>
+        <li>服务器日志：由托管服务商按其政策短期保存。</li>
+      </ul>
+
+      <h2>六、安全措施</h2>
+      <p>全站使用 HTTPS；登录凭证存在 HttpOnly cookie 中；数据库按用户隔离访问权限；不保存密码。但互联网环境无法保证绝对安全。如发生个人信息安全事件，我们会按法律要求告知你，并采取补救措施。</p>
+
+      <h2>七、你的权利</h2>
+      <ul>
+        <li><strong>查阅、复制、更正与补充</strong>：姓名与电话可以在“个人页面”直接修改；其他信息可以发邮件申请。</li>
+        <li><strong>删除与撤回同意</strong>：你可以要求删除个人信息，或撤回同意。撤回不影响撤回前已经进行的处理；撤回后可能无法继续使用需要相应信息的功能。</li>
+        <li><strong>注销账号</strong>：用注册邮箱发送邮件至 <a href="mailto:pai.product.manager@gmail.com">pai.product.manager@gmail.com</a>，标题写“注销账号”。我们核实身份后在 15 个工作日内处理。注销后账号与相关记录将被删除，积分清零，无法恢复。</li>
+        <li><strong>要求解释说明</strong>：对本政策或我们的处理方式有疑问，可以随时询问。</li>
+      </ul>
+      <p>以上请求请发送到同一邮箱，我们会在 15 个工作日内答复。</p>
+
+      <h2>八、未成年人</h2>
+      <p>本服务主要面向成年人。未满 18 周岁的未成年人，应在监护人阅读并同意本政策后，在监护人的指导下使用；未满 14 周岁的儿童，必须由监护人代为同意。如果我们发现在未获监护人同意的情况下处理了未成年人的个人信息，会尽快删除。</p>
+
+      <h2>九、政策的更新</h2>
+      <p>本政策更新时，我们会修改本页的版本与生效日期。重大变更（例如收集新类型的信息、新增处理你信息的服务商）会在登录页或站内显著位置提示，并在需要时重新取得你的同意。</p>
+
+      <h2>十、联系我们</h2>
+      <p>运营者：pai<br>邮箱：<a href="mailto:pai.product.manager@gmail.com">pai.product.manager@gmail.com</a></p>
+      <p class="legal-note">另见《<a href="/terms">用户协议</a>》。</p>
+    </article>
+    <footer class="legal-links"><a href="/terms">用户协议</a><span aria-hidden="true">·</span><a href="/privacy" aria-current="page">隐私政策</a></footer>
+  </main>
+
+  <script type="module" src="/legal/legal.js?v=1"></script>
+</body>
+</html>

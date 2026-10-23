@@ -8,6 +8,8 @@ const sources = [
   "public/about/about.js",
   "public/login/index.html",
   "public/login/login.js",
+  "public/terms/index.html",
+  "public/privacy/index.html",
   "public/account/index.html",
   "public/account/account.js",
   "public/account/common.js",
