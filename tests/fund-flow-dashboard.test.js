@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildDashboard, parseDailyTables, refreshFlowWindows, WINDOW_KEY } from '../api/_lib/sectorflow/dashboard.js';
+import { buildDashboard, parseDailyTables } from '../api/_lib/sectorflow/dashboard.js';
 import { flowColor, flowCurvePath, selectFlowLines } from '../public/shared/fund-flow.js';
 const table = (rows, unit = '元') => ({ data: { columns: [{ name: '日期' }, { name: '主力净流入额', unit }, { name: '成交额', unit }], rows } });
 const boards = [{ code: '884001.WI', name: '测试指数' }];
@@ -20,41 +20,6 @@ describe('资金曲线口径', () => {
     expect(data.windows[20].dates).toEqual(['20261021']);
     expect(data.windows[20].series[0].points).toHaveLength(1);
     expect(data.windows[20].series[0].points[0].amount).toBe(3);
-  });
-  it('不完整历史重试且5日/20日复用查询，失败保留缓存并限制重试次数', async () => {
-    let saved;
-    const store = { kvGet: async () => saved ? { value: saved } : null, kvSet: async (key, value) => { expect(key).toBe(WINDOW_KEY); saved = value; } };
-    const windCall = vi.fn(async () => table([['20261021', 2e8, 10e8]]));
-    const snapshot = { tradingDate: '20261022', minute: 630, boards: [{ ...boards[0], n5: 5, n20: 20 }] };
-    await refreshFlowWindows(store, { windCall }, snapshot);
-    expect(windCall).toHaveBeenCalledTimes(1);
-    await refreshFlowWindows(store, { windCall }, snapshot);
-    expect(windCall).toHaveBeenCalledTimes(2);
-    const original = saved[20].series;
-    windCall.mockRejectedValue(new Error('unavailable'));
-    await refreshFlowWindows(store, { windCall }, { ...snapshot, minute: 900 });
-    expect(saved[20].series).toEqual(original);
-    await refreshFlowWindows(store, { windCall }, { ...snapshot, minute: 900 });
-    expect(windCall).toHaveBeenCalledTimes(4);
-    await refreshFlowWindows(store, { windCall }, { ...snapshot, minute: 900 });
-    await refreshFlowWindows(store, { windCall }, { ...snapshot, minute: 900 });
-    expect(windCall).toHaveBeenCalledTimes(5); // 每个阶段最多三次
-  });
-  it('为未进入排行的可选板块获取历史，5日共享20日缓存', async () => {
-    let saved;
-    const store = { kvGet: async () => saved ? { value: saved } : null, kvSet: async (_, value) => { saved = value; } };
-    const rows = Array.from({ length: 20 }, (_, i) => [`202609${String(i + 1).padStart(2, '0')}`, i * 1e8, 10e8]);
-    const windCall = vi.fn(async () => table(rows));
-    const snapshot = { tradingDate: '20260920', minute: 900, boards: [...boards, { code: 'other', name: '未进排行', n5: 0, n20: 0 }] };
-    await refreshFlowWindows(store, { windCall }, snapshot);
-    expect(windCall).toHaveBeenCalledTimes(2);
-    expect(saved[20].complete).toBe(true);
-    expect(saved[20].series).toHaveLength(2);
-    expect(saved[5].series[1].points).toHaveLength(5);
-    await refreshFlowWindows(store, { windCall }, snapshot);
-    expect(windCall).toHaveBeenCalledTimes(2);
-    const data = buildDashboard({ windows: { 20: saved[20] } });
-    expect(data.windows[5].series[1].points).toHaveLength(5);
   });
   it('平滑曲线穿过真实点，峰谷不超调，午休重合横坐标不生成NaN', () => {
     expect(flowCurvePath([])).toBe('');

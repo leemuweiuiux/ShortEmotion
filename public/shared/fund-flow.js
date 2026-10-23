@@ -24,6 +24,12 @@ export function selectFlowLines(lines, { metric = 'amount', period = 'today', co
     return { ...line, last, rank, lastLabel: lastPoint?.label || lastPoint?.date };
   }).filter((line) => line.last != null).sort((a, b) => b.rank - a.rank);
   if (selected.length) return ranked.filter((line) => selected.includes(line.code));
+  if (period !== 'today') {
+    for (let i = ranked.length - 1; i >= 0; i--) {
+      const points = ranked[i].points;
+      if (points.some((p) => p.date) && new Set(points.filter((p) => valid(p[metric])).map((p) => p.date)).size !== Number(period)) ranked.splice(i, 1);
+    }
+  }
   return [...ranked.filter((line) => line.rank >= 0).slice(0, compact ? 3 : 6), ...ranked.filter((line) => line.rank < 0).slice(-(compact ? 3 : 4))];
 }
 const minute = (label) => { const [h, m] = String(label).split(':').map(Number); return h * 60 + m; };
@@ -63,13 +69,13 @@ export function mountFundFlow(root, { compact = false, initialCode = '', onSelec
     root.querySelectorAll('[data-metric]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.metric === metric)));
     const note = root.querySelector('.ff-note');
     const incomplete = chosen.filter((line) => keys.some((key) => !line.points.some((p) => p.date === key && valid(p[metric]))));
-    note.textContent = period === 'today' ? '按定时快照采样；缺失时点不补零。' : `按区间净流入强弱选线；右端标签为最后一日数值。${keys.length < Number(period) ? `当前仅有${keys.length}个交易日记录。` : ''}${incomplete.length ? `${incomplete.length}个板块历史数据未完整，缺失日期保留断点，等待补齐。` : ''}`;
+    note.textContent = period === 'today' ? '按定时快照采样；缺失时点不补零。' : `按区间净流入强弱选线；右端标签为最后一日数值。${data?.history?.status === 'pending' ? '新一期历史数据补齐中，暂展示上一完整版本。' : ''}${keys.length < Number(period) ? `当前仅有${keys.length}个交易日记录。` : ''}${incomplete.length ? `${incomplete.length}个板块历史数据未完整，缺失日期保留断点，等待补齐。` : ''}`;
     const values = chosen.flatMap((line) => line.points.map((p) => p[metric])).filter(valid).map(Number);
     root.querySelector('.ff-legend').innerHTML = chosen.map((line) => `<button type="button" data-code="${esc(line.code)}" aria-pressed="${focusCode === line.code}"><i style="background:${flowColor(line.code)}"></i><span>${esc(line.name)}</span><b>${signed(line.last, unit)}</b></button>`).join('');
     const options = root.querySelector('.ff-options');
     if (options) options.innerHTML = lines.map((line) => `<label><input type="checkbox" value="${esc(line.code)}" ${selected.includes(line.code) ? 'checked' : ''}>${esc(line.name)}</label>`).join('');
     if (!values.length) {
-      host.innerHTML = `<p class="empty">${!lines.length ? '暂无该周期资金数据，采样后更新。' : metric === 'pct' ? '所选板块暂无占比数据，可切换金额或恢复默认。' : '所选板块暂无有效数据，可恢复默认。'}</p>`;
+      host.innerHTML = `<p class="empty">${!lines.length ? (period !== 'today' && data?.history ? '历史日数据补齐中，通过完整性校验后统一展示。' : '暂无该周期资金数据，采样后更新。') : metric === 'pct' ? '所选板块暂无占比数据，可切换金额或恢复默认。' : '所选板块暂无有效数据，可恢复默认。'}</p>`;
       return;
     }
     const width = Math.max(280, host.clientWidth || 560);

@@ -4,7 +4,8 @@
 //   kv/sectorflow_latest.json              最新快照
 //   kv/sectorflow_daily.json               每日收盘值（最近 60 个交易日）
 //   kv/sectorflow_intraday_YYYYMMDD.json   当日盘中各点（保留 30 天）
-import { WINDOW_KEY, buildDashboard, refreshFlowWindows } from "./dashboard.js";
+import { WINDOW_KEY, buildDashboard } from "./dashboard.js";
+import { HISTORY_KEY } from './history.js';
 import { selectBoards, isExcludedBoard } from "./boards.js";
 import { CONCEPT_CODES_KEY } from "./concepts.js";
 import { FIELDS, SESSION_CLOSE, SESSION_START, snapshotFromRows, upsertDaily, appendIntraday, buildPayload, buildSummary } from "./metrics.js";
@@ -48,8 +49,7 @@ export async function refreshSectorFlow(store, { windCall, tables, objects }, { 
   if (intraday) await store.kvSet(intradayKey, intraday);
   const closed = snapshot.minute != null && snapshot.minute >= SESSION_CLOSE;
   if (closed) await store.kvSet(SECTORFLOW_KEYS.daily, upsertDaily((await store.kvGet(SECTORFLOW_KEYS.daily).catch(() => null))?.value, snapshot));
-  const historyErrors = await refreshFlowWindows(store, { windCall }, snapshot);
-  return { quote: `${snapshot.tradingDate} ${snapshot.label}`, boards: snapshot.boards.length, closed, historyErrors };
+  return { quote: `${snapshot.tradingDate} ${snapshot.label}`, boards: snapshot.boards.length, closed };
 }
 
 /** 今天有交易、但还没存到收盘值（用于 15:00 之后补抓）。 */
@@ -80,7 +80,9 @@ export async function readSectorFlow(store, resource = "full") {
   const savedWindows = (await store.kvGet(WINDOW_KEY).catch(() => null))?.value || {};
   const windows = Object.fromEntries(Object.entries(savedWindows).map(([days, item]) =>
     [days, item?.series ? { ...item, series: item.series.filter(keep) } : item]));
-  const dashboard = buildDashboard({ boards, latest, daily, intraday, windows, storedAt: latestEntry?.updatedAt || null });
+  const history = (await store.kvGet(HISTORY_KEY))?.value || {};
+  if (history.published) history.published = { ...history.published, series: history.published.series.filter(keep) };
+  const dashboard = buildDashboard({ boards, latest, daily, intraday, windows, history, storedAt: latestEntry?.updatedAt || null });
   if (resource === "summary") dashboard.windows = {};
   return { ...(resource === "summary" ? buildSummary(payload) : payload), dashboard, storedAt: latestEntry?.updatedAt || null };
 }
