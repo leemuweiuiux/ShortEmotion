@@ -53,7 +53,7 @@ describe("看点早报分享：页面接线", () => {
     expect(html).toContain('id="share-article"');
     expect(html).toContain('id="toast"');
     expect(html).toContain('src="/short-emotion/vendor/html-to-image.js"');
-    expect(read("public/kandian/reports.js")).toContain("import('/kandian/share.js?v=3').then(m=>m.setupShare(a,article))");
+    expect(read("public/kandian/reports.js")).toContain("import('/kandian/share.js?v=4').then(m=>m.setupShare(a,article))");
   });
 
   it("分享模块引用的文件都在", () => {

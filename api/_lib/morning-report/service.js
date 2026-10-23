@@ -4,11 +4,13 @@ export const articleKey = (id) => `morning-report:${id}`;
 export const NOON_SUFFIX = '-noon';
 export const noonId = (day) => `${day}${NOON_SUFFIX}`;
 export const isNoon = (article) => article?.edition === 'noon' || String(article?.id || '').endsWith(NOON_SUFFIX);
-const ID_PATTERN = /^\d{8}(?:-noon)?$/;
+export const eveningId = day => `${day}-evening`;
+const ID_PATTERN = /^\d{8}(?:-noon|-evening)?$/;
 // 篇幅：早报正文至少 700 字、摘要 100—150 字；午间看点正文 500—900 字（校验放宽到 450—1200）、摘要 80—120 字。
 export const LIMITS = {
   morning: { summary: [100, 150], text: [700, Infinity] },
-  noon: { summary: [80, 120], text: [450, 1200] }
+  noon: { summary: [80, 120], text: [450, 1200] },
+  evening: { summary: [100, 150], text: [700, 1800] }
 };
 export const beijingDay = (now = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now).replaceAll('-', '');
 export function validateArticle(article, evidence, limits = LIMITS.morning) {
@@ -30,7 +32,7 @@ export async function readReports(store, { id, offset = 0, limit = 20, now = new
     if (!visible(a)) throw Object.assign(new Error('文章不存在'), { statusCode: 404 });
     return { article: a };
   }
-  const all = ((await store.kvGet(INDEX))?.value || []).filter(visible).sort((a,b) => b.id.localeCompare(a.id));
+  const all = ((await store.kvGet(INDEX))?.value || []).filter(visible).sort((a,b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt) || b.id.localeCompare(a.id));
   const start = Math.max(0, Number(offset) || 0), size = Math.max(1, Math.min(50, Number(limit) || 20));
   return { items: all.slice(start, start + size), nextOffset: start + size < all.length ? start + size : null };
 }
