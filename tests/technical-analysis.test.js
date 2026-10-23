@@ -168,6 +168,11 @@ function rpc(name, args) {
       return [...history].reverse().filter((row) => !seen.has(row.code) && seen.add(row.code)).slice(0, args.p_limit)
         .map(({ id, code, name, created_at }) => ({ id, code, name, created_at }));
     }
+    case "analysis_latest": return [
+      { code: "000001.SZ", name: "平台样本一", user_id: "other-user", id: 999, result: { private: true } },
+      { code: "600000.SH", name: "平台样本二" },
+      { code: "920001.BJ", name: "平台样本三" }
+    ];
     case "analysis_get": {
       const row = history.find((item) => item.id === args.p_id);
       return row ? { id: row.id, code: row.code, name: row.name, createdAt: row.created_at, result: row.result } : null;
@@ -277,6 +282,31 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
   it("认不出股票不会存进分析记录", async () => {
     await call({ body: { q: "999999" } });
     expect(history).toHaveLength(0);
+  });
+
+  it("首页获取全平台最新查询，与个人历史分开且不暴露其他人的记录", async () => {
+    await call({ body: { q: "603936" } });
+    const balance = account.balance;
+    wind.resetWindCallStats();
+    const response = await call({ method: "GET", query: { action: "config", latest: "1" } });
+    expect(response.body.recent.map((row) => row.code)).toEqual(["603936.SH"]);
+    expect(response.body.latest).toEqual([
+      { code: "000001.SZ", name: "平台样本一" },
+      { code: "600000.SH", name: "平台样本二" },
+      { code: "920001.BJ", name: "平台样本三" }
+    ]);
+    expect(account.balance).toBe(balance);
+    expect(wind.windCallStats().total).toBe(0);
+    expect((await call({ method: "GET", query: { action: "config" } })).body).not.toHaveProperty("latest");
+  });
+
+  it("平台最新查询读取失败不会影响个人历史与分析配置", async () => {
+    const fetchRpc = globalThis.fetch;
+    globalThis.fetch = vi.fn((url, options) => String(url).endsWith("/analysis_latest")
+      ? Promise.resolve(Response.json({ message: "not available" }, { status: 503 })) : fetchRpc(url, options));
+    const response = await call({ method: "GET", query: { action: "config", latest: "1" } });
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toMatchObject({ configured: true, cost: 10, recent: [], latest: [] });
   });
 
   it("不限额账号不扣分", async () => {

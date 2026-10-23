@@ -23,7 +23,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=17">
-  <link rel="stylesheet" href="/technical-analysis/ta.css?v=11">
+  <link rel="stylesheet" href="/technical-analysis/ta.css?v=12">
   <link rel="stylesheet" href="/shared/form.css?v=1">
   <link rel="stylesheet" href="/home/home.css?v=7">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
@@ -54,14 +54,15 @@
 
       <form id="ta-form" class="card ta-search home-card" autocomplete="off">
         <div class="card-head"><h2 class="card-title">个股技术分析</h2><a class="home-more" href="/technicalanalysis">查看更多</a></div>
-        <p class="card-desc">输入股票，生成趋势结构、胜率与赔率、历史同类量价结构和事件驱动分析。</p>
         <div class="se-bar">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-4.2-4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          <input id="ta-input" name="q" type="search" inputmode="search" enterkeyhint="go" maxlength="30" placeholder="代码或简称，如 603936" aria-label="股票代码或简称" required>
+          <input id="ta-input" name="q" type="search" inputmode="search" enterkeyhint="go" maxlength="30" placeholder="输入完整股票名称或代码" aria-label="股票代码或简称" required>
           <button id="ta-run" class="ta-run" type="submit">开始分析</button>
         </div>
         <p id="ta-recent" class="ta-recent" hidden></p>
-        <p id="ta-hint" class="ta-hint">*每次分析扣 10 积分。</p>
+        <p class="card-desc">生成趋势结构、胜率与赔率、历史同类量价结构和事件驱动分析。</p>
+        <p id="ta-latest" class="ta-recent ta-latest" aria-live="polite">大家都在看：正在加载…</p>
+        <p id="ta-hint" class="ta-hint">*每次分析需要 10 积分</p>
       </form>
 
       <a id="emotion-card" class="card home-card home-emotion" href="/shortemotion/cn">
@@ -104,6 +105,6 @@
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/home/home.js?v=12"></script>
+  <script type="module" src="/home/home.js?v=13"></script>
 </body>
 </html>

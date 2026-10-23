@@ -6,13 +6,14 @@
 //      扣分后分析失败自动退回。
 //      与短线情绪不同，这里由网站服务器直接调用 Wind（需要 Vercel 环境变量 WIND_API_KEY）；没配置时返回 503 not_configured，不扣分。
 // GET  /api/technical-analysis?action=config   需要登录：是否已开通、每次扣几分、当前余额、最近分析（3 条）。
+//      首页附加 latest=1：同时返回全平台最新查询股票（去重 3 条，仅名称、代码）。
 // GET  /api/technical-analysis?action=result&id=<记录 id>   需要登录：读取本人保存的一笔分析结果（不调用行情、不扣分）。
 // 分析成功后把完整结果存进 Supabase 的分析记录（每人保留最近 10 笔，见 _lib/analysis-history.js）。
 import { resolveStock, analyzeStock } from "./_lib/technical-analysis/engine.js";
 import { getApiKeys, isMockMode } from "./_lib/short-emotion/wind-client.js";
 import { requireSession, authConfig } from "./_lib/session.js";
 import { POINTS, pointsStatus, pointsChargeAnalysis, pointsRefundAnalysis, InsufficientPointsError } from "./_lib/points.js";
-import { historySave, historyRecent, historyGet } from "./_lib/analysis-history.js";
+import { historySave, historyRecent, historyLatest, historyGet } from "./_lib/analysis-history.js";
 
 // 函数最长 60 秒（vercel.json）：认股票 ≤12 秒，扣分后其余数据 ≤40 秒，超时当作失败并退回积分。
 const ANALYSIS_TIMEOUT_MS = 40_000;
@@ -53,16 +54,20 @@ export default async function handler(req, res) {
     let balance = null;
     let unlimited = false;
     let recent = [];
+    let latest = [];
     if (needsPoints && session.accessToken) {
-      const [status, rows] = await Promise.all([
+      const [status, rows, platformRows] = await Promise.all([
         pointsStatus(config, session.accessToken).catch(() => null),
-        historyRecent(config, session.accessToken).catch(() => [])
+        historyRecent(config, session.accessToken).catch(() => []),
+        req.query.latest === "1" ? historyLatest(config, session.accessToken).catch(() => []) : []
       ]);
       balance = status?.balance ?? null;
       unlimited = Boolean(status?.unlimited);
       recent = rows;
+      latest = platformRows;
     }
-    return send(res, 200, { configured: analysisConfigured(), cost: POINTS.analysis, balance, unlimited, recent });
+    return send(res, 200, { configured: analysisConfigured(), cost: POINTS.analysis, balance, unlimited, recent,
+      ...(req.query.latest === "1" ? { latest } : {}) });
   }
 
   // 最近分析：读取保存的结果，不调用行情、不扣分

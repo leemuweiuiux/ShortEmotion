@@ -15,6 +15,13 @@ export async function historyRecent(config, token, limit = RECENT_LIMIT) {
   return (Array.isArray(rows) ? rows : []).map((row) => ({ id: row.id, code: row.code, name: row.name, createdAt: row.created_at }));
 }
 
+/** 全平台最新查询：只提供股票名称和代码，不提供用户、记录 id 或分析结果。 */
+export async function historyLatest(config, token) {
+  const rows = await pointsRpc(config, token, "analysis_latest", {});
+  return (Array.isArray(rows) ? rows : []).slice(0, RECENT_LIMIT)
+    .map((row) => ({ code: row.code, name: row.name }));
+}
+
 /** 读取本人的一笔完整结果；找不到返回 null。 */
 export async function historyGet(config, token, id) {
   const value = Number(id);
