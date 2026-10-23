@@ -1,6 +1,6 @@
 // 午间看点：生成条件、素材整理、提示词与发布时间（api/_lib/morning-report/noon.js），以及与早报共用的列表与校验。
 import { getStore } from "../api/_lib/short-emotion/store.js";
-import { INDEX, LIMITS, articleKey, isNoon, noonId, readReports, validateArticle } from "../api/_lib/morning-report/service.js";
+import { normalizeReport, INDEX, LIMITS, articleKey, isNoon, noonId, readReports, validateArticle } from "../api/_lib/morning-report/service.js";
 import { NOON, morningDigest, morningPath, noonCandidates, noonFlows, noonMarket, noonMeta, noonPrompt, noonReadiness, sameTimeRecord } from "../api/_lib/morning-report/noon.js";
 
 const record = (time, score, extra = {}) => ({ tradingDate: "20261023", quoteTime: `20261023 ${time}:02`, score, phase: "修复", up: 600, down: 4800, limitUp: 19, limitDown: 50, ...extra });
@@ -96,11 +96,11 @@ describe("午间看点：与早报共用列表与校验", () => {
     await store.kvSet(articleKey(noon.id), noon);
     expect(isNoon(noon)).toBe(true);
     expect(isNoon(morning)).toBe(false);
-    expect((await readReports(store, { now: new Date("2026-10-23T03:59:00Z") })).items).toEqual([morning]);
+    expect((await readReports(store, { now: new Date("2026-10-23T03:59:00Z") })).items).toEqual([normalizeReport(morning)]);
     await expect(readReports(store, { id: noon.id, now: new Date("2026-10-23T03:59:00Z") })).rejects.toMatchObject({ statusCode: 404 });
     const after = new Date("2026-10-23T04:00:00Z");
     expect((await readReports(store, { now: after })).items.map((item) => item.id)).toEqual(["20261023-noon", "20261023"]);
-    expect((await readReports(store, { id: "20261023-noon", now: after })).article).toEqual(noon);
+    expect((await readReports(store, { id: "20261023-noon", now: after })).article).toEqual(normalizeReport(noon));
     await expect(readReports(store, { id: "20261023-evening", now: after })).rejects.toMatchObject({ statusCode: 404 });
   });
 });

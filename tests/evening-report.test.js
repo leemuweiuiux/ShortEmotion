@@ -4,7 +4,7 @@ import { eveningReadiness, eveningMeta, eveningPath, eveningPrompt } from '../ap
 import { INDEX, articleKey, eveningId, readReports, LIMITS, validateArticle } from '../api/_lib/morning-report/service.js';
 import { editionTitle, shareFileBase } from '../public/kandian/share-plan.js';
 const ready = (quoteTime, nowMinute = 965) => eveningReadiness({ day: '20261023', nowMinute, emotion: { quoteTime } });
-describe('看点晚报', () => {
+describe('看点收评', () => {
   it('16:05前不生成，休市跳过，缺收盘数据报错等待补跑', () => {
     expect(ready('20261023 15:00:00', 964)).toMatchObject({ ok: false, skip: true });
     expect(ready('20261022 15:00:00')).toMatchObject({ ok: false, skip: true });
@@ -31,8 +31,8 @@ describe('看点晚报', () => {
   });
   it('晚报不会导致次日早报误判已报道，前端和分享识别晚报', () => {
     expect(readFileSync(new URL('../scripts/morning-report/generate.mjs', import.meta.url), 'utf8')).toContain("(!a.edition || a.edition === 'morning')");
-    expect(editionTitle({ id: '20261023-evening' })).toBe('看点晚报');
-    expect(shareFileBase({ edition: 'evening', id: '20261023-evening' })).toBe('看点晚报-20261023-evening');
+    expect(editionTitle({ id: '20261023-evening' })).toBe('看点收评');
+    expect(shareFileBase({ edition: 'evening', id: '20261023-evening' })).toBe('看点收评-20261023-evening');
   });
   it('写作约束包含盘后消息边界、五段结构与真实证据校验', () => {
     const prompt = eveningPrompt({ day: '20261023', quoteTime: '20261023 15:00:00' });

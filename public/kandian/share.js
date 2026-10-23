@@ -49,7 +49,7 @@ async function shareCards(article, root) {
     // 导读：抬头写日期 · 板块；每一节：小标题已在正文里，抬头写文章标题，单张转发也知道出自哪篇
     const header = spec.kind === "lead"
       ? exportHeader(`${editionTitle(article)} · ${spec.title}`, shareSubtitle(article))
-      : exportHeader(editionTitle(article), article.title ? `官方看点 · ${article.title}` : shareSubtitle(article));
+      : exportHeader(editionTitle(article), article.title ? `Komidomi · ${article.title}` : shareSubtitle(article));
     const blob = await renderImage([header, cardBody(root, spec), exportFooter(shareFooter(article))], { extraClass: "mr-export-shell export-card" });
     files.push({ blob, name: cardFileName(article, position), title: spec.title });
   }
