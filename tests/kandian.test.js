@@ -40,7 +40,7 @@ it('发布页：看涨｜中性｜看跌、一层 10 项逻辑、没有补充说
   const html=readFileSync(new URL('../public/kandian/index.html',import.meta.url),'utf8');
   const order=(attr)=>[...html.matchAll(new RegExp(`data-${attr}="(bullish|neutral|bearish)"`,'g'))].map(m=>m[1]);
   expect(order('direction')).toEqual(['bullish','neutral','bearish']);
-  expect(order('filter')).toEqual(['bullish','neutral','bearish']);
+  expect([...html.matchAll(/<option value="(all|bullish|neutral|bearish)"/g)].map(m=>m[1])).toEqual(['all','bullish','neutral','bearish']);
   expect(html).not.toMatch(/kd-note|补充说明|kd-categories|[↗↘→◈＋×]/u);
   expect(html).toContain('/shared/form.css');
   const css=readFileSync(new URL('../public/kandian/kandian.css',import.meta.url),'utf8');
