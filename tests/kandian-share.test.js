@@ -33,7 +33,7 @@ describe("看点早报分享：内容规划", () => {
     expect(shareFileBase(article)).toBe("看点早报-20261023");
     expect(shareFileBase({ id: "../x?y" })).toBe("看点早报-xy");
     expect(cardFileName(article, 0)).toBe("看点早报-20261023-01.png");
-    expect(shareSubtitle(article)).toBe("2026/10/23 · 工程机械");
+    expect(shareSubtitle(article)).toBe("官方看点 · 2026/10/23 · 工程机械");
     expect(SHARE_FOOTER.note).toContain("不构成投资建议");
   });
 
@@ -53,7 +53,7 @@ describe("看点早报分享：页面接线", () => {
     expect(html).toContain('id="share-article"');
     expect(html).toContain('id="toast"');
     expect(html).toContain('src="/short-emotion/vendor/html-to-image.js"');
-    expect(read("public/kandian/reports.js")).toContain("import('/kandian/share.js?v=2').then(m=>m.setupShare(a,article))");
+    expect(read("public/kandian/reports.js")).toContain("import('/kandian/share.js?v=3').then(m=>m.setupShare(a,article))");
   });
 
   it("分享模块引用的文件都在", () => {
