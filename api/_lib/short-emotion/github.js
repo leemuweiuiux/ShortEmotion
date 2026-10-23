@@ -82,6 +82,26 @@ export async function requestRefresh(market, { charge } = {}) {
   return { dispatched: true, requestedAt, run: null, ...(charged?.result || {}) };
 }
 
+// 准点定时（Supabase pg_cron → /api/cron）：GitHub 自带的 schedule 常晚 25–30 分钟，还会整次丢掉；
+// 改由外部定时器按时调用本站接口，再走手动运行（workflow_dispatch，触发后立即排队）。
+// short-emotion 用 force=false：与 GitHub 定时任务同一套逻辑，按 schedule.js 判断本时段跑什么，
+// 同一个 30 分钟时段只调用一次 Wind，所以 GitHub 自带的定时任务可以留作备用，不会重复花额度。
+export const SCHEDULED_JOBS = {
+  "short-emotion": { workflow: WORKFLOW, inputs: { target: "short-emotion", force: "false", market: "all" } },
+  "morning-report": { workflow: "morning-report.yml" }
+};
+
+/** 定时触发一个数据任务（不扣积分、不做 10 分钟去重，去重由任务自己按时段完成）。 */
+export async function dispatchScheduled(job) {
+  if (!Object.hasOwn(SCHEDULED_JOBS, job)) throw Object.assign(new Error(`未知任务：${job}`), { code: "unknown_job", statusCode: 404 });
+  const { workflow, inputs } = SCHEDULED_JOBS[job];
+  await github(`/repos/${REPO}/actions/workflows/${workflow}/dispatches`, {
+    method: "POST",
+    body: { ref: "main", ...(inputs ? { inputs } : {}) }
+  });
+  return { job, workflow, dispatchedAt: new Date().toISOString() };
+}
+
 /** 数据分支最新提交（读快照时按提交读取，绕开 raw.githubusercontent.com 约 5 分钟的缓存）。 */
 export async function dataBranchHead() {
   const payload = await github(`/repos/${REPO}/git/ref/heads/${DATA_BRANCH}`);
