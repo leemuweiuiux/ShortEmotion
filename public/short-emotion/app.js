@@ -1,3 +1,5 @@
+import { prepareTimelineForExport } from "./export-svg.js?v=1";
+
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 let data = null;
@@ -582,6 +584,7 @@ function cloneForExport(node, { openDetails = true } = {}) {
   const clone = node.cloneNode(true);
   clone.removeAttribute("id");
   clone.querySelectorAll("[id]").forEach((item) => item.removeAttribute("id"));
+  prepareTimelineForExport(clone, getComputedStyle(document.documentElement).getPropertyValue("--ink").trim() || "#121417");
   clone.querySelectorAll("button").forEach((item) => item.remove());
   clone.querySelectorAll("details").forEach((item) => { if (openDetails) item.open = true; else item.remove(); });
   clone.querySelectorAll(".news-list").forEach((item) => { item.style.maxHeight = "none"; item.style.overflow = "visible"; });
