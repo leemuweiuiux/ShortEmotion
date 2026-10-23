@@ -2,6 +2,7 @@
 // 输入六位代码或准确简称 → POST /api/technical-analysis（每次扣 10 积分，认不出股票或分析失败不扣分）。
 // 版面与图表沿用 lfjDashboard「个股技术分析助手」，改成本站的单列卡片样式；页面不标注数据来源。
 import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, takePendingAnalysis, validQuery, renderRecent, readAnalysisResult, shortTime } from "/shared/nav-account.js?v=3";
+import { compositeCharts } from "./chart-export.js?v=1";
 
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const form = $("#ta-form");
@@ -428,13 +429,13 @@ function drawChart() {
   else drawDaily();
 }
 
-/** 导出用：把分时或日 K 画到离屏 canvas，返回图片网址。 */
-function chartImage(mode, width) {
+/** 导出用：把分时或日 K 画到离屏 canvas，留到 HTML 截图后合成。 */
+function chartCanvas(mode, width) {
   const canvas = document.createElement("canvas");
   const target = { canvas, size: { width, height: 260 } };
   if (mode === "intraday") drawIntraday(target);
   else drawDaily(target);
-  return canvas.toDataURL("image/png");
+  return canvas;
 }
 
 $$(".ta-tabs .timeline-toggle").forEach((button) => button.addEventListener("click", () => {
@@ -461,6 +462,7 @@ function withTimeout(promise, ms) {
 }
 const CHART_WIDTH = EXPORT_WIDTH - 32 - 24 - 2; // 外框留白 16×2、卡片内距 12×2、边框
 const CHART_MODES = { intraday: "当日分时", daily: "日K结构" };
+const exportCharts = new WeakMap();
 let exporting = false;
 
 function exportBase() {
@@ -521,7 +523,11 @@ function chartCard(node, mode) {
   const legend = clone.querySelector(".ta-legend");
   if (legend) legend.innerHTML = legendHtml(mode);
   const wrap = clone.querySelector(".ta-chart");
-  if (wrap) wrap.innerHTML = `<img src="${chartImage(mode, CHART_WIDTH)}" alt="">`;
+  if (wrap) {
+    // 保留图表占位与高度，不让截图经过 SVG foreignObject 再次解码 PNG。
+    wrap.replaceChildren();
+    exportCharts.set(wrap, mode);
+  }
   return clone;
 }
 
@@ -561,13 +567,18 @@ async function renderShell(nodes, extraClass = "") {
     await new Promise((resolve) => setTimeout(resolve, 60)); // 等一帧排版（不用 requestAnimationFrame：页面在后台时它不会触发）
     const height = Math.ceil(shell.scrollHeight);
     if (height > 30000) throw new Error("内容过长，请改用「导出小卡」");
+    const charts = [...shell.querySelectorAll(".ta-chart")]
+      .filter((node) => exportCharts.has(node))
+      .map((node) => ({ node, image: chartCanvas(exportCharts.get(node), node.getBoundingClientRect().width || CHART_WIDTH) }));
     // iOS Safari 单张 canvas 约 1600 万像素上限；canvas 单边最多约 16384 像素
     const pixelRatio = Math.max(0.5, Math.min(2, window.devicePixelRatio || 1, Math.sqrt(16_000_000 / (EXPORT_WIDTH * height)), 16_000 / height));
     // skipFonts：不去下载网页字体（大陆网络下 Google 字体请求可能一直挂着），直接用系统字体
-    const blob = await withTimeout(
-      window.htmlToImage.toBlob(shell, { width: EXPORT_WIDTH, height, pixelRatio, backgroundColor: exportBackground(), skipFonts: true }),
+    const canvas = await withTimeout(
+      window.htmlToImage.toCanvas(shell, { width: EXPORT_WIDTH, height, pixelRatio, backgroundColor: exportBackground(), skipFonts: true }),
       EXPORT_TIMEOUT_MS
     );
+    compositeCharts(canvas, shell, charts);
+    const blob = await withTimeout(new Promise((resolve) => canvas.toBlob(resolve, "image/png")), EXPORT_TIMEOUT_MS);
     if (!blob) throw new Error("浏览器未能生成图片");
     return blob;
   } finally {

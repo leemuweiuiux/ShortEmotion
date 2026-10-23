@@ -169,20 +169,27 @@ describe("评分连续性（只取同一评分口径）", () => {
 
 describe("收盘后收缩", () => {
   it("显式force刷新可替换已有15:00旧版本收盘快照", async () => {
-    process.env.WIND_MOCK = "1";
-    const { runScheduledRefresh, readResource } = await import("../api/_lib/short-emotion/service.js");
-    const { getStore } = await import("../api/_lib/short-emotion/store.js");
-    const { localDate } = await import("../api/_lib/short-emotion/engine.js");
-    const day = localDate();
-    const store = getStore("cn");
-    const previous = await store.kvGet("emotion:latest");
-    await store.kvSet("emotion:latest", { ...(previous?.value || {}), quoteTime: `${day} 15:00:00` });
-    const now = new Date(`${day.slice(0, 4)}-${day.slice(4, 6)}-${day.slice(6, 8)}T15:20:00+08:00`);
-    const result = await runScheduledRefresh({ force: true, market: "cn", now });
-    expect(result.ran).toContain("emotion");
-    expect(result.ran).toContain("anomalies");
-    const refreshed = await readResource("emotion");
-    expect(refreshed.scoreVersion).toBe(4);
+    // 模拟行情也读取 Date；只传 now 会在真实时钟处于集合竞价时跳过情绪与题材。
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(bj("2026-10-21", "15:20"));
+    try {
+      process.env.WIND_MOCK = "1";
+      const { runScheduledRefresh, readResource } = await import("../api/_lib/short-emotion/service.js");
+      const { getStore } = await import("../api/_lib/short-emotion/store.js");
+      const { localDate } = await import("../api/_lib/short-emotion/engine.js");
+      const day = localDate();
+      const store = getStore("cn");
+      const previous = await store.kvGet("emotion:latest");
+      await store.kvSet("emotion:latest", { ...(previous?.value || {}), scoreVersion: 3, quoteTime: `${day} 15:00:00` });
+      const now = new Date(`${day.slice(0, 4)}-${day.slice(4, 6)}-${day.slice(6, 8)}T15:20:00+08:00`);
+      const result = await runScheduledRefresh({ force: true, market: "cn", now });
+      expect(result.ran).toContain("emotion");
+      expect(result.ran).toContain("anomalies");
+      const refreshed = await readResource("emotion");
+      expect(refreshed.scoreVersion).toBe(4);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
