@@ -28,7 +28,7 @@ export function shareDate(value) {
 
 /** 抬头小字：日期 · 板块。 */
 export function shareSubtitle(article) {
-  return [shareDate(article?.publishedAt), article?.sector].filter(Boolean).join(" · ");
+  return ["官方看点", shareDate(article?.publishedAt), article?.sector].filter(Boolean).join(" · ");
 }
 
 /** 文件名前缀：看点早报-20261023、午间看点-20261023-noon（只留字母数字与连字符）。 */
