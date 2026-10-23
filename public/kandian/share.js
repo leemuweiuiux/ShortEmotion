@@ -2,7 +2,7 @@
 // 只用页面上已经显示的文章，不再请求接口。导出做法见 /shared/export-image.js。
 import { exportHeader, exportFooter, renderImage, prepareExportAssets, shareOrDownload, showGallery, closeGallery, withTimeout } from "/shared/export-image.js?v=1";
 import { toast } from "/shared/nav-account.js?v=4";
-import { SHARE_TITLE, SHARE_FOOTER, shareSubtitle, shareFileBase, cardSpecs, cardFileName } from "/kandian/share-plan.js?v=1";
+import { editionTitle, shareFooter, shareSubtitle, shareFileBase, cardSpecs, cardFileName } from "/kandian/share-plan.js?v=2";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 let exporting = false;
@@ -35,8 +35,8 @@ function cardBody(root, spec) {
 
 async function shareWhole(article, root) {
   toast("正在生成全文长图…");
-  const blob = await renderImage([exportHeader(SHARE_TITLE, shareSubtitle(article)), wholeArticle(root), exportFooter(SHARE_FOOTER)], { extraClass: "mr-export-shell" });
-  await shareOrDownload([{ blob, name: `${shareFileBase(article)}-全文.png`, title: "全文" }], article.title || SHARE_TITLE);
+  const blob = await renderImage([exportHeader(editionTitle(article), shareSubtitle(article)), wholeArticle(root), exportFooter(shareFooter(article))], { extraClass: "mr-export-shell" });
+  await shareOrDownload([{ blob, name: `${shareFileBase(article)}-全文.png`, title: "全文" }], article.title || editionTitle(article));
   toast("全文长图已生成");
 }
 
@@ -48,12 +48,12 @@ async function shareCards(article, root) {
     toast(`正在生成小卡 ${position + 1}/${specs.length}…`);
     // 导读：抬头写日期 · 板块；每一节：小标题已在正文里，抬头写文章标题，单张转发也知道出自哪篇
     const header = spec.kind === "lead"
-      ? exportHeader(`${SHARE_TITLE} · ${spec.title}`, shareSubtitle(article))
-      : exportHeader(SHARE_TITLE, article.title || shareSubtitle(article));
-    const blob = await renderImage([header, cardBody(root, spec), exportFooter(SHARE_FOOTER)], { extraClass: "mr-export-shell export-card" });
+      ? exportHeader(`${editionTitle(article)} · ${spec.title}`, shareSubtitle(article))
+      : exportHeader(editionTitle(article), article.title || shareSubtitle(article));
+    const blob = await renderImage([header, cardBody(root, spec), exportFooter(shareFooter(article))], { extraClass: "mr-export-shell export-card" });
     files.push({ blob, name: cardFileName(article, position), title: spec.title });
   }
-  showGallery(files, { heading: "分享小卡", shareTitle: article.title || SHARE_TITLE, onError: (error) => toast(`保存失败：${error.message}`, true) });
+  showGallery(files, { heading: "分享小卡", shareTitle: article.title || editionTitle(article), onError: (error) => toast(`保存失败：${error.message}`, true) });
   toast(`已生成 ${files.length} 张小卡`);
 }
 

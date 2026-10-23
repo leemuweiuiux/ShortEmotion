@@ -1,7 +1,7 @@
 // 看点早报详情：分享全文（一张长图）与小卡（导读一张、每一节一张）。
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { cardSpecs, cardFileName, shareFileBase, shareSubtitle, SHARE_FOOTER } from "../public/kandian/share-plan.js";
+import { cardSpecs, cardFileName, editionTitle, shareFileBase, shareFooter, shareSubtitle, SHARE_FOOTER } from "../public/kandian/share-plan.js";
 
 const root = resolve(import.meta.dirname, "..");
 const read = (path) => readFileSync(resolve(root, path), "utf8");
@@ -36,6 +36,15 @@ describe("看点早报分享：内容规划", () => {
     expect(shareSubtitle(article)).toBe("2026/10/23 · 工程机械");
     expect(SHARE_FOOTER.note).toContain("不构成投资建议");
   });
+
+  it("午间看点：抬头、底部与文件名都用「午间看点」", () => {
+    const noon = { ...article, id: "20261023-noon", edition: "noon" };
+    expect(editionTitle(noon)).toBe("午间看点");
+    expect(editionTitle({ id: "20261023-noon" })).toBe("午间看点");
+    expect(editionTitle(article)).toBe("看点早报");
+    expect(shareFooter(noon).title).toBe("ShortEmotion · 午间看点");
+    expect(cardFileName(noon, 1)).toBe("午间看点-20261023-noon-02.png");
+  });
 });
 
 describe("看点早报分享：页面接线", () => {
@@ -44,7 +53,7 @@ describe("看点早报分享：页面接线", () => {
     expect(html).toContain('id="share-article"');
     expect(html).toContain('id="toast"');
     expect(html).toContain('src="/short-emotion/vendor/html-to-image.js"');
-    expect(read("public/kandian/reports.js")).toContain("import('/kandian/share.js?v=1').then(m=>m.setupShare(a,article))");
+    expect(read("public/kandian/reports.js")).toContain("import('/kandian/share.js?v=2').then(m=>m.setupShare(a,article))");
   });
 
   it("分享模块引用的文件都在", () => {

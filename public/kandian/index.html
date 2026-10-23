@@ -13,7 +13,7 @@
   <div class="app-shell kd-shell">
     <nav class="nav"><a class="nav-logo" href="/home" aria-label="首页"><img src="/short-emotion/logo.svg?v=2" alt="ShortEmotion"></a><div class="nav-title">看点</div><a class="kd-home-link" href="/home">首页</a></nav>
     <main>
-      <nav class="mr-tabs" aria-label="内容类型"><a href="/kandian?tab=reports" id="reports-tab">早报</a><a href="/kandian?tab=views" id="views-tab">观点</a></nav>
+      <nav class="mr-tabs" aria-label="内容类型"><a href="/kandian?tab=reports" id="reports-tab">早报·午间</a><a href="/kandian?tab=views" id="views-tab">观点</a></nav>
       <section id="reports-panel"><div id="morning-report-feed" aria-live="polite"></div><button id="morning-report-more" type="button">加载更多</button></section>
       <div id="views-panel">
       <div class="kd-filters" role="group" aria-label="看点筛选"><button type="button" data-filter="all" aria-pressed="true">最新</button><button type="button" data-filter="bullish" aria-pressed="false">看涨</button><button type="button" data-filter="bearish" aria-pressed="false">看跌</button><button type="button" data-filter="neutral" aria-pressed="false">中性</button></div>
@@ -38,5 +38,5 @@
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script type="module" src="/kandian/app.js?v=2"></script>
-<script>const reports=new URLSearchParams(location.search).get('tab')!=='views';document.querySelector('#reports-panel').hidden=!reports;document.querySelector('#views-panel').hidden=reports;document.querySelector('.kd-publish-bar').hidden=reports;document.querySelector(reports?'#reports-tab':'#views-tab').setAttribute('aria-current','page');</script><script type="module" src="/kandian/reports.js?v=1"></script></body>
+<script>const reports=new URLSearchParams(location.search).get('tab')!=='views';document.querySelector('#reports-panel').hidden=!reports;document.querySelector('#views-panel').hidden=reports;document.querySelector('.kd-publish-bar').hidden=reports;document.querySelector(reports?'#reports-tab':'#views-tab').setAttribute('aria-current','page');</script><script type="module" src="/kandian/reports.js?v=3"></script></body>
 </html>
