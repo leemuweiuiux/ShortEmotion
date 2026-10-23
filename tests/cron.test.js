@@ -8,7 +8,7 @@ import { duePlan } from "../api/_lib/short-emotion/schedule.js";
 
 const root = resolve(import.meta.dirname, "..");
 // 准点定时分散在几个迁移文件里（短线情绪与早报、午间看点），合起来看
-const migration = ["20261023033000_cron_dispatch.sql", "20261023070000_noon_report_cron.sql"]
+const migration = ["20261023033000_cron_dispatch.sql", "20261023070000_noon_report_cron.sql", "20261023073220_evening_report_cron.sql"]
   .map((name) => readFileSync(resolve(root, "supabase/migrations", name), "utf8")).join("\n");
 const SECRET = "test-cron-secret";
 
@@ -85,13 +85,13 @@ describe("/api/cron", () => {
     }]);
   });
 
-  it("早报、午间看点：手动运行 morning-report.yml，带 edition 参数", async () => {
-    for (const [job, edition] of [["morning-report", "morning"], ["noon-report", "noon"]]) {
+  it("早报、午间、晚报：手动运行 morning-report.yml，带 edition 参数", async () => {
+    for (const [job, edition] of [["morning-report", "morning"], ["noon-report", "noon"], ["evening-report", "evening"]]) {
       const result = await call({ query: { job }, authorization: `Bearer ${SECRET}` });
       expect(result.status).toBe(202);
       expect(result.body).toMatchObject({ dispatched: true, job, workflow: "morning-report.yml" });
     }
-    expect(posts()).toEqual(["morning", "noon"].map((edition) => ({
+    expect(posts()).toEqual(["morning", "noon", "evening"].map((edition) => ({
       url: "https://api.github.com/repos/leemuweiuiux/ShortEmotion/actions/workflows/morning-report.yml/dispatches",
       method: "POST",
       body: { ref: "main", inputs: { edition } }
@@ -204,6 +204,10 @@ describe("Supabase 准点定时表", () => {
 
   it("午间看点：北京时间周一至周五 11:40（上午 11:32 快照之后）", () => {
     expect(triggersFor("noon-report")).toEqual(WEEKDAYS.map((day) => `${day} 11:40`).sort());
+  });
+
+  it("晚报：北京时间周一至周五16:05", () => {
+    expect(triggersFor("evening-report")).toEqual(WEEKDAYS.map(day => `${day} 16:05`).sort());
   });
 
   it("调用正式网址的 /api/cron，密钥从 Vault 读取、不写进仓库", () => {

@@ -89,7 +89,8 @@ export async function requestRefresh(market, { charge } = {}) {
 export const SCHEDULED_JOBS = {
   "short-emotion": { workflow: WORKFLOW, inputs: { target: "short-emotion", force: "false", market: "all" } },
   "morning-report": { workflow: "morning-report.yml", inputs: { edition: "morning" } },
-  "noon-report": { workflow: "morning-report.yml", inputs: { edition: "noon" } }
+  "noon-report": { workflow: "morning-report.yml", inputs: { edition: "noon" } },
+  "evening-report": { workflow: "morning-report.yml", inputs: { edition: "evening" } }
 };
 
 // 排队中（还没开始跑）的状态。正在跑的（in_progress）不算：新任务排在它后面不会挤掉任何人。

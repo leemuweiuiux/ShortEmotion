@@ -2,7 +2,7 @@
 // 校验密钥后通过 GitHub API 手动运行对应的数据任务（workflow_dispatch，触发后立即排队，不像 schedule 会晚半小时或丢掉）。
 // 定时表在 supabase/migrations/20261023033000_cron_dispatch.sql；GitHub 工作流自带的定时任务保留作备用。
 //
-// POST /api/cron?job=short-emotion | morning-report | noon-report
+// POST /api/cron?job=short-emotion | morning-report | noon-report | evening-report
 //      Header：Authorization: Bearer <CRON_SECRET>
 //      202 已触发；200 + reason=busy 已有一次在排队，这次跳过（避免挤掉排队中的刷新）；
 //      401 密钥不对；404 未知任务；501 未配置；502 GitHub 拒绝。

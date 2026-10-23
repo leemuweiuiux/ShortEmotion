@@ -1,6 +1,6 @@
 name: Morning report
-# 看点：早报（edition=morning）与午间看点（edition=noon）。
-# 准点触发：Supabase Cron 北京时间周一至周五 06:50 调用 /api/cron?job=morning-report、11:40 调用 /api/cron?job=noon-report
+# 看点：早报（edition=morning）、午间看点（edition=noon）和晚报（edition=evening）。
+# 准点触发：Supabase Cron 北京时间周一至周五 06:50 调用 /api/cron?job=morning-report、11:40 调用 /api/cron?job=noon-report、16:05调用 /api/cron?job=evening-report
 # （经 GitHub API 手动运行，带 edition 参数）。下面自带的 schedule 留作备用；每期只生成一次，重复触发会直接跳过。
 on:
   schedule:
@@ -8,14 +8,16 @@ on:
     - cron: '10,30 23 * * 0-4' # 早报：07:10/07:30补跑，日期去重
     - cron: '50 3 * * 1-5' # 午间看点：北京时间11:50补跑
     - cron: '10 4 * * 1-5' # 午间看点：12:10补跑（13:00以后不再生成）
+    - cron: '15,35 8 * * 1-5' # 晚报：北京时间16:15、16:35备用
   workflow_dispatch:
     inputs:
       edition:
-        description: "哪一期（morning 早报 / noon 午间看点）"
+        description: "哪一期（morning 早报 / noon 午间看点 / evening 晚报）"
         type: choice
         options:
           - morning
           - noon
+          - evening
         default: morning
 permissions:
   contents: read
@@ -44,9 +46,9 @@ jobs:
           fi
       - name: Generate report
         run: |
-          if [ "$EDITION" = noon ]; then node scripts/morning-report/generate-noon.mjs; else node scripts/morning-report/generate.mjs; fi
+          if [ "$EDITION" = noon ]; then node scripts/morning-report/generate-noon.mjs; elif [ "$EDITION" = evening ]; then node scripts/morning-report/generate-evening.mjs; else node scripts/morning-report/generate.mjs; fi
         env:
-          EDITION: ${{ (github.event_name == 'workflow_dispatch' && inputs.edition) || ((github.event.schedule == '50 3 * * 1-5' || github.event.schedule == '10 4 * * 1-5') && 'noon') || 'morning' }}
+          EDITION: ${{ (github.event_name == 'workflow_dispatch' && inputs.edition) || ((github.event.schedule == '50 3 * * 1-5' || github.event.schedule == '10 4 * * 1-5') && 'noon') || (github.event.schedule == '15,35 8 * * 1-5' && 'evening') || 'morning' }}
           WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
           MORNING_REPORT_API_KEY: ${{ secrets.MORNING_REPORT_API_KEY }}
           MORNING_REPORT_BASE_URL: ${{ vars.MORNING_REPORT_BASE_URL }}

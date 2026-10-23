@@ -6,6 +6,7 @@ export const SHARE_TITLE = "看点早报";
 
 /** 这一期叫什么：早报「看点早报」，午间（id 以 -noon 结尾）「午间看点」。 */
 export function editionTitle(article) {
+  if (article?.edition === "evening" || String(article?.id || "").endsWith("-evening")) return "看点晚报";
   return article?.edition === "noon" || String(article?.id || "").endsWith("-noon") ? "午间看点" : SHARE_TITLE;
 }
 

@@ -11,8 +11,8 @@ const anomalies = (await store.kvGet('anomalies:latest'))?.value;
 const marketDay = String(emotion?.quoteTime || '').replace(/\D/g,'').slice(0,8);
 if (!marketDay || marketDay >= day || !/15:\d\d/.test(emotion.quoteTime || '')) throw new Error('缺少上一交易日收盘快照');
 // On holidays there is no new close to cover; never recycle a previously covered session.
-// 只看早报：午间看点的 marketDate 是当天上午，不能让第二天的早报以为「这个交易日已经写过」。
-if (index.some(a => a.marketDate === marketDay && a.edition !== 'noon')) { console.log('无新交易日，跳过'); process.exit(0); }
+// 只看早报：午间和晚报的 marketDate 是当天，不能让第二天的早报以为「这个交易日已经写过」。
+if (index.some(a => a.marketDate === marketDay && (!a.edition || a.edition === 'morning'))) { console.log('无新交易日，跳过'); process.exit(0); }
 const candidates = (anomalies?.items || []).filter(a => a.code && a.name).sort((a,b) => (b.score || 0)-(a.score || 0)).slice(0,5);
 if (!candidates.length || String(anomalies.tradingDate || '').replace(/\D/g,'').slice(0,8) !== marketDay) throw new Error('缺少同日板块材料');
 const evidence = [{id:'market', label:`Wind市场收盘快照 ${marketDay}`, data:emotion}, {id:'candidates',label:'Wind板块候选与消息',data:candidates}];
