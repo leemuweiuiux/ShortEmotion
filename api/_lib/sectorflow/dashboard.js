@@ -10,7 +10,7 @@ function scale(column) {
   const unit = String(column?.unit || column?.unitName || column?.name?.match(/[（(](元|千元|万元|十万元|百万元|千万元|亿元)[）)]/)?.[1] || '元').trim();
   return { 元: 1e8, 千元: 1e5, 万元: 1e4, 十万元: 1e3, 百万元: 1e2, 千万元: 10, 亿元: 1 }[unit] ?? null;
 }
-export function parseDailyTables(payload, days = 20, endDay = '99999999') {
+export function parseDailyTables(payload, days = 20, endDay = '99999999', expectedCode = '') {
   const text = payload?.content?.find?.((item) => item.type === 'text')?.text;
   if (text) { try { payload = JSON.parse(text); } catch { return []; } }
   const value = payload?.data?.data ?? payload?.data ?? payload;
@@ -19,6 +19,7 @@ export function parseDailyTables(payload, days = 20, endDay = '99999999') {
   for (const table of tables) {
     if (!table?.columns || !Array.isArray(table.rows)) continue;
     const cols = table.columns;
+    const codeIndex = cols.findIndex((c) => /^(Wind代码|证券代码|windcode)$/i.test(c.name));
     // 优先公共日期列，不能把某一子区间的“成交额时间”误当成整表日期。
     let date = cols.findIndex((c) => /^(日期|交易日期|交易时间|TIME)$/i.test(c.name));
     if (date < 0) date = cols.findIndex((c) => /日期|时间/.test(c.name) && c.type === 'date');
@@ -26,6 +27,7 @@ export function parseDailyTables(payload, days = 20, endDay = '99999999') {
     const amounts = cols.map((c, i) => /成交额/.test(c.name) && !/时间|日期|占比/.test(c.name) ? i : -1).filter((i) => i >= 0);
     if (date < 0 || !nets.length) continue;
     for (const row of table.rows) {
+      if (expectedCode && codeIndex >= 0 && String(row[codeIndex]).toUpperCase() !== expectedCode.toUpperCase()) continue;
       const day = String(row[date] || '').replace(/\D/g, '').slice(0, 8);
       if (!/^\d{8}$/.test(day) || day > endDay) continue;
       for (const net of nets) {

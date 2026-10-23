@@ -98,9 +98,16 @@ export async function refreshHistory(store, engine, snapshot, { now = new Date()
       for (let i = 0; i < missing.length; i += 5) {
         const batch = missing.slice(i, i + 5);
         try {
-          const payload = await engine.windCall('analytics_data', 'get_financial_data', { question: `${board.name}（${board.code}）在以下交易日的每日主力净流入额、每日成交额：${batch.join('、')}。请逐日返回日期和上述两个字段的完整数值，金额单位为元；只返回指定日期，不要区间汇总、不要省略记录。` });
-          const parsed = parseDailyTables(payload, 80, day);
+          const payload = await engine.windCall('analytics_data', 'get_financial_data', { question: `${board.name}（${board.code}）从${batch[0]}至${batch.at(-1)}每个交易日的主力净流入额和成交额，按日期逐日返回完整明细，金额单位为元，不要区间汇总、不要省略记录。` });
+          const parsed = parseDailyTables(payload, 80, day, board.code);
           for (const p of parsed) if (batch.includes(p.date) && good(p)) points.set(p.date, normalize(p));
+          // 自然语言接口偶尔将区间查询解析为空结果，第二轮起仅对残余日期降级单日查询。
+          if (state.attempts > 1) for (const date of batch.filter((d) => !good(points.get(d)))) {
+            try {
+              const single = await engine.windCall('analytics_data', 'get_financial_data', { question: `${board.code}在${date}的当日主力净流入额和当日成交额，返回Wind代码、日期及这两个字段，金额单位为元` });
+              for (const p of parseDailyTables(single, 80, day, board.code)) if (p.date === date && good(p)) points.set(p.date, normalize(p));
+            } catch (error) { state.errors.push(`${board.code} ${date}: ${String(error.message).slice(0, 160)}`); }
+          }
           if (batch.some((d) => !good(points.get(d))) && state.diagnostics.length < 12) {
             const value = payload?.data?.data ?? payload?.data ?? payload;
             const detail = (Array.isArray(value) ? value : [value]).map((t) => t?.columns ? { columns: t.columns, rows: t?.rows?.slice(0, 2) } : { response: JSON.stringify(t)?.slice(0, 1200) });

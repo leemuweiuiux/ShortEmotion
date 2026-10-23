@@ -24,6 +24,10 @@ describe('资金曲线口径', () => {
     expect(result[0]).toMatchObject({ date: '20260928', amount: -.239215, turnover: 13.8295 });
     expect(result[1]).toMatchObject({ date: '20261008', amount: .148981, turnover: 15.0337 });
   });
+  it('响应包含其他代码时不能串入当前板块历史', () => {
+    const payload = { data: { columns: [{ name: 'Wind代码' }, { name: '日期' }, { name: '主力净流入额', unit: '亿元' }, { name: '成交额', unit: '亿元' }], rows: [['OTHER.WI', '20261022', 2, 40], ['EXPECTED.WI', '20261021', 1, 20]] } };
+    expect(parseDailyTables(payload, 20, '20261022', 'EXPECTED.WI')).toEqual([{ date: '20261021', amount: 1, turnover: 20, pct: 5 }]);
+  });
   it('旧采样没有成交额时占比为缺失，不用最新成交额回填历史，也不补开盘零点', () => {
     const data = buildDashboard({ boards, latest: { tradingDate: '20261022' }, intraday: { day: '20261022', points: [{ t: '10:00', v: { '884001.WI': 3 } }, { t: '10:30', v: { '884001.WI': 4 }, a: { '884001.WI': 80 } }] } });
     expect(data.today.samples).toEqual(['10:00', '10:30']);

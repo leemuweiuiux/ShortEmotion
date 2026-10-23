@@ -10,7 +10,7 @@ const now = new Date('2026-09-20T08:00:00Z');
 const table = (ds, net = 1e8) => ({ data: { columns: [{ name: '日期' }, { name: '主力净流入额', unit: '元' }, { name: '成交额', unit: '元' }], rows: ds.map((d) => [d, net, 10e8]) } });
 function memory() { const data = new Map(); return { data, kvGet: async (key) => data.has(key) ? { value: structuredClone(data.get(key)) } : null, kvSet: async (key, value) => data.set(key, structuredClone(value)) }; }
 function engineFor(answer = (ds) => table(ds)) {
-  return { windCall: vi.fn(async (server, _, params) => server === 'index_data' ? calendar : answer([...params.question.matchAll(/202609\d{2}/g)].map((m) => m[0]), params)) };
+  return { windCall: vi.fn(async (server, _, params) => server === 'index_data' ? calendar : answer((() => { const ds = [...params.question.matchAll(/202609\d{2}/g)].map((m) => m[0]); return dates.filter((d) => d >= ds[0] && d <= ds.at(-1)); })(), params)) };
 }
 describe('历史完整性与发布', () => {
   it('只用交易日历确定窗口，盘中排除当天，拒绝少于20日的日历', async () => {
@@ -47,12 +47,22 @@ describe('历史完整性与发布', () => {
     expect(store.data.get(HISTORY_KEY).issues[0]).toMatchObject({ code: 'B', missing: [dates[7]] });
     engine.windCall.mockClear();
     expect((await refreshHistory(store, engine, snap, { now })).skipped).toBe(true);
-    engine.windCall.mockImplementation(async (_, __, p) => table([...p.question.matchAll(/202609\d{2}/g)].map((m) => m[0])));
+    engine.windCall.mockImplementation(async (_, __, p) => table([...new Set([...p.question.matchAll(/202609\d{2}/g)].map((m) => m[0]))]));
     const result = await refreshHistory(store, engine, snap, { now: new Date(now.getTime() + 31 * 60000) });
     expect(result.status).toBe('complete');
     expect(engine.windCall).toHaveBeenCalledTimes(1);
     expect(engine.windCall.mock.calls[0][2].question).toContain(dates[7]);
     expect(engine.windCall.mock.calls[0][2].question).not.toContain(dates[6]);
+  });
+  it('区间接口持续空结果时降级单日查询，仍严格匹配返回日期和代码', async () => {
+    const store = memory(), engine = engineFor((ds) => table(ds.filter((d) => d !== dates[0])));
+    expect((await refreshHistory(store, engine, snapshot, { now })).status).toBe('pending');
+    engine.windCall.mockClear();
+    engine.windCall.mockImplementation(async (_, __, params) => params.question.includes('在') ? table([dates[0]]) : { data: '没找到数据' });
+    const result = await refreshHistory(store, engine, snapshot, { now: new Date(now.getTime() + 31 * 60000) });
+    expect(result.status).toBe('complete');
+    expect(engine.windCall).toHaveBeenCalledTimes(2);
+    expect(store.data.get(HISTORY_KEY).published.series[0].points).toHaveLength(20);
   });
   it('次日收盘只新增一天，已有历史不重复查询；新日未完整时旧版本不变', async () => {
     const store = memory(), engine = engineFor();
