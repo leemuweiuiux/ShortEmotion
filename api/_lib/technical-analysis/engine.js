@@ -1606,7 +1606,7 @@ export class InputError extends Error {
 }
 
 /** 第一步：检查输入并认出股票（1 次调用）。认不出抛 StockNotFoundError。 */
-export async function resolveStock(raw) {
+export async function resolveStock(raw, { fresh = false } = {}) {
   let input;
   try {
     input = normalizeInput(raw);
@@ -1615,7 +1615,7 @@ export async function resolveStock(raw) {
   }
   const key = input.toUpperCase(),
     cached = cache.get(key);
-  if (cached && Date.now() - cached.time < CACHE_MS)
+  if (!fresh && cached && Date.now() - cached.time < CACHE_MS)
     return { input, key, code: cached.data.code, name: cached.data.name, cached: cached.data };
   let snapshotRows;
   try {
