@@ -19,7 +19,7 @@ export function withTimeout(promise, ms = TIMEOUT_MS) {
 export const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 // Logo、二维码先转成内嵌图片：导出时不用等图片加载（iPhone Safari 对画面外的图片有时不触发加载完成）
-const ASSETS = { logo: "/short-emotion/logo.svg?v=2", qr: "/short-emotion/qr-site.svg?v=1" };
+const ASSETS = { logo: "/short-emotion/logo.svg?v=2", qr: "/short-emotion/qr-site.svg?v=2" };
 const assetCache = {};
 export async function prepareExportAssets() {
   await Promise.all(Object.entries(ASSETS).map(async ([key, url]) => {

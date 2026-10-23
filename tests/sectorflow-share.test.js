@@ -93,3 +93,21 @@ describe("资金曲线坐标与累计（2026-10-24 与产品确认）", () => {
     expect(pct.last).toBe(2.5);
   });
 });
+
+describe("分享出去的网址直达、不跳转（微信对多层跳转与陌生网址会弹「非微信官方网页」）", () => {
+  it("分享图二维码是 https://www.lfjmwl.com/about，不是会再跳转的 lfjmwl.com", () => {
+    const svg = read("public/short-emotion/qr-site.svg");
+    expect(svg).toContain('aria-label="https://www.lfjmwl.com/about"');
+    expect(read("scripts/short-emotion/build-share-qr.py")).toContain('URL = "https://www.lfjmwl.com/about"');
+  });
+  it("邀请链接固定用正式网址，不随当前打开的网址（vercel.app、预览部署）变化", () => {
+    const invite = read("public/account/invite.js");
+    expect(invite).toContain('const SITE = "https://www.lfjmwl.com";');
+    expect(invite).toContain("link = `${SITE}/about?invite=");
+    expect(invite).not.toContain("location.origin}/about");
+  });
+  it("/about 不经过登录判断（middleware 不拦），扫码后一次到位", () => {
+    const matcher = read("middleware.js").match(/matcher:\s*\[([^\]]*)\]/)[1];
+    expect(matcher).not.toMatch(/"\/about/);
+  });
+});
