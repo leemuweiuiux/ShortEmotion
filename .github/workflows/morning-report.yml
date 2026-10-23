@@ -1,11 +1,22 @@
 name: Morning report
-# 准点触发：Supabase Cron 北京时间周一至周五 06:50 调用 /api/cron?job=morning-report（经 GitHub API 手动运行）。
-# 下面自带的 schedule 留作备用；同一天只生成一次，重复触发会直接跳过。
+# 看点：早报（edition=morning）与午间看点（edition=noon）。
+# 准点触发：Supabase Cron 北京时间周一至周五 06:50 调用 /api/cron?job=morning-report、11:40 调用 /api/cron?job=noon-report
+# （经 GitHub API 手动运行，带 edition 参数）。下面自带的 schedule 留作备用；每期只生成一次，重复触发会直接跳过。
 on:
   schedule:
-    - cron: '50 22 * * 0-4' # 北京时间周一至周五06:50，提前生成
-    - cron: '10,30 23 * * 0-4' # 07:10/07:30补跑，日期去重
+    - cron: '50 22 * * 0-4' # 早报：北京时间周一至周五06:50，提前生成
+    - cron: '10,30 23 * * 0-4' # 早报：07:10/07:30补跑，日期去重
+    - cron: '50 3 * * 1-5' # 午间看点：北京时间11:50补跑
+    - cron: '10 4 * * 1-5' # 午间看点：12:10补跑（13:00以后不再生成）
   workflow_dispatch:
+    inputs:
+      edition:
+        description: "哪一期（morning 早报 / noon 午间看点）"
+        type: choice
+        options:
+          - morning
+          - noon
+        default: morning
 permissions:
   contents: read
 jobs:
@@ -31,9 +42,11 @@ jobs:
             git archive FETCH_HEAD | tar -x -C "$DATA_DIR"
             git rev-parse 'FETCH_HEAD^{tree}' > "$RUNNER_TEMP/previous-tree"
           fi
-      - name: Generate morning report
-        run: node scripts/morning-report/generate.mjs
+      - name: Generate report
+        run: |
+          if [ "$EDITION" = noon ]; then node scripts/morning-report/generate-noon.mjs; else node scripts/morning-report/generate.mjs; fi
         env:
+          EDITION: ${{ (github.event_name == 'workflow_dispatch' && inputs.edition) || ((github.event.schedule == '50 3 * * 1-5' || github.event.schedule == '10 4 * * 1-5') && 'noon') || 'morning' }}
           WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
           MORNING_REPORT_API_KEY: ${{ secrets.MORNING_REPORT_API_KEY }}
           MORNING_REPORT_BASE_URL: ${{ vars.MORNING_REPORT_BASE_URL }}

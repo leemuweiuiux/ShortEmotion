@@ -88,7 +88,8 @@ export async function requestRefresh(market, { charge } = {}) {
 // 同一个 30 分钟时段只调用一次 Wind，所以 GitHub 自带的定时任务可以留作备用，不会重复花额度。
 export const SCHEDULED_JOBS = {
   "short-emotion": { workflow: WORKFLOW, inputs: { target: "short-emotion", force: "false", market: "all" } },
-  "morning-report": { workflow: "morning-report.yml" }
+  "morning-report": { workflow: "morning-report.yml", inputs: { edition: "morning" } },
+  "noon-report": { workflow: "morning-report.yml", inputs: { edition: "noon" } }
 };
 
 // 排队中（还没开始跑）的状态。正在跑的（in_progress）不算：新任务排在它后面不会挤掉任何人。
@@ -101,18 +102,16 @@ export async function waitingDataRun() {
 }
 
 /**
- * 定时触发一个数据任务（不扣积分、不做 10 分钟去重，去重由任务自己按时段完成）。
- * 短线情绪：已经有一次在排队时跳过。GitHub 同一并发组只保留一个排队中的任务，
- * 再触发会把排队中的那次（可能是用户付了积分的刷新）取消掉；排队的那次跑完同样会更新数据。
- * 查不到排队情况时照常触发。
+ * 定时触发一个数据任务（不扣积分、不做 10 分钟去重，去重由任务自己按时段 / 按期完成）。
+ * 已经有一次短线情绪在排队时跳过：两个工作流共用并发组，GitHub 只保留一个排队中的任务，
+ * 再触发会把排队中的那次（可能是用户付了积分的刷新）取消掉。短线情绪排队的那次跑完同样会更新数据；
+ * 早报 / 午间看点被跳过时由 GitHub 自带的备用定时补上。查不到排队情况时照常触发。
  */
 export async function dispatchScheduled(job) {
   if (!Object.hasOwn(SCHEDULED_JOBS, job)) throw Object.assign(new Error(`未知任务：${job}`), { code: "unknown_job", statusCode: 404 });
   const { workflow, inputs } = SCHEDULED_JOBS[job];
-  if (workflow === WORKFLOW) {
-    const waiting = await waitingDataRun().catch(() => null);
-    if (waiting) return { job, workflow, dispatched: false, reason: "busy", run: waiting };
-  }
+  const waiting = await waitingDataRun().catch(() => null);
+  if (waiting) return { job, workflow, dispatched: false, reason: "busy", run: waiting };
   await github(`/repos/${REPO}/actions/workflows/${workflow}/dispatches`, {
     method: "POST",
     body: { ref: "main", ...(inputs ? { inputs } : {}) }

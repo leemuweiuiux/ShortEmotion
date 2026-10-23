@@ -7,7 +7,9 @@ import { SCHEDULED_JOBS } from "../api/_lib/short-emotion/github.js";
 import { duePlan } from "../api/_lib/short-emotion/schedule.js";
 
 const root = resolve(import.meta.dirname, "..");
-const migration = readFileSync(resolve(root, "supabase/migrations/20261023033000_cron_dispatch.sql"), "utf8");
+// 准点定时分散在几个迁移文件里（短线情绪与早报、午间看点），合起来看
+const migration = ["20261023033000_cron_dispatch.sql", "20261023070000_noon_report_cron.sql"]
+  .map((name) => readFileSync(resolve(root, "supabase/migrations", name), "utf8")).join("\n");
 const SECRET = "test-cron-secret";
 
 function call({ method = "POST", query = {}, authorization } = {}) {
@@ -83,14 +85,25 @@ describe("/api/cron", () => {
     }]);
   });
 
-  it("早报：手动运行 morning-report.yml（没有参数）", async () => {
-    const result = await call({ query: { job: "morning-report" }, authorization: `Bearer ${SECRET}` });
-    expect(result.status).toBe(202);
-    expect(calls).toEqual([{
+  it("早报、午间看点：手动运行 morning-report.yml，带 edition 参数", async () => {
+    for (const [job, edition] of [["morning-report", "morning"], ["noon-report", "noon"]]) {
+      const result = await call({ query: { job }, authorization: `Bearer ${SECRET}` });
+      expect(result.status).toBe(202);
+      expect(result.body).toMatchObject({ dispatched: true, job, workflow: "morning-report.yml" });
+    }
+    expect(posts()).toEqual(["morning", "noon"].map((edition) => ({
       url: "https://api.github.com/repos/leemuweiuiux/ShortEmotion/actions/workflows/morning-report.yml/dispatches",
       method: "POST",
-      body: { ref: "main" }
-    }]);
+      body: { ref: "main", inputs: { edition } }
+    })));
+  });
+
+  it("早报、午间看点触发时，短线情绪有一次在排队也跳过（不挤掉排队中的刷新）", async () => {
+    runs = [run(9, "pending")];
+    const result = await call({ query: { job: "noon-report" }, authorization: `Bearer ${SECRET}` });
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({ dispatched: false, reason: "busy" });
+    expect(posts()).toHaveLength(0);
   });
 
   it("已有一次在排队（例如用户付了积分的刷新）时跳过，不把它挤掉", async () => {
@@ -189,10 +202,24 @@ describe("Supabase 准点定时表", () => {
     expect(triggersFor("morning-report")).toEqual(WEEKDAYS.map((day) => `${day} 06:50`).sort());
   });
 
+  it("午间看点：北京时间周一至周五 11:40（上午 11:32 快照之后）", () => {
+    expect(triggersFor("noon-report")).toEqual(WEEKDAYS.map((day) => `${day} 11:40`).sort());
+  });
+
   it("调用正式网址的 /api/cron，密钥从 Vault 读取、不写进仓库", () => {
     expect(migration).toContain("'https://www.lfjmwl.com/api/cron?job=' || p_job");
     expect(migration).toContain("vault.decrypted_secrets");
     expect(migration).toContain("revoke all on function private.shortemotion_dispatch(text) from public, anon, authenticated");
+  });
+});
+
+describe("看点工作流", () => {
+  it("手动运行带 edition；午间的备用定时 11:50、12:10 走午间脚本，其余走早报", () => {
+    const workflow = readFileSync(resolve(root, ".github/workflows/morning-report.yml"), "utf8");
+    expect(workflow).toContain("edition:");
+    for (const cron of ["50 22 * * 0-4", "10,30 23 * * 0-4", "50 3 * * 1-5", "10 4 * * 1-5"]) expect(workflow).toContain(`cron: '${cron}'`);
+    expect(workflow).toContain("(github.event.schedule == '50 3 * * 1-5' || github.event.schedule == '10 4 * * 1-5') && 'noon'");
+    expect(workflow).toContain("scripts/morning-report/generate-noon.mjs");
   });
 });
 
