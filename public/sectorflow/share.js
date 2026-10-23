@@ -4,7 +4,7 @@
 //   - 页面上的图按手机宽度画，克隆进 600px 的导出框会被放大，字和线一起变粗变糊；
 //   - 导出版颜色直接写在属性上，没有 id / url(#…) 引用（短线情绪导出曾因此画成黑块）。
 import { exportHeader, exportFooter, renderImage, prepareExportAssets, showGallery, withTimeout } from "/shared/export-image.js?v=1";
-import { CHART_WIDTH, SHARE_FOOTER, shareTitle, shareFileName } from "/sectorflow/share-plan.js?v=1";
+import { CHART_WIDTH, SHARE_FOOTER, shareTitle, shareFileName } from "/sectorflow/share-plan.js?v=2";
 
 function themeColors() {
   const style = getComputedStyle(document.documentElement);
