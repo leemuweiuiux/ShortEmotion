@@ -1,3 +1,4 @@
 /* 资金详情沿用全站卡片及主题。 */
 main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; }
 [hidden] { display: none !important; }
+.sf-share { flex: none; }

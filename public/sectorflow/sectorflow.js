@@ -1,9 +1,12 @@
 // 只读现有快照，继续沿用登录校验和免费查看机制。
 import { toast, goLogin, initAccountMenu } from '/shared/nav-account.js?v=4';
-import { mountFundFlow } from '/shared/fund-flow.js?v=3';
+import { mountFundFlow } from '/shared/fund-flow.js?v=4';
+import { setupShare } from '/sectorflow/share.js?v=1';
 initAccountMenu();
 const chart = mountFundFlow(document.querySelector('#fund-flow'), { initialCode: new URLSearchParams(location.search).get('board') || '' });
+const shareButton = document.querySelector('#sf-share');
 let loaded = false;
+setupShare(shareButton, chart, { toast, ready: () => loaded });
 async function load() {
   try {
     const response = await fetch('/api/sectorflow?resource=full', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
@@ -11,12 +14,13 @@ async function load() {
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || '暂时无法读取资金流向');
     chart.update(payload.dashboard);
-    document.querySelector('#sf-status').textContent = '按定时快照更新';
     loaded = true;
   } catch (error) {
-    document.querySelector('#sf-status').textContent = loaded ? '更新失败，保留上次数据' : '暂时无法读取';
     if (!loaded) chart.update(null);
-    toast(error.message, true);
+    // 读不到时提示；已有数据就保留上次的图，分享也照样可以用
+    toast(loaded ? `${error.message}，保留上次数据` : error.message, true);
+  } finally {
+    if (shareButton.getAttribute('aria-busy') !== 'true') shareButton.disabled = !loaded;
   }
 }
 load();

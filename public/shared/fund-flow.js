@@ -49,6 +49,69 @@ export function flowCurvePath(points) {
   return path;
 }
 
+// 右侧数值标签：先按真实位置往下推开，再从底部往上收，首尾都留在图内（原来整体上移会把最上面一条推出图外）。
+export function placeFlowLabels(labels, { min, max, gap = 20 }) {
+  labels.sort((a, b) => a.y - b.y);
+  const step = Math.min(gap, (max - min) / Math.max(1, labels.length - 1));
+  labels.forEach((item, i) => { item.y = Math.max(min, item.y, i ? labels[i - 1].y + step : min); });
+  for (let i = labels.length - 1; i >= 0; i--) labels[i].y = Math.min(labels[i].y, i === labels.length - 1 ? max : labels[i + 1].y - step);
+  return labels;
+}
+
+// 页面版用 CSS class 上色（跟随主题）；导出版把颜色直接写在属性上、字号放大，并去掉点选用的透明命中线与悬停标题，
+// 导出时不依赖样式表、也没有 id / url(#…) 引用（短线情绪导出曾因 url(#id) 失效画成黑块）。
+const PAGE_LOOK = { axis: 10, label: 10, stroke: 2, dot: 2, labelGap: 20, hit: true, titles: true, fixed: false, nameChars: (w) => (w < 400 ? 5 : 7), right: (w) => (w < 400 ? 105 : 135) };
+const EXPORT_LOOK = { axis: 12, label: 12, stroke: 2.4, dot: 2.5, labelGap: 22, hit: false, titles: false, fixed: true, nameChars: () => 6, right: () => 150 };
+
+/** 画曲线：返回整段 SVG 字符串。colors 为空时用 class（页面），否则把颜色写进属性（导出）。 */
+export function flowChartSvg({ chosen, keys, period, metric, focusCode = '', width, height, look = PAGE_LOOK, colors = null }) {
+  const unit = metric === 'amount' ? '亿' : '%';
+  const paint = (kind, color) => {
+    if (!colors) return kind === 'label' ? `class="ff-label" fill="${color}"` : `class="ff-${kind}"`;
+    if (kind === 'grid') return `stroke="${colors.border}" stroke-dasharray="3 4"`;
+    if (kind === 'zero') return `stroke="${colors.muted}" stroke-opacity=".6"`;
+    if (kind === 'axis') return `fill="${colors.muted}" font-size="${look.axis}"`;
+    return `fill="${color}" font-size="${look.label}" font-weight="600"`;
+  };
+  const values = chosen.flatMap((line) => line.points.map((p) => p[metric])).filter(valid).map(Number);
+  const left = 42 + (look.axis - 10) * 2, right = look.right(width), top = 16, bottom = 34 + (look.axis - 10);
+  let lo = Math.min(0, ...values), hi = Math.max(0, ...values);
+  const range = Math.max(hi - lo, 1); lo -= range * .1; hi += range * .1;
+  const y = (v) => top + (hi - Number(v)) / (hi - lo) * (height - top - bottom);
+  const keyOf = (p) => period === 'today' ? p.label : p.date;
+  const x = (key) => left + (period === 'today' ? progress(minute(key)) / 240 : keys.length > 1 ? keys.indexOf(key) / (keys.length - 1) : .5) * (width - left - right);
+  const svg = [];
+  for (let i = 0; i <= 4; i++) { const v = lo + (hi - lo) * i / 4; svg.push(`<line ${paint('grid')} x1="${left}" x2="${width - right}" y1="${y(v)}" y2="${y(v)}"/><text ${paint('axis')} x="${left - 7}" y="${y(v) + look.axis * .4}" text-anchor="end">${v.toFixed(1)}</text>`); }
+  svg.push(`<line ${paint('zero')} x1="${left}" x2="${width - right}" y1="${y(0)}" y2="${y(0)}"/>`);
+  const ticks = period === 'today' ? ['09:30', '10:30', '13:00', '14:00', '15:00'] : keys.filter((_, i) => keys.length <= 5 || [0, Math.round((keys.length - 1) / 2), keys.length - 1].includes(i));
+  ticks.forEach((key, i) => svg.push(`<text ${paint('axis')} x="${x(key)}" y="${height - 10}" text-anchor="${i === 0 ? 'start' : i === ticks.length - 1 ? 'end' : 'middle'}">${period === 'today' ? key === '13:00' && width >= 400 ? '11:30/13:00' : key : day(key)}</text>`));
+  const labels = [];
+  for (const line of chosen) {
+    const color = flowColor(line.code);
+    // 按样本键分段，缺失值留下断点；不补造开盘零值，不跨缺口连线。
+    const points = new Map(line.points.map((p) => [keyOf(p), p]));
+    const segments = [[]];
+    for (const key of keys) { const point = points.get(key); if (point && valid(point[metric])) segments.at(-1).push([x(key), y(point[metric])]); else if (segments.at(-1).length) segments.push([]); }
+    const opacity = focusCode && focusCode !== line.code ? '.15' : '.95';
+    svg.push(`<g data-code="${esc(line.code)}" opacity="${opacity}">${look.titles ? `<title>${esc(line.name)} ${signed(line.last, unit)}</title>` : ''}`);
+    for (const segment of segments.filter((s) => s.length)) {
+      const path = flowCurvePath(segment);
+      svg.push(`<path d="${path} L${segment.at(-1)[0]},${y(0)} L${segment[0][0]},${y(0)} Z" fill="${color}" fill-opacity=".06" stroke="none"/><path d="${path}" fill="none" stroke="${color}" stroke-width="${look.stroke}"/>`);
+      if (look.hit) svg.push(`<path d="${path}" fill="none" stroke="transparent" stroke-width="14" pointer-events="stroke"/>`);
+      segment.forEach(([px, py]) => svg.push(`<circle cx="${px}" cy="${py}" r="${look.dot}" fill="${color}" stroke="none"/>`));
+    }
+    svg.push('</g>');
+    const last = line.points.filter((p) => valid(p[metric])).at(-1);
+    labels.push({ line, y: y(last[metric]), color, opacity });
+  }
+  placeFlowLabels(labels, { min: top + 6, max: height - bottom - 4, gap: look.labelGap });
+  labels.forEach((item) => svg.push(`<g data-code="${esc(item.line.code)}" opacity="${item.opacity}">${look.titles ? `<title>${esc(item.line.name)}</title>` : ''}<text ${paint('label', item.color)} x="${width - right + 8}" y="${item.y + look.label * .4}">${esc(item.line.name.slice(0, look.nameChars(width)))} ${signed(item.line.last, unit)}</text></g>`));
+  const size = look.fixed ? ` width="${width}" height="${height}"` : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}"${size} role="img" aria-label="${esc(period === 'today' ? '盘中累计资金曲线' : `${period}日每日资金曲线`)}">${svg.join('')}</svg>`;
+}
+
+const PERIOD_LABEL = { today: '今天', 5: '近5日', 20: '近20日' };
+
 export function mountFundFlow(root, { compact = false, initialCode = '', onSelect } = {}) {
   let data = null;
   let period = 'today';
@@ -58,64 +121,47 @@ export function mountFundFlow(root, { compact = false, initialCode = '', onSelec
   root.innerHTML = `${compact ? '' : `<div class="ff-controls"><div class="ff-segment" role="group" aria-label="资金周期">${[['today', '今天'], ['5', '5日'], ['20', '20日']].map(([v, label]) => `<button type="button" data-period="${v}" aria-pressed="${v === period}">${label}</button>`).join('')}</div><div class="ff-segment" role="group" aria-label="资金指标"><button type="button" data-metric="amount" aria-pressed="true">金额</button><button type="button" data-metric="pct" aria-pressed="false">占比</button></div></div>`}
     <p class="ff-caption"></p><div class="ff-chart" aria-live="polite"><p class="empty">读取资金数据中…</p></div><div class="ff-tip" role="status"></div><div class="ff-legend"></div>${compact ? '' : '<details class="ff-picker"><summary>选择板块</summary><div class="ff-options"></div><button class="ff-reset" type="button">恢复默认</button></details>'}<p class="ff-note"></p>`;
   const host = root.querySelector('.ff-chart');
-  function render() {
+  // 当前视图（页面与导出共用同一份计算，导出看到的就是页面上的选线、周期、指标与聚焦）。
+  function view() {
     const { source, lines, keys } = flowDataset(data, period);
     const chosen = selectFlowLines(lines, { metric, period, compact, selected });
-    const unit = metric === 'amount' ? '亿' : '%';
     const end = period === 'today' ? source?.samples?.at(-1) : keys.at(-1);
     const date = period === 'today' ? day(source?.tradingDate) : day(end);
-    root.querySelector('.ff-caption').textContent = `${period === 'today' ? '盘中累计主力净流入' : `近${period}个交易日 · 每日主力净流入`}${metric === 'pct' ? ' / 对应成交额' : ''} · 单位：${metric === 'amount' ? '亿元' : '%'}${end ? ` · ${date}${period === 'today' ? ` ${end}` : ''}` : ''}`;
+    const caption = `${period === 'today' ? '盘中累计主力净流入' : `近${period}个交易日 · 每日主力净流入`}${metric === 'pct' ? ' / 对应成交额' : ''} · 单位：${metric === 'amount' ? '亿元' : '%'}${end ? ` · ${date}${period === 'today' ? ` ${end}` : ''}` : ''}`;
+    const incomplete = chosen.filter((line) => keys.some((key) => !line.points.some((p) => p.date === key && valid(p[metric]))));
+    const note = period === 'today' ? '按定时快照采样；缺失时点不补零。' : `按区间净流入强弱选线；右端标签为最后一日数值。${data?.history?.status === 'pending' ? (data.history.asOf ? '新一期历史数据补齐中，暂展示上一完整版本。' : '历史日数据补齐中。') : ''}${keys.length < Number(period) ? `当前仅有${keys.length}个交易日记录。` : ''}${incomplete.length ? `${incomplete.length}个板块历史数据未完整，缺失日期保留断点，等待补齐。` : ''}`;
+    const hasValues = chosen.some((line) => line.points.some((p) => valid(p[metric])));
+    return { source, lines, keys, chosen, caption, note, hasValues, date, end };
+  }
+  function render() {
+    const { lines, keys, chosen, caption, note, hasValues } = view();
+    const unit = metric === 'amount' ? '亿' : '%';
+    root.querySelector('.ff-caption').textContent = caption;
     root.querySelectorAll('[data-period]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.period === period)));
     root.querySelectorAll('[data-metric]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.metric === metric)));
-    const note = root.querySelector('.ff-note');
-    const incomplete = chosen.filter((line) => keys.some((key) => !line.points.some((p) => p.date === key && valid(p[metric]))));
-    note.textContent = period === 'today' ? '按定时快照采样；缺失时点不补零。' : `按区间净流入强弱选线；右端标签为最后一日数值。${data?.history?.status === 'pending' ? (data.history.asOf ? '新一期历史数据补齐中，暂展示上一完整版本。' : '历史日数据补齐中。') : ''}${keys.length < Number(period) ? `当前仅有${keys.length}个交易日记录。` : ''}${incomplete.length ? `${incomplete.length}个板块历史数据未完整，缺失日期保留断点，等待补齐。` : ''}`;
-    const values = chosen.flatMap((line) => line.points.map((p) => p[metric])).filter(valid).map(Number);
+    root.querySelector('.ff-note').textContent = note;
     root.querySelector('.ff-legend').innerHTML = chosen.map((line) => `<button type="button" data-code="${esc(line.code)}" aria-pressed="${focusCode === line.code}"><i style="background:${flowColor(line.code)}"></i><span>${esc(line.name)}</span><b>${signed(line.last, unit)}</b></button>`).join('');
     const options = root.querySelector('.ff-options');
     if (options) options.innerHTML = lines.map((line) => `<label><input type="checkbox" value="${esc(line.code)}" ${selected.includes(line.code) ? 'checked' : ''}>${esc(line.name)}</label>`).join('');
-    if (!values.length) {
+    if (!hasValues) {
       host.innerHTML = `<p class="empty">${!lines.length ? (period !== 'today' && data?.history ? '历史日数据补齐中，通过完整性校验后统一展示。' : '暂无该周期资金数据，采样后更新。') : metric === 'pct' ? '所选板块暂无占比数据，可切换金额或恢复默认。' : '所选板块暂无有效数据，可恢复默认。'}</p>`;
       return;
     }
     const width = Math.max(280, host.clientWidth || 560);
-    const height = compact ? 250 : 320;
-    const left = 42, right = width < 400 ? 105 : 135, top = 16, bottom = 34;
-    let lo = Math.min(0, ...values), hi = Math.max(0, ...values);
-    const range = Math.max(hi - lo, 1); lo -= range * .1; hi += range * .1;
-    const y = (v) => top + (hi - Number(v)) / (hi - lo) * (height - top - bottom);
-    const keyOf = (p) => period === 'today' ? p.label : p.date;
-    const x = (key) => left + (period === 'today' ? progress(minute(key)) / 240 : keys.length > 1 ? keys.indexOf(key) / (keys.length - 1) : .5) * (width - left - right);
-    const svg = [];
-    for (let i = 0; i <= 4; i++) { const v = lo + (hi - lo) * i / 4; svg.push(`<line class="ff-grid" x1="${left}" x2="${width - right}" y1="${y(v)}" y2="${y(v)}"/><text class="ff-axis" x="${left - 7}" y="${y(v) + 4}" text-anchor="end">${v.toFixed(1)}</text>`); }
-    svg.push(`<line class="ff-zero" x1="${left}" x2="${width - right}" y1="${y(0)}" y2="${y(0)}"/>`);
-    const ticks = period === 'today' ? ['09:30', '10:30', '13:00', '14:00', '15:00'] : keys.filter((_, i) => keys.length <= 5 || [0, Math.round((keys.length - 1) / 2), keys.length - 1].includes(i));
-    ticks.forEach((key, i) => svg.push(`<text class="ff-axis" x="${x(key)}" y="${height - 10}" text-anchor="${i === 0 ? 'start' : i === ticks.length - 1 ? 'end' : 'middle'}">${period === 'today' ? key === '13:00' && width >= 400 ? '11:30/13:00' : key : day(key)}</text>`));
-    const labels = [];
-    for (const line of chosen) {
-      const color = flowColor(line.code);
-      // 按样本键分段，缺失值留下断点；不补造开盘零值，不跨缺口连线。
-      const points = new Map(line.points.map((p) => [keyOf(p), p]));
-      const segments = [[]];
-      for (const key of keys) { const point = points.get(key); if (point && valid(point[metric])) segments.at(-1).push([x(key), y(point[metric])]); else if (segments.at(-1).length) segments.push([]); }
-      const opacity = focusCode && focusCode !== line.code ? '.15' : '.95';
-      svg.push(`<g data-code="${esc(line.code)}" opacity="${opacity}"><title>${esc(line.name)} ${signed(line.last, unit)}</title>`);
-      for (const segment of segments.filter((s) => s.length)) {
-        const path = flowCurvePath(segment);
-        svg.push(`<path d="${path} L${segment.at(-1)[0]},${y(0)} L${segment[0][0]},${y(0)} Z" fill="${color}" opacity=".06"/><path d="${path}" fill="none" stroke="${color}" stroke-width="2"/><path d="${path}" fill="none" stroke="transparent" stroke-width="14" pointer-events="stroke"/>`);
-        segment.forEach(([px, py]) => svg.push(`<circle cx="${px}" cy="${py}" r="2" fill="${color}"/>`));
-      }
-      svg.push('</g>');
-      const last = line.points.filter((p) => valid(p[metric])).at(-1);
-      labels.push({ line, y: y(last[metric]), color, opacity });
-    }
-    labels.sort((a, b) => a.y - b.y);
-    const gap = Math.min(20, (height - top - bottom - 10) / Math.max(1, labels.length - 1));
-    labels.forEach((l, i) => { l.y = Math.max(top + 6, l.y, i ? labels[i - 1].y + gap : 0); });
-    const overflow = Math.max(0, labels.at(-1).y - (height - bottom - 4));
-    labels.forEach((l) => { l.y -= overflow; svg.push(`<g data-code="${esc(l.line.code)}" opacity="${l.opacity}"><title>${esc(l.line.name)}</title><text class="ff-label" x="${width - right + 8}" y="${l.y + 4}" fill="${l.color}">${esc(l.line.name.slice(0, width < 400 ? 5 : 7))} ${signed(l.line.last, unit)}</text></g>`); });
-    host.innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(period === 'today' ? '盘中累计资金曲线' : `${period}日每日资金曲线`)}">${svg.join('')}</svg>`;
-    root.querySelector('.ff-tip').textContent = focusCode ? (() => { const line = chosen.find((l) => l.code === focusCode); return line ? `${line.name} · ${period === 'today' ? line.lastLabel : day(line.lastLabel)} · ${signed(line.last, unit)}` : ''; })() : '';
+    host.innerHTML = flowChartSvg({ chosen, keys, period, metric, focusCode, width, height: compact ? 250 : 320 });
+    root.querySelector('.ff-tip').textContent = focusCode ? (() => { const line = chosen.find((item) => item.code === focusCode); return line ? `${line.name} · ${period === 'today' ? line.lastLabel : day(line.lastLabel)} · ${signed(line.last, unit)}` : ''; })() : '';
+  }
+  /** 分享小卡用：按导出宽度重新画一份（不克隆页面上的 SVG，避免按手机宽度画的图在导出里被放大、字变大变糊）。 */
+  function snapshot({ width = 540, colors } = {}) {
+    const { chosen, keys, caption, note, hasValues, date, end } = view();
+    if (!data || !hasValues) return null;
+    const unit = metric === 'amount' ? '亿' : '%';
+    const node = document.createElement('div');
+    node.className = 'ff-export';
+    node.innerHTML = `<div class="ff-export-chart">${flowChartSvg({ chosen, keys, period, metric, focusCode, width, height: 340, look: EXPORT_LOOK, colors })}</div>`
+      + `<div class="ff-export-legend">${chosen.map((line) => `<div class="${focusCode && focusCode !== line.code ? 'is-dim' : ''}"><i style="background:${flowColor(line.code)}"></i><span>${esc(line.name)}</span><b>${signed(line.last, unit)}</b></div>`).join('')}</div>`
+      + `<p class="ff-export-note">${esc(note)}</p>`;
+    return { node, caption, period, metric, periodLabel: PERIOD_LABEL[period], metricLabel: metric === 'amount' ? '金额' : '占比', day: String(period === 'today' ? data?.today?.tradingDate || '' : keys.at(-1) || '').replace(/\D/g, ''), date, end, focus: chosen.find((line) => line.code === focusCode)?.name || '' };
   }
   root.addEventListener('click', (event) => {
     const button = event.target.closest('[data-period], [data-metric]');
@@ -134,5 +180,5 @@ export function mountFundFlow(root, { compact = false, initialCode = '', onSelec
   let timer;
   const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(render, 100); }) : null;
   observer?.observe(host);
-  return { update(payload) { data = payload; render(); }, destroy() { observer?.disconnect(); clearTimeout(timer); } };
+  return { update(payload) { data = payload; render(); }, snapshot, destroy() { observer?.disconnect(); clearTimeout(timer); } };
 }
