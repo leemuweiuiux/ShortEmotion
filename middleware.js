@@ -14,7 +14,7 @@ import { isAdmin } from "./api/_lib/admin.js";
 import { authConfig, resolveSession, safeNext, isSecureRequest, seenCookieFor, recordActivity } from "./api/_lib/session.js";
 
 export const config = {
-  matcher: ["/", "/login", "/login/", "/home", "/home/", "/kandian", "/kandian/", "/technicalanalysis", "/technicalanalysis/", "/sectorflow", "/sectorflow/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]
+  matcher: ["/", "/login", "/login/", "/home", "/home/", "/kandian", "/kandian/", "/kandian/:path*", "/technicalanalysis", "/technicalanalysis/", "/sectorflow", "/sectorflow/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]
 };
 
 function redirect(location, setCookies = []) {
