@@ -28,6 +28,15 @@ describe('看点模型调用', () => {
     expect(result.sourceIds).toEqual(['market']);
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
+  it('摘要与正文同时超长时分别修订，保留标题及引用并最终通过完整校验', async () => {
+    const article = { title: '晚报', summary: '长'.repeat(180), sections: Array.from({ length: 5 }, () => ({ heading: '观察', text: '文'.repeat(500) })), sourceIds: ['market'] };
+    const shortSections = article.sections.map((s) => ({ ...s, text: '文'.repeat(180) }));
+    const responses = [article, { summary: '摘'.repeat(120) }, { sections: shortSections }];
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(responses.shift()) } }] })));
+    const result = await generateValidatedReport('prompt', [{ id: 'market' }], { summary: [100, 150], text: [700, 1800] }, { env, fetcher });
+    expect(result).toEqual({ ...article, summary: '摘'.repeat(120), sections: shortSections });
+    expect(fetcher).toHaveBeenCalledTimes(3);
+  });
   it('截断、空正文、非法JSON与HTTP失败均不能作为文章发布', async () => {
     for (const choice of [{ finish_reason: 'length', message: { content: '{}' } }, { message: {} }, { message: { content: '正文' } }]) {
       await expect(generateReportJson('', [], { env, fetcher: async () => new Response(JSON.stringify({ choices: [choice] })) })).rejects.toThrow();
