@@ -1,11 +1,11 @@
 // 看点晚报生成：由 .github/workflows/morning-report.yml 在 edition=evening 时运行（16:05触发，16:15、16:35备用）。
 // 写作规则见 api/_lib/morning-report/evening.js，素材复用noon.js；与早报共用模型设置（MORNING_REPORT_API_KEY / MODEL / BASE_URL）。
 // 本地看素材与提示词（不调用 Wind、不调用模型）：node scripts/morning-report/generate-evening.mjs --dry-run
-import { generateReportJson } from '../../api/_lib/morning-report/model.js';
+import { generateValidatedReport } from '../../api/_lib/morning-report/model.js';
 import { getStore } from '../../api/_lib/short-emotion/store.js';
 import { windCall } from '../../api/_lib/short-emotion/engine.js';
 import { readSectorFlow } from '../../api/_lib/sectorflow/service.js';
-import { INDEX, LIMITS, articleKey, beijingDay, eveningId, validateArticle } from '../../api/_lib/morning-report/service.js';
+import { INDEX, LIMITS, articleKey, beijingDay, eveningId } from '../../api/_lib/morning-report/service.js';
 import { beijingMinute, morningDigest, noonCandidates, noonFlows, noonMarket, sameTimeRecord } from '../../api/_lib/morning-report/noon.js';
 import { eveningPath, eveningMeta, eveningPrompt, eveningReadiness } from '../../api/_lib/morning-report/evening.js';
 
@@ -65,8 +65,7 @@ if (dryRun) {
   process.exit(0);
 }
 
-const result = await generateReportJson(prompt, evidence);
-const article = validateArticle(result, evidence, LIMITS.evening);
+const article = await generateValidatedReport(prompt, evidence, LIMITS.evening);
 if (!candidates.some((candidate) => candidate.name === article.sector)) throw new Error('板块不在候选中');
 
 Object.assign(article, {
