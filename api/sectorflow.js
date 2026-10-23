@@ -1,6 +1,6 @@
 // 板块资金（需登录，不扣积分）：
-//   GET /api/sectorflow?resource=full      板块资金页：增速前三、日内趋势、近 20 日累计、全板块明细
-//   GET /api/sectorflow?resource=summary   首页卡片：增速前三
+//   GET /api/sectorflow?resource=full      资金流向详情：今天/5日/20日曲线（dashboard）
+//   GET /api/sectorflow?resource=summary   首页卡片：今日资金曲线（dashboard），保留旧字段兼容
 // 只读数据分支里存好的数据，不调用 Wind（取数在 GitHub Actions 的短线情绪更新里，见 api/_lib/sectorflow/service.js）。
 import { getStore } from "./_lib/short-emotion/store.js";
 import { readSectorFlow } from "./_lib/sectorflow/service.js";
@@ -29,3 +29,4 @@ export default async function handler(req, res) {
     res.status(error?.statusCode || 500).json({ error: error instanceof Error ? error.message : String(error), code: error?.code || "server_error" });
   }
 }
+

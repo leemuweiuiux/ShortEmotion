@@ -4,6 +4,7 @@
 //   kv/sectorflow_latest.json              最新快照
 //   kv/sectorflow_daily.json               每日收盘值（最近 60 个交易日）
 //   kv/sectorflow_intraday_YYYYMMDD.json   当日盘中各点（保留 30 天）
+import { WINDOW_KEY, buildDashboard, refreshFlowWindows } from "./dashboard.js";
 import { selectBoards } from "./boards.js";
 import { CONCEPT_CODES_KEY } from "./concepts.js";
 import { FIELDS, SESSION_CLOSE, SESSION_START, snapshotFromRows, upsertDaily, appendIntraday, buildPayload, buildSummary } from "./metrics.js";
@@ -47,7 +48,8 @@ export async function refreshSectorFlow(store, { windCall, tables, objects }, { 
   if (intraday) await store.kvSet(intradayKey, intraday);
   const closed = snapshot.minute != null && snapshot.minute >= SESSION_CLOSE;
   if (closed) await store.kvSet(SECTORFLOW_KEYS.daily, upsertDaily((await store.kvGet(SECTORFLOW_KEYS.daily).catch(() => null))?.value, snapshot));
-  return { quote: `${snapshot.tradingDate} ${snapshot.label}`, boards: snapshot.boards.length, closed };
+  const historyErrors = await refreshFlowWindows(store, { windCall }, snapshot);
+  return { quote: `${snapshot.tradingDate} ${snapshot.label}`, boards: snapshot.boards.length, closed, historyErrors };
 }
 
 /** 今天有交易、但还没存到收盘值（用于 15:00 之后补抓）。 */
@@ -68,9 +70,13 @@ export async function readSectorFlow(store, resource = "full") {
   const boards = boardsEntry?.value?.boards || [];
   const latest = latestEntry?.value || null;
   const daily = dailyEntry?.value || null;
-  const intraday = resource === "summary" || !latest?.tradingDate
+  const intraday = !latest?.tradingDate
     ? null
     : (await store.kvGet(SECTORFLOW_KEYS.intraday(latest.tradingDate)).catch(() => null))?.value || null;
   const payload = buildPayload({ boards, latest, daily, intraday });
-  return resource === "summary" ? buildSummary(payload) : { ...payload, storedAt: latestEntry?.updatedAt || null };
+  const windows = (await store.kvGet(WINDOW_KEY).catch(() => null))?.value || {};
+  const dashboard = buildDashboard({ boards, latest, daily, intraday, windows, storedAt: latestEntry?.updatedAt || null });
+  if (resource === "summary") dashboard.windows = {};
+  return { ...(resource === "summary" ? buildSummary(payload) : payload), dashboard, storedAt: latestEntry?.updatedAt || null };
 }
+

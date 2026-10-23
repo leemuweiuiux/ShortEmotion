@@ -111,7 +111,7 @@ export function versusAverage(row, prev, fraction = 1) {
 }
 
 const dailyBoards = (snapshot) => Object.fromEntries(snapshot.boards.map((row) => [row.code, {
-  today: row.today, n5: row.n5, n5Days: row.n5Days, n10: row.n10, n20: row.n20, n20Days: row.n20Days, streak: row.streak
+  amount: row.amount, today: row.today, n5: row.n5, n5Days: row.n5Days, n10: row.n10, n20: row.n20, n20Days: row.n20Days, streak: row.streak
 }]));
 
 /** 收盘快照（行情时间 ≥ 15:00）写进每日记录；同一天覆盖；只留最近 60 个交易日。 */
@@ -132,7 +132,7 @@ export function appendIntraday(intraday, snapshot) {
   const base = intraday?.day === snapshot.tradingDate ? intraday : { day: snapshot.tradingDate, points: [] };
   const minute = Math.min(snapshot.minute, SESSION_CLOSE);
   const label = minute === SESSION_CLOSE ? "15:00" : snapshot.label;
-  const point = { t: label, v: Object.fromEntries(snapshot.boards.map((row) => [row.code, row.today])) };
+  const point = { t: label, v: Object.fromEntries(snapshot.boards.map((row) => [row.code, row.today])), a: Object.fromEntries(snapshot.boards.map((row) => [row.code, row.amount ?? null])) };
   const points = base.points.filter((item) => item.t !== label).concat(point).sort((a, b) => a.t.localeCompare(b.t));
   return { day: base.day, points };
 }
@@ -241,3 +241,4 @@ export function buildSummary(payload) {
     top: (payload.rank?.top || []).map(({ code, name, today, avg5, vsAvg, streak }) => ({ code, name, today, avg5, vsAvg, streak }))
   };
 }
+
