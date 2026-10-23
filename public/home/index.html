@@ -25,12 +25,12 @@
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=17">
   <link rel="stylesheet" href="/technical-analysis/ta.css?v=13">
   <link rel="stylesheet" href="/shared/form.css?v=1">
-  <link rel="stylesheet" href="/home/home.css?v=9">
   <link rel="stylesheet" href="/shared/fund-flow.css?v=1">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
-<link rel="stylesheet" href="/kandian/reports.css?v=1"></head>
+<link rel="stylesheet" href="/kandian/reports.css?v=3">
+<link rel="stylesheet" href="/home/home.css?v=10"></head>
 <body>
   <div class="app-shell">
     <nav class="nav">
@@ -42,20 +42,16 @@
     </nav>
 
     <main>
-      <section id="points-card" class="card home-points" aria-label="我的积分">
-        <div class="home-points-meta">
-          <span>我的积分</span>
-          <strong id="points-balance">—</strong>
-        </div>
-        <a class="home-more" href="/account/points">积分记录</a>
-        <button id="signin" class="pill-btn" type="button" disabled>签到 +10</button>
+      <section id="points-card" class="card home-card home-points" aria-label="我的积分">
+        <div class="card-head"><h2 class="card-title"><a href="/account/points">我的积分</a></h2><a class="home-more" href="/account/points" aria-label="查看更多我的积分">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+        <div class="home-card-body home-points-actions"><strong id="points-balance">—</strong><button id="signin" class="pill-btn" type="button" disabled>签到 +10</button></div>
         <div id="invite-entry" class="invite-entry" hidden></div>
         <p id="invite-pending" class="home-invite-pending" hidden>含邀请奖励：完成第一次签到，你和邀请人各得 <em>50</em> 积分</p>
       </section>
 
       <form id="ta-form" class="card ta-search home-card" autocomplete="off">
-        <div class="card-head"><h2 class="card-title">个股技术分析</h2><a class="home-more" href="/technicalanalysis">查看更多</a></div>
-        <div class="se-bar">
+        <div class="card-head"><h2 class="card-title"><a href="/technicalanalysis">个股技术分析</a></h2><a class="home-more" href="/technicalanalysis" aria-label="查看更多个股技术分析">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+        <div class="home-card-body"><div class="se-bar">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-4.2-4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
           <input id="ta-input" name="q" type="search" inputmode="search" enterkeyhint="go" maxlength="30" placeholder="输入完整股票名称或代码" aria-label="股票代码或简称" required>
           <button id="ta-run" class="ta-run" type="submit">开始分析</button>
@@ -63,11 +59,14 @@
         <p id="ta-recent" class="ta-recent" hidden></p>
         <p class="card-desc">生成趋势结构、胜率与赔率、历史同类量价结构和事件驱动分析。</p>
         <p id="ta-latest" class="ta-recent ta-latest" aria-live="polite">大家都在看：正在加载…</p>
-        <p id="ta-hint" class="ta-hint">*首次查询或更新需要 10 积分</p>
+        <p id="ta-hint" class="ta-hint">*首次查询或更新需要 10 积分</p></div>
       </form>
 
-      <a id="emotion-card" class="card home-card home-emotion" href="/shortemotion/cn">
-        <div class="card-head"><h2 class="card-title">今日短线情绪</h2><span id="emotion-posture" class="pill pill-solid">—</span></div>
+      <section id="emotion-card" class="card home-card home-emotion">
+        <div class="card-head"><h2 class="card-title"><a href="/shortemotion/cn">今日短线情绪</a></h2><a class="home-more" href="/shortemotion/cn" aria-label="查看更多今日短线情绪">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+        <div class="home-card-body">
+        <div class="home-card-meta"><span id="emotion-posture" class="pill pill-solid">—</span></div>
+        <a class="home-preview-link home-emotion-preview" href="/shortemotion/cn" aria-label="查看今日短线情绪详情">
         <div class="pulse-main">
           <div id="emotion-ring" class="score-ring"><div><strong id="emotion-score">—</strong><small>/ 100</small></div></div>
           <div class="phase-copy"><span>当前情绪阶段</span><h3 id="emotion-phase">读取中</h3><p id="emotion-copy"></p></div>
@@ -81,24 +80,25 @@
         </div>
         <div class="home-emotion-foot">
           <span id="emotion-time" class="home-time"></span>
-          <span class="home-enter">进入看板<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         </div>
-      </a>
+        </a></div>
+      </section>
 
       <section id="anomaly-card" class="card home-card home-anomaly">
-        <div class="card-head"><h2 class="card-title">当日题材异动</h2><span id="anomaly-pill" class="pill">读取中</span></div>
+        <div class="card-head"><h2 class="card-title"><a href="/shortemotion/cn#themes">当日题材异动</a></h2><a class="home-more" href="/shortemotion/cn#themes" aria-label="查看更多当日题材异动">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+        <div class="home-card-body"><div class="home-card-meta"><span id="anomaly-pill" class="pill">读取中</span></div>
         <p class="card-desc">按涨停点火、批量拉升与消息催化筛出的高价值题材方向。</p>
-        <div id="anomaly-body" class="home-anomaly-body"><div class="loading">正在读取题材异动…</div></div>
+        <div id="anomaly-body" class="home-anomaly-body"><div class="loading">正在读取题材异动…</div></div></div>
       </section>
 
       <section id="sectorflow-card" class="card home-card home-sectorflow">
-        <div class="card-head"><h2 class="card-title">资金流向</h2><a class="home-more" href="/sectorflow">查看更多</a></div>
-        <div id="sectorflow-chart"></div>
+        <div class="card-head"><h2 class="card-title"><a href="/sectorflow">资金流向</a></h2><a class="home-more" href="/sectorflow" aria-label="查看更多资金流向">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+        <div id="sectorflow-chart" class="home-card-body"></div>
       </section>
 
       <section class="card home-card mr-home" aria-label="每日看点">
-        <div class="card-head"><h2 class="card-title">每日看点</h2><a class="home-more" href="/kandian?tab=reports">历史文章</a></div>
-        <div id="morning-report-body" aria-live="polite">正在读取要闻…</div>
+        <div class="card-head"><h2 class="card-title"><a href="/kandian?tab=reports">每日看点</a></h2><a class="home-more" href="/kandian?tab=reports" aria-label="查看更多每日看点">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+        <div id="morning-report-body" class="home-card-body" aria-live="polite">正在读取要闻…</div>
       </section>
       <footer class="legal">
         <p>仅用于研究与情绪观察，不构成投资建议。</p>
@@ -106,7 +106,7 @@
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/home/home.js?v=15"></script>
+  <script type="module" src="/home/home.js?v=16"></script>
 <script type="module" src="/kandian/reports.js?v=5"></script></body>
 </html>
 
