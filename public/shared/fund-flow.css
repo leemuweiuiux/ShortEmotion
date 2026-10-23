@@ -24,3 +24,13 @@
 .ff-reset { border: 1px solid var(--border); background: var(--panel); color: var(--ink); padding: 6px 12px; font: inherit; cursor: pointer; }
 .ff-controls button:focus-visible,.ff-legend button:focus-visible,.ff-reset:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 @media(max-width:360px) { .ff-controls { gap: 8px; } .ff-segment button { min-width: 48px; padding: 6px 10px; } .ff-legend { gap: 4px 8px; } }
+/* 分享小卡（导出框 600px 内重新绘制，见 /sectorflow/share.js）：字号比页面大一档，手机上看缩小后的图仍清楚 */
+.ff-export-card { padding: 14px 12px; }
+.ff-export-chart svg { display: block; }
+.ff-export-legend { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px 16px; margin-top: 12px; }
+.ff-export-legend div { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--ink); font-size: 14px; line-height: 1.4; }
+.ff-export-legend div.is-dim { opacity: .45; }
+.ff-export-legend i { flex: none; width: 9px; height: 9px; border-radius: 50%; }
+.ff-export-legend span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ff-export-legend b { margin-left: auto; white-space: nowrap; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ff-export-note { margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
