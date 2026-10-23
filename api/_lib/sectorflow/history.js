@@ -103,7 +103,7 @@ export async function refreshHistory(store, engine, snapshot, { now = new Date()
           for (const p of parsed) if (batch.includes(p.date) && good(p)) points.set(p.date, normalize(p));
           if (batch.some((d) => !good(points.get(d))) && state.diagnostics.length < 12) {
             const value = payload?.data?.data ?? payload?.data ?? payload;
-            const detail = (Array.isArray(value) ? value : [value]).map((t) => ({ columns: t?.columns, rows: t?.rows?.slice(0, 2) }));
+            const detail = (Array.isArray(value) ? value : [value]).map((t) => t?.columns ? { columns: t.columns, rows: t?.rows?.slice(0, 2) } : { response: JSON.stringify(t)?.slice(0, 1200) });
             state.diagnostics.push({ code: board.code, requested: batch, parsedDates: parsed.map((p) => p.date), detail });
           }
         } catch (error) { state.errors.push(`${board.code} ${batch.join(',')}: ${String(error.message).slice(0, 160)}`); }

@@ -54,6 +54,29 @@ describe('历史完整性与发布', () => {
     expect(engine.windCall.mock.calls[0][2].question).toContain(dates[7]);
     expect(engine.windCall.mock.calls[0][2].question).not.toContain(dates[6]);
   });
+  it('次日收盘只新增一天，已有历史不重复查询；新日未完整时旧版本不变', async () => {
+    const store = memory(), engine = engineFor();
+    await refreshHistory(store, engine, snapshot, { now });
+    const previous = store.data.get(HISTORY_KEY).published;
+    const nextDates = [...dates.slice(1), '20260921'];
+    const calendarNext = { data: { columns: [{ name: 'TIME' }], rows: [...dates, '20260921'].map((d) => [d]) } };
+    engine.windCall.mockClear();
+    engine.windCall.mockImplementation(async () => calendarNext);
+    const result = await refreshHistory(store, engine, { tradingDate: '20260921', minute: 900, boards: [{ ...board, today: 3, amount: 20 }] }, { now: new Date('2026-09-21T08:00:00Z') });
+    expect(result.status).toBe('complete');
+    expect(engine.windCall).toHaveBeenCalledTimes(1); // 只有交易日历，无历史查询
+    const next = store.data.get(HISTORY_KEY).published;
+    expect(next.dates).toEqual(nextDates);
+    expect(next.series[0].points.slice(0, -1)).toEqual(previous.series[0].points.slice(1));
+    expect(next.series[0].points.at(-1)).toEqual({ date: '20260921', amount: 3, turnover: 20, pct: 15 });
+  });
+  it('收盘日历未更新至当天时拒绝发布旧日期的新版本', async () => {
+    const store = memory(), engine = engineFor();
+    const result = await refreshHistory(store, engine, { ...snapshot, tradingDate: '20260921' }, { now });
+    expect(result.status).toBe('pending');
+    expect(result.errors[0]).toContain('尚未更新至收盘日');
+    expect(store.data.get(HISTORY_KEY).published).toBeUndefined();
+  });
   it('缺少成交额、重复日期和伪20条记录不能通过，真实零值允许', () => {
     const ps = dates.map((date) => ({ date, amount: 0, turnover: 0 }));
     expect(auditHistory(dates, [{ ...board, points: ps }], [board])).toEqual([]);

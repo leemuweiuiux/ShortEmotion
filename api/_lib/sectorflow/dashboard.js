@@ -7,8 +7,8 @@ const clean = (name) => String(name || '').replace(/指数/g, '').trim();
 
 // 元是请求中明确指定的缺省单位；存在字段单位时以字段单位为准，拒绝未知单位。
 function scale(column) {
-  const unit = column?.unit || column?.unitName || column?.name?.match(/[（(](元|万元|亿元)[）)]/)?.[1] || '元';
-  return { 元: 1e8, 万元: 1e4, 亿元: 1 }[unit] ?? null;
+  const unit = String(column?.unit || column?.unitName || column?.name?.match(/[（(](元|千元|万元|十万元|百万元|千万元|亿元)[）)]/)?.[1] || '元').trim();
+  return { 元: 1e8, 千元: 1e5, 万元: 1e4, 十万元: 1e3, 百万元: 1e2, 千万元: 10, 亿元: 1 }[unit] ?? null;
 }
 export function parseDailyTables(payload, days = 20, endDay = '99999999') {
   const text = payload?.content?.find?.((item) => item.type === 'text')?.text;
@@ -19,16 +19,26 @@ export function parseDailyTables(payload, days = 20, endDay = '99999999') {
   for (const table of tables) {
     if (!table?.columns || !Array.isArray(table.rows)) continue;
     const cols = table.columns;
-    const date = cols.findIndex((c) => /日期|时间|^TIME$/i.test(c.name));
-    const net = cols.findIndex((c) => /主力净流入额/.test(c.name) && !/占比|近\d|最新/.test(c.name));
-    const amount = cols.findIndex((c) => /成交额/.test(c.name));
-    if (date < 0 || net < 0 || !scale(cols[net])) continue;
+    // 优先公共日期列，不能把某一子区间的“成交额时间”误当成整表日期。
+    let date = cols.findIndex((c) => /^(日期|交易日期|交易时间|TIME)$/i.test(c.name));
+    if (date < 0) date = cols.findIndex((c) => /日期|时间/.test(c.name) && c.type === 'date');
+    const nets = cols.map((c, i) => /主力净流入额/.test(c.name) && !/占比|近\d|最新/.test(c.name) ? i : -1).filter((i) => i >= 0);
+    const amounts = cols.map((c, i) => /成交额/.test(c.name) && !/时间|日期|占比/.test(c.name) ? i : -1).filter((i) => i >= 0);
+    if (date < 0 || !nets.length) continue;
     for (const row of table.rows) {
       const day = String(row[date] || '').replace(/\D/g, '').slice(0, 8);
-      if (!/^\d{8}$/.test(day) || day > endDay || !isValue(row[net])) continue;
-      const money = Number(row[net]) / scale(cols[net]);
-      const turnover = amount >= 0 && isValue(row[amount]) && scale(cols[amount]) ? Number(row[amount]) / scale(cols[amount]) : null;
-      records.set(day, { date: day, amount: round(money), turnover, pct: percent(round(money), turnover) });
+      if (!/^\d{8}$/.test(day) || day > endDay) continue;
+      for (const net of nets) {
+        if (!isValue(row[net]) || !scale(cols[net])) continue;
+        const prefix = cols[net].name.split('主力净流入额')[0];
+        let amount = amounts.find((i) => cols[i].name.split('成交额')[0] === prefix);
+        if (amount === undefined && nets.length === 1 && amounts.length === 1) amount = amounts[0];
+        const money = Math.round(Number(row[net]) / scale(cols[net]) * 1e6) / 1e6;
+        const turnover = amount !== undefined && isValue(row[amount]) && scale(cols[amount]) ? Number(row[amount]) / scale(cols[amount]) : null;
+        const old = records.get(day);
+        if (old && old.turnover != null && turnover == null) continue;
+        records.set(day, { date: day, amount: money, turnover, pct: percent(money, turnover) });
+      }
     }
   }
   return [...records.values()].sort((a, b) => a.date.localeCompare(b.date)).slice(-days);

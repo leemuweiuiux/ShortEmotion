@@ -10,6 +10,20 @@ describe('资金曲线口径', () => {
     expect(parseDailyTables(table([['20261022', 2, 40]], '亿元'))[0]).toMatchObject({ amount: 2, pct: 5 });
     expect(parseDailyTables(table([['20261022', 2, 40]], '不明'))).toEqual([]);
   });
+  it('真实响应：百万元净流入与亿元成交额独立换算，多区间列按公共日期配对', () => {
+    const payload = { data: { columns: [
+      { name: '2026年9月28日到2026年9月30日每日主力净流入额', unit: '百万元' },
+      { name: '2026年9月28日到2026年9月30日每日成交额', unit: '亿元' },
+      { name: '2026年9月28日到2026年9月30日每日成交额时间', type: 'date' },
+      { name: '2026年10月8日到2026年10月9日每日主力净流入额', unit: '百万元' },
+      { name: '2026年10月8日到2026年10月9日每日成交额', unit: '亿元' },
+      { name: '日期', type: 'date' }
+    ], rows: [[-23.9215, 13.8295, '2026-09-28', null, null, '2026-09-28'], [null, null, null, 14.8981, 15.0337, '2026-10-08']] } };
+    const result = parseDailyTables(payload);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({ date: '20260928', amount: -.239215, turnover: 13.8295 });
+    expect(result[1]).toMatchObject({ date: '20261008', amount: .148981, turnover: 15.0337 });
+  });
   it('旧采样没有成交额时占比为缺失，不用最新成交额回填历史，也不补开盘零点', () => {
     const data = buildDashboard({ boards, latest: { tradingDate: '20261022' }, intraday: { day: '20261022', points: [{ t: '10:00', v: { '884001.WI': 3 } }, { t: '10:30', v: { '884001.WI': 4 }, a: { '884001.WI': 80 } }] } });
     expect(data.today.samples).toEqual(['10:00', '10:30']);
