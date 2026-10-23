@@ -15,6 +15,7 @@ const publicDir = path.join(root, "public");
 const vercel = JSON.parse(await readFile(path.join(root, "vercel.json"), "utf8"));
 if (!process.env.SHORT_EMOTION_STORE) process.env.SHORT_EMOTION_STORE = process.env.SHORT_EMOTION_DATA_DIR ? "file" : "github";
 const API_ROUTES = {
+  kandian: () => import("../api/kandian.js"),
   "short-emotion": () => import("../api/short-emotion.js"),
   auth: () => import("../api/auth.js"),
   "technical-analysis": () => import("../api/technical-analysis.js"),
