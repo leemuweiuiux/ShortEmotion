@@ -1,7 +1,7 @@
 // 午间看点：生成条件、素材整理、提示词与发布时间（api/_lib/morning-report/noon.js），以及与早报共用的列表与校验。
 import { getStore } from "../api/_lib/short-emotion/store.js";
 import { normalizeReport, INDEX, LIMITS, articleKey, isNoon, noonId, readReports, validateArticle } from "../api/_lib/morning-report/service.js";
-import { NOON, morningDigest, morningPath, noonCandidates, noonFlows, noonMarket, noonMeta, noonPrompt, noonReadiness, sameTimeRecord } from "../api/_lib/morning-report/noon.js";
+import { NOON, morningPath, noonCandidates, noonFlows, noonMarket, noonMeta, noonPrompt, noonReadiness, sameTimeRecord } from "../api/_lib/morning-report/noon.js";
 
 const record = (time, score, extra = {}) => ({ tradingDate: "20261023", quoteTime: `20261023 ${time}:02`, score, phase: "修复", up: 600, down: 4800, limitUp: 19, limitDown: 50, ...extra });
 
@@ -47,7 +47,7 @@ describe("午间看点：素材", () => {
     expect(JSON.stringify(picked)).not.toMatch(/viewpoint|tabScores|concepts/);
   });
 
-  it("市场快照、板块资金、当日早报：只留需要的字段", () => {
+  it("市场快照、板块资金：只留需要的字段", () => {
     const market = noonMarket({ quoteTime: "20261023 11:30:05", score: 43, regime: { phase: "修复", posture: "试错", summary: "说明" }, dimensions: { liquidity: 88 }, market: { up: 636 }, extremes: { limitUp: 19 }, themes: Array.from({ length: 20 }, (_, i) => ({ name: `指数${i}`, changePct: i, code: "x" })) });
     expect(market).toMatchObject({ score: 43, phase: "修复", posture: "试错", dimensions: { liquidity: 88 } });
     expect(market.themes).toHaveLength(10);
@@ -56,17 +56,13 @@ describe("午间看点：素材", () => {
       { name: "白酒", today: 20, vsAvg: 16 }, { name: "挖掘机", today: 5 }, { name: "银行", today: -8 }, { name: "无数据", today: null }] });
     expect(flows).toMatchObject({ asOf: "11:30", accelerating: [{ name: "白酒" }], inflow: [{ name: "白酒" }, { name: "挖掘机" }, { name: "银行" }], outflow: [{ name: "银行", today: -8 }] });
     expect(noonFlows({ ready: false })).toBeNull();
-
-    expect(morningDigest({ title: "早报", sector: "机器人", summary: "摘要", sections: [{ heading: "一" }, { heading: "后续观察", text: "看扩散" }] }))
-      .toEqual({ title: "早报", sector: "机器人", summary: "摘要", watch: { heading: "后续观察", text: "看扩散" } });
-    expect(morningDigest(null)).toBeNull();
   });
 });
 
 describe("午间看点：提示词与发布时间", () => {
-  it("写明截至 11:30、篇幅、五段顺序与上午消息、资金、半天数据的限制", () => {
-    const prompt = noonPrompt({ day: "20261023", quoteTime: "20261023 11:30:05", recent: ["机器人产业链"] });
-    for (const text of ["截至11:30", "500—900字", "80—120字", "上午盘面、上午主线、驱动与分歧、回看早报、下午观察", "今天11:30以前发布", "不能写成上涨原因", "半天的数据不能当成全天结论", "不给买卖建议", "机器人产业链"]) {
+  it("写明截至 11:30、选定方向、四段与回看早报、上午消息与资金、半天数据的限制", () => {
+    const prompt = noonPrompt({ day: "20261023", quoteTime: "20261023 11:30:05", sector: "机器人产业链", previous: { edition: "早报" } });
+    for (const text of ["截至11:30", "500—800字", "80—120字", "「上午盘面」", "「上午主线」", "「驱动与分歧」", "「回看早报」", "观点卡", "今天11:30以前发布", "不能写成上涨原因", "半天的数据不能当成全天结论", "不提供买卖建议", "选定为「机器人产业链」"]) {
       expect(prompt, text).toContain(text);
     }
   });
@@ -79,13 +75,15 @@ describe("午间看点：提示词与发布时间", () => {
 });
 
 describe("午间看点：与早报共用列表与校验", () => {
-  it("篇幅：摘要 80—120 字、正文 450—1200 字（按 500—900 写，留余量）", () => {
-    const base = { title: "标题", summary: "字".repeat(90), sections: Array.from({ length: 5 }, () => ({ heading: "段", text: "字".repeat(140) })), sourceIds: ["market"] };
+  it("篇幅：三期相同，摘要 80—120 字、正文 500—800 字（校验放宽到 70—130、450—900）", () => {
+    const base = { title: "标题", summary: "字".repeat(90), sections: Array.from({ length: 4 }, () => ({ heading: "段", text: "字".repeat(160) })), views: [{ status: "延续", text: "一" }, { status: "修正", text: "二" }, { status: "新增", text: "三" }], watch: ["甲", "乙"], sourceIds: ["market"] };
     const evidence = [{ id: "market" }];
+    expect(LIMITS.noon).toBe(LIMITS.morning);
+    expect(LIMITS.evening).toBe(LIMITS.morning);
     expect(() => validateArticle(base, evidence, LIMITS.noon)).not.toThrow();
-    expect(() => validateArticle({ ...base, summary: "字".repeat(130) }, evidence, LIMITS.noon)).toThrow("摘要须为80—120字");
-    expect(() => validateArticle({ ...base, sections: base.sections.map((s) => ({ ...s, text: "字".repeat(300) })) }, evidence, LIMITS.noon)).toThrow("正文过长");
-    expect(() => validateArticle(base, evidence)).toThrow("摘要须为100—150字"); // 早报的标准不变：摘要 100—150、正文至少 700
+    expect(() => validateArticle({ ...base, summary: "字".repeat(140) }, evidence, LIMITS.noon)).toThrow("摘要须为70—130字");
+    expect(() => validateArticle({ ...base, sections: base.sections.map((s) => ({ ...s, text: "字".repeat(240) })) }, evidence, LIMITS.noon)).toThrow("正文过长");
+    expect(() => validateArticle({ ...base, sections: base.sections.map((s) => ({ ...s, text: "字".repeat(100) })) }, evidence, LIMITS.noon)).toThrow("正文材料不足");
   });
 
   it("id 为「日期-noon」，12:00 后可见，列表里排在当天早报前面", async () => {

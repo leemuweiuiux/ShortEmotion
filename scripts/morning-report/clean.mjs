@@ -1,6 +1,6 @@
 // Run under the existing short-emotion-data concurrency lock; no model/data API calls.
 import { getStore } from '../../api/_lib/short-emotion/store.js';
-import { INDEX, articleKey, normalizeReport } from '../../api/_lib/morning-report/service.js';
+import { INDEX, articleKey, indexEntry, normalizeReport } from '../../api/_lib/morning-report/service.js';
 // Restore headlines removed by the previous metadata cleanup, only for these historical IDs.
 const recoveredTitles = {"20261023-evening": "看点晚报｜从五千只下跌到四千五百只上涨：V型反转的一天，机器人与AI软件双线领涨", "20261023-noon": "机器人仍有亮点，市场修复走到了哪一步？", "20261023": "近5000只股票下跌，为什么机器人还能走强？"};
 export async function cleanReports(store) {
@@ -16,8 +16,7 @@ export async function cleanReports(store) {
       await store.kvSet(articleKey(item.id), article);
       changed++;
     }
-    const { sections, sources, sourceIds, ...summary } = article;
-    cleaned.push(summary);
+    cleaned.push(indexEntry(article));
   }
   if (JSON.stringify(cleaned) !== JSON.stringify(index)) await store.kvSet(INDEX, cleaned);
   return { articles: cleaned.length, changed };

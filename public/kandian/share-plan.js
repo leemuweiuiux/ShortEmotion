@@ -46,7 +46,8 @@ export function cardSpecs(article) {
     ...sections
       .map((section, index) => ({ section, index }))
       .filter(({ section }) => section?.heading || section?.text)
-      .map(({ section, index }) => ({ kind: "section", index, title: String(section.heading || `第 ${index + 1} 节`).trim() }))
+      .map(({ section, index }) => ({ kind: "section", index, title: String(section.heading || `第 ${index + 1} 节`).trim() })),
+    ...(Array.isArray(article?.views) && article.views.length ? [{ kind: "views", title: "本期观点" }] : [])
   ];
 }
 
