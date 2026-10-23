@@ -615,7 +615,7 @@ function exportHeader(subtitle = "") {
 function exportFooter() {
   const footer = document.createElement("div");
   footer.className = "export-footer";
-  footer.innerHTML = `<div class="export-footer-text"><b>ShortEmotion · 短线情绪</b><span>扫码查看每日 A股短线情绪</span><small>lfjmwl.com · ${escapeHtml("仅用于研究与情绪观察，不构成投资建议")}</small></div><img class="export-qr" src="/short-emotion/qr-site.svg?v=1" alt="lfjmwl.com">`;
+  footer.innerHTML = `<div class="export-footer-text"><b>ShortEmotion · 短线情绪</b><span>扫码查看每日 A股短线情绪</span><small>lfjmwl.com · ${escapeHtml("仅用于研究与情绪观察，不构成投资建议")}</small></div><img class="export-qr" src="/short-emotion/qr-site.svg?v=2" alt="lfjmwl.com">`;
   return footer;
 }
 

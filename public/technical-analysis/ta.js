@@ -475,7 +475,7 @@ function exportBase() {
 }
 
 // Logo、二维码先转成内嵌图片：导出时不用等图片加载（iPhone Safari 对画面外的图片有时不触发加载完成）
-const EXPORT_ASSETS = { logo: "/short-emotion/logo.svg?v=2", qr: "/short-emotion/qr-site.svg?v=1" };
+const EXPORT_ASSETS = { logo: "/short-emotion/logo.svg?v=2", qr: "/short-emotion/qr-site.svg?v=2" };
 const assetCache = {};
 async function prepareExportAssets() {
   await Promise.all(Object.entries(EXPORT_ASSETS).map(async ([key, url]) => {

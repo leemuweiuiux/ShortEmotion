@@ -1,6 +1,6 @@
 // 看点早报详情：顶栏右上角的分享按钮 → 「分享全文」（整篇一张长图）、「分享小卡」（导读一张、每一节一张）。
 // 只用页面上已经显示的文章，不再请求接口。导出做法见 /shared/export-image.js。
-import { exportHeader, exportFooter, renderImage, prepareExportAssets, shareOrDownload, showGallery, closeGallery, withTimeout } from "/shared/export-image.js?v=1";
+import { exportHeader, exportFooter, renderImage, prepareExportAssets, shareOrDownload, showGallery, closeGallery, withTimeout } from "/shared/export-image.js?v=2";
 import { toast } from "/shared/nav-account.js?v=4";
 import { editionTitle, shareFooter, shareSubtitle, shareFileBase, cardSpecs, cardFileName } from "/kandian/share-plan.js?v=5";
 

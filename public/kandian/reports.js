@@ -29,5 +29,5 @@ if(article)get(`id=${encodeURIComponent(new URLSearchParams(location.search).get
  if(!a)throw new Error('文章不存在');document.title=`${a.title} · ${editionName(a)}`;const navTitle=document.querySelector('.nav-title');if(navTitle)navTitle.textContent=editionName(a);
  article.innerHTML=`<div class="mr-meta">${label(a)} · ${esc(date(a.publishedAt))} · ${esc(a.sector)}</div><h1>${esc(a.title)}</h1><p class="mr-lead">${esc(a.summary)}</p>${a.sections.map(s=>`<section><h2>${esc(s.heading)}</h2>${s.text.split(/\n+/).filter(Boolean).map(t=>`<p>${esc(t)}</p>`).join('')}</section>`).join('')}${viewsBlock(a)}<footer class="mr-sources"><p>行情截至 ${esc(a.marketDate)} ${isNoon(a)?esc(quoteClock(a)):'收盘'} · 消息截至 ${esc(new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',dateStyle:'short',timeStyle:'short'}).format(new Date(a.newsCutoff)))}（北京时间）</p><p>${isNoon(a)?'上午数据不代表全天，分析判断需由后续行情验证。':a.views?'分析判断需由后续行情验证。':'历史案例仅作比较，分析判断需由后续行情验证。'}</p></footer>`;
  // 分享全文 / 小卡（只在详情页加载）
- import('/kandian/share.js?v=5').then(m=>m.setupShare(a,article)).catch(()=>{});
+ import('/kandian/share.js?v=6').then(m=>m.setupShare(a,article)).catch(()=>{});
 }).catch(e=>{article.textContent=e.message;});

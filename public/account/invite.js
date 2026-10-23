@@ -5,6 +5,8 @@ import { $, toast, authRequest, setText } from "/account/common.js?v=7";
 
 const shareButton = $("#share-card");
 const copyButton = $("#copy-link");
+// 邀请链接一律用正式网址（直达、不跳转）：在 vercel.app 预设网址上打开时也不会把那个网址分享出去
+const SITE = "https://www.lfjmwl.com";
 const EXPORT_WIDTH = 360;
 const EXPORT_TIMEOUT_MS = 20_000;
 let invite = null;
@@ -55,7 +57,7 @@ function renderFriends(friends) {
 
 function render(data) {
   invite = data;
-  link = `${location.origin}/about?invite=${encodeURIComponent(data.code)}`;
+  link = `${SITE}/about?invite=${encodeURIComponent(data.code)}`;
   const name = $("#ic-name");
   if (data.name) name.textContent = data.name; // 姓名原样显示
   else setText(name, "好友");
