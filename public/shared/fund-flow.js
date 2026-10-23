@@ -69,7 +69,7 @@ export function mountFundFlow(root, { compact = false, initialCode = '', onSelec
     root.querySelectorAll('[data-metric]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.metric === metric)));
     const note = root.querySelector('.ff-note');
     const incomplete = chosen.filter((line) => keys.some((key) => !line.points.some((p) => p.date === key && valid(p[metric]))));
-    note.textContent = period === 'today' ? '按定时快照采样；缺失时点不补零。' : `按区间净流入强弱选线；右端标签为最后一日数值。${data?.history?.status === 'pending' ? '新一期历史数据补齐中，暂展示上一完整版本。' : ''}${keys.length < Number(period) ? `当前仅有${keys.length}个交易日记录。` : ''}${incomplete.length ? `${incomplete.length}个板块历史数据未完整，缺失日期保留断点，等待补齐。` : ''}`;
+    note.textContent = period === 'today' ? '按定时快照采样；缺失时点不补零。' : `按区间净流入强弱选线；右端标签为最后一日数值。${data?.history?.status === 'pending' ? (data.history.asOf ? '新一期历史数据补齐中，暂展示上一完整版本。' : '历史日数据补齐中。') : ''}${keys.length < Number(period) ? `当前仅有${keys.length}个交易日记录。` : ''}${incomplete.length ? `${incomplete.length}个板块历史数据未完整，缺失日期保留断点，等待补齐。` : ''}`;
     const values = chosen.flatMap((line) => line.points.map((p) => p[metric])).filter(valid).map(Number);
     root.querySelector('.ff-legend').innerHTML = chosen.map((line) => `<button type="button" data-code="${esc(line.code)}" aria-pressed="${focusCode === line.code}"><i style="background:${flowColor(line.code)}"></i><span>${esc(line.name)}</span><b>${signed(line.last, unit)}</b></button>`).join('');
     const options = root.querySelector('.ff-options');

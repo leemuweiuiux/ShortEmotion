@@ -58,6 +58,7 @@ export async function refreshHistory(store, engine, snapshot, { now = new Date()
   if (!boards.length || !snapshot?.tradingDate) throw new Error('没有可补齐的板块清单或交易日期');
   if (!await historyNeedsRefresh(store, snapshot, { now, force })) return { skipped: true, status: (await get(store, HISTORY_KEY))?.status };
   const day = snapshot.tradingDate, closed = snapshot.minute >= 900;
+  if (!/^\d{8}$/.test(day) || !Number.isFinite(snapshot.minute)) throw new Error('行情日期或时间无效，拒绝更新历史');
   const signature = `${day}:${closed}:${codesOf(boards)}`;
   const old = await get(store, HISTORY_KEY) || {};
   const retryDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
@@ -71,6 +72,7 @@ export async function refreshHistory(store, engine, snapshot, { now = new Date()
       const calendar = await engine.windCall('index_data', 'get_index_kline', { windcode: '881001.WI', begin_date: start.toISOString().slice(0, 10).replace(/-/g, ''), end_date: day });
       const dates = calendarDates(calendar, day, closed);
       if (dates.length !== 20) throw new Error(`交易日历仅返回${dates.length}/20个已完成交易日，拒绝发布`);
+      if (closed && dates.at(-1) !== day) throw new Error(`交易日历尚未更新至收盘日${day}，拒绝发布`);
       state.calendarFor = `${day}:${closed}`;
       state.draft = { dates, series: [] };
     } else state.draft = { dates: [...old.draft.dates], series: [] };
