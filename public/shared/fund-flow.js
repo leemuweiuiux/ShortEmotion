@@ -29,6 +29,20 @@ export function selectFlowLines(lines, { metric = 'amount', period = 'today', co
 const minute = (label) => { const [h, m] = String(label).split(':').map(Number); return h * 60 + m; };
 const progress = (m) => Math.max(0, Math.min(120, m - 570)) + Math.max(0, Math.min(120, m - 780));
 
+// 单调三次插值：经过真实采样点，转折处切线归零，避免曲线超调制造极值。
+export function flowCurvePath(points) {
+  if (!points.length) return '';
+  const slopes = points.slice(1).map(([x, y], i) => (x === points[i][0] ? 0 : (y - points[i][1]) / (x - points[i][0])));
+  const tangents = points.map((_, i) => i === 0 ? slopes[0] : i === points.length - 1 ? slopes.at(-1) : slopes[i - 1] * slopes[i] <= 0 ? 0 : 2 / (1 / slopes[i - 1] + 1 / slopes[i]));
+  let path = `M${points[0][0]},${points[0][1]}`;
+  for (let i = 1; i < points.length; i++) {
+    const [x0, y0] = points[i - 1], [x1, y1] = points[i];
+    const dx = (x1 - x0) / 3;
+    path += ` C${x0 + dx},${y0 + dx * tangents[i - 1]} ${x1 - dx},${y1 - dx * tangents[i]} ${x1},${y1}`;
+  }
+  return path;
+}
+
 export function mountFundFlow(root, { compact = false, initialCode = '', onSelect } = {}) {
   let data = null;
   let period = 'today';
@@ -48,7 +62,8 @@ export function mountFundFlow(root, { compact = false, initialCode = '', onSelec
     root.querySelectorAll('[data-period]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.period === period)));
     root.querySelectorAll('[data-metric]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.metric === metric)));
     const note = root.querySelector('.ff-note');
-    note.textContent = period === 'today' ? '按定时快照采样；缺失时点不补零。' : `按区间净流入强弱选线；右端标签为最后一日数值。${keys.length < Number(period) ? `当前仅有${keys.length}个交易日记录。` : ''}`;
+    const incomplete = chosen.filter((line) => keys.some((key) => !line.points.some((p) => p.date === key && valid(p[metric]))));
+    note.textContent = period === 'today' ? '按定时快照采样；缺失时点不补零。' : `按区间净流入强弱选线；右端标签为最后一日数值。${keys.length < Number(period) ? `当前仅有${keys.length}个交易日记录。` : ''}${incomplete.length ? `${incomplete.length}个板块历史数据未完整，缺失日期保留断点，等待补齐。` : ''}`;
     const values = chosen.flatMap((line) => line.points.map((p) => p[metric])).filter(valid).map(Number);
     root.querySelector('.ff-legend').innerHTML = chosen.map((line) => `<button type="button" data-code="${esc(line.code)}" aria-pressed="${focusCode === line.code}"><i style="background:${flowColor(line.code)}"></i><span>${esc(line.name)}</span><b>${signed(line.last, unit)}</b></button>`).join('');
     const options = root.querySelector('.ff-options');
@@ -80,7 +95,7 @@ export function mountFundFlow(root, { compact = false, initialCode = '', onSelec
       const opacity = focusCode && focusCode !== line.code ? '.15' : '.95';
       svg.push(`<g data-code="${esc(line.code)}" opacity="${opacity}"><title>${esc(line.name)} ${signed(line.last, unit)}</title>`);
       for (const segment of segments.filter((s) => s.length)) {
-        const path = segment.map(([px, py], i) => `${i ? 'L' : 'M'}${px},${py}`).join(' ');
+        const path = flowCurvePath(segment);
         svg.push(`<path d="${path} L${segment.at(-1)[0]},${y(0)} L${segment[0][0]},${y(0)} Z" fill="${color}" opacity=".06"/><path d="${path}" fill="none" stroke="${color}" stroke-width="2"/><path d="${path}" fill="none" stroke="transparent" stroke-width="14" pointer-events="stroke"/>`);
         segment.forEach(([px, py]) => svg.push(`<circle cx="${px}" cy="${py}" r="2" fill="${color}"/>`));
       }

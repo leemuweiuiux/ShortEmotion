@@ -1,7 +1,7 @@
-.ff-controls { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-.ff-segment { display: flex; padding: 3px; border: 1px solid var(--border); background: var(--panel); }
-.ff-segment button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13px; padding: 6px 12px; min-height: 34px; cursor: pointer; }
-.ff-segment button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 4px #0001; }
+.ff-controls { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin: 16px 0 12px; }
+.ff-segment { display: inline-flex; align-items: center; flex-shrink: 0; gap: 2px; padding: 3px; border: 1px solid var(--border); background: var(--panel); }
+.ff-segment button { appearance: none; margin: 0; border: 0; border-radius: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; line-height: 20px; padding: 6px 14px; min-width: 56px; min-height: 32px; cursor: pointer; }
+.ff-segment button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 4px #0001; }
 .ff-caption,.ff-note { color: var(--muted); font-size: 12px; line-height: 1.7; margin: 8px 0; }
 .ff-chart { min-width: 0; min-height: 220px; }
 .ff-chart svg { display: block; width: 100%; height: auto; overflow: hidden; }
@@ -23,4 +23,4 @@
 .ff-options label { display: flex; align-items: center; gap: 5px; }
 .ff-reset { border: 1px solid var(--border); background: var(--panel); color: var(--ink); padding: 6px 12px; font: inherit; cursor: pointer; }
 .ff-controls button:focus-visible,.ff-legend button:focus-visible,.ff-reset:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-@media(max-width:360px) { .ff-segment button { padding: 6px 9px; } .ff-legend { gap: 4px 8px; } }
+@media(max-width:360px) { .ff-controls { gap: 8px; } .ff-segment button { min-width: 48px; padding: 6px 10px; } .ff-legend { gap: 4px 8px; } }

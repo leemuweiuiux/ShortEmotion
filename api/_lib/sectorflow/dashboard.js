@@ -34,37 +34,59 @@ export function parseDailyTables(payload, days = 20, endDay = '99999999') {
   return [...records.values()].sort((a, b) => a.date.localeCompare(b.date)).slice(-days);
 }
 
-/** 跟随现有 Actions 调用，按区间合计选流入六个、流出四个；同一天盘中、盘后各构建一次。 */
+/** 所有可选板块共享20日历史；不完整结果每个盘中/收盘阶段最多尝试三次。 */
 export async function refreshFlowWindows(store, engine, snapshot) {
   const day = snapshot.tradingDate;
   const closed = snapshot.minute >= 900;
   const saved = (await store.kvGet(WINDOW_KEY).catch(() => null))?.value || {};
-  const next = { ...saved };
+  const cache = saved[20] || {};
+  const samePhase = cache.historyVersion === 2 && cache.attemptedFor === day && Boolean(cache.attemptedClosed) === closed;
+  if (samePhase && (cache.complete || cache.attempts >= 3)) return [];
   const errors = [];
-  const fetched = new Map();
-  for (const days of [5, 20]) {
-    if (saved[days]?.attemptedFor === day && (!closed || saved[days].attemptedClosed)) continue;
-    const field = days === 5 ? 'n5' : 'n20';
-    const sorted = snapshot.boards.filter((b) => isValue(b[field])).sort((a, b) => b[field] - a[field]);
-    const picks = [...sorted.filter((b) => b[field] > 0).slice(0, 6), ...sorted.filter((b) => b[field] < 0).slice(-4)];
-    const lines = [];
-    for (const board of picks) {
-      try {
-        if (!fetched.has(board.code)) {
-          const payload = await engine.windCall('analytics_data', 'get_financial_data', {
-            question: `${board.name}（${board.code}）截至${day}近20个交易日每日主力净流入额和每日成交额，按交易日逐日返回，金额单位：元`
-          });
-          fetched.set(board.code, parseDailyTables(payload, 20, day));
-        }
-        const points = fetched.get(board.code).slice(-days);
-        if (points.length) lines.push({ code: board.code, name: clean(board.name), points, rankAmount: board[field] });
-      } catch (error) { errors.push(`${board.code}: ${String(error.message).slice(0, 100)}`); }
-    }
-    next[days] = { ...(saved[days] || {}), attemptedFor: day, attemptedClosed: closed };
-    if (lines.length) next[days] = { ...next[days], builtFor: day, closed, builtAt: new Date().toISOString(), series: lines };
-    else errors.push(`${days}日历史序列暂缺，保留已有数据`);
+  const merged = new Map();
+  for (const window of [saved[5], saved[20]]) for (const line of window?.series || []) {
+    const target = merged.get(line.code) || { ...line, points: new Map() };
+    for (const point of line.points || []) if (point.date <= day) target.points.set(point.date, point);
+    merged.set(line.code, target);
   }
-  if (next[5] !== saved[5] || next[20] !== saved[20]) await store.kvSet(WINDOW_KEY, next);
+  const start = new Date(`${day.slice(0, 4)}-${day.slice(4, 6)}-${day.slice(6)}T00:00:00Z`);
+  start.setUTCDate(start.getUTCDate() - 60);
+  const startDay = start.toISOString().slice(0, 10).replace(/-/g, '');
+  const ready = (points) => points.length === 20 && points.at(-1)?.date === day && points.every((p) => isValue(p.pct));
+  let complete = true;
+  const lines = [];
+  for (const board of snapshot.boards) {
+    const old = merged.get(board.code);
+    const prior = [...(old?.points.values() || [])].sort((a, b) => a.date.localeCompare(b.date)).slice(-20);
+    if (samePhase && ready(prior)) {
+      lines.push({ code: board.code, name: clean(board.name), points: prior });
+      continue;
+    }
+    try {
+      const payload = await engine.windCall('analytics_data', 'get_financial_data', {
+        question: `${board.name}（${board.code}）从${startDay}至${day}每日主力净流入额和每日成交额，按交易日逐日返回完整明细，不要汇总或省略日期，包含${day}最新数据，金额单位：元`
+      });
+      const parsed = parseDailyTables(payload, 20, day);
+      if (!parsed.length) throw new Error('历史查询未返回有效逐日数据');
+      const points = old?.points || new Map();
+      for (const point of parsed) {
+        const previous = points.get(point.date);
+        const turnover = point.turnover ?? previous?.turnover ?? null;
+        points.set(point.date, { ...point, turnover, pct: percent(point.amount, turnover) });
+      }
+      merged.set(board.code, { code: board.code, name: clean(board.name), points });
+    } catch (error) { errors.push(`${board.code}: ${String(error.message).slice(0, 100)}`); }
+    const points = [...(merged.get(board.code)?.points?.values() || [])].sort((a, b) => a.date.localeCompare(b.date)).slice(-20);
+    if (!ready(points)) { complete = false; errors.push(`${board.code}: 20日历史未完整（${points.length}/20），后续重试`); }
+    if (points.length) lines.push({ code: board.code, name: clean(board.name), points });
+  }
+  const next = { ...saved };
+  for (const days of [5, 20]) next[days] = {
+    historyVersion: 2, attemptedFor: day, attemptedClosed: closed, attempts: samePhase ? (cache.attempts || 0) + 1 : 1, complete,
+    builtFor: day, closed, builtAt: new Date().toISOString(),
+    series: lines.map((line) => ({ ...line, points: line.points.slice(-days) }))
+  };
+  await store.kvSet(WINDOW_KEY, next);
   return errors;
 }
 
@@ -84,7 +106,12 @@ export function buildDashboard({ boards = [], latest, daily, intraday, windows =
     // 老数据只使用真实逐日记录；禁止把原有20/10/5日区间总额当成每日值。
     const records = (daily?.days || []).slice(-days);
     const local = [...names].map(([code, name]) => ({ code, name, points: records.filter((r) => isValue(r.boards?.[code]?.today)).map((r) => ({ date: r.day, amount: r.boards[code].today, turnover: r.boards[code].amount ?? null, pct: percent(r.boards[code].today, r.boards[code].amount) })) })).filter((s) => s.points.length);
-    const merged = new Map((cached?.series || []).map((line) => [line.code, { ...line, points: new Map(line.points.map((p) => [p.date, p])) }]));
+    const merged = new Map();
+    for (const line of [...(windows[20]?.series || []), ...(cached?.series || [])]) {
+      const target = merged.get(line.code) || { ...line, points: new Map() };
+      for (const point of line.points || []) target.points.set(point.date, point);
+      merged.set(line.code, target);
+    }
     for (const line of local) {
       const target = merged.get(line.code) || { ...line, points: new Map() };
       for (const p of line.points) {
