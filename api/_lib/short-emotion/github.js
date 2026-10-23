@@ -91,15 +91,33 @@ export const SCHEDULED_JOBS = {
   "morning-report": { workflow: "morning-report.yml" }
 };
 
-/** 定时触发一个数据任务（不扣积分、不做 10 分钟去重，去重由任务自己按时段完成）。 */
+// 排队中（还没开始跑）的状态。正在跑的（in_progress）不算：新任务排在它后面不会挤掉任何人。
+const WAITING = new Set(["queued", "waiting", "requested", "pending"]);
+
+/** 数据任务里正在排队的那一次（不分定时还是刷新）；没有返回 null。 */
+export async function waitingDataRun() {
+  const payload = await github(`/repos/${REPO}/actions/workflows/${WORKFLOW}/runs?per_page=10`);
+  return summarizeRun((payload?.workflow_runs || []).find((run) => WAITING.has(run.status)));
+}
+
+/**
+ * 定时触发一个数据任务（不扣积分、不做 10 分钟去重，去重由任务自己按时段完成）。
+ * 短线情绪：已经有一次在排队时跳过。GitHub 同一并发组只保留一个排队中的任务，
+ * 再触发会把排队中的那次（可能是用户付了积分的刷新）取消掉；排队的那次跑完同样会更新数据。
+ * 查不到排队情况时照常触发。
+ */
 export async function dispatchScheduled(job) {
   if (!Object.hasOwn(SCHEDULED_JOBS, job)) throw Object.assign(new Error(`未知任务：${job}`), { code: "unknown_job", statusCode: 404 });
   const { workflow, inputs } = SCHEDULED_JOBS[job];
+  if (workflow === WORKFLOW) {
+    const waiting = await waitingDataRun().catch(() => null);
+    if (waiting) return { job, workflow, dispatched: false, reason: "busy", run: waiting };
+  }
   await github(`/repos/${REPO}/actions/workflows/${workflow}/dispatches`, {
     method: "POST",
     body: { ref: "main", ...(inputs ? { inputs } : {}) }
   });
-  return { job, workflow, dispatchedAt: new Date().toISOString() };
+  return { job, workflow, dispatched: true, dispatchedAt: new Date().toISOString() };
 }
 
 /** 数据分支最新提交（读快照时按提交读取，绕开 raw.githubusercontent.com 约 5 分钟的缓存）。 */

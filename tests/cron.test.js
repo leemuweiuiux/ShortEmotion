@@ -26,15 +26,22 @@ function call({ method = "POST", query = {}, authorization } = {}) {
 describe("/api/cron", () => {
   const realFetch = globalThis.fetch;
   let calls;
+  let runs;
+  let runsStatus;
   beforeEach(() => {
     calls = [];
+    runs = [];
+    runsStatus = 200;
     process.env.CRON_SECRET = SECRET;
     process.env.GITHUB_ACTIONS_TOKEN = "test-token";
     globalThis.fetch = async (url, options = {}) => {
       calls.push({ url: String(url), method: options.method || "GET", body: options.body ? JSON.parse(options.body) : null });
+      if (String(url).includes("/runs?")) return runsStatus === 200 ? Response.json({ workflow_runs: runs }) : new Response("boom", { status: runsStatus });
       return new Response(null, { status: 204 });
     };
   });
+  const posts = () => calls.filter((item) => item.method === "POST");
+  const run = (id, status) => ({ id, status, conclusion: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
   afterEach(() => {
     globalThis.fetch = realFetch;
     delete process.env.CRON_SECRET;
@@ -68,7 +75,8 @@ describe("/api/cron", () => {
     const result = await call({ query: { job: "short-emotion" }, authorization: `Bearer ${SECRET}` });
     expect(result.status).toBe(202);
     expect(result.body).toMatchObject({ dispatched: true, job: "short-emotion", workflow: "short-emotion.yml" });
-    expect(calls).toEqual([{
+    expect(calls[0].url).toBe("https://api.github.com/repos/leemuweiuiux/ShortEmotion/actions/workflows/short-emotion.yml/runs?per_page=10");
+    expect(posts()).toEqual([{
       url: "https://api.github.com/repos/leemuweiuiux/ShortEmotion/actions/workflows/short-emotion.yml/dispatches",
       method: "POST",
       body: { ref: "main", inputs: { target: "short-emotion", force: "false", market: "all" } }
@@ -83,6 +91,24 @@ describe("/api/cron", () => {
       method: "POST",
       body: { ref: "main" }
     }]);
+  });
+
+  it("已有一次在排队（例如用户付了积分的刷新）时跳过，不把它挤掉", async () => {
+    for (const status of ["queued", "pending", "waiting", "requested"]) {
+      runs = [run(1, "completed"), run(9, status)];
+      const result = await call({ query: { job: "short-emotion" }, authorization: `Bearer ${SECRET}` });
+      expect(result.status).toBe(200);
+      expect(result.body).toMatchObject({ dispatched: false, reason: "busy", run: { id: 9, status } });
+    }
+    expect(posts()).toHaveLength(0);
+  });
+
+  it("只有正在跑的任务时照常触发（排在它后面，不挤掉任何人）；查不到排队情况也照常触发", async () => {
+    runs = [run(8, "in_progress")];
+    expect((await call({ query: { job: "short-emotion" }, authorization: `Bearer ${SECRET}` })).status).toBe(202);
+    runsStatus = 500;
+    expect((await call({ query: { job: "short-emotion" }, authorization: `Bearer ${SECRET}` })).status).toBe(202);
+    expect(posts()).toHaveLength(2);
   });
 
   it("未知任务返回 404，不调用 GitHub", async () => {

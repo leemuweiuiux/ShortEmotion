@@ -983,6 +983,7 @@ async function pollRefresh() {
   }
   try {
     const payload = await api("refresh-status", { fresh: true });
+    if (showRefund(payload.refund)) return stopRefresh();
     const run = payload.run;
     // 只认这次刷新对应的任务：已知任务 id，或提交之后才创建的任务（避免把上一次已完成的任务当成这次）
     const mine = run && (refreshRun.runId ? run.id === refreshRun.runId : Boolean(refreshRun.requestedAt) && Date.parse(run.createdAt) >= Date.parse(refreshRun.requestedAt) - 30_000);
@@ -1033,10 +1034,19 @@ async function handleManualRefresh() {
   }
 }
 
+// 刷新没跑成、服务器已退回积分（见 api/short-emotion.js refresh-status）：更新余额并提示。
+function showRefund(refund) {
+  if (!refund) return false;
+  setBalance(refund.balance);
+  toast(`本次更新未完成，已退回 ${refund.amount} 积分；页面仍显示上一份快照`, true);
+  return true;
+}
+
 // 打开页面时如果已有进行中的刷新（例如别人刚点过），同样显示「数据更新中」并等它完成。
 async function resumeRunningRefresh() {
   try {
     const payload = await api("refresh-status", { fresh: true });
+    if (showRefund(payload.refund)) return;
     const run = payload.run;
     if (run && run.status !== "completed" && Date.now() - Date.parse(run.createdAt) < REFRESH_TIMEOUT_MS) {
       beginRefresh({ runId: run.id, step: run.status === "in_progress" ? "in_progress" : "queued", startedAt: Date.parse(run.createdAt) });

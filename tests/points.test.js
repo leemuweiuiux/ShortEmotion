@@ -209,6 +209,66 @@ describe("积分：手动刷新", () => {
     expect(account.balance).toBe(50);
   });
 
+  describe("触发成功但任务没跑成：查进度时退回", () => {
+    const refreshRun = (status, conclusion = null, createdAt = new Date().toISOString()) =>
+      ({ id: 11, display_title: "short-emotion cn refresh", status, conclusion, created_at: createdAt, updated_at: createdAt });
+    const ticketOf = (res) => [].concat(res.headers["set-cookie"] || []).find((item) => item.startsWith("se_rf="));
+    async function refreshAndTicket() {
+      const res = await call(dataApi, { method: "POST", query: { action: "refresh" } });
+      expect(res.body).toMatchObject({ dispatched: true, charged: 5 });
+      const cookie = ticketOf(res);
+      expect(cookie).toMatch(/^se_rf=cn\.\d+\.\d+; Path=\/api\/short-emotion; Max-Age=600; HttpOnly; SameSite=Lax; Secure$/);
+      return cookie.split(";")[0];
+    }
+    const status = (ticket) => call(dataApi, { query: { resource: "refresh-status" }, cookie: `${COOKIE}; ${ticket}` });
+
+    it("排队时被取消：退回 5 分并清掉凭据；同一笔不会退两次", async () => {
+      const ticket = await refreshAndTicket();
+      runs = [refreshRun("completed", "cancelled")];
+      const res = await status(ticket);
+      expect(res.body.refund).toEqual({ amount: 5, balance: 50 });
+      expect(ticketOf(res)).toMatch(/^se_rf=; .*Max-Age=0/);
+      expect(ledger.map((row) => [row.kind, row.delta])).toEqual([["signup", 50], ["refresh", -5], ["refund", 5]]);
+      expect((await status(ticket)).body.refund).toBeUndefined();
+      expect(account.balance).toBe(50);
+    });
+
+    it("任务失败也退；成功则不退，只清掉凭据；还在跑时什么都不做", async () => {
+      let ticket = await refreshAndTicket();
+      runs = [refreshRun("in_progress")];
+      const running = await status(ticket);
+      expect(running.body.refund).toBeUndefined();
+      expect(ticketOf(running)).toBeUndefined();
+      runs = [refreshRun("completed", "success")];
+      const done = await status(ticket);
+      expect(done.body.refund).toBeUndefined();
+      expect(ticketOf(done)).toMatch(/Max-Age=0/);
+      expect(account.balance).toBe(45);
+
+      vi.setSystemTime(new Date("2026-10-20T10:45:00+08:00"));
+      runs = [];
+      ticket = await refreshAndTicket();
+      runs = [refreshRun("completed", "failure")];
+      expect((await status(ticket)).body.refund).toEqual({ amount: 5, balance: 45 });
+    });
+
+    it("触发后 2 分钟还看不到任务：退回；2 分钟内继续等", async () => {
+      const ticket = await refreshAndTicket();
+      runs = [refreshRun("completed", "success", "2026-10-20T02:00:00Z")]; // 上一次的旧任务，不是这次的
+      expect((await status(ticket)).body.refund).toBeUndefined();
+      vi.setSystemTime(new Date(Date.now() + 3 * 60_000));
+      expect((await status(ticket)).body.refund).toEqual({ amount: 5, balance: 50 });
+    });
+
+    it("不限额账号记 0 分，不留凭据", async () => {
+      await call(authApi, { query: { action: "points" } });
+      account.unlimited = true;
+      const res = await call(dataApi, { method: "POST", query: { action: "refresh" } });
+      expect(res.body).toMatchObject({ dispatched: true, charged: 0 });
+      expect(ticketOf(res)).toBeUndefined();
+    });
+  });
+
   it("积分不足时不触发", async () => {
     await call(authApi, { query: { action: "points" } });
     account.balance = 0;
