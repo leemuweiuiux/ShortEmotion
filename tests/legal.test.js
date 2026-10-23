@@ -1,5 +1,5 @@
 // 用户协议 /terms、隐私政策 /privacy（2026-10-24 与产品确认）：运营者 pai，联系邮箱 pai.product.manager@gmail.com；
-// 登录页不用勾选：点击「发送验证码」即表示同意（含境外传输），按钮下方写明；登录页与个人页面最底部放两份文件的链接；
+// 登录页不用勾选：点击「发送验证码」即表示同意，按钮下方写明（不另外强调境外）；登录页与个人页面最底部放两份文件的链接；
 // 注销先用邮件申请（15 个工作日内处理）；未满 18 周岁需监护人同意。
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -35,10 +35,10 @@ describe("用户协议与隐私政策页面", () => {
     expect(html).toContain("未满 18 周岁的未成年人，应在监护人");
   });
 
-  it("隐私政策：列出境外处理者与单独同意、保存期限、邮件注销", () => {
+  it("隐私政策：列出处理者与存储地点、保存期限、邮件注销", () => {
     const html = read("public/privacy/index.html");
     for (const name of ["Supabase", "Vercel", "Resend", "Google Fonts"]) expect(html).toContain(name);
-    expect(html).toContain("点击「发送验证码」，即表示你同意我们将上述个人信息传输至境外处理");
+    expect(html).toContain("由它们在中国境外的服务器上存储和处理");
     expect(html).toContain("超过 30 天自动删除");
     expect(html).toContain("每人保留最近 10 条");
     expect(html).toContain("标题写“注销账号”");
@@ -52,7 +52,7 @@ describe("登录页与个人页面的入口", () => {
     expect(html).not.toContain('type="checkbox"');
     expect(html.indexOf('class="agree"')).toBeGreaterThan(html.indexOf('id="send"'));
     expect(html).toContain("点击「发送验证码」即表示你已阅读并同意《<a href=\"/terms\"");
-    expect(html).toContain("并同意将个人信息传输至境外服务器存储和处理");
+    expect(html.match(/<p class="agree">[\s\S]*?<\/p>/)[0]).not.toContain("境外");
     expect(html).toMatch(/<footer class="legal-links"><a href="\/terms">用户协议<\/a>.*<a href="\/privacy">隐私政策<\/a><\/footer>\s*<\/main>/);
   });
 
