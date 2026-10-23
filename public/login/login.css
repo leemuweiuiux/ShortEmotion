@@ -19,11 +19,9 @@
 .login-note { padding-top: 14px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; line-height: 1.7; }
 .back-link { justify-self: center; color: var(--muted); font-size: 13px; text-underline-offset: 3px; }
 
-/* 同意用户协议与隐私政策（必勾选，不预先勾好） */
-.agree { display: flex; align-items: flex-start; gap: 10px; color: var(--muted); font-size: 13px; line-height: 1.6; cursor: pointer; }
-.agree input { flex: none; width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--ink); cursor: pointer; }
+/* 「发送验证码」下方：点击即表示同意用户协议与隐私政策（2026-10-24：不用勾选框） */
+.agree { color: var(--muted); font-size: 12px; line-height: 1.7; }
 .agree a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
-.agree.need { color: var(--heat); }
 .login-page .legal-links { justify-self: center; margin-top: 4px; }
 
 /* 邀请码（选填）：从邀请链接进来时自动填好，并显示邀请人 */

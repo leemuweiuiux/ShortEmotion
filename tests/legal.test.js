@@ -1,5 +1,5 @@
 // 用户协议 /terms、隐私政策 /privacy（2026-10-24 与产品确认）：运营者 pai，联系邮箱 pai.product.manager@gmail.com；
-// 登录页「发送验证码」上方必勾选同意（含境外传输的单独同意），登录页与个人页面最底部放两份文件的链接；
+// 登录页不用勾选：点击「发送验证码」即表示同意（含境外传输），按钮下方写明；登录页与个人页面最底部放两份文件的链接；
 // 注销先用邮件申请（15 个工作日内处理）；未满 18 周岁需监护人同意。
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -38,7 +38,7 @@ describe("用户协议与隐私政策页面", () => {
   it("隐私政策：列出境外处理者与单独同意、保存期限、邮件注销", () => {
     const html = read("public/privacy/index.html");
     for (const name of ["Supabase", "Vercel", "Resend", "Google Fonts"]) expect(html).toContain(name);
-    expect(html).toContain("单独同意我们将上述个人信息传输至境外处理");
+    expect(html).toContain("点击「发送验证码」，即表示你同意我们将上述个人信息传输至境外处理");
     expect(html).toContain("超过 30 天自动删除");
     expect(html).toContain("每人保留最近 10 条");
     expect(html).toContain("标题写“注销账号”");
@@ -47,21 +47,17 @@ describe("用户协议与隐私政策页面", () => {
 });
 
 describe("登录页与个人页面的入口", () => {
-  it("登录页：发送验证码上方有必勾选框（不预先勾好），并链接两份文件", () => {
+  it("登录页：不用勾选，「发送验证码」下方写明点击即表示同意，并链接两份文件", () => {
     const html = read("public/login/index.html");
-    const agree = html.match(/<input id="agree"[^>]*>/)[0];
-    expect(agree).toContain('type="checkbox"');
-    expect(agree).not.toMatch(/\bchecked\b/);
-    expect(html.indexOf('id="agree"')).toBeLessThan(html.indexOf('id="send"'));
+    expect(html).not.toContain('type="checkbox"');
+    expect(html.indexOf('class="agree"')).toBeGreaterThan(html.indexOf('id="send"'));
+    expect(html).toContain("点击「发送验证码」即表示你已阅读并同意《<a href=\"/terms\"");
     expect(html).toContain("并同意将个人信息传输至境外服务器存储和处理");
     expect(html).toMatch(/<footer class="legal-links"><a href="\/terms">用户协议<\/a>.*<a href="\/privacy">隐私政策<\/a><\/footer>\s*<\/main>/);
   });
 
-  it("登录页脚本：没勾选同意就不发验证码", () => {
-    const js = read("public/login/login.js");
-    const check = js.indexOf("if (agreeBox && !agreeBox.checked)");
-    expect(check).toBeGreaterThan(0);
-    expect(check).toBeLessThan(js.indexOf("await sendCode()"));
+  it("登录页脚本：不再有勾选拦截", () => {
+    expect(read("public/login/login.js")).not.toContain("agreeBox");
   });
 
   it("个人页面：退出登录下方、页面最底部放两份文件的链接", () => {

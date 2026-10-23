@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="/about/about.css?v=11">
   <link rel="stylesheet" href="/shared/form.css?v=1">
   <link rel="stylesheet" href="/legal/legal.css?v=1">
-  <link rel="stylesheet" href="/login/login.css?v=4">
+  <link rel="stylesheet" href="/login/login.css?v=5">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -67,11 +67,8 @@
           <input id="invite" class="se-input" name="invite" type="text" autocomplete="off" spellcheck="false" maxlength="20" placeholder="例如 SEK7MX2Q">
         </label>
         <p id="invite-note" class="invite-note" hidden></p>
-        <label class="agree">
-          <input id="agree" type="checkbox" name="agree">
-          <span>我已阅读并同意《<a href="/terms" target="_blank" rel="noopener">用户协议</a>》和《<a href="/privacy" target="_blank" rel="noopener">隐私政策</a>》，并同意将个人信息传输至境外服务器存储和处理。</span>
-        </label>
         <button id="send" class="btn-primary" type="submit">发送验证码</button>
+        <p class="agree">点击「发送验证码」即表示你已阅读并同意《<a href="/terms" target="_blank" rel="noopener">用户协议</a>》和《<a href="/privacy" target="_blank" rel="noopener">隐私政策</a>》，并同意将个人信息传输至境外服务器存储和处理。</p>
       </form>
 
       <form id="code-form" class="login-form" novalidate hidden>
@@ -93,6 +90,6 @@
     <footer class="legal-links"><a href="/terms">用户协议</a><span aria-hidden="true">·</span><a href="/privacy">隐私政策</a></footer>
   </main>
 
-  <script type="module" src="/login/login.js?v=18"></script>
+  <script type="module" src="/login/login.js?v=19"></script>
 </body>
 </html>

@@ -27,8 +27,6 @@ const verifyButton = $("#verify");
 const resendButton = $("#resend");
 const inviteInput = $("#invite");
 const inviteNote = $("#invite-note");
-const agreeBox = $("#agree");
-agreeBox?.addEventListener("change", () => { if (agreeBox.checked) { agreeBox.closest(".agree")?.classList.remove("need"); showError(""); } });
 let email = "";
 let invite = "";
 
@@ -210,13 +208,6 @@ emailForm.addEventListener("submit", async (event) => {
   if (!EMAIL_PATTERN.test(email)) {
     showError("请输入正确的邮箱地址。");
     emailInput.focus();
-    return;
-  }
-  // 必须勾选同意《用户协议》《隐私政策》（含境外传输的单独同意）才发验证码，不预先勾好
-  if (agreeBox && !agreeBox.checked) {
-    agreeBox.closest(".agree")?.classList.add("need");
-    showError("请先阅读并勾选同意《用户协议》和《隐私政策》。");
-    agreeBox.focus();
     return;
   }
   const code = cleanInvite(inviteInput.value);
