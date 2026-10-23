@@ -1,4 +1,45 @@
-/* 用户协议 /terms、隐私政策 /privacy：版面沿用个人页面（/account/account.css 的 subnav、sub-frame、sub-card），这里只放文档排版。 */
+/* 用户协议 /terms、隐私政策 /privacy：版面同个人页面（固定顶栏 + 600px 直角卡片），颜色与字体沿用 /about/about.css。
+   注意：不能引用 /account/account.css —— /account/* 在登录判断（middleware）之内，未登录时样式表会被转去登录页，页面就没有版面。
+   所以版面规则复制一份在这里，只作用于 body.legal-page。 */
+body.legal-page { background: var(--bg); }
+.legal-page .subnav {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 600px;
+  height: calc(64px + env(safe-area-inset-top, 0px));
+  margin: 0 auto;
+  padding: env(safe-area-inset-top, 0px) 16px 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(15, 20, 25, 0.04);
+}
+.legal-page .subnav-btn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+}
+.legal-page .subnav-btn svg { width: 18px; height: 18px; }
+.legal-page .subnav-title { margin-right: auto; font-size: 20px; font-weight: 500; }
+.legal-page .sub-frame {
+  max-width: 600px;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: calc(76px + env(safe-area-inset-top, 0px)) 16px calc(40px + env(safe-area-inset-bottom, 0px));
+}
+.legal-page .sub-card { display: grid; background: var(--surface); border: 1px solid var(--border); }
+
 .legal-doc { gap: 0; padding: 22px 18px 26px; }
 .legal-doc h1 { font-size: 22px; font-weight: 700; line-height: 1.35; letter-spacing: -0.01em; }
 .legal-meta { margin-top: 8px; color: var(--muted); font-size: 13px; line-height: 1.6; }
@@ -7,7 +48,7 @@
 .legal-doc h3 { margin-top: 16px; font-size: 15px; font-weight: 600; line-height: 1.5; }
 .legal-doc p, .legal-doc li { color: var(--ink); font-size: 15px; line-height: 1.8; }
 .legal-doc p { margin-top: 10px; }
-.legal-doc ul, .legal-doc ol { margin-top: 8px; padding-left: 1.3em; }
+.legal-doc ul, .legal-doc ol { margin: 8px 0 0; padding-left: 1.3em; } /* 去掉浏览器默认的下边距：列表后与段落后到下一节的间距一致 */
 .legal-doc li + li { margin-top: 6px; }
 .legal-doc strong { font-weight: 700; }
 .legal-doc a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }

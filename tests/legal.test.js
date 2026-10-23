@@ -72,3 +72,23 @@ describe("登录页与个人页面的入口", () => {
     expect(script).toContain('"public/privacy/index.html"');
   });
 });
+
+describe("公开页面不能引用登录判断之内的资源（未登录时会被转去登录页，页面没有版面）", () => {
+  const matcher = read("middleware.js").match(/matcher:\s*\[([^\]]*)\]/)[1].match(/"[^"]+"/g).map((item) => item.slice(1, -1));
+  const guarded = (path) => matcher.some((pattern) => pattern.endsWith("/:path*") ? path.startsWith(pattern.slice(0, -"/:path*".length) + "/") : path === pattern);
+  for (const file of ["public/terms/index.html", "public/privacy/index.html", "public/login/index.html", "public/about/index.html"]) {
+    it(file, () => {
+      const html = read(file);
+      const assets = [...html.matchAll(/<(?:link|script)[^>]+(?:href|src)="(\/[^"?]+)/g)].map((m) => m[1]);
+      expect(assets.length).toBeGreaterThan(0);
+      expect(assets.filter(guarded)).toEqual([]);
+    });
+  }
+  it("两份文件只靠 /legal/legal.css 排版", () => {
+    for (const file of ["public/terms/index.html", "public/privacy/index.html"]) {
+      const html = read(file);
+      expect(html).not.toContain("/account/account.css");
+      expect(html).toContain('<body class="legal-page">');
+    }
+  });
+});
