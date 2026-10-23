@@ -1,9 +1,10 @@
+import { updateNavPoints } from "/shared/nav-points.js?v=1";
 // 首页 /home（登录后打开 / 会到这里），都只读现有数据，不调用 Wind：
 //   1. 我的积分：余额 + 签到 +10（注册当天还没填邀请码的新用户，先在这里显示「填写邀请码」）
 //   2. 个股技术分析：输入股票按「开始分析」→ 跳到 /technicalanalysis 并由那边发起分析（扣 10 积分）
 //   3. 今日短线情绪：与看板「A股短线情绪」卡同款（姿态、分数、阶段与说明、六个维度），
 //      下面再加市场概况（全A涨跌幅、成交额、涨跌家数、涨跌停）与行情时间，点预览或标题进入看板
-//   4. 当日题材异动：未解锁时只显示题材数量，可在首页直接解锁（−5 积分，12 小时）；解锁后列出前 3 个
+//   4. 当日题材异动：未解锁时只显示题材数量，可在首页直接解锁（−10 积分，12 小时）；解锁后列出前 3 个
 //   5. 资金流向：今日累计净流入曲线，流入/流出各前三；进入 /sectorflow 查看完整周期，不扣积分。
 import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderRecent, renderLatest } from "/shared/nav-account.js?v=4";
 import { mountFundFlow } from "/shared/fund-flow.js?v=3";
@@ -55,6 +56,7 @@ async function loadPoints() {
     if (response.status === 404) return $("#points-card").remove(); // 登录未开启（本地预览）
     if (!response.ok) throw new Error(payload.error);
     balance = payload.balance;
+    updateNavPoints(payload);
     unlimited = Boolean(payload.unlimited);
     invitePending = Boolean(payload.invitePending) && !payload.signedToday;
     renderPoints(payload.signedToday);
@@ -77,6 +79,7 @@ signinButton.addEventListener("click", async () => {
     });
     if (!response.ok) throw new Error(payload.error || "签到失败，请稍后再试");
     balance = payload.balance;
+    updateNavPoints(payload);
     renderPoints(true);
     toast(!payload.ok ? "今天已经签到过了" : payload.inviteBonus ? `签到成功 +${payload.delta || 10}，邀请奖励 +${payload.inviteBonus}` : `签到成功 +${payload.delta || 10}`);
     invitePending = false;
@@ -220,7 +223,7 @@ function untilLabel(value) {
 
 function renderLocked() {
   const total = Number(anomalyData.total) || 0;
-  const cost = anomalyData.cost || 5;
+  const cost = anomalyData.cost || 10;
   const hours = anomalyData.hours || 12;
   $("#anomaly-pill").textContent = `今日 ${total} 个题材`;
   body.classList.add("locked");
@@ -259,6 +262,7 @@ async function loadAnomalies() {
     anomalyData = payload;
     if (Number.isFinite(Number(payload.balance)) && !unlimited) {
       balance = payload.balance;
+      updateNavPoints(payload);
       renderPoints(null);
     }
     if (payload.locked) renderLocked();
@@ -277,6 +281,7 @@ async function unlock(event) {
     const { response, payload } = await request("/api/short-emotion?market=cn&action=unlock-anomalies", { method: "POST" });
     if (Number.isFinite(Number(payload.balance))) {
       balance = payload.balance;
+      updateNavPoints(payload);
       renderPoints(null);
     }
     if (response.status === 402) {
@@ -285,7 +290,7 @@ async function unlock(event) {
       return;
     }
     if (!response.ok) throw new Error(payload.error || "解锁失败，请稍后再试");
-    if (payload.charged) toast(`已解锁，扣除 5 积分（剩余 ${payload.balance}）`);
+    if (payload.charged) toast(`已解锁，扣除 10 积分（剩余 ${payload.balance}）`);
     await loadAnomalies();
   } catch (error) {
     toast(error.message, true);

@@ -52,9 +52,9 @@ function rpc(name, args) {
       return { ok: true, delta: 10, balance: account.balance };
     case "points_unlock_anomalies":
       if (unlocked) return { ok: true, charged: false, balance: account.balance, unlockUntil: unlocked };
-      if (account.balance < 5) return { ok: false, reason: "insufficient", balance: account.balance };
+      if (account.balance < 10) return { ok: false, reason: "insufficient", balance: account.balance };
       account.unlockUntil = new Date(now + 12 * 3600_000).toISOString();
-      change("unlock", -5);
+      change("unlock", -10);
       return { ok: true, charged: true, balance: account.balance, unlockUntil: account.unlockUntil };
     case "points_charge_refresh": {
       const cost = account.unlimited ? 0 : 5;
@@ -140,15 +140,15 @@ describe("积分：签到与流水", () => {
 });
 
 describe("积分：题材异动", () => {
-  it("未解锁只返回题材数量，解锁扣 5 分后 12 小时内返回内容", async () => {
+  it("未解锁只返回题材数量，解锁扣 10 分后 12 小时内返回内容", async () => {
     const locked = await call(dataApi, { query: { resource: "anomalies" } });
-    expect(locked.body).toEqual(expect.objectContaining({ locked: true, total: 2, cost: 5, hours: 12, balance: 50 }));
+    expect(locked.body).toEqual(expect.objectContaining({ locked: true, total: 2, cost: 10, hours: 12, balance: 50 }));
     expect(locked.body.items).toBeUndefined();
 
     const unlock = await call(dataApi, { method: "POST", query: { action: "unlock-anomalies" } });
-    expect(unlock.body).toMatchObject({ ok: true, charged: true, balance: 45 });
+    expect(unlock.body).toMatchObject({ ok: true, charged: true, balance: 40 });
     const again = await call(dataApi, { method: "POST", query: { action: "unlock-anomalies" } });
-    expect(again.body).toMatchObject({ charged: false, balance: 45 });
+    expect(again.body).toMatchObject({ charged: false, balance: 40 });
 
     const open = await call(dataApi, { query: { resource: "anomalies" } });
     expect(open.body.items).toHaveLength(2);
@@ -160,10 +160,10 @@ describe("积分：题材异动", () => {
 
   it("积分不足返回 402 与提示文字", async () => {
     await call(authApi, { query: { action: "points" } });
-    account.balance = 3;
+    account.balance = 9;
     const res = await call(dataApi, { method: "POST", query: { action: "unlock-anomalies" } });
     expect(res.statusCode).toBe(402);
-    expect(res.body).toMatchObject({ code: "insufficient_points", error: "积分不足，签到获取 +10积分", balance: 3 });
+    expect(res.body).toMatchObject({ code: "insufficient_points", error: "积分不足，签到获取 +10积分", balance: 9 });
   });
 });
 

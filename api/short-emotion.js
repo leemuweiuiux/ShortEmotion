@@ -13,7 +13,7 @@
 //      真正触发时扣 5 积分（别人正在刷新、10 分钟内刚更新过时不扣分也不触发），触发失败退回；
 //      触发成功但任务没跑成（例如排队时被 GitHub 取消）时，由 refresh-status 退回。
 // POST /api/short-emotion?market=cn&action=unlock-anomalies
-//      需要登录：扣 5 积分解锁当日题材异动，12 小时内有效（有效期内再调用不扣分）。
+//      需要登录：扣 10 积分解锁当日题材异动，12 小时内有效（有效期内再调用不扣分）。
 // 题材异动（resource=anomalies）未解锁时只返回题材数量，不返回内容。
 // 未登录时返回 401 login_required（登录判断见 _lib/session.js）；积分不足返回 402 insufficient_points。
 import { readResource, NotReadyError, normalizeMarket } from "./_lib/short-emotion/service.js";
