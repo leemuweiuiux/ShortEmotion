@@ -53,19 +53,29 @@ describe("参考看板渲染与当前框架适配", () => {
   const source = readFileSync(new URL("../public/short-emotion/app.js", import.meta.url), "utf8");
   const renderer = source.slice(source.indexOf("function renderAnomalies()"), source.indexOf("// ── 题材异动的积分锁"));
   const html = readFileSync(new URL("../public/short-emotion/index.html", import.meta.url), "utf8");
-  function render(items, filter = "all") {
+  function render(items, filter = "all", context = {}) {
     const nodes = new Map();
     const node = (key) => { if (!nodes.has(key)) nodes.set(key, {}); return nodes.get(key); };
     vm.runInNewContext(renderer + "\nrenderAnomalies();", {
-      anomalyData: { items, summary: { total: items.length, minScore: 55 } }, anomalyFilter: filter,
+      anomalyData: { items, summary: { total: items.length, minScore: 55 } }, anomalyFilter: filter, requestedTheme: null,
       $: node, $$: () => [], setText: () => {}, stockDetailsOpen: () => true,
       escapeHtml: (s) => String(s), plain: (s, fallback) => s || fallback,
-      formatPct: (n) => `${n}%`, signClass: () => ""
+      formatPct: (n) => `${n}%`, signClass: () => "", ...context
     });
     return node("#anomaly-list").innerHTML;
   }
   const item = (name, score, extra = {}) => ({
     name, score, status: "观察", dayChange: 3, signals: ["batch", "news"], limitStocks: [], followers: [], rideable: [], ...extra
+  });
+
+  it("首页具体题材链接展开对应内容并定位", () => {
+    const scroll = vi.fn();
+    const target = { dataset: { theme: "机器人" }, open: false, closest: () => ({ scrollIntoView: scroll }) };
+    const opened = new Set();
+    render([item("机器人", 80)], "all", { requestedTheme: "机器人", $$: selector => selector === "#anomaly-list .stock-details" ? [target] : [], openedStockThemes: opened });
+    expect(target.open).toBe(true);
+    expect(opened.has("机器人")).toBe(true);
+    expect(scroll).toHaveBeenCalledOnce();
   });
 
   it("仅三类入口；后端55分题材仍按原版前端60分过滤", () => {

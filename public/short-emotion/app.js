@@ -5,6 +5,7 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 let data = null;
 let anomalyData = null;
 let anomalyFilter = "all";
+let requestedTheme = new URLSearchParams(location.search).get("theme");
 let timelineMode = "intraday";
 let toastTimer = null;
 
@@ -314,6 +315,16 @@ function renderAnomalies() {
     const ignitionStocks = (item.ignition ?? item.limitStocks ?? []).filter((stock) => !coreCodes.has(String(stock.code).split(".")[0]));
     return `<article class="anomaly-card filter-${anomalyFilter}${index < 3 ? " primary" : ""}"><div class="anomaly-card-head"><div><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.code || "概念板块")}</small><em class="anomaly-rank-metric">${rankingMetric}</em></div><span class="anomaly-score">${activeScore}</span></div><span class="anomaly-status">${escapeHtml(displayStatus)}</span><div class="anomaly-evidence">${chips}${limitChip}${highBoardChip}${fullLadderChip}</div><p class="anomaly-detail" title="${escapeHtml(detail)}">${escapeHtml(detail)}</p>${newsCards}<details class="stock-details" data-theme="${escapeHtml(item.name)}"${stockDetailsOpen(item.name) ? " open" : ""}><summary>个股分层 <small>${coreCount ? `核心 ${coreCount} · ` : ""}点火 ${ignitionStocks.length} · 跟风 ${(item.followers || []).length} · 候选 ${(item.rideable || []).length}</small></summary><div class="stock-layers"><section class="role-section ignition"><h4>点火个股 <small>率先封板</small></h4>${stockItems(ignitionStocks, "ignition")}</section>${coreCount ? `<section class="role-section core"><h4>核心梯队 <small>领涨 · 龙头 · 中军</small></h4>${stockItems(coreStocks, "core")}</section>` : ""}<section class="role-section follower"><h4>跟风个股 <small>同步走强未封板</small></h4>${stockItems(item.followers || [], "follower")}</section><section class="role-section ride"><h4>候选上车 <small>需等待触发</small></h4>${stockItems(item.rideable || [], "ride")}</section></div></details></article>`;
   }).join("");
+  // 首页的具体题材进入该题材内容；标题和更多入口仍进入整个模块。
+  if (requestedTheme) {
+    const target = $$("#anomaly-list .stock-details").find(node => node.dataset.theme === requestedTheme);
+    if (target) {
+      target.open = true;
+      openedStockThemes.add(requestedTheme);
+      target.closest(".anomaly-card").scrollIntoView({ block: "start" });
+      requestedTheme = null;
+    }
+  }
 }
 
 

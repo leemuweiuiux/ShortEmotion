@@ -1,26 +1,35 @@
 /* 首页 /home：个股技术分析（输入后跳到 /technicalanalysis 发起分析）+ 今日短线情绪（点进看板）。 */
-.home-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+/* 首页模块统一：标题 / 更多 / 内容，卡片空白处不承担导航。 */
+.home-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 18px 16px; }
+.home-card > .card-head { min-height: 32px; gap: 12px; }
+.home-card .card-title { min-width: 0; font-size: 15px; font-weight: 600; line-height: 1.5; }
+.home-card .card-title a { color: var(--ink); text-decoration: none; }
+.home-card-body { display: grid; gap: 10px; min-width: 0; }
+.home-card-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.home-card .home-more { display: inline-flex; align-items: center; justify-content: flex-end; flex-shrink: 0; gap: 3px; min-height: 32px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+.home-more svg { width: 14px; height: 14px; flex-shrink: 0; }
+.home-preview-link { display: block; min-width: 0; color: var(--ink); text-decoration: none; border-radius: 6px; }
+.home-card :is(a,button,input):focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.home-card :is(.home-more,.card-title a):hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
+.home-preview-link:hover { background: var(--panel); }
+.home-preview-link:active { background: var(--panel); opacity: .8; }
+.home-emotion-preview { display: grid; gap: 12px; }
+.home-card .loading,.home-card .empty { padding: 20px 8px; font-size: 13px; line-height: 1.7; color: var(--muted); }
+.home-card .pill { font-size: 11px; max-width: 100%; white-space: normal; }
 .home-card .card-desc { margin-top: 0; }
 .home-more { color: var(--muted); font-size: 13px; text-decoration: none; }
 .home-more:hover { color: var(--ink); }
-.home-emotion, .home-sectorflow { color: var(--ink); text-decoration: none; }
 .home-emotion .pulse-main { margin: 4px 0; }
-.home-emotion:hover, .home-sectorflow:hover { border-color: var(--ink); }
-.home-emotion:focus-visible, .home-sectorflow:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-.home-enter { display: inline-flex; align-items: center; justify-self: end; gap: 2px; font-size: 13px; font-weight: 600; }
-.home-enter svg { width: 16px; height: 16px; }
-/* 情绪卡底部：行情时间（避免把旧数据看成当下）+ 进入看板 */
+/* 情绪内容底部保留行情时间，避免把旧数据看成当下。 */
 .home-emotion-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .home-time { min-width: 0; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 
 /* 积分与签到 */
-.home-points { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.home-points-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .home-invite-pending { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .home-invite-pending em { color: #ff4015; font-style: normal; font-weight: 700; }
-.home-points-meta { margin-right: auto; display: flex; align-items: baseline; gap: 10px; }
-.home-points-meta span { color: var(--muted); font-size: 13px; }
-.home-points-meta strong { font-family: "Manrope", sans-serif; font-size: 24px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
 
+.home-points #points-balance { font-family: "Manrope", sans-serif; font-size: 26px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
 /* 市场概况（情绪卡内） */
 .home-market { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .home-market div { min-width: 0; padding: 10px; background: var(--panel); }
@@ -33,13 +42,11 @@
 .home-anomaly-body { position: relative; }
 .home-anomaly-body.locked { min-height: 230px; }
 .home-anomaly-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.home-anomaly-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; padding: 10px; background: var(--panel); }
+.home-anomaly-list li { min-width: 0; }
+.home-anomaly-list .home-preview-link { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; padding: 10px; background: var(--panel); }
 .home-anomaly-list b { font-size: 14px; font-weight: 600; }
 .home-anomaly-list strong { grid-row: span 2; align-self: center; font-family: "Manrope", sans-serif; font-size: 20px; font-weight: 700; }
 .home-anomaly-list small { color: var(--muted); font-size: 12px; line-height: 1.5; }
-.home-anomaly-more { display: inline-flex; align-items: center; gap: 2px; justify-self: end; margin-top: 2px; color: var(--ink); font-size: 13px; font-weight: 600; text-decoration: none; }
-.home-anomaly-more svg { width: 16px; height: 16px; }
-.home-anomaly-foot { display: grid; gap: 4px; }
 
 /* 积分卡里的「填写邀请码」（/shared/invite-entry.js）：盖住签到按钮，整行显示 */
 .home-points .invite-entry { flex-basis: 100%; }
@@ -59,3 +66,13 @@
 /* 首页热门分析保持单行，窄屏或长名称可横向滑动。 */
 .home-card .ta-latest { flex-wrap: nowrap; gap: 6px; min-width: 0; max-width: 100%; overflow-x: auto; white-space: nowrap; font-size: 12px; padding: 3px 2px; }
 .home-card .ta-latest .ta-stock-pill { flex: 0 0 auto; padding: 3px 6px; }
+
+/* 文章预览使用相同内容层，去掉列表页专用的分隔线和底部二次入口。 */
+.home-card.mr-home .mr-card { display: grid; gap: 10px; padding: 10px; border: 0; border-radius: 6px; color: var(--ink); text-decoration: none; }
+.home-card.mr-home .mr-card:hover { background: var(--panel); }
+.home-card.mr-home .mr-card:active { background: var(--panel); opacity: .8; }
+.home-card.mr-home .mr-card h3 { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.6; }
+.home-card.mr-home .mr-card p { margin: 0; font-size: 13px; line-height: 1.8; color: var(--muted); }
+.home-card.mr-home .mr-meta { font-size: 11px; line-height: 1.6; opacity: 1; color: var(--muted); }
+.home-card.mr-home .mr-read { display: none; }
+@media (max-width:360px) { .home-card { padding: 16px 12px; gap: 12px; } }

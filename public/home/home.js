@@ -2,7 +2,7 @@
 //   1. 我的积分：余额 + 签到 +10（注册当天还没填邀请码的新用户，先在这里显示「填写邀请码」）
 //   2. 个股技术分析：输入股票按「开始分析」→ 跳到 /technicalanalysis 并由那边发起分析（扣 10 积分）
 //   3. 今日短线情绪：与看板「A股短线情绪」卡同款（姿态、分数、阶段与说明、六个维度），
-//      下面再加市场概况（全A涨跌幅、成交额、涨跌家数、涨跌停）与行情时间，点卡片进入看板
+//      下面再加市场概况（全A涨跌幅、成交额、涨跌家数、涨跌停）与行情时间，点预览或标题进入看板
 //   4. 当日题材异动：未解锁时只显示题材数量，可在首页直接解锁（−5 积分，12 小时）；解锁后列出前 3 个
 //   5. 资金流向：今日累计净流入曲线，流入/流出各前三；进入 /sectorflow 查看完整周期，不扣积分。
 import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderRecent, renderLatest } from "/shared/nav-account.js?v=4";
@@ -14,7 +14,6 @@ initAccountMenu();
 const POINTS_TEXT = "积分不足，签到获取 +10积分";
 const TIMEZONE = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch { return ""; } })();
 const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
-const arrow = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 async function request(url, options = {}) {
   const response = await fetch(url, { credentials: "same-origin", ...options, headers: { Accept: "application/json", ...(options.headers || {}) } });
@@ -248,9 +247,9 @@ function renderUnlocked() {
   const rows = items.slice(0, 3).map((item) => {
     const signals = (item.signals || []).map((key) => SIGNALS[key]).filter(Boolean).join(" · ");
     const limits = item.limitStocks?.length ? ` · 涨停 ${item.limitStocks.length} 家` : "";
-    return `<li><b>${esc(item.name)}</b><strong>${esc(Math.round(item.tabScores?.all ?? item.score))}</strong><small>${esc(signals)}${esc(limits)}</small></li>`;
+    return `<li><a class="home-preview-link" href="/shortemotion/cn?theme=${encodeURIComponent(item.name)}#themes" aria-label="查看${esc(item.name)}题材详情"><b>${esc(item.name)}</b><strong>${esc(Math.round(item.tabScores?.all ?? item.score))}</strong><small>${esc(signals)}${esc(limits)}</small></a></li>`;
   }).join("");
-  body.innerHTML = `<div class="home-anomaly-foot"><ol class="home-anomaly-list">${rows}</ol><a class="home-anomaly-more" href="/shortemotion/cn#themes">查看全部 ${items.length} 个${arrow}</a></div>`;
+  body.innerHTML = `<ol class="home-anomaly-list">${rows}</ol>`;
 }
 
 async function loadAnomalies() {
