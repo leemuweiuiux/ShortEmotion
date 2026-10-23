@@ -7,8 +7,9 @@
   <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
   <script>(function(){var t=localStorage.getItem('twsvp_theme');document.documentElement.dataset.theme=t==='light'||t==='dark'?t:matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';})();</script>
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=18">
-  <link rel="stylesheet" href="/kandian/kandian.css?v=2">
-<link rel="stylesheet" href="/kandian/reports.css?v=4"></head>
+  <link rel="stylesheet" href="/shared/form.css?v=1">
+  <link rel="stylesheet" href="/kandian/kandian.css?v=3">
+<link rel="stylesheet" href="/kandian/reports.css?v=5"></head>
 <body>
   <div class="app-shell kd-shell">
     <nav class="nav"><a class="nav-logo" href="/home" aria-label="首页"><img src="/short-emotion/logo.svg?v=2" alt="ShortEmotion"></a><div class="nav-title">看点</div><a class="kd-home-link" href="/home">首页</a></nav>
@@ -16,27 +17,26 @@
       <nav class="mr-tabs" aria-label="内容类型"><a href="/kandian?tab=reports" id="reports-tab">要闻</a><a href="/kandian?tab=views" id="views-tab">观点</a></nav>
       <section id="reports-panel"><div id="morning-report-feed" aria-live="polite"></div><button id="morning-report-more" type="button">加载更多</button></section>
       <div id="views-panel">
-      <div class="kd-filters" role="group" aria-label="看点筛选"><button type="button" data-filter="all" aria-pressed="true">最新</button><button type="button" data-filter="bullish" aria-pressed="false">看涨</button><button type="button" data-filter="bearish" aria-pressed="false">看跌</button><button type="button" data-filter="neutral" aria-pressed="false">中性</button></div>
+      <div class="kd-filters" role="group" aria-label="看点筛选"><button type="button" data-filter="all" aria-pressed="true">最新</button><button type="button" data-filter="bullish" aria-pressed="false">看涨</button><button type="button" data-filter="neutral" aria-pressed="false">中性</button><button type="button" data-filter="bearish" aria-pressed="false">看跌</button></div>
       <div id="kd-feed" class="kd-feed" aria-live="polite"></div><button id="kd-more" type="button" hidden>加载更多</button>
       <p class="kd-end">每个看点，都是一个等待验证的判断。</p>
     </div></main>
   </div>
-  <div class="kd-publish-bar"><button id="kd-open" class="kd-publish" type="button"><span aria-hidden="true">＋</span>发布看点</button></div>
+  <div class="kd-publish-bar"><button id="kd-open" class="kd-publish" type="button">发布看点</button></div>
   <dialog id="kd-compose" class="kd-compose" aria-labelledby="kd-compose-title">
     <form id="kd-form" autocomplete="off">
-      <header class="kd-compose-head"><button id="kd-cancel" type="button" class="kd-close" aria-label="关闭发布">×</button><h2 id="kd-compose-title">发布看点</h2></header>
+      <header class="kd-compose-head"><button id="kd-cancel" type="button" class="kd-close" aria-label="关闭发布"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button><h2 id="kd-compose-title">发布看点</h2></header>
       <div class="kd-form-body">
-        <section><label class="kd-label" for="kd-search">你在看什么股票</label><input id="kd-search" type="search" placeholder="搜索名称或代码" maxlength="30" aria-controls="kd-search-results"><div id="kd-search-results" class="kd-search-results" aria-live="polite"></div><div id="kd-selected" class="kd-selected" hidden></div></section>
-        <fieldset><legend>你的判断</legend><div class="kd-choice" id="kd-directions"><button type="button" data-direction="bullish" aria-pressed="false">看涨 <span>↗</span></button><button type="button" data-direction="bearish" aria-pressed="false">看跌 <span>↘</span></button><button type="button" data-direction="neutral" aria-pressed="false">中性 <span>→</span></button></div></fieldset>
+        <section><label class="kd-label" for="kd-search">你在看什么股票</label><div class="se-bar kd-search-bar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="kd-search" type="search" placeholder="搜索名称或代码" maxlength="30" aria-controls="kd-search-results"></div><div id="kd-search-results" class="kd-search-results" aria-live="polite"></div><div id="kd-selected" class="kd-selected" hidden></div></section>
+        <fieldset><legend>你的判断</legend><div class="kd-choice" id="kd-directions"><button type="button" data-direction="bullish" aria-pressed="false">看涨</button><button type="button" data-direction="neutral" aria-pressed="false">中性</button><button type="button" data-direction="bearish" aria-pressed="false">看跌</button></div></fieldset>
         <fieldset><legend>看多远</legend><div class="kd-choice" id="kd-horizons"><button type="button" data-horizon="5" aria-pressed="false">5日</button><button type="button" data-horizon="10" aria-pressed="false">10日</button><button type="button" data-horizon="20" aria-pressed="false">20日</button><button type="button" data-horizon="60" aria-pressed="false">60日</button></div></fieldset>
-        <fieldset><legend>你的逻辑 <small id="kd-tag-count">选择1—3项</small></legend><div id="kd-categories" class="kd-categories" role="group" aria-label="逻辑类别"></div><div id="kd-tags" class="kd-tag-options"></div><div id="kd-picked" class="kd-picked" aria-live="polite"></div></fieldset>
-        <section><label class="kd-label" for="kd-note">补充说明 <small>选填</small></label><textarea id="kd-note" maxlength="200" rows="3" placeholder="再说说你的判断依据…"></textarea></section>
-        <div class="kd-lock-note"><span aria-hidden="true">◈</span><p>发布时锁定参考价、发表时间和判断内容。参考价为行情快照，非成交价。</p></div>
+        <fieldset><legend>你的逻辑 <small id="kd-tag-count">选择1—3项</small></legend><div id="kd-tags" class="kd-tag-options" role="group" aria-label="逻辑"></div></fieldset>
+        <div class="kd-lock-note"><p>发布时锁定参考价、发表时间和判断内容。参考价为行情快照，非成交价。</p></div>
       </div>
       <footer class="kd-form-footer"><p id="kd-error" role="alert"></p><button type="submit" class="kd-publish">发布看点</button></footer>
     </form>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/kandian/app.js?v=2"></script>
+  <script type="module" src="/kandian/app.js?v=3"></script>
 <script>const reports=new URLSearchParams(location.search).get('tab')!=='views';document.querySelector('#reports-panel').hidden=!reports;document.querySelector('#views-panel').hidden=reports;document.querySelector('.kd-publish-bar').hidden=reports;document.querySelector(reports?'#reports-tab':'#views-tab').setAttribute('aria-current','page');</script><script type="module" src="/kandian/reports.js?v=6"></script></body>
 </html>
