@@ -3,3 +3,13 @@
 #reports-panel[hidden],#views-panel[hidden],.kd-publish-bar[hidden]{display:none!important}
 
 .mr-article-nav .mr-back{display:inline-flex;align-items:center;justify-content:center;flex:0 0 44px;width:44px;height:44px;margin-left:-8px;color:var(--ink);text-decoration:none;border-radius:8px}.mr-back svg{display:block;width:24px;height:24px}.mr-back:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+
+/* 分享全文 / 小卡（导出图片用，见 kandian/share.js） */
+.mr-share:disabled{opacity:.35;cursor:default}
+.export-shell .mr-export{max-width:none;margin:0;padding:18px 20px;background:var(--surface);border:1px solid var(--border)}
+.export-shell .mr-export h1{font-size:24px;line-height:1.5;margin:10px 0 16px}
+.export-shell .mr-export h2{font-size:19px;margin:26px 0 10px}
+.export-shell .mr-export > section:first-child h2{margin-top:0}
+.export-shell .mr-export section p{font-size:15px;line-height:1.9;margin:0 0 10px}
+.export-shell .mr-export .mr-lead{font-size:15px;margin:0 0 6px}
+.export-shell .mr-export .mr-sources{margin-top:20px;padding-top:14px}
