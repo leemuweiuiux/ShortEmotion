@@ -33,7 +33,7 @@ async function api(body, before) {
 async function loadFeed(more = false) {
   if (loading) return;
   loading = true;
-  document.querySelectorAll("[data-filter]").forEach(b => b.disabled = true);
+  $("#kd-filter").disabled = true;
   $('#kd-more').disabled = true;
   if (!more) $('#kd-feed').textContent = '正在读取看点…';
   try {
@@ -45,7 +45,7 @@ async function loadFeed(more = false) {
   } catch (error) {
     if (!more) { $('#kd-feed').innerHTML = '<div class="empty">暂时无法读取看点。<button type="button" id="kd-retry">重试</button></div>'; }
     toast(error.message, true);
-  } finally { loading = false; $('#kd-more').disabled = false; document.querySelectorAll('[data-filter]').forEach(b => b.disabled = false); }
+  } finally { loading = false; $('#kd-more').disabled = false; $("#kd-filter").disabled = false; }
 }
 $('#kd-more').addEventListener('click', () => loadFeed(true));
 $('#kd-feed').addEventListener('click', async event => {
@@ -65,11 +65,8 @@ function renderTags() {
   $("#kd-tags").innerHTML = LOGIC_TAGS.map((tag) => `<button type="button" data-tag="${tag}" aria-pressed="${tags.has(tag)}">${tag}</button>`).join("");
   $("#kd-tag-count").textContent = tags.size ? `已选 ${tags.size}/3` : "选择1—3项";
 }
-$(".kd-filters").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-filter]");
-  if (!button) return;
-  filter = button.dataset.filter;
-  document.querySelectorAll("[data-filter]").forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
+$("#kd-filter").addEventListener("change", (event) => {
+  filter = event.target.value;
   next = null;
   loadFeed();
 });
@@ -139,7 +136,7 @@ $("#kd-form").addEventListener("submit", async (event) => {
   } catch (error) { $('#kd-error').textContent = error.message; return; }
   finally { submit.disabled = false; submit.textContent = '发布看点'; }
   filter = "all";
-  document.querySelectorAll("[data-filter]").forEach((el) => el.setAttribute("aria-pressed", String(el.dataset.filter === "all")));
+  $("#kd-filter").value = "all";
   renderFeed();
   dialog.close();
   toast("看点已发布");
