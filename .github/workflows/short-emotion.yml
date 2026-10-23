@@ -2,16 +2,20 @@
 #
 # 在 Actions 里直接调用 Wind 计算快照，结果推送到 `short-emotion-data` 分支；
 # 网站页面只读该分支，不需要数据库。需要仓库 Secret：WIND_API_KEY。
-# 北京时间工作日 09:07–16:37 每 30 分钟唤醒（避开整点、半点：GitHub 在那时负载最高，定时任务最容易延迟或被丢弃），
-# 收盘后多唤醒几次，用来补抓被延迟到窗口外的 15:00 收盘快照；各时段跑哪些任务见 api/_lib/short-emotion/schedule.js。
+# 准点触发：Supabase Cron 按北京时间 09:02、09:32–11:32、13:02–15:02 调用 /api/cron，
+# 再经 GitHub API 手动运行本工作流（force=false，与定时任务同一套逻辑；见 supabase/migrations/20261023033000_cron_dispatch.sql）。
+# 下面自带的 schedule 留作备用：工作日 09:07–16:37 每 30 分钟唤醒（实测常晚 25–30 分钟、还会丢），
+# 收盘后多唤醒几次，用来补抓 15:00 收盘快照；同一个 30 分钟时段只调用一次 Wind，两边都触发不会多花额度。
+# 各时段跑哪些任务见 api/_lib/short-emotion/schedule.js。
 #
-# 页面「刷新」按钮通过 GitHub API 手动运行本工作流（api/_lib/short-emotion/github.js），
+# 页面「刷新」按钮与 /api/cron 都通过 GitHub API 手动运行本工作流（api/_lib/short-emotion/github.js），
 # 传入 target / force / market 三个参数；改这里的 inputs 时要同步改那边，否则手动运行会被 GitHub 拒绝。
 #
 # 时间均为 UTC（北京时间 = UTC+8）。GitHub 定时任务可能延迟几分钟，任务按北京时间判断时段。
 name: Short emotion data
-# 手动运行的标题带市场，页面「刷新」据此查询自己那次任务的进度（api/_lib/short-emotion/github.js）
-run-name: ${{ github.event_name == 'workflow_dispatch' && inputs.target == 'short-emotion' && format('short-emotion {0} refresh', inputs.market) || 'Short emotion data' }}
+# 「刷新」（force=true）的标题带市场，页面据此查询自己那次任务的进度（api/_lib/short-emotion/github.js）；
+# /api/cron 的准点触发（force=false）与 schedule 同名，不会被当成某个用户的刷新。
+run-name: ${{ github.event_name == 'workflow_dispatch' && inputs.target == 'short-emotion' && inputs.force && format('short-emotion {0} refresh', inputs.market) || 'Short emotion data' }}
 
 on:
   schedule:

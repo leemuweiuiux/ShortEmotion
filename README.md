@@ -20,7 +20,9 @@ A股短線情緒看板與個股技術分析：**https://lfjmwl.com**（Vercel �
 ## 運作方式
 
 ```
-GitHub Actions（.github/workflows/short-emotion.yml，工作日 09:07–16:37 每 30 分鐘喚醒，避開整點；A股盤中每 30 分鐘、新聞每小時；定時任務被延遲到窗口外時，自動補抓 11:30 / 15:00 收盤快照）
+Supabase Cron（supabase/migrations/20261023033000_cron_dispatch.sql，工作日北京時間 09:02、09:32–11:32、13:02–15:02 每 30 分鐘；早報 06:50）
+  └─ POST /api/cron → 經 GitHub API 手動運行工作流（準點觸發；GitHub 自帶的定時常晚 25–30 分鐘，還會整次丟掉）
+GitHub Actions（.github/workflows/short-emotion.yml；A股盤中每 30 分鐘、新聞每小時。自帶的定時 09:07–16:37 每 30 分鐘留作備用，同一時段只呼叫一次 Wind；延遲到窗口外時自動補抓 11:30 / 15:00 收盤快照）
   └─ scripts/short-emotion/refresh.mjs 呼叫 Wind MCP 計算快照
        └─ 強制推送到 short-emotion-data 分支
 Vercel
@@ -120,6 +122,8 @@ Supabase Auth                     寄送與驗證郵箱驗證碼（經 Resend �
 3. **Vercel 環境變數** `GITHUB_ACTIONS_TOKEN`：GitHub fine-grained token，只授權本倉庫，
    權限 Actions: Read and write、Contents: Read-only。沒有它頁面照常顯示，只是「刷新」不可用。
 4. **Vercel 環境變數** `WIND_API_KEY`：個股技術分析用（可與 GitHub Actions 同一把）。沒有它個股分析顯示「暫未開通」。
+5. **準點定時**（見 `supabase/migrations/20261023033000_cron_dispatch.sql` 開頭的步驟）：Supabase Vault 生成密鑰 `shortemotion_cron_secret`，
+   同一個值填到 **Vercel 環境變數** `CRON_SECRET` 並 Redeploy，再在 SQL Editor 執行該檔案。沒做之前只靠 GitHub 自帶的定時（會延遲）。
 
 ## 本地開發
 
@@ -152,7 +156,7 @@ SHORT_EMOTION_AUTH=off WIND_MOCK=1 npm run dev            # 個股技術分析�
 
 首页最下方展示最新一期（标题、板块、100—150字摘要）；点击进入 `/kandian/article?id=YYYYMMDD`。`/kandian?tab=reports` 倒序分页保留全部文章，`?tab=views` 保留原观点预览。阅读不扣积分，接口需登录。
 
-生成由 `.github/workflows/morning-report.yml` 执行，复用 Wind MCP 和数据分支，不新增数据库。北京时间工作日06:50生成，07:10、07:30补跑；接口在07:20前隐藏当日内容。GitHub定时任务可能延迟，因此07:20是最早可见时间，不能保证准点完成。与原行情任务使用相同并发组，避免覆盖数据。已生成的日期不重写，已报道的行情日不重复生成；失败不写索引、保留上一期。首次节假日仍可能总结未报道的上一交易日（尚未接入权威的前瞻交易日历），后续无新收盘数据则跳过。
+生成由 `.github/workflows/morning-report.yml` 执行，复用 Wind MCP 和数据分支，不新增数据库。北京时间工作日06:50由 Supabase Cron 准点触发生成（同上，经 /api/cron），GitHub 自带的06:50、07:10、07:30定时留作备用补跑；接口在07:20前隐藏当日内容。GitHub定时任务可能延迟，因此07:20是最早可见时间，不能保证准点完成。与原行情任务使用相同并发组，避免覆盖数据。已生成的日期不重写，已报道的行情日不重复生成；失败不写索引、保留上一期。首次节假日仍可能总结未报道的上一交易日（尚未接入权威的前瞻交易日历），后续无新收盘数据则跳过。
 
 启用前在GitHub配置：
 

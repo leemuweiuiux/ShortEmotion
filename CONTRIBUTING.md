@@ -81,8 +81,8 @@ SHORT_EMOTION_DATA_DIR=./short-emotion-data npm run dev
 ## 不要手動改的東西
 
 - `short-emotion-data` 分支：由定時任務自動產生，每次都會整個覆寫。
-- 金鑰：`WIND_API_KEY`（GitHub Secret）和 `GITHUB_ACTIONS_TOKEN`（Vercel 環境變數）只放在平台設定裡，不要寫進程式或提交。
-- `.github/workflows/short-emotion.yml` 的手動運行參數（target / force / market）：頁面的「刷新」按鈕依賴它們，改的話要同步改 `api/_lib/short-emotion/github.js`。
+- 金鑰：`WIND_API_KEY`（GitHub Secret）、`GITHUB_ACTIONS_TOKEN` 和 `CRON_SECRET`（Vercel 環境變數；`CRON_SECRET` 與 Supabase Vault 裡的 `shortemotion_cron_secret` 同值）只放在平台設定裡，不要寫進程式或提交。
+- `.github/workflows/short-emotion.yml` 的手動運行參數（target / force / market）：頁面的「刷新」按鈕和準點定時（`/api/cron`）依賴它們，改的話要同步改 `api/_lib/short-emotion/github.js`。
 
 ## 已知限制
 

@@ -1,4 +1,6 @@
 name: Morning report
+# 准点触发：Supabase Cron 北京时间周一至周五 06:50 调用 /api/cron?job=morning-report（经 GitHub API 手动运行）。
+# 下面自带的 schedule 留作备用；同一天只生成一次，重复触发会直接跳过。
 on:
   schedule:
     - cron: '50 22 * * 0-4' # 北京时间周一至周五06:50，提前生成
