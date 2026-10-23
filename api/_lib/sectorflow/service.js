@@ -5,7 +5,7 @@
 //   kv/sectorflow_daily.json               每日收盘值（最近 60 个交易日）
 //   kv/sectorflow_intraday_YYYYMMDD.json   当日盘中各点（保留 30 天）
 import { WINDOW_KEY, buildDashboard, refreshFlowWindows } from "./dashboard.js";
-import { selectBoards } from "./boards.js";
+import { selectBoards, isExcludedBoard } from "./boards.js";
 import { CONCEPT_CODES_KEY } from "./concepts.js";
 import { FIELDS, SESSION_CLOSE, SESSION_START, snapshotFromRows, upsertDaily, appendIntraday, buildPayload, buildSummary } from "./metrics.js";
 
@@ -67,14 +67,19 @@ export async function readSectorFlow(store, resource = "full") {
     store.kvGet(SECTORFLOW_KEYS.latest).catch(() => null),
     store.kvGet(SECTORFLOW_KEYS.daily).catch(() => null)
   ]);
-  const boards = boardsEntry?.value?.boards || [];
-  const latest = latestEntry?.value || null;
+  // 排除的指数（交易类等）在读取时也拿掉：规则改了之后，已经存下的当天清单、快照与历史曲线里不再出现。
+  const keep = (item) => !isExcludedBoard(item?.name);
+  const boards = (boardsEntry?.value?.boards || []).filter(keep);
+  const latestRaw = latestEntry?.value || null;
+  const latest = latestRaw ? { ...latestRaw, boards: (latestRaw.boards || []).filter(keep) } : null;
   const daily = dailyEntry?.value || null;
   const intraday = !latest?.tradingDate
     ? null
     : (await store.kvGet(SECTORFLOW_KEYS.intraday(latest.tradingDate)).catch(() => null))?.value || null;
   const payload = buildPayload({ boards, latest, daily, intraday });
-  const windows = (await store.kvGet(WINDOW_KEY).catch(() => null))?.value || {};
+  const savedWindows = (await store.kvGet(WINDOW_KEY).catch(() => null))?.value || {};
+  const windows = Object.fromEntries(Object.entries(savedWindows).map(([days, item]) =>
+    [days, item?.series ? { ...item, series: item.series.filter(keep) } : item]));
   const dashboard = buildDashboard({ boards, latest, daily, intraday, windows, storedAt: latestEntry?.updatedAt || null });
   if (resource === "summary") dashboard.windows = {};
   return { ...(resource === "summary" ? buildSummary(payload) : payload), dashboard, storedAt: latestEntry?.updatedAt || null };
