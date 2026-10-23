@@ -187,8 +187,10 @@ describe("页面文字：不到处标注数据供应商", () => {
 describe("数据任务（GitHub Actions）", () => {
   it("工作日 09:07–16:37（北京时间）每 30 分钟运行，避开整点并留收盘后补抓", () => {
     const schedules = [...workflow.matchAll(/-\s*cron:\s*"([^"]+)"/g)].map((m) => m[1]);
-    expect(schedules).toEqual([SHORT_EMOTION_CRON]);
-    expect(workflow).toContain(`github.event.schedule == '${SHORT_EMOTION_CRON}'`);
+    expect(schedules).toEqual(['17,47 9-10 * * 1-5', SHORT_EMOTION_CRON]);
+    expect(workflow).toContain("github.event_name == 'schedule'");
+    expect(workflow).toContain("inputs.target == 'sectorflow-history'");
+    expect(workflow).toContain('--history-only');
   });
 
   it("手动运行的参数与页面「刷新」发送的一致，标题带市场", async () => {

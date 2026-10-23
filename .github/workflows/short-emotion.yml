@@ -19,6 +19,7 @@ run-name: ${{ github.event_name == 'workflow_dispatch' && inputs.target == 'shor
 
 on:
   schedule:
+    - cron: "17,47 9-10 * * 1-5" # 北京时间17:17–18:47独立补齐历史
     - cron: "7,37 1-8 * * 1-5"   # 短线情绪工作台
   workflow_dispatch:
     inputs:
@@ -27,6 +28,7 @@ on:
         type: choice
         options:
           - short-emotion
+          - sectorflow-history
         default: short-emotion
       force:
         description: "忽略时间窗口，立即刷新全部数据"
@@ -45,7 +47,7 @@ permissions:
 
 jobs:
   short-emotion:
-    if: github.event.schedule == '7,37 1-8 * * 1-5' || (github.event_name == 'workflow_dispatch' && inputs.target == 'short-emotion')
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
@@ -82,7 +84,7 @@ jobs:
           fi
       - name: Refresh snapshot
         if: steps.guard.outputs.skip != 'true'
-        run: node scripts/short-emotion/refresh.mjs ${{ (github.event_name == 'workflow_dispatch' && inputs.force) && '--force' || '' }} --market=${{ (github.event_name == 'workflow_dispatch' && inputs.market) || 'all' }}
+        run: node scripts/short-emotion/refresh.mjs ${{ (inputs.target == 'sectorflow-history' || github.event.schedule == '17,47 9-10 * * 1-5') && '--history-only' || '' }} ${{ (github.event_name == 'workflow_dispatch' && inputs.force) && '--force' || '' }} --market=${{ (github.event_name == 'workflow_dispatch' && inputs.market) || 'all' }}
         env:
           WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
           SHORT_EMOTION_STORE: file

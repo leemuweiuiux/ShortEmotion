@@ -18,11 +18,12 @@ const { runScheduledRefresh } = await import("../../api/_lib/short-emotion/servi
 
 const args = process.argv.slice(2);
 const force = args.includes("--force");
+const historyOnly = args.includes("--history-only");
 const marketArg = (args.find((arg) => arg.startsWith("--market=")) || "--market=all").split("=")[1];
 const markets = marketArg === "all" ? ["cn"] : [marketArg];
 
 // 首次运行：导入原工作台 2026-08-18 至 09-03 的 A股盘中快照，作为「每日」曲线的起点。
-if (markets.includes("cn")) {
+if (!historyOnly && markets.includes("cn")) {
   const store = getStore("cn");
   if (!(await store.historyLatestDate())) {
     const seed = JSON.parse(await readFile(new URL("./seed-history.json", import.meta.url), "utf8"));
@@ -34,9 +35,18 @@ if (markets.includes("cn")) {
 // 各市场互不影响：一个失败不阻止另一个更新，最后统一报告。
 const failures = [];
 for (const market of markets) {
-  const result = await runScheduledRefresh({ force, market });
-  console.log(JSON.stringify(result, null, 2));
-  if (result.status === "error") failures.push(`${market}: ${result.errors.join(" | ")}`);
+  if (!historyOnly) {
+    const result = await runScheduledRefresh({ force, market });
+    console.log(JSON.stringify(result, null, 2));
+    if (result.status === "error") failures.push(`${market}: ${result.errors.join(" | ")}`);
+  }
+  // 独立于情绪/收盘快照的调度，idle、收盘已完成时仍检查历史缺口。
+  if (market === 'cn') {
+    const { refreshStoredHistory } = await import('../../api/_lib/sectorflow/history-task.js');
+    const result = await refreshStoredHistory(getStore(market), { force: historyOnly && force });
+    console.log(JSON.stringify({ sectorflowHistory: result }, null, 2));
+    if (result.status === 'pending' && (historyOnly || !force)) failures.push(`资金历史未完整：${JSON.stringify(result.issues || result.errors)}`);
+  }
 }
 if (failures.length) {
   console.error(`::error::短线情绪刷新失败：${failures.join(" || ")}`);
