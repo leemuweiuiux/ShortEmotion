@@ -1,4 +1,4 @@
-import { DIRECTIONS, HORIZONS, LOGIC_GROUPS, cardHtml, escapeHtml } from "./data.js?v=2";
+import { DIRECTIONS, HORIZONS, LOGIC_TAGS, cardHtml, escapeHtml } from "./data.js?v=3";
 import { toast, goLogin } from "/shared/nav-account.js?v=2";
 
 const $ = (s) => document.querySelector(s);
@@ -12,7 +12,6 @@ let searchTimer;
 let direction = null;
 let horizon = null;
 let stock = null;
-let category = Object.keys(LOGIC_GROUPS)[0];
 const tags = new Set();
 const dialog = $("#kd-compose");
 
@@ -63,9 +62,7 @@ $('#kd-feed').addEventListener('click', async event => {
 });
 
 function renderTags() {
-  $("#kd-categories").innerHTML = Object.keys(LOGIC_GROUPS).map((name) => `<button type="button" data-category="${name}" aria-pressed="${category === name}">${name}</button>`).join("");
-  $("#kd-tags").innerHTML = LOGIC_GROUPS[category].map((tag) => `<button type="button" data-tag="${tag}" aria-pressed="${tags.has(tag)}">${tag}</button>`).join("");
-  $("#kd-picked").innerHTML = [...tags].map((tag) => `<button type="button" data-remove="${tag}" aria-label="移除${tag}">${tag} ×</button>`).join("");
+  $("#kd-tags").innerHTML = LOGIC_TAGS.map((tag) => `<button type="button" data-tag="${tag}" aria-pressed="${tags.has(tag)}">${tag}</button>`).join("");
   $("#kd-tag-count").textContent = tags.size ? `已选 ${tags.size}/3` : "选择1—3项";
 }
 $(".kd-filters").addEventListener("click", (event) => {
@@ -114,16 +111,14 @@ $("#kd-form").addEventListener("click", (event) => {
     horizon = Number(b.dataset.horizon);
     document.querySelectorAll("[data-horizon]").forEach((el) => el.setAttribute("aria-pressed", String(el === b)));
   }
-  if (b.dataset.category) { category = b.dataset.category; renderTags(); }
   if (b.dataset.tag) {
     const tag = b.dataset.tag;
     if (tags.has(tag)) tags.delete(tag);
     else if (tags.size < 3) tags.add(tag);
-    else { $("#kd-error").textContent = "最多选择3项逻辑，可以先移除已选标签。"; return; }
+    else { $("#kd-error").textContent = "最多选择3项逻辑，可以先取消已选的一项。"; return; }
     $("#kd-error").textContent = "";
     renderTags();
   }
-  if (b.dataset.remove) { tags.delete(b.dataset.remove); renderTags(); }
 });
 $("#kd-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -136,7 +131,7 @@ $("#kd-form").addEventListener("submit", async (event) => {
   submit.disabled = true;
   submit.textContent = '正在发布…';
   try {
-    const payload = await api({ action: 'publish', requestId, q: stock.code, direction, horizon, tags: [...tags], note: $('#kd-note').value.trim() });
+    const payload = await api({ action: 'publish', requestId, q: stock.code, direction, horizon, tags: [...tags] });
     views = [payload.view, ...views.filter(v => v.id !== payload.view.id)];
     requestId = crypto.randomUUID();
     next = null;

@@ -8,7 +8,7 @@ function permitQuote(uid) {
   if (quoteLimits.size > 10000) quoteLimits.clear();
   quoteLimits.set(uid, hit && hit.until > now ? { ...hit, count: hit.count + 1 } : { count: 1, until: now + 60000 });
 }
-const columns = 'id,user_id,author,code,name,price,quote_at,direction,horizon,tags,note,created_at,status,closed_at,close_price';
+const columns = 'id,user_id,author,code,name,price,quote_at,direction,horizon,tags,created_at,status,closed_at,close_price';
 export default async function handler(req, res) {
   try {
     const session = await requireSession(req, res);
