@@ -63,7 +63,7 @@ export async function refreshHistory(store, engine, snapshot, { now = new Date()
   const old = await get(store, HISTORY_KEY) || {};
   const retryDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
   const state = { ...old, signature, status: 'pending', retryDay, attempts: old.signature === signature && old.retryDay === retryDay ? (old.attempts || 0) + 1 : 1,
-    attemptedAt: now.toISOString(), nextRetryAt: new Date(now.getTime() + RETRY_MS).toISOString(), errors: [] };
+    attemptedAt: now.toISOString(), nextRetryAt: new Date(now.getTime() + RETRY_MS).toISOString(), errors: [], diagnostics: [] };
   const checkpoint = () => store.kvSet(HISTORY_KEY, state);
   try {
     if (old.calendarFor !== `${day}:${closed}` || old.draft?.dates?.length !== 20) {
@@ -99,7 +99,13 @@ export async function refreshHistory(store, engine, snapshot, { now = new Date()
         const batch = missing.slice(i, i + 5);
         try {
           const payload = await engine.windCall('analytics_data', 'get_financial_data', { question: `${board.name}（${board.code}）在以下交易日的每日主力净流入额、每日成交额：${batch.join('、')}。请逐日返回日期和上述两个字段的完整数值，金额单位为元；只返回指定日期，不要区间汇总、不要省略记录。` });
-          for (const p of parseDailyTables(payload, 80, day)) if (batch.includes(p.date) && good(p)) points.set(p.date, normalize(p));
+          const parsed = parseDailyTables(payload, 80, day);
+          for (const p of parsed) if (batch.includes(p.date) && good(p)) points.set(p.date, normalize(p));
+          if (batch.some((d) => !good(points.get(d))) && state.diagnostics.length < 12) {
+            const value = payload?.data?.data ?? payload?.data ?? payload;
+            const detail = (Array.isArray(value) ? value : [value]).map((t) => ({ columns: t?.columns, rows: t?.rows?.slice(0, 2) }));
+            state.diagnostics.push({ code: board.code, requested: batch, parsedDates: parsed.map((p) => p.date), detail });
+          }
         } catch (error) { state.errors.push(`${board.code} ${batch.join(',')}: ${String(error.message).slice(0, 160)}`); }
       }
       merged.set(board.code, points);
@@ -116,5 +122,5 @@ export async function refreshHistory(store, engine, snapshot, { now = new Date()
     }
   } catch (error) { state.errors.push(String(error.message).slice(0, 200)); }
   await checkpoint();
-  return { status: state.status, asOf: state.published?.asOf || null, issues: state.issues || [], errors: state.errors, attempts: state.attempts };
+  return { status: state.status, asOf: state.published?.asOf || null, issues: state.issues || [], errors: state.errors, attempts: state.attempts, diagnostics: state.diagnostics };
 }
