@@ -23,6 +23,7 @@
 .ff-options label { display: flex; align-items: center; gap: 5px; }
 .ff-reset { border: 1px solid var(--border); background: var(--panel); color: var(--ink); padding: 6px 12px; font: inherit; cursor: pointer; }
 .ff-controls button:focus-visible,.ff-legend button:focus-visible,.ff-reset:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.ff-mode[hidden] { display: none; }
 @media(max-width:360px) { .ff-controls { gap: 8px; } .ff-segment button { min-width: 48px; padding: 6px 10px; } .ff-legend { gap: 4px 8px; } }
 /* 分享小卡（导出框 600px 内重新绘制，见 /sectorflow/share.js）：字号比页面大一档，手机上看缩小后的图仍清楚 */
 .ff-export-card { padding: 14px 12px; }

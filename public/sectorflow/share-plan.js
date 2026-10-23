@@ -9,13 +9,13 @@ export const SHARE_FOOTER = {
   note: "lfjmwl.com · 仅用于研究，不构成投资建议"
 };
 
-/** 抬头：主力资金流向 · 今天 · 金额（聚焦某个板块时加上板块名）。 */
+/** 抬头：主力资金流向 · 近20日 · 累计 · 金额（今天没有累计/每日之分；聚焦某个板块时加上板块名）。 */
 export function shareTitle(view) {
-  return ["主力资金流向", view.periodLabel, view.metricLabel, view.focus].filter(Boolean).join(" · ");
+  return ["主力资金流向", view.periodLabel, view.modeLabel, view.metricLabel, view.focus].filter(Boolean).join(" · ");
 }
 
-/** 文件名：资金流向-20261023-今天-金额.png */
+/** 文件名：资金流向-20261023-近20日-累计-金额.png */
 export function shareFileName(view) {
   const safe = (value) => String(value || "").replace(/[\\/:*?"<>|\s]/g, "");
-  return `${["资金流向", safe(view.day), safe(view.periodLabel), safe(view.metricLabel), safe(view.focus)].filter(Boolean).join("-")}.png`;
+  return `${["资金流向", safe(view.day), safe(view.periodLabel), safe(view.modeLabel), safe(view.metricLabel), safe(view.focus)].filter(Boolean).join("-")}.png`;
 }
