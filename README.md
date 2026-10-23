@@ -147,3 +147,18 @@ SHORT_EMOTION_AUTH=off WIND_MOCK=1 npm run dev            # 個股技術分析�
 ## 第二階段待辦
 
 - 外觀設定的 localStorage 鍵名仍為 `twsvp_theme`、`twsvp_price_scheme`；樣式檔仍叫 `twsvp.css`
+
+## 看点早报
+
+首页最下方展示最新一期（标题、板块、100—150字摘要）；点击进入 `/kandian/article?id=YYYYMMDD`。`/kandian?tab=reports` 倒序分页保留全部文章，`?tab=views` 保留原观点预览。阅读不扣积分，接口需登录。
+
+生成由 `.github/workflows/morning-report.yml` 执行，复用 Wind MCP 和数据分支，不新增数据库。北京时间工作日06:50生成，07:10、07:30补跑；接口在07:20前隐藏当日内容。GitHub定时任务可能延迟，因此07:20是最早可见时间，不能保证准点完成。与原行情任务使用相同并发组，避免覆盖数据。已生成的日期不重写，已报道的行情日不重复生成；失败不写索引、保留上一期。首次节假日仍可能总结未报道的上一交易日（尚未接入权威的前瞻交易日历），后续无新收盘数据则跳过。
+
+启用前在GitHub配置：
+
+- Secret `WIND_API_KEY`：沿用现有配置。
+- Secret `MORNING_REPORT_API_KEY`：模型接口密钥。
+- Variable `MORNING_REPORT_BASE_URL`：支持 `/chat/completions` 的HTTPS API基础地址，通常以 `/v1` 结尾。
+- Variable `MORNING_REPORT_MODEL`：该接口支持的模型ID；须支持JSON模式和足够长的上下文。可使用提供兼容接口的Alice服务；仅有Alice聊天界面不能直接接入。
+
+手动运行 Morning report 工作流验证首篇；缺少配置会明确失败，不发布占位文章。详情先生成、同次输出摘要并验证长度、五段正文、候选板块和引用id；留存原始证据以便核查。当前校验不等同人工事实审核；历史对照基于真实日K由模型解释，尚不提供经过回测的相似度/胜率，也未独立计算历史事件样本。上线前需人工检查首篇数字、消息时间与历史案例，按实际效果补充研究规则。不能把这部分当作已完成的量化回测系统。

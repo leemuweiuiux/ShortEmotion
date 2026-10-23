@@ -30,6 +30,7 @@
     {"source": "/shortemotion/hk/", "destination": "/shortemotion/cn", "permanent": false}
   ],
   "rewrites": [
+    {"source": "/kandian/article", "destination": "/kandian/article.html"},
     {"source": "/about", "destination": "/about/index.html"},
     {"source": "/about/", "destination": "/about/index.html"},
     {"source": "/login", "destination": "/login/index.html"},

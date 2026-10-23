@@ -19,6 +19,7 @@ const API_ROUTES = {
   auth: () => import("../api/auth.js"),
   "technical-analysis": () => import("../api/technical-analysis.js"),
   admin: () => import("../api/admin.js"),
+  "morning-report": () => import("../api/morning-report.js"),
   sectorflow: () => import("../api/sectorflow.js")
 };
 const { default: middleware, config: middlewareConfig } = await import("../middleware.js");

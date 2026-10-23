@@ -1,0 +1,61 @@
+name: Morning report
+on:
+  schedule:
+    - cron: '50 22 * * 0-4' # 北京时间周一至周五06:50，提前生成
+    - cron: '10,30 23 * * 0-4' # 07:10/07:30补跑，日期去重
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: short-emotion-data
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    env:
+      DATA_DIR: ${{ github.workspace }}/../short-emotion-data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Load data branch
+        run: |
+          mkdir -p "$DATA_DIR"
+          if git fetch --depth=1 origin short-emotion-data; then
+            git archive FETCH_HEAD | tar -x -C "$DATA_DIR"
+            git rev-parse 'FETCH_HEAD^{tree}' > "$RUNNER_TEMP/previous-tree"
+          fi
+      - name: Generate morning report
+        run: node scripts/morning-report/generate.mjs
+        env:
+          WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
+          MORNING_REPORT_API_KEY: ${{ secrets.MORNING_REPORT_API_KEY }}
+          MORNING_REPORT_BASE_URL: ${{ vars.MORNING_REPORT_BASE_URL }}
+          MORNING_REPORT_MODEL: ${{ vars.MORNING_REPORT_MODEL }}
+          SHORT_EMOTION_STORE: file
+          SHORT_EMOTION_DATA_DIR: ${{ env.DATA_DIR }}
+      - name: Publish data branch
+        # 一个市场失败时，另一个市场已写好的数据照常发布（任务仍会标记为失败）
+        if: success()
+        run: |
+          cd "$DATA_DIR"
+          # 数据分支不需要 Vercel 预览部署
+          echo '{"git":{"deploymentEnabled":false}}' > vercel.json
+          printf '%s\n' "# short-emotion-data" "" "短线情绪工作台的数据快照，由 GitHub Actions（Short emotion data）自动生成并强制覆盖，请勿手动修改。" > README.md
+          git init -q
+          git checkout -q -b short-emotion-data
+          git add -A
+          tree=$(git write-tree)
+          if [ -f "$RUNNER_TEMP/previous-tree" ] && [ "$tree" = "$(cat "$RUNNER_TEMP/previous-tree")" ]; then
+            echo "数据无变化，跳过推送"
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "short-emotion snapshot $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" short-emotion-data
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
