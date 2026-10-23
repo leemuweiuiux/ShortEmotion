@@ -4,7 +4,8 @@
 //
 // POST /api/cron?job=short-emotion | morning-report
 //      Header：Authorization: Bearer <CRON_SECRET>
-//      202 已触发；401 密钥不对；404 未知任务；501 未配置；502 GitHub 拒绝。
+//      202 已触发；200 + reason=busy 已有一次在排队，这次跳过（避免挤掉排队中的刷新）；
+//      401 密钥不对；404 未知任务；501 未配置；502 GitHub 拒绝。
 //
 // 需要 Vercel 环境变量：
 //   CRON_SECRET           与 Supabase Vault 里 shortemotion_cron_secret 的值相同（不要写进仓库）
@@ -38,8 +39,8 @@ export default async function handler(req, res) {
   const job = String(req.query?.job || "");
   try {
     const result = await dispatchScheduled(job);
-    console.log(`[cron] dispatched ${result.job} (${result.workflow})`);
-    res.status(202).json({ dispatched: true, ...result });
+    console.log(result.dispatched ? `[cron] dispatched ${result.job} (${result.workflow})` : `[cron] skipped ${result.job}: ${result.reason} (run ${result.run?.id})`);
+    res.status(result.dispatched ? 202 : 200).json(result);
   } catch (error) {
     console.error(`[cron] ${job || "(no job)"}: ${error.message}`);
     res.status(error.statusCode || 500).json({ error: error.message, code: error.code || null });
