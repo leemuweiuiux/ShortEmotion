@@ -1,18 +1,20 @@
-// 看点晚报生成：由 .github/workflows/morning-report.yml 在 edition=evening 时运行（16:05触发，16:15、16:35备用）。
-// 写作规则见 api/_lib/morning-report/evening.js，素材复用noon.js；与早报共用模型设置（MORNING_REPORT_API_KEY / MODEL / BASE_URL）。
+// 看点收评生成：由 .github/workflows/morning-report.yml 在 edition=evening 时运行（16:05触发，16:15、16:35备用）。
+// 写作规则见 api/_lib/morning-report/evening.js 与 chain.js（观点链），素材复用 noon.js；与早报共用模型设置（MORNING_REPORT_API_KEY / MODEL / BASE_URL）。
 // 本地看素材与提示词（不调用 Wind、不调用模型）：node scripts/morning-report/generate-evening.mjs --dry-run
 import { generateValidatedReport } from '../../api/_lib/morning-report/model.js';
 import { getStore } from '../../api/_lib/short-emotion/store.js';
-import { windCall } from '../../api/_lib/short-emotion/engine.js';
 import { readSectorFlow } from '../../api/_lib/sectorflow/service.js';
-import { reportIdentity, INDEX, LIMITS, articleKey, beijingDay, eveningId } from '../../api/_lib/morning-report/service.js';
-import { beijingMinute, morningDigest, noonCandidates, noonFlows, noonMarket, sameTimeRecord } from '../../api/_lib/morning-report/noon.js';
+import { INDEX, LIMITS, beijingDay, eveningId } from '../../api/_lib/morning-report/service.js';
+import { beijingMinute, noonCandidates, noonFlows, noonMarket, sameTimeRecord } from '../../api/_lib/morning-report/noon.js';
 import { eveningPath, eveningMeta, eveningPrompt, eveningReadiness } from '../../api/_lib/morning-report/evening.js';
+import { focusCandidates, pickSector } from '../../api/_lib/morning-report/chain.js';
+import { previousCard, printDryRun, publishArticle, searchNews } from './common.mjs';
 
 const dryRun = process.argv.includes('--dry-run');
 const now = new Date(), day = beijingDay(now), id = eveningId(day), store = getStore('cn');
-const index = (await store.kvGet(INDEX))?.value || [];
-if (index.some(a => a.id === id)) { console.log('本期看点晚报已生成，保留原文'); process.exit(0); }
+// --dry-run 时当作本期还没生成，方便对已发布的日子看材料
+const index = ((await store.kvGet(INDEX))?.value || []).filter((a) => !(dryRun && a.id === id));
+if (index.some(a => a.id === id)) { console.log('本期看点收评已生成，保留原文'); process.exit(0); }
 
 const emotion = (await store.kvGet('emotion:latest'))?.value;
 const ready = dryRun ? { ok: Boolean(emotion) } : eveningReadiness({ day, nowMinute: beijingMinute(now), emotion });
@@ -28,54 +30,32 @@ if (String(anomalies?.tradingDate || '').replace(/\D/g, '').slice(0, 8) !== quot
 const candidates = noonCandidates(anomalies);
 if (!candidates.length) throw new Error('没有题材候选');
 
+const meta = { id, ...eveningMeta({ day: quoteDay, quoteTime: emotion.quoteTime, now }) };
+const previous = await previousCard(store, index, meta);
+const chosen = pickSector(candidates, index);
+
 const tradingDays = (await store.dailyHistory()).map((item) => item.tradingDate).filter((date) => date < quoteDay).sort();
 const yesterday = tradingDays.length ? sameTimeRecord(await store.historyForDate(tradingDays.at(-1)), 900) : null;
 const path = eveningPath(await store.historyForDate(quoteDay));
 const flows = noonFlows(await readSectorFlow(store, 'full').catch(() => null));
-const morning = morningDigest((await store.kvGet(articleKey(quoteDay)))?.value);
-const noon = morningDigest((await store.kvGet(articleKey(`${quoteDay}-noon`)))?.value);
-const news = (await store.kvGet('news:latest'))?.value;
+const headlines = (await store.kvGet('news:latest'))?.value;
+// 只为选定方向查一次全天消息（1 次 Wind 调用），只留今天的
+const news = await searchNews(`${chosen.name}${quoteDay}全天盘中消息`, { from: quoteDay, to: quoteDay }, { dryRun });
 
 const evidence = [
   { id: 'market', label: `市场快照 ${emotion.quoteTime}`, data: noonMarket(emotion) },
   { id: 'path', label: '今天全天情绪分走势', data: path },
-  ...(yesterday ? [{ id: 'yesterday', label: `昨日同一时段快照 ${yesterday.quoteTime}`, data: yesterday }] : []),
-  { id: 'candidates', label: '全天题材候选', data: candidates },
+  ...(yesterday ? [{ id: 'yesterday', label: `昨日收盘快照 ${yesterday.quoteTime}`, data: yesterday }] : []),
+  { id: 'candidates', label: '全天题材候选', data: focusCandidates(candidates, [chosen.name, previous?.sector]) },
   ...(flows ? [{ id: 'flows', label: `板块资金 ${flows.asOf || ''}`.trim(), data: flows }] : []),
-  ...(noon ? [{ id: 'noon', label: '当日午间看点', data: noon }] : []),
-  ...(morning ? [{ id: 'morning', label: '当日早报', data: morning }] : []),
-  ...(news?.items?.length ? [{ id: 'news', label: '全天市场消息（标题与日期）', data: news.items.slice(0, 8).map((item) => ({ title: item.title, date: item.date })) }] : [])
+  ...(previous ? [{ id: 'previous', label: `上一篇观点卡（${previous.edition}）`, data: previous }] : []),
+  ...(headlines?.items?.length ? [{ id: 'headlines', label: '全天市场消息（标题与日期）', data: headlines.items.slice(0, 8).map((item) => ({ title: item.title, date: item.date })) }] : []),
+  ...(news.length ? [{ id: 'news', label: `${chosen.name} 消息检索`, data: news }] : [])
 ];
-// 前三个候选各查一次全天消息（共 3 次 Wind 调用）；查不到不影响生成
-if (!dryRun) {
-  for (const [i, candidate] of candidates.slice(0, 3).entries()) {
-    try {
-      const result = await windCall('financial_docs', 'get_financial_news', { query: `${candidate.name}${quoteDay}全天盘中消息`, top_k: 8 });
-      evidence.push({ id: `news-${i}`, label: `${candidate.name} 消息检索（含原始发布时间）`, data: result });
-    } catch (error) {
-      console.log(`消息检索失败（${candidate.name}）：${error.message}`);
-    }
-  }
-}
 
-const prompt = eveningPrompt({ day: quoteDay, quoteTime: emotion.quoteTime, recent: index.slice(0, 5).map((a) => a.sector) });
-if (dryRun) {
-  console.log(prompt);
-  console.log(JSON.stringify(evidence, null, 1));
-  process.exit(0);
-}
+const prompt = eveningPrompt({ day: quoteDay, quoteTime: emotion.quoteTime, sector: chosen.name, previous });
+if (dryRun) { printDryRun(prompt, evidence); process.exit(0); }
 
 const article = await generateValidatedReport(prompt, evidence, LIMITS.evening);
-if (!candidates.some((candidate) => candidate.name === article.sector)) throw new Error('板块不在候选中');
-
-Object.assign(article, {
-  id,
-  ...eveningMeta({ day: quoteDay, quoteTime: emotion.quoteTime, now: new Date() }),
-  sources: evidence.filter((e) => article.sourceIds.includes(e.id)).map(({ id: sourceId, label }) => ({ id: sourceId, label }))
-});
-Object.assign(article, reportIdentity(article));
-await store.kvSet(`morning-report-evidence:${id}`, evidence);
-await store.kvSet(articleKey(id), article);
-const { sections, sources, sourceIds, ...summary } = article;
-await store.kvSet(INDEX, [summary, ...index]);
-console.log(`看点晚报已生成 ${id} ${article.sector}；生成后可见`);
+const saved = await publishArticle(store, index, { article, meta: { ...meta, ...eveningMeta({ day: quoteDay, quoteTime: emotion.quoteTime, now: new Date() }), id }, sector: chosen.name, previous, evidence });
+console.log(`看点收评已生成 ${id} ${saved.sector}；回看 ${previous?.id || '无'}；生成后可见`);

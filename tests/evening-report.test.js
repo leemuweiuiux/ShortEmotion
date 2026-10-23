@@ -34,11 +34,10 @@ describe('看点收评', () => {
     expect(editionTitle({ id: '20261023-evening' })).toBe('看点收评');
     expect(shareFileBase({ edition: 'evening', id: '20261023-evening' })).toBe('看点收评-20261023-evening');
   });
-  it('写作约束包含盘后消息边界、五段结构与真实证据校验', () => {
-    const prompt = eveningPrompt({ day: '20261023', quoteTime: '20261023 15:00:00' });
-    expect(prompt).toContain('盘后消息必须标明盘后');
-    expect(prompt).toContain('下一交易日');
-    const article = { title: '收盘观察', summary: '字'.repeat(110), sections: Array.from({ length: 5 }, () => ({ heading: '标题', text: '字'.repeat(160) })), sourceIds: ['market'] };
+  it('写作约束包含盘后消息边界、四段结构、回看午间与真实证据校验', () => {
+    const prompt = eveningPrompt({ day: '20261023', quoteTime: '20261023 15:00:00', sector: 'AI应用与软件产业链', previous: { edition: '午间' } });
+    for (const text of ['盘后消息必须标明盘后', '下一交易日', '「回看午间」', '选定为「AI应用与软件产业链」', '500—800字']) expect(prompt, text).toContain(text);
+    const article = { title: '收盘观察', summary: '字'.repeat(110), sections: Array.from({ length: 4 }, () => ({ heading: '标题', text: '字'.repeat(160) })), views: [{ status: '延续', text: '一' }, { status: '修正', text: '二' }, { status: '新增', text: '三' }], watch: ['甲', '乙', '丙'], sourceIds: ['market'] };
     expect(() => validateArticle(article, [{ id: 'market' }], LIMITS.evening)).not.toThrow();
     expect(() => validateArticle({ ...article, sourceIds: ['invented'] }, [{ id: 'market' }], LIMITS.evening)).toThrow('引用不属于事实底稿');
   });

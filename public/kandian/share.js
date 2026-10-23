@@ -2,7 +2,7 @@
 // 只用页面上已经显示的文章，不再请求接口。导出做法见 /shared/export-image.js。
 import { exportHeader, exportFooter, renderImage, prepareExportAssets, shareOrDownload, showGallery, closeGallery, withTimeout } from "/shared/export-image.js?v=1";
 import { toast } from "/shared/nav-account.js?v=4";
-import { editionTitle, shareFooter, shareSubtitle, shareFileBase, cardSpecs, cardFileName } from "/kandian/share-plan.js?v=4";
+import { editionTitle, shareFooter, shareSubtitle, shareFileBase, cardSpecs, cardFileName } from "/kandian/share-plan.js?v=5";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 let exporting = false;
@@ -29,6 +29,7 @@ function wholeArticle(root) {
 /** 一张小卡的内容。 */
 function cardBody(root, spec) {
   if (spec.kind === "lead") return frame(...["h1", ".mr-lead"].map((selector) => $(selector, root)).filter(Boolean).map(copy));
+  if (spec.kind === "views") return frame(copy($(".mr-views", root)));
   const section = root.querySelectorAll(":scope > section")[spec.index];
   return frame(copy(section));
 }

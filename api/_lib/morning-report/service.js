@@ -1,3 +1,4 @@
+import { checkViewCard, normalizeViewCard } from './chain.js';
 export const INDEX = 'morning-report:index';
 export const articleKey = (id) => `morning-report:${id}`;
 // 午间看点（2026-10-23 与产品确认）：与早报同一个列表，id 为「日期-noon」，edition: 'noon'；早报的旧文章没有 edition 字段。
@@ -13,23 +14,30 @@ export function reportIdentity(article) {
 }
 export const normalizeReport = article => ({ ...article, ...reportIdentity(article) });
 const ID_PATTERN = /^\d{8}(?:-noon|-evening)?$/;
-// 篇幅：早报正文至少 700 字、摘要 100—150 字；午间看点正文 500—900 字（校验放宽到 450—1200）、摘要 80—120 字。
-export const LIMITS = {
-  morning: { summary: [100, 150], text: [700, Infinity] },
-  noon: { summary: [80, 120], text: [450, 1200] },
-  evening: { summary: [100, 150], text: [700, 1800] }
-};
+// 篇幅（2026-10-23 与产品确认，三期相同）：四段正文 500—800 字、摘要 80—120 字，外加观点卡。
+//   aim 写进提示词；summary / text 是校验范围，各留一点余量，避免差几个字就再调一次模型。
+const ARTICLE = { summary: [70, 130], text: [450, 900], sections: 4, views: true, aim: { summary: [80, 120], text: [500, 800] } };
+export const LIMITS = { morning: ARTICLE, noon: ARTICLE, evening: ARTICLE };
+// 列表（INDEX）只放摘要信息；正文、观点卡与引用只在单篇文章里
+export function indexEntry(article) {
+  const { sections, sources, sourceIds, views, watch, ...summary } = article;
+  return summary;
+}
 export const beijingDay = (now = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now).replaceAll('-', '');
 export function validateArticle(article, evidence, limits = LIMITS.morning) {
   if (!article || typeof article.title !== 'string' || !article.title.trim() || article.title.length > 80) throw new Error('标题不合格');
   const n = [...String(article.summary || '')].length;
   if (n < limits.summary[0] || n > limits.summary[1]) throw new Error(`摘要须为${limits.summary[0]}—${limits.summary[1]}字`);
-  if (!Array.isArray(article.sections) || article.sections.length !== 5 || article.sections.some(s => typeof s.heading !== 'string' || typeof s.text !== 'string' || !s.text.trim())) throw new Error('正文须有五个完整段落');
+  const count = limits.sections || 5; // 2026-10-23 以前的旧文章是五段
+  if (!Array.isArray(article.sections) || article.sections.length !== count || article.sections.some(s => typeof s.heading !== 'string' || typeof s.text !== 'string' || !s.text.trim())) throw new Error(`正文须有${count === 4 ? '四' : '五'}个完整段落`);
   const total = article.sections.reduce((n, s) => n + s.text.length, 0);
   if (total < limits.text[0]) throw new Error('正文材料不足');
   if (total > limits.text[1]) throw new Error('正文过长');
   if (!Array.isArray(article.sourceIds) || !article.sourceIds.length || article.sourceIds.some(id => !evidence.some(e => e.id === id))) throw new Error('引用不属于事实底稿');
-  return article;
+  if (!limits.views) return article;
+  const card = { ...article, ...normalizeViewCard(article) };
+  checkViewCard(card);
+  return card;
 }
 export async function readReports(store, { id, offset = 0, limit = 20, now = new Date() } = {}) {
   const visible = a => a && Date.parse(a.publishedAt) <= now.getTime();
