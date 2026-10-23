@@ -1,10 +1,11 @@
 // 午间看点生成：由 .github/workflows/morning-report.yml 在 edition=noon 时运行（11:40 准点触发，11:50、12:10 备用）。
 // 写作规则与素材见 api/_lib/morning-report/noon.js；与早报共用模型设置（MORNING_REPORT_API_KEY / MODEL / BASE_URL）。
 // 本地看素材与提示词（不调用 Wind、不调用模型）：node scripts/morning-report/generate-noon.mjs --dry-run
+import { generateValidatedReport } from '../../api/_lib/morning-report/model.js';
 import { getStore } from '../../api/_lib/short-emotion/store.js';
 import { windCall } from '../../api/_lib/short-emotion/engine.js';
 import { readSectorFlow } from '../../api/_lib/sectorflow/service.js';
-import { INDEX, LIMITS, articleKey, beijingDay, noonId, validateArticle } from '../../api/_lib/morning-report/service.js';
+import { INDEX, LIMITS, articleKey, beijingDay, noonId } from '../../api/_lib/morning-report/service.js';
 import { beijingMinute, morningDigest, morningPath, noonCandidates, noonFlows, noonMarket, noonMeta, noonPrompt, noonReadiness, sameTimeRecord } from '../../api/_lib/morning-report/noon.js';
 
 const dryRun = process.argv.includes('--dry-run');
@@ -46,7 +47,7 @@ const evidence = [
 if (!dryRun) {
   for (const [i, candidate] of candidates.slice(0, 3).entries()) {
     try {
-      const result = await windCall('financial_docs', 'get_financial_news', { query: `${candidate.name} ${quoteDay} 上午 盘中 消息`, top_k: 8 });
+      const result = await windCall('financial_docs', 'get_financial_news', { query: `${candidate.name}${quoteDay}上午盘中消息`, top_k: 8 });
       evidence.push({ id: `news-${i}`, label: `${candidate.name} 消息检索（含原始发布时间）`, data: result });
     } catch (error) {
       console.log(`消息检索失败（${candidate.name}）：${error.message}`);
@@ -61,15 +62,7 @@ if (dryRun) {
   process.exit(0);
 }
 
-const response = await fetch(`${process.env.MORNING_REPORT_BASE_URL.replace(/\/$/, '')}/chat/completions`, {
-  method: 'POST',
-  headers: { Authorization: `Bearer ${process.env.MORNING_REPORT_API_KEY}`, 'Content-Type': 'application/json' },
-  body: JSON.stringify({ model: process.env.MORNING_REPORT_MODEL, messages: [{ role: 'system', content: prompt }, { role: 'user', content: JSON.stringify(evidence) }], response_format: { type: 'json_object' } }),
-  signal: AbortSignal.timeout(180000)
-});
-if (!response.ok) throw new Error(`模型调用失败 HTTP ${response.status}`);
-const result = await response.json();
-const article = validateArticle(JSON.parse(result.choices[0].message.content), evidence, LIMITS.noon);
+const article = await generateValidatedReport(prompt, evidence, LIMITS.noon);
 if (!candidates.some((candidate) => candidate.name === article.sector)) throw new Error('板块不在候选中');
 
 Object.assign(article, {
