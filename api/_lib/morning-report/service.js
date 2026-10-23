@@ -7,7 +7,9 @@ export const isNoon = (article) => article?.edition === 'noon' || String(article
 export const eveningId = day => `${day}-evening`;
 export function reportIdentity(article) {
   const edition = String(article?.id || '').endsWith('-evening') || article?.edition === 'evening' ? 'evening' : isNoon(article) ? 'noon' : 'morning';
-  return { edition, title: { morning: '看点早报', noon: '午间看点', evening: '看点收评' }[edition], author: 'Komidomi', publisher: 'Komidomi' };
+  const label = { morning: '看点早报', noon: '午间看点', evening: '看点收评' }[edition];
+  const headline = String(article?.headline || article?.title || '').replace(/^(?:(?:看点早报|午间看点|看点晚报|看点收评)\s*[｜|：:]?\s*)+/, '').trim();
+  return { edition, headline, title: headline ? `${label}｜${headline}` : label, author: 'Komidomi', publisher: 'Komidomi' };
 }
 export const normalizeReport = article => ({ ...article, ...reportIdentity(article) });
 const ID_PATTERN = /^\d{8}(?:-noon|-evening)?$/;
