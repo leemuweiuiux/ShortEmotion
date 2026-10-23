@@ -88,8 +88,8 @@ export function takePendingAnalysis() {
 }
 
 /** 是否已开通、每次扣几分、余额（未开通或读不到时 configured 可能为 false）。 */
-export async function readAnalysisConfig() {
-  const response = await fetch("/api/technical-analysis?action=config", { headers: { Accept: "application/json" }, credentials: "same-origin" });
+export async function readAnalysisConfig({ includeLatest = false } = {}) {
+  const response = await fetch(`/api/technical-analysis?action=config${includeLatest ? "&latest=1" : ""}`, { headers: { Accept: "application/json" }, credentials: "same-origin" });
   const payload = await response.json().catch(() => ({}));
   if (payload.code === "login_required") goLogin();
   if (!response.ok) throw new Error(payload.error || "暂时无法读取");
@@ -118,15 +118,34 @@ export function renderRecent(element, recent, onPick) {
   element.hidden = !rows.length;
   if (!rows.length) return;
   const label = document.createElement("span");
-  label.textContent = "最近分析：";
+  label.textContent = "最近查询：";
   element.append(label);
   for (const row of rows) {
     const link = document.createElement("a");
     link.href = `/technicalanalysis?id=${encodeURIComponent(row.id)}`;
-    link.textContent = `${row.name}（${String(row.code || "").split(".")[0]}）`;
+    link.textContent = `${row.name}（${String(row.code || "")}）`;
     link.title = `查看 ${shortTime(row.createdAt)} 的分析结果，不扣积分`;
     if (onPick) link.addEventListener("click", (event) => { event.preventDefault(); onPick(row); });
     element.append(link);
+  }
+}
+
+/** 首页平台动态：点选仅提交股票查询，不能用其他人的记录 id 打开结果。 */
+export function renderLatest(element, latest, onPick) {
+  if (!element) return;
+  const rows = Array.isArray(latest) ? latest.slice(0, 3) : [];
+  element.textContent = "大家都在看：";
+  if (!rows.length) {
+    element.append(document.createTextNode("暂无记录"));
+    return;
+  }
+  for (const row of rows) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = `${row.name}（${String(row.code || "")}）`;
+    button.title = "点击开始分析，积分规则同手动查询";
+    button.addEventListener("click", () => onPick(row));
+    element.append(button);
   }
 }
 

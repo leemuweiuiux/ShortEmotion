@@ -6,7 +6,7 @@
 //   4. 当日题材异动：未解锁时只显示题材数量，可在首页直接解锁（−5 积分，12 小时）；解锁后列出前 3 个
 //   5. 资金流入增速前三（板块资金，放在最后）：今日主力净流入比前 5 日日均多出最多（盘中按已交易时间折算），
 //      点卡片进入 /sectorflow，不扣积分；还没有数据时也显示入口
-import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderRecent } from "/shared/nav-account.js?v=2";
+import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderRecent, renderLatest } from "/shared/nav-account.js?v=3";
 import { mountInviteEntry } from "/shared/invite-entry.js?v=2";
 
 initAccountMenu();
@@ -96,18 +96,34 @@ const input = $("#ta-input");
 const runButton = $("#ta-run");
 const hint = $("#ta-hint");
 let analysis = { configured: true, cost: 10 };
+let personalRecent = [];
+const recent = $("#ta-recent");
+input.addEventListener("focus", () => renderRecent(recent, personalRecent));
+input.addEventListener("click", () => renderRecent(recent, personalRecent));
+form.addEventListener("focusout", (event) => {
+  if (!form.contains(event.relatedTarget)) recent.hidden = true;
+});
+input.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") recent.hidden = true;
+});
 
 function renderAnalysisHint() {
   runButton.disabled = !analysis.configured;
-  hint.textContent = !analysis.configured ? "*个股分析暂未开通。" : unlimited ? "*不限额账号，分析不扣积分。" : `*每次分析扣 ${analysis.cost} 积分。`;
+  hint.textContent = !analysis.configured ? "*个股分析暂未开通。" : unlimited ? "*不限额账号，分析不扣积分。" : `*每次分析需要 ${analysis.cost} 积分`;
 }
 
-readAnalysisConfig().then((config) => {
+readAnalysisConfig({ includeLatest: true }).then((config) => {
   analysis = config;
-  renderRecent($("#ta-recent"), config.recent); // 点了到 /technicalanalysis?id=… 看当时的结果，不扣分
+  personalRecent = config.recent;
+  renderRecent(recent, personalRecent); // 个人历史仍打开本人的已保存结果，不扣分。
+  recent.hidden = document.activeElement !== input || recent.hidden;
+  renderLatest($("#ta-latest"), config.latest, (row) => {
+    input.value = String(row.code || "");
+    form.requestSubmit(); // 共用余额校验、一次性跳转和分析流程。
+  });
   if (config.unlimited) unlimited = true;
   renderAnalysisHint();
-}).catch(() => {});
+}).catch(() => { $("#ta-latest").textContent = "大家都在看：暂时无法读取"; });
 renderAnalysisHint();
 
 form.addEventListener("submit", (event) => {
