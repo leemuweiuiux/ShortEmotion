@@ -1,0 +1,19 @@
+# 临时探测（不合并）：只在 probe/sectorflow-caliber 分支推送时运行
+name: Probe sectorflow caliber
+on:
+  push:
+    branches: [probe/sectorflow-caliber]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/probe/caliber.mjs
+        env:
+          WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
