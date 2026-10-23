@@ -1,7 +1,7 @@
 // 个股技术分析 /technicalanalysis
 // 输入六位代码或准确简称 → POST /api/technical-analysis（每次扣 10 积分，认不出股票或分析失败不扣分）。
 // 版面与图表沿用 lfjDashboard「个股技术分析助手」，改成本站的单列卡片样式；页面不标注数据来源。
-import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, takePendingAnalysis, validQuery, renderRecent, readAnalysisResult, shortTime } from "/shared/nav-account.js?v=3";
+import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, takePendingAnalysis, validQuery, renderRecent, readAnalysisResult, shortTime } from "/shared/nav-account.js?v=4";
 import { compositeCharts } from "./chart-export.js?v=1";
 
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -25,10 +25,11 @@ const setText = (selector, value) => { const element = $(selector); if (element)
 function renderButton() {
   runButton.textContent = busy ? "分析中…" : "开始分析";
   runButton.disabled = busy || !config.configured;
+  $("#ta-reanalyze").textContent = config.unlimited ? "更新数据" : `更新数据 · ${config.cost} 积分`;
 }
 
 function renderHint() {
-  hint.textContent = !config.configured ? "*个股分析暂未开通。" : config.unlimited ? "*不限额账号，分析不扣积分。" : `*每次分析扣 ${config.cost} 积分。`;
+  hint.textContent = !config.configured ? "*个股分析暂未开通。" : config.unlimited ? "*不限额账号，分析不扣积分。" : `*首次查询或更新需要 ${config.cost} 积分，查看已查询股票的最新结果免费。`;
 }
 
 async function loadConfig() {
@@ -37,7 +38,7 @@ async function loadConfig() {
   } catch {}
   renderButton();
   renderHint();
-  renderRecent($("#ta-recent"), config.recent, (row) => openHistory(row.id));
+  renderRecent($("#ta-recent"), config.recent, (row) => openHistory(row.code, true));
 }
 
 function setUrl(params) {
@@ -47,20 +48,20 @@ function setUrl(params) {
   history.replaceState(null, "", url);
 }
 
-// ── 最近分析：打开保存的结果（不调用行情、不扣分），顶部标明分析时间与「重新分析」 ──
-async function openHistory(id) {
+// 已取得查看权的股票：读取共用最新结果（不扣分），主动更新另扣积分。
+async function openHistory(id, byCode = false) {
   if (busy) return;
   busy = true;
   renderButton();
   $("#ta-loading").hidden = false;
   try {
-    const payload = await readAnalysisResult(id);
+    const payload = await readAnalysisResult(id, byCode);
     current = payload.data;
     render();
-    $("#ta-history-time").textContent = `历史结果 · 分析于 ${shortTime(payload.analyzedAt)}`;
+    $("#ta-history-time").textContent = `最新结果 · 更新于 ${shortTime(payload.analyzedAt)}`;
     $("#ta-history-bar").hidden = false;
     input.value = String(current.code || "").split(".")[0];
-    setUrl({ id: payload.id });
+    setUrl({ view: current.code });
   } catch (error) {
     toast(error.message, true);
   } finally {
@@ -73,11 +74,11 @@ async function openHistory(id) {
 $("#ta-reanalyze").addEventListener("click", () => {
   if (!current?.code) return;
   input.value = String(current.code).split(".")[0];
-  analyze(current.code);
+  analyze(current.code, true);
 });
 
 // ── 发起分析 ──
-async function analyze(query) {
+async function analyze(query, refresh = false) {
   const q = String(query || "").trim();
   if (!validQuery(q)) {
     toast("请输入六位代码或准确简称", true);
@@ -93,7 +94,7 @@ async function analyze(query) {
       method: "POST",
       credentials: "same-origin",
       headers: { Accept: "application/json", "Content-Type": "application/json" },
-      body: JSON.stringify({ q })
+      body: JSON.stringify({ q, refresh })
     });
     const payload = await response.json().catch(() => ({}));
     if (payload.code === "login_required") return goLogin();
@@ -105,11 +106,12 @@ async function analyze(query) {
       throw new Error(`${payload.error || "分析失败，请稍后再试"}${note}`);
     }
     current = payload.data;
-    $("#ta-history-bar").hidden = true;
+    $("#ta-history-bar").hidden = false;
+    $("#ta-history-time").textContent = `最新结果 · 更新于 ${shortTime(payload.analyzedAt)}`;
     render();
     setUrl({ q: current.code || q });
-    if (payload.recent) renderRecent($("#ta-recent"), payload.recent, (row) => openHistory(row.id));
-    toast(payload.charged > 0 ? `已扣 ${payload.charged} 积分` : "分析完成");
+    if (payload.recent) renderRecent($("#ta-recent"), payload.recent, (row) => openHistory(row.code, true));
+    toast(payload.charged > 0 ? `已扣 ${payload.charged} 积分` : payload.viewed ? "已显示最新结果" : "分析完成");
   } catch (error) {
     toast(error.message, true);
   } finally {
@@ -713,11 +715,14 @@ renderButton();
 const prefill = new URLSearchParams(location.search).get("q");
 if (prefill && validQuery(prefill)) input.value = prefill.trim(); // 链接里的股票只预填，不自动分析（避免打开链接就扣分）
 const pending = takePendingAnalysis(); // 从首页按「开始分析」过来：直接发起
+const viewCode = new URLSearchParams(location.search).get("view");
 const historyId = new URLSearchParams(location.search).get("id"); // 从「最近分析」过来：打开保存的结果
 await loadConfig();
 if (pending) {
   input.value = pending;
   analyze(pending);
+} else if (viewCode) {
+  openHistory(viewCode, true);
 } else if (historyId) {
   openHistory(historyId);
 }

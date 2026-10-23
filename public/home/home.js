@@ -6,7 +6,7 @@
 //   4. 当日题材异动：未解锁时只显示题材数量，可在首页直接解锁（−5 积分，12 小时）；解锁后列出前 3 个
 //   5. 资金流入增速前三（板块资金，放在最后）：今日主力净流入比前 5 日日均多出最多（盘中按已交易时间折算），
 //      点卡片进入 /sectorflow，不扣积分；还没有数据时也显示入口
-import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderRecent, renderLatest } from "/shared/nav-account.js?v=3";
+import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderRecent, renderLatest } from "/shared/nav-account.js?v=4";
 import { mountInviteEntry } from "/shared/invite-entry.js?v=2";
 
 initAccountMenu();
@@ -109,7 +109,7 @@ input.addEventListener("keydown", (event) => {
 
 function renderAnalysisHint() {
   runButton.disabled = !analysis.configured;
-  hint.textContent = !analysis.configured ? "*个股分析暂未开通。" : unlimited ? "*不限额账号，分析不扣积分。" : `*每次分析需要 ${analysis.cost} 积分`;
+  hint.textContent = !analysis.configured ? "*个股分析暂未开通。" : unlimited ? "*不限额账号，分析不扣积分。" : `*首次查询或更新需要 ${analysis.cost} 积分`;
 }
 
 readAnalysisConfig({ includeLatest: true }).then((config) => {
@@ -118,6 +118,10 @@ readAnalysisConfig({ includeLatest: true }).then((config) => {
   renderRecent(recent, personalRecent); // 个人历史仍打开本人的已保存结果，不扣分。
   recent.hidden = document.activeElement !== input || recent.hidden;
   renderLatest($("#ta-latest"), config.latest, (row) => {
+    if (row.canView) {
+      location.href = `/technicalanalysis?view=${encodeURIComponent(row.code)}`;
+      return;
+    }
     input.value = String(row.code || "");
     form.requestSubmit(); // 共用余额校验、一次性跳转和分析流程。
   });

@@ -1,19 +1,20 @@
 // 个股技术分析 — 页面接口
 //
 // POST /api/technical-analysis   body: { "q": "603936" }（六位代码或准确简称）
-//      需要登录。每次发起分析扣 10 积分（同一支股票重看也扣；不限额账号不扣），随时可用（非交易时段用最近收盘数据）。
+//      需要登录。首次查询或 refresh=true 更新扣 10 积分；已获权用户普通查询免费读取共享最新结果。
+//      不限额账号沿用免扣规则；非交易时段使用最近收盘数据。
 //      顺序：检查输入 → 余额是否够 → 认出股票（1 次 Wind 调用，认不出不扣分）→ 扣分 → 取其余数据并计算；
 //      扣分后分析失败自动退回。
 //      与短线情绪不同，这里由网站服务器直接调用 Wind（需要 Vercel 环境变量 WIND_API_KEY）；没配置时返回 503 not_configured，不扣分。
 // GET  /api/technical-analysis?action=config   需要登录：是否已开通、每次扣几分、当前余额、最近分析（3 条）。
 //      首页附加 latest=1：同时返回全平台最新查询股票（去重 3 条，仅名称、代码）。
-// GET  /api/technical-analysis?action=result&id=<记录 id>   需要登录：读取本人保存的一笔分析结果（不调用行情、不扣分）。
+// GET  /api/technical-analysis?action=result&code=<股票代码>（兼容本人旧记录 id）：校验查看权后读共享最新结果，不扣分。
 // 分析成功后把完整结果存进 Supabase 的分析记录（每人保留最近 10 笔，见 _lib/analysis-history.js）。
 import { resolveStock, analyzeStock } from "./_lib/technical-analysis/engine.js";
 import { getApiKeys, isMockMode } from "./_lib/short-emotion/wind-client.js";
 import { requireSession, authConfig } from "./_lib/session.js";
 import { POINTS, pointsStatus, pointsChargeAnalysis, pointsRefundAnalysis, InsufficientPointsError } from "./_lib/points.js";
-import { historySave, historyRecent, historyLatest, historyGet } from "./_lib/analysis-history.js";
+import { historySave, historyRecent, historyLatest, historyGet, historyShared, RECENT_LIMIT } from "./_lib/analysis-history.js";
 
 // 函数最长 60 秒（vercel.json）：认股票 ≤12 秒，扣分后其余数据 ≤40 秒，超时当作失败并退回积分。
 const ANALYSIS_TIMEOUT_MS = 40_000;
@@ -33,6 +34,12 @@ function readQuery(req) {
     try { body = JSON.parse(body); } catch { body = {}; }
   }
   return String(body?.q ?? req.query?.q ?? "").trim();
+}
+
+function isRefresh(req) {
+  let body = req.body;
+  if (typeof body === "string") { try { body = JSON.parse(body); } catch { return false; } }
+  return body?.refresh === true;
 }
 
 function send(res, status, payload) {
@@ -63,20 +70,26 @@ export default async function handler(req, res) {
       ]);
       balance = status?.balance ?? null;
       unlimited = Boolean(status?.unlimited);
-      recent = rows;
+      recent = rows.slice(0, RECENT_LIMIT);
       latest = platformRows;
     }
     return send(res, 200, { configured: analysisConfigured(), cost: POINTS.analysis, balance, unlimited, recent,
       ...(req.query.latest === "1" ? { latest } : {}) });
   }
 
-  // 最近分析：读取保存的结果，不调用行情、不扣分
+  // 通过股票或本人旧记录定位股票；有查看权则读取平台最新结果，不扣分。
   if (req.method === "GET" && req.query?.action === "result") {
     if (!needsPoints || !session.accessToken) return send(res, 404, { error: "找不到这笔分析记录", code: "not_found" });
     try {
-      const record = await historyGet(config, session.accessToken, req.query?.id);
-      if (!record?.result) return send(res, 404, { error: "找不到这笔分析记录（只保留最近 10 笔）", code: "not_found" });
-      return send(res, 200, { ok: true, id: record.id, analyzedAt: record.createdAt, data: record.result });
+      let code = req.query?.code;
+      if (!code) {
+        const own = await historyGet(config, session.accessToken, req.query?.id);
+        if (!own) return send(res, 404, { error: "找不到这笔分析记录", code: "not_found" });
+        code = own.code;
+      }
+      const record = await historyShared(config, session.accessToken, code);
+      if (!record?.result) return send(res, 402, { error: "首次查询该股票需要 10 积分，请点击开始分析", code: "analysis_required", cost: POINTS.analysis });
+      return send(res, 200, { ok: true, code, analyzedAt: record.updatedAt, data: record.result });
     } catch {
       return send(res, 503, { error: "暂时无法读取分析记录，请稍后再试", code: "history_unavailable" });
     }
@@ -100,13 +113,22 @@ export default async function handler(req, res) {
     if (needsPoints && !session.accessToken) throw Object.assign(new Error("积分服务暂时不可用，请稍后再试"), { code: "points_unavailable", statusCode: 503 });
 
     const q = readQuery(req);
+    if (needsPoints && !isRefresh(req)) {
+      const shared = await historyShared(config, session.accessToken, q);
+      if (shared?.result) {
+        const status = await pointsStatus(config, session.accessToken);
+        return send(res, 200, { ok: true, viewed: true, data: shared.result, analyzedAt: shared.updatedAt,
+          charged: 0, balance: status.balance, unlimited: Boolean(status.unlimited),
+          recent: await historyRecent(config, session.accessToken).catch(() => null) });
+      }
+    }
     // 余额明显不够时，不调用 Wind 就直接提示
     if (needsPoints) {
       const status = await pointsStatus(config, session.accessToken);
       if (!status.unlimited && Number(status.balance) < POINTS.analysis) throw new InsufficientPointsError(status.balance);
     }
 
-    const stock = await resolveStock(q); // 输入不合法 400、认不出 404，都不扣分
+    const stock = await resolveStock(q, { fresh: true }); // 付费更新必须取最新数据，不能复用 60 秒缓存。
 
     if (needsPoints) {
       const result = await pointsChargeAnalysis(config, session.accessToken, `${stock.name} ${stock.code}`);
@@ -125,14 +147,19 @@ export default async function handler(req, res) {
       throw error;
     }
     if (session.user) console.log(`technical-analysis ${stock.code} by user ${session.user.id}`);
-    // 保存到分析记录（失败不影响这次结果）
+    // 成功发布才取得查看权；保存失败退回积分。
     let historyId = null;
     let recent = null;
     if (needsPoints && session.accessToken) {
-      historyId = await historySave(config, session.accessToken, data).catch((error) => {
-        console.error(`technical-analysis history save failed: ${error?.message || error}`);
-        return null;
-      });
+      try {
+        historyId = await historySave(config, session.accessToken, data, charged?.ledgerId);
+      } catch (error) {
+        if (charged?.ledgerId && charged.charged > 0) {
+          const refund = await pointsRefundAnalysis(config, session.accessToken, charged.ledgerId).catch(() => null);
+          if (refund?.ok) charged = { ...charged, refunded: true, balance: refund.balance };
+        }
+        throw error;
+      }
       recent = await historyRecent(config, session.accessToken).catch(() => null);
     }
     send(res, 200, {
@@ -142,7 +169,8 @@ export default async function handler(req, res) {
       balance: charged ? charged.balance : null,
       unlimited: Boolean(charged?.unlimited),
       historyId,
-      recent
+      recent,
+      analyzedAt: new Date().toISOString()
     });
   } catch (error) {
     if (error instanceof InsufficientPointsError) {

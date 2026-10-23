@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=17">
-  <link rel="stylesheet" href="/technical-analysis/ta.css?v=11">
+  <link rel="stylesheet" href="/technical-analysis/ta.css?v=13">
   <link rel="stylesheet" href="/shared/form.css?v=1">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
@@ -52,7 +52,7 @@
           <button id="ta-run" class="ta-run" type="submit">开始分析</button>
         </div>
         <p id="ta-recent" class="ta-recent" hidden></p>
-        <p id="ta-hint" class="ta-hint">*每次分析扣 10 积分。</p>
+        <p id="ta-hint" class="ta-hint">*首次查询或更新需要 10 积分，查看已查询股票的最新结果免费。</p>
       </form>
 
       <div id="ta-loading" class="card ta-loading" hidden>
@@ -63,8 +63,8 @@
       <div id="ta-result" class="ta-result" hidden>
         <article class="card ta-head">
           <div id="ta-history-bar" class="ta-history-bar" hidden>
-            <span id="ta-history-time">历史结果</span>
-            <button id="ta-reanalyze" class="pill-btn" type="button">重新分析</button>
+            <span id="ta-history-time">最新结果</span>
+            <button id="ta-reanalyze" class="pill-btn" type="button">更新数据 · 10 积分</button>
           </div>
           <div class="ta-identity">
             <div>
@@ -183,6 +183,6 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="/short-emotion/vendor/html-to-image.js" defer></script>
-  <script type="module" src="/technical-analysis/ta.js?v=9"></script>
+  <script type="module" src="/technical-analysis/ta.js?v=10"></script>
 </body>
 </html>

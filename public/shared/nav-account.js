@@ -122,9 +122,10 @@ export function renderRecent(element, recent, onPick) {
   element.append(label);
   for (const row of rows) {
     const link = document.createElement("a");
-    link.href = `/technicalanalysis?id=${encodeURIComponent(row.id)}`;
-    link.textContent = `${row.name}（${String(row.code || "")}）`;
-    link.title = `查看 ${shortTime(row.createdAt)} 的分析结果，不扣积分`;
+    link.href = `/technicalanalysis?view=${encodeURIComponent(row.code)}`;
+    link.className = "ta-stock-pill";
+    link.textContent = row.name;
+    link.title = "查看最新查询结果，不扣积分";
     if (onPick) link.addEventListener("click", (event) => { event.preventDefault(); onPick(row); });
     element.append(link);
   }
@@ -142,16 +143,17 @@ export function renderLatest(element, latest, onPick) {
   for (const row of rows) {
     const button = document.createElement("button");
     button.type = "button";
-    button.textContent = `${row.name}（${String(row.code || "")}）`;
-    button.title = "点击开始分析，积分规则同手动查询";
+    button.className = "ta-stock-pill";
+    button.textContent = row.name;
+    button.title = row.canView ? "查看最新查询结果，不扣积分" : "点击开始分析，需要 10 积分（不限额账号除外）";
     button.addEventListener("click", () => onPick(row));
     element.append(button);
   }
 }
 
 /** 读取保存的一笔分析结果（不扣分）。 */
-export async function readAnalysisResult(id) {
-  const response = await fetch(`/api/technical-analysis?action=result&id=${encodeURIComponent(id)}`, { headers: { Accept: "application/json" }, credentials: "same-origin" });
+export async function readAnalysisResult(id, byCode = false) {
+  const response = await fetch(`/api/technical-analysis?action=result&${byCode ? "code" : "id"}=${encodeURIComponent(id)}`, { headers: { Accept: "application/json" }, credentials: "same-origin" });
   const payload = await response.json().catch(() => ({}));
   if (payload.code === "login_required") goLogin();
   if (!response.ok) throw new Error(payload.error || "暂时无法读取分析记录");

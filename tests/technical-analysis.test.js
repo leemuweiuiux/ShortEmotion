@@ -127,16 +127,22 @@ describe("关键价位：来源标注与补充参考（原算法数值不变）"
 const SUPABASE = "https://awrpzbxdhrwbweskgipj.supabase.co";
 const b64 = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
 const TOKEN = `${b64({ alg: "ES256" })}.${b64({ sub: "user-1", email: "u@example.com", exp: 4102444800 })}.sig`;
+const TOKEN_B = `${b64({ alg: "ES256" })}.${b64({ sub: "user-2", email: "b@example.com", exp: 4102444800 })}.sig`;
 const COOKIE = `${session.ACCESS_COOKIE}=${TOKEN}; ${session.REFRESH_COOKIE}=rt`;
 
 let account;
 let ledger;
 let history;
+let accounts;
+let access;
+let sharedResults;
 
 /** 与 SQL 同样规则的内存版积分账户（只含本接口用到的函数）。 */
-function rpc(name, args) {
+function rpc(name, args, userId = "user-1") {
+  account = accounts.get(userId);
   if (!account) {
     account = { balance: 50, unlimited: false };
+    accounts.set(userId, account);
     ledger.push({ id: 1, kind: "signup", delta: 50, balance_after: 50 });
   }
   const change = (kind, delta, ref = null, note = null) => {
@@ -158,23 +164,28 @@ function rpc(name, args) {
       change("analysis_refund", -row.delta, row.id, row.note);
       return { ok: true, balance: account.balance };
     }
-    case "analysis_save": {
-      history.push({ id: history.length + 1, code: args.p_code, name: args.p_name, result: args.p_result, created_at: "2026-10-21T02:39:00Z" });
+    case "analysis_publish": {
+      access.add(`${userId}:${args.p_code}`);
+      sharedResults.set(args.p_code, { code: args.p_code, result: args.p_result, updatedAt: "2026-10-21T02:39:00Z" });
+      history.push({ user_id: userId, id: history.length + 1, code: args.p_code, name: args.p_name, result: args.p_result, created_at: "2026-10-21T02:39:00Z" });
       history = history.slice(-10);
       return history.at(-1).id;
     }
     case "analysis_recent": {
       const seen = new Set();
-      return [...history].reverse().filter((row) => !seen.has(row.code) && seen.add(row.code)).slice(0, args.p_limit)
+      return [...history].reverse().filter((row) => row.user_id === userId).filter((row) => !seen.has(row.code) && seen.add(row.code)).slice(0, args.p_limit)
         .map(({ id, code, name, created_at }) => ({ id, code, name, created_at }));
     }
-    case "analysis_latest": return [
-      { code: "000001.SZ", name: "平台样本一", user_id: "other-user", id: 999, result: { private: true } },
+    case "analysis_catalog": return [
+      { code: "000001.SZ", name: "平台样本一", can_view: access.has(`${userId}:000001.SZ`), user_id: "other-user", id: 999, result: { private: true } },
       { code: "600000.SH", name: "平台样本二" },
       { code: "920001.BJ", name: "平台样本三" }
     ];
+    case "analysis_shared": {
+      return [...sharedResults.values()].find(row => access.has(`${userId}:${row.code}`) && [row.code, row.code.split(".")[0], row.result.name].includes(args.p_code)) || null;
+    }
     case "analysis_get": {
-      const row = history.find((item) => item.id === args.p_id);
+      const row = history.find((item) => item.id === args.p_id && item.user_id === userId);
       return row ? { id: row.id, code: row.code, name: row.name, createdAt: row.created_at, result: row.result } : null;
     }
     default: throw new Error(name);
@@ -203,10 +214,13 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     account = null;
     ledger = [];
     history = [];
+    accounts = new Map();
+    access = new Set();
+    sharedResults = new Map();
     globalThis.fetch = vi.fn(async (url, options = {}) => {
       const href = String(url);
-      if (href === `${SUPABASE}/auth/v1/user`) return Response.json({ id: "user-1", email: "u@example.com" });
-      if (href.startsWith(`${SUPABASE}/rest/v1/rpc/`)) return Response.json(rpc(href.split("/").pop(), JSON.parse(options.body || "{}")));
+      if (href === `${SUPABASE}/auth/v1/user`) return Response.json({ id: options.headers?.Authorization === `Bearer ${TOKEN_B}` ? "user-2" : "user-1", email: "u@example.com" });
+      if (href.startsWith(`${SUPABASE}/rest/v1/rpc/`)) return Response.json(rpc(href.split("/").pop(), JSON.parse(options.body || "{}"), options.headers?.Authorization === `Bearer ${TOKEN_B}` ? "user-2" : "user-1"));
       throw new Error(`unexpected fetch ${href}`);
     });
   });
@@ -231,7 +245,7 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     expect(first.statusCode).toBe(200);
     expect(first.body).toMatchObject({ ok: true, charged: 10, balance: 40 });
     expect(first.body.data.code).toBe("603936.SH");
-    const again = await call({ body: JSON.stringify({ q: "603936" }) });
+    const again = await call({ body: JSON.stringify({ q: "603936", refresh: true }) });
     expect(again.body).toMatchObject({ charged: 10, balance: 30 });
     expect(ledger.filter((row) => row.kind === "analysis").map((row) => row.note)).toEqual(["样本电子 603936.SH", "样本电子 603936.SH"]);
   });
@@ -266,7 +280,7 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     const first = await call({ body: { q: "603936" } });
     expect(first.body.historyId).toBe(1);
     await call({ body: { q: "300986" } });
-    const again = await call({ body: { q: "603936" } });
+    const again = await call({ body: { q: "603936", refresh: true } });
     expect(again.body.recent.map((row) => row.code)).toEqual(["603936.SH", "300986.SZ"]);
     const config = await call({ method: "GET", query: { action: "config" } });
     expect(config.body.recent.map((row) => [row.name, row.code])).toEqual([["样本电子", "603936.SH"], ["样本新材", "300986.SZ"]]);
@@ -291,9 +305,9 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     const response = await call({ method: "GET", query: { action: "config", latest: "1" } });
     expect(response.body.recent.map((row) => row.code)).toEqual(["603936.SH"]);
     expect(response.body.latest).toEqual([
-      { code: "000001.SZ", name: "平台样本一" },
-      { code: "600000.SH", name: "平台样本二" },
-      { code: "920001.BJ", name: "平台样本三" }
+      { code: "000001.SZ", name: "平台样本一", canView: false },
+      { code: "600000.SH", name: "平台样本二", canView: false },
+      { code: "920001.BJ", name: "平台样本三", canView: false }
     ]);
     expect(account.balance).toBe(balance);
     expect(wind.windCallStats().total).toBe(0);
@@ -302,11 +316,64 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
 
   it("平台最新查询读取失败不会影响个人历史与分析配置", async () => {
     const fetchRpc = globalThis.fetch;
-    globalThis.fetch = vi.fn((url, options) => String(url).endsWith("/analysis_latest")
+    globalThis.fetch = vi.fn((url, options) => String(url).endsWith("/analysis_catalog")
       ? Promise.resolve(Response.json({ message: "not available" }, { status: 503 })) : fetchRpc(url, options));
     const response = await call({ method: "GET", query: { action: "config", latest: "1" } });
     expect(response.statusCode).toBe(200);
     expect(response.body).toMatchObject({ configured: true, cost: 10, recent: [], latest: [] });
+  });
+
+  it.each([false, true])("平台 pill：其他人查询过的股票，当前用户仍须扣 10 分（已有其他查询：%s）", async (hasOtherQuery) => {
+    if (hasOtherQuery) await call({ body: { q: "300986" } });
+    const fetchRpc = globalThis.fetch;
+    globalThis.fetch = vi.fn((url, options) => String(url).endsWith("/analysis_catalog")
+      ? Promise.resolve(Response.json([{ code: "603936.SH", name: "样本电子", id: 999, user_id: "other-user" }])) : fetchRpc(url, options));
+    const config = await call({ method: "GET", query: { action: "config", latest: "1" } });
+    expect(config.body.latest).toEqual([{ code: "603936.SH", name: "样本电子", canView: false }]);
+    expect((await call({ method: "GET", query: { action: "result", id: "999" } })).statusCode).toBe(404);
+    const before = account.balance;
+    const result = await call({ body: { q: config.body.latest[0].code } });
+    expect(result.body).toMatchObject({ ok: true, charged: 10, balance: before - 10 });
+  });
+
+  it("A 支付查询，B 支付更新，A 免费看到 B 的最新结果，再更新需付费", async () => {
+    const first = await call({ body: { q: "603936" } });
+    expect(first.body.charged).toBe(10);
+    const cookieB = `${session.ACCESS_COOKIE}=${TOKEN_B}; ${session.REFRESH_COOKIE}=rt`;
+    expect((await call({ method: "GET", query: { action: "result", code: "603936.SH" }, cookie: cookieB })).statusCode).toBe(402);
+    const b = await call({ body: { q: "603936" }, cookie: cookieB });
+    expect(b.body).toMatchObject({ ok: true, charged: 10, balance: 40 });
+    sharedResults.get("603936.SH").result = { ...b.body.data, marker: "B-time2" };
+    const ledgerCount = ledger.length;
+    const viewed = await call({ method: "GET", query: { action: "result", code: "603936.SH" } });
+    expect(viewed.body.data.marker).toBe("B-time2");
+    expect(ledger.length).toBe(ledgerCount);
+    wind.resetWindCallStats();
+    const searchAgain = await call({ body: { q: "603936" } });
+    expect(searchAgain.body).toMatchObject({ viewed: true, charged: 0, balance: 40 });
+    expect(searchAgain.body.data.marker).toBe("B-time2");
+    expect(wind.windCallStats().total).toBe(0);
+    const updated = await call({ body: { q: "603936", refresh: true } });
+    expect(updated.body).toMatchObject({ charged: 10, balance: 30 });
+    expect(wind.windCallStats().total).toBeGreaterThan(0);
+  });
+
+  it("已经有查看权时，余额为 0 仍可免费查看，但不能更新", async () => {
+    await call({ body: { q: "603936" } });
+    account.balance = 0;
+    const viewed = await call({ body: { q: "603936" } });
+    expect(viewed.body).toMatchObject({ viewed: true, charged: 0, balance: 0 });
+    expect((await call({ body: { q: "603936", refresh: true } })).statusCode).toBe(402);
+  });
+
+  it("结果发布失败会退回积分，不发放查看权", async () => {
+    const fetchRpc = globalThis.fetch;
+    globalThis.fetch = vi.fn((url, options) => String(url).endsWith("/analysis_publish")
+      ? Promise.resolve(Response.json({ message: "publish failed" }, { status: 503 })) : fetchRpc(url, options));
+    const response = await call({ body: { q: "603936" } });
+    expect(response.body).toMatchObject({ refunded: true, balance: 50 });
+    expect(access.size).toBe(0);
+    expect(sharedResults.size).toBe(0);
   });
 
   it("不限额账号不扣分", async () => {
