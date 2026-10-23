@@ -1,10 +1,10 @@
-# 临时探测（不合并）：只在 probe/sectorflow-caliber 分支推送时运行
+# 临时探测（不合并）：只在 probe/sectorflow-caliber 分支推送时运行；结果推到 probe/sectorflow-caliber-out 分支
 name: Probe sectorflow caliber
 on:
   push:
     branches: [probe/sectorflow-caliber]
 permissions:
-  contents: read
+  contents: write
 jobs:
   probe:
     runs-on: ubuntu-latest
@@ -14,6 +14,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node scripts/probe/caliber.mjs
+      - run: node scripts/probe/caliber.mjs > "$RUNNER_TEMP/probe.txt" 2>&1 || true
         env:
           WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
+      - run: |
+          mkdir out && cp "$RUNNER_TEMP/probe.txt" out/ && cd out
+          git init -q && git checkout -q -b probe/sectorflow-caliber-out && git add -A
+          git -c user.name=probe -c user.email=probe@users.noreply.github.com commit -q -m "probe output"
+          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" probe/sectorflow-caliber-out
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
