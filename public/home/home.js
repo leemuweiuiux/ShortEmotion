@@ -4,9 +4,9 @@
 //   3. 今日短线情绪：与看板「A股短线情绪」卡同款（姿态、分数、阶段与说明、六个维度），
 //      下面再加市场概况（全A涨跌幅、成交额、涨跌家数、涨跌停）与行情时间，点卡片进入看板
 //   4. 当日题材异动：未解锁时只显示题材数量，可在首页直接解锁（−5 积分，12 小时）；解锁后列出前 3 个
-//   5. 资金流入增速前三（板块资金，放在最后）：今日主力净流入比前 5 日日均多出最多（盘中按已交易时间折算），
-//      点卡片进入 /sectorflow，不扣积分；还没有数据时也显示入口
+//   5. 资金流向：今日累计净流入曲线，流入/流出各前三；进入 /sectorflow 查看完整周期，不扣积分。
 import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderRecent, renderLatest } from "/shared/nav-account.js?v=4";
+import { mountFundFlow } from "/shared/fund-flow.js?v=1";
 import { mountInviteEntry } from "/shared/invite-entry.js?v=2";
 
 initAccountMenu();
@@ -295,31 +295,17 @@ async function unlock(event) {
   }
 }
 
-// ── 5. 资金流入增速前三（板块资金，入口一直显示）──
-const yi = (value) => (Number.isFinite(Number(value)) ? `${Number(value) > 0 ? "+" : Number(value) < 0 ? "−" : ""}${Math.abs(Number(value)).toFixed(1)}` : "—");
+// ── 5. 资金流向：与详情页同一套曲线，默认流入/流出各前三 ──
+const flowChart = mountFundFlow($("#sectorflow-chart"), { compact: true, onSelect: (code) => {
+  location.href = `/sectorflow?board=${encodeURIComponent(code)}`;
+} });
 async function loadSectorFlow() {
   try {
     const { response, payload } = await request("/api/sectorflow?resource=summary");
-    const list = $("#sectorflow-top");
-    if (!response.ok || !payload.ready || !payload.day) { // 还没有数据：入口照常显示
-      list.innerHTML = '<li class="home-sf-empty">开盘后更新，10:00 后给出增速前三</li>';
-      return;
-    }
-    list.textContent = "";
-    for (const [index, row] of (payload.top || []).entries()) {
-      const item = document.createElement("li");
-      item.innerHTML = '<span class="home-sf-rank"></span><span class="home-sf-name"><b></b><small></small></span><span class="home-sf-value"><strong class="up-text"></strong><small>亿</small></span>';
-      item.querySelector(".home-sf-rank").textContent = String(index + 1);
-      item.querySelector("b").textContent = row.name;
-      item.querySelector(".home-sf-name small").textContent = `今日 ${yi(row.today)} · 5日均 ${yi(row.avg5)}${Number(row.streak) > 0 ? ` · 连${row.streak}日` : ""}`;
-      item.querySelector("strong").textContent = yi(row.vsAvg);
-      list.append(item);
-    }
-    if (!list.children.length) list.innerHTML = '<li class="home-sf-empty">暂无较前 5 日日均多流入的板块</li>';
-    const md = `${payload.day.slice(4, 6)}-${payload.day.slice(6, 8)}`;
-    $("#sectorflow-time").textContent = payload.live ? `盘中 ${md} ${payload.label}` : `${md} 收盘`;
+    if (!response.ok) throw new Error(payload.error || "暂时无法读取资金流向");
+    flowChart.update(payload.dashboard);
   } catch {
-    $("#sectorflow-top").innerHTML = '<li class="home-sf-empty">暂时无法读取，点进去看看</li>';
+    flowChart.update(null);
   }
 }
 
@@ -327,3 +313,4 @@ await loadPoints();
 loadEmotion();
 loadAnomalies();
 loadSectorFlow();
+

@@ -25,7 +25,8 @@
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=17">
   <link rel="stylesheet" href="/technical-analysis/ta.css?v=13">
   <link rel="stylesheet" href="/shared/form.css?v=1">
-  <link rel="stylesheet" href="/home/home.css?v=7">
+  <link rel="stylesheet" href="/home/home.css?v=8">
+  <link rel="stylesheet" href="/shared/fund-flow.css?v=1">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -90,14 +91,10 @@
         <div id="anomaly-body" class="home-anomaly-body"><div class="loading">正在读取题材异动…</div></div>
       </section>
 
-      <a id="sectorflow-card" class="card home-card home-sectorflow" href="/sectorflow">
-        <div class="card-head"><h2 class="card-title">资金流入增速前三</h2><span class="pill">较前 5 日日均</span></div>
-        <ol id="sectorflow-top" class="home-sf-list"><li class="home-sf-empty">读取中…</li></ol>
-        <div class="home-emotion-foot">
-          <span id="sectorflow-time" class="home-time"></span>
-          <span class="home-enter">查看更多<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-        </div>
-      </a>
+      <section id="sectorflow-card" class="card home-card home-sectorflow">
+        <div class="card-head"><h2 class="card-title">资金流向</h2><a class="home-more" href="/sectorflow">查看更多</a></div>
+        <div id="sectorflow-chart"></div>
+      </section>
 
       <section class="card home-card mr-home" aria-label="看点早报">
         <div class="card-head"><h2 class="card-title">看点早报</h2><a class="home-more" href="/kandian?tab=reports">历史文章</a></div>
@@ -109,6 +106,7 @@
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/home/home.js?v=14"></script>
+  <script type="module" src="/home/home.js?v=15"></script>
 <script type="module" src="/kandian/reports.js?v=1"></script></body>
 </html>
+

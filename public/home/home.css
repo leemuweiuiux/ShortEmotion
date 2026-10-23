@@ -54,17 +54,4 @@
 .invite-entry-skip:hover { color: var(--ink); }
 .home-points #signin[hidden] { display: none; }
 
-/* 资金流入增速前三（板块资金） */
-.home-sectorflow[hidden] { display: none; }
-.home-sf-list { display: grid; margin: 0; padding: 0; list-style: none; }
-.home-sf-list li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); }
-.home-sf-list li:first-child { border-top: 0; padding-top: 2px; }
-.home-sf-rank { font-family: "Manrope", sans-serif; font-size: 16px; font-weight: 700; color: var(--muted); }
-.home-sf-list li:first-child .home-sf-rank { color: var(--ink); }
-.home-sf-name { display: grid; gap: 1px; min-width: 0; }
-.home-sf-name b { font-size: 14px; font-weight: 600; }
-.home-sf-name small { color: var(--muted); font-size: 12px; }
-.home-sf-value { display: grid; justify-items: end; }
-.home-sf-value strong { font-family: "Manrope", sans-serif; font-size: 18px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.home-sf-value small { color: var(--muted); font-size: 11px; }
-.home-sf-empty { display: block !important; color: var(--muted); font-size: 13px; }
+/* 资金曲线样式由 shared/fund-flow.css 统一提供。 */

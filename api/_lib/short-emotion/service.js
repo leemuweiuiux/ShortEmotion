@@ -226,6 +226,7 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
     await refreshSectorFlow(store, engine, { day: plan.day }).then((output) => {
       if (output.skipped) result.skipped.push(`sectorflow: ${output.skipped}`);
       else result.ran.push(`sectorflow(${output.quote})`);
+      if (output.historyErrors?.length) result.errors.push(`sectorflow history: ${output.historyErrors.join("; ")}`);
     }).catch((error) => { result.errors.push(`sectorflow: ${errorText(error)}`); });
   }
 
@@ -306,3 +307,4 @@ export async function readResource(resource, market = "cn", { fresh = false } = 
   }
   throw Object.assign(new Error(`未知资源：${resource}`), { statusCode: 404 });
 }
+
