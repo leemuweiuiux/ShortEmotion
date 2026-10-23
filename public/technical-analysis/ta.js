@@ -1,3 +1,4 @@
+import { updateNavPoints } from "/shared/nav-points.js?v=1";
 // 个股技术分析 /technicalanalysis
 // 输入六位代码或准确简称 → POST /api/technical-analysis（每次扣 10 积分，认不出股票或分析失败不扣分）。
 // 版面与图表沿用 lfjDashboard「个股技术分析助手」，改成本站的单列卡片样式；页面不标注数据来源。
@@ -97,6 +98,7 @@ async function analyze(query, refresh = false) {
       body: JSON.stringify({ q, refresh })
     });
     const payload = await response.json().catch(() => ({}));
+    updateNavPoints(payload);
     if (payload.code === "login_required") return goLogin();
     if (Number.isFinite(Number(payload.balance))) config.balance = payload.balance;
     if (payload.code === "not_configured") config.configured = false;

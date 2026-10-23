@@ -1,3 +1,4 @@
+import { updateNavPoints } from "/shared/nav-points.js?v=1";
 import { prepareTimelineForExport } from "./export-svg.js?v=1";
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -328,13 +329,13 @@ function renderAnomalies() {
 }
 
 
-// ── 题材异动的积分锁：未解锁时服务器只给题材数量；解锁扣 5 积分，12 小时内有效（倒计时到 0 自动重新上锁）──
+// ── 题材异动的积分锁：未解锁时服务器只给题材数量；解锁扣 10 积分，12 小时内有效（倒计时到 0 自动重新上锁）──
 let pointsBalance = null;
 let unlockTimer = null;
 const POINTS_TEXT = "积分不足，签到获取 +10积分";
 
 function setBalance(value) {
-  if (Number.isFinite(Number(value))) pointsBalance = Number(value);
+  if (value != null && Number.isFinite(Number(value))) { pointsBalance = Number(value); updateNavPoints({ balance: pointsBalance }); }
 }
 
 function countdownText(ms) {
@@ -376,7 +377,7 @@ function renderLockedAnomalies() {
   const panel = $(".anomaly-panel");
   panel?.classList.add("locked");
   const total = Number(anomalyData?.total) || 0;
-  const cost = anomalyData?.cost || 5;
+  const cost = anomalyData?.cost || 10;
   const hours = anomalyData?.hours || 12;
   $("#anomaly-summary").innerHTML = `<span>今日识别到 ${total} 个题材</span>`;
   setText("#anomaly-time", "");
@@ -403,7 +404,7 @@ async function unlockAnomalies(event) {
       return;
     }
     if (!response.ok) throw new Error(payload.error || `请求失败 (${response.status})`);
-    if (payload.charged) toast(`已解锁，扣除 5 积分（剩余 ${payload.balance}）`);
+    if (payload.charged) toast(`已解锁，扣除 10 积分（剩余 ${payload.balance}）`);
     await loadAnomalies(true);
   } catch (error) {
     toast(error.message, true);
