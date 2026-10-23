@@ -2,8 +2,8 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;',
 const date = v => new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(v));
 // 早报与午间看点（id 以 -noon 结尾、edition: 'noon'）放在同一个列表，用标题前的标签区分
 const isNoon = a => a?.edition==='noon' || String(a?.id||'').endsWith('-noon');
-const label = () => '官方看点';
-const editionName = a => a?.edition === 'evening' || String(a?.id||'').endsWith('-evening') ? '看点晚报' : isNoon(a) ? '午间看点' : '看点早报';
+const label = () => 'Komidomi';
+const editionName = a => a?.edition === 'evening' || String(a?.id||'').endsWith('-evening') ? '看点收评' : isNoon(a) ? '午间看点' : '看点早报';
 const quoteClock = a => (String(a?.quoteTime||'').match(/(\d{2}:\d{2})/)||[])[1] || '11:30';
 export function reportCard(a) {
  return `<a class="mr-card" href="/kandian/article?id=${encodeURIComponent(a.id)}"><div class="mr-meta">${label(a)} · ${esc(date(a.publishedAt))} · ${esc(a.sector)}</div><h3>${esc(a.title)}</h3><p>${esc(a.summary)}</p><span class="mr-read">阅读全文 →</span></a>`;

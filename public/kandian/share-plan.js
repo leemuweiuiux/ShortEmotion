@@ -6,7 +6,7 @@ export const SHARE_TITLE = "看点早报";
 
 /** 这一期叫什么：早报「看点早报」，午间（id 以 -noon 结尾）「午间看点」。 */
 export function editionTitle(article) {
-  if (article?.edition === "evening" || String(article?.id || "").endsWith("-evening")) return "看点晚报";
+  if (article?.edition === "evening" || String(article?.id || "").endsWith("-evening")) return "看点收评";
   return article?.edition === "noon" || String(article?.id || "").endsWith("-noon") ? "午间看点" : SHARE_TITLE;
 }
 
@@ -29,7 +29,7 @@ export function shareDate(value) {
 
 /** 抬头小字：日期 · 板块。 */
 export function shareSubtitle(article) {
-  return ["官方看点", shareDate(article?.publishedAt), article?.sector].filter(Boolean).join(" · ");
+  return ["Komidomi", shareDate(article?.publishedAt), article?.sector].filter(Boolean).join(" · ");
 }
 
 /** 文件名前缀：看点早报-20261023、午间看点-20261023-noon（只留字母数字与连字符）。 */

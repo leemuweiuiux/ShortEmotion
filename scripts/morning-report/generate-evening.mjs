@@ -5,7 +5,7 @@ import { generateValidatedReport } from '../../api/_lib/morning-report/model.js'
 import { getStore } from '../../api/_lib/short-emotion/store.js';
 import { windCall } from '../../api/_lib/short-emotion/engine.js';
 import { readSectorFlow } from '../../api/_lib/sectorflow/service.js';
-import { INDEX, LIMITS, articleKey, beijingDay, eveningId } from '../../api/_lib/morning-report/service.js';
+import { reportIdentity, INDEX, LIMITS, articleKey, beijingDay, eveningId } from '../../api/_lib/morning-report/service.js';
 import { beijingMinute, morningDigest, noonCandidates, noonFlows, noonMarket, sameTimeRecord } from '../../api/_lib/morning-report/noon.js';
 import { eveningPath, eveningMeta, eveningPrompt, eveningReadiness } from '../../api/_lib/morning-report/evening.js';
 
@@ -73,6 +73,7 @@ Object.assign(article, {
   ...eveningMeta({ day: quoteDay, quoteTime: emotion.quoteTime, now: new Date() }),
   sources: evidence.filter((e) => article.sourceIds.includes(e.id)).map(({ id: sourceId, label }) => ({ id: sourceId, label }))
 });
+Object.assign(article, reportIdentity(article));
 await store.kvSet(`morning-report-evidence:${id}`, evidence);
 await store.kvSet(articleKey(id), article);
 const { sections, sources, sourceIds, ...summary } = article;

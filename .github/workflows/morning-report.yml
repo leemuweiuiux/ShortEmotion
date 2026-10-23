@@ -3,6 +3,11 @@ name: Morning report
 # 准点触发：Supabase Cron 北京时间周一至周五 06:50 调用 /api/cron?job=morning-report、11:40 调用 /api/cron?job=noon-report、16:05调用 /api/cron?job=evening-report
 # （经 GitHub API 手动运行，带 edition 参数）。下面自带的 schedule 留作备用；每期只生成一次，重复触发会直接跳过。
 on:
+  push:
+    branches: [main]
+    paths:
+      - api/_lib/morning-report/service.js
+      - scripts/morning-report/clean.mjs
   schedule:
     - cron: '50 22 * * 0-4' # 早报：北京时间周一至周五06:50，提前生成
     - cron: '10,30 23 * * 0-4' # 早报：07:10/07:30补跑，日期去重
@@ -46,6 +51,8 @@ jobs:
           fi
       - name: Generate report
         run: |
+          node scripts/morning-report/clean.mjs
+          if [ "${{ github.event_name }}" = push ]; then exit 0; fi
           if [ "$EDITION" = noon ]; then node scripts/morning-report/generate-noon.mjs; elif [ "$EDITION" = evening ]; then node scripts/morning-report/generate-evening.mjs; else node scripts/morning-report/generate.mjs; fi
         env:
           EDITION: ${{ (github.event_name == 'workflow_dispatch' && inputs.edition) || ((github.event.schedule == '50 3 * * 1-5' || github.event.schedule == '10 4 * * 1-5') && 'noon') || (github.event.schedule == '15,35 8 * * 1-5' && 'evening') || 'morning' }}

@@ -33,7 +33,7 @@ describe("看点早报分享：内容规划", () => {
     expect(shareFileBase(article)).toBe("看点早报-20261023");
     expect(shareFileBase({ id: "../x?y" })).toBe("看点早报-xy");
     expect(cardFileName(article, 0)).toBe("看点早报-20261023-01.png");
-    expect(shareSubtitle(article)).toBe("官方看点 · 2026/10/23 · 工程机械");
+    expect(shareSubtitle(article)).toBe("Komidomi · 2026/10/23 · 工程机械");
     expect(SHARE_FOOTER.note).toContain("不构成投资建议");
   });
 
