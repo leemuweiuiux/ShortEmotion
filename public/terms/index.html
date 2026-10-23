@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="robots" content="noindex">
+  <title>用户协议 · ShortEmotion</title>
+  <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
+  <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <script>
+    // 与介绍页、看板共用外观设置：深浅色跟随系统（或 twsvp_theme），语言：简体 / 繁体
+    (function () {
+      var root = document.documentElement;
+      var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
+      var theme = get("twsvp_theme");
+      if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      root.dataset.theme = theme;
+      if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
+      var lang = get("shortemotion:lang");
+      if (lang !== "hans" && lang !== "hant") lang = /^zh-(tw|hk|mo|hant)/i.test(navigator.language || "") ? "hant" : "hans";
+      root.dataset.lang = lang;
+      if (lang === "hant") root.lang = "zh-Hant-TW";
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/about/about.css?v=11">
+  <link rel="stylesheet" href="/account/account.css?v=12">
+  <link rel="stylesheet" href="/legal/legal.css?v=1">
+  <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
+  <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body class="sub-page">
+  <nav class="subnav">
+    <a id="back" class="subnav-btn" href="/about" aria-label="返回">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+    <div class="subnav-title">用户协议</div>
+  </nav>
+
+  <main class="sub-frame">
+    <article class="sub-card legal-doc">
+      <h1>ShortEmotion 用户协议</h1>
+      <p class="legal-meta"><span>版本 1.0</span> · <span>生效日期 2026 年 10 月 24 日</span> · <span>运营者 pai</span></p>
+
+      <p class="legal-lead">欢迎使用 ShortEmotion（网址 lfjmwl.com，以下简称“本服务”）。本服务由 pai（以下简称“我们”）运营。请你在登录前仔细阅读本协议，特别是<strong>加粗显示的投资风险提示、积分规则、责任限制与争议解决条款</strong>。你在登录页勾选同意并完成登录，即表示你已阅读、理解并接受本协议及《<a href="/privacy">隐私政策</a>》。</p>
+
+      <h2>一、适用对象</h2>
+      <ul>
+        <li>本服务面向年满 18 周岁、具有完全民事行为能力的个人。</li>
+        <li>未满 18 周岁的未成年人，应在监护人阅读并同意本协议与《隐私政策》后，在监护人的指导下使用本服务。</li>
+      </ul>
+
+      <h2>二、服务内容</h2>
+      <ul>
+        <li>本服务提供 A 股市场的短线情绪看板、板块资金流向、个股技术分析、看点文章、看点社区（发布与浏览市场观点）、积分与邀请等功能，具体以页面实际提供的为准。</li>
+        <li>行情、资金与新闻等资料来自第三方金融数据服务商，经我们整理、计算后展示，可能存在延迟、缺失或错误。</li>
+        <li>看点文章、分析结论等部分内容由人工智能模型根据上述资料自动生成，可能不准确或不完整，请自行核实。</li>
+        <li>我们可能根据运营需要新增、调整或停止部分功能，并尽量提前在页面上告知。</li>
+      </ul>
+
+      <h2>三、账号</h2>
+      <ul>
+        <li>你使用邮箱验证码登录，首次登录即自动注册。请使用你本人能正常收信的邮箱。</li>
+        <li>账号仅限你本人使用，不得出借、转让、出售或与他人共用；不得批量注册，也不得使用他人或虚假的信息注册。</li>
+        <li>请妥善保管你的邮箱与登录设备。通过你的邮箱验证码完成的操作，视为你本人的操作。</li>
+        <li>发现账号被他人使用时，请及时联系我们。</li>
+      </ul>
+
+      <h2>四、积分与邀请</h2>
+      <ul>
+        <li>积分是本服务内的虚拟权益，可通过注册、每日签到、邀请好友等方式免费获得，用于刷新数据、解锁内容、个股分析等功能；获得与消耗的数量以页面说明为准。</li>
+        <li><strong>积分不具有现金价值，不能兑换现金、提现、转让，也不能在账号之间转移。</strong>目前积分不提供购买；日后如开放购买，会另行公布规则。</li>
+        <li>我们可以调整积分的获得与消耗规则，调整前会在页面上告知；调整不影响你已经获得的积分余额。</li>
+        <li>通过批量注册、自动化脚本、利用系统漏洞等不正当方式获得的积分或邀请奖励，我们有权扣除或作废，并可限制或终止相关账号。</li>
+        <li>因系统故障造成积分多发、少发或误扣的，我们有权更正。</li>
+        <li>账号注销后，积分清零，不可恢复。</li>
+      </ul>
+
+      <h2>五、看点社区与你发布的内容</h2>
+      <ul>
+        <li>你发布的观点会以匿名代号（“用户”加 8 位字符）向其他登录用户展示，不显示你的邮箱。</li>
+        <li>你应对自己发布的内容负责，不得发布：违反法律法规或公序良俗的内容；虚假或误导性信息，编造、传播市场谣言；可能影响证券价格的操纵性言论；收费荐股、喊单、引流到站外或广告推广；侵犯他人合法权益的内容。</li>
+        <li>你授权我们在本服务范围内免费存储、展示和整理你发布的内容。</li>
+        <li>对违反本协议的内容，我们可以不经通知删除或隐藏，并视情况限制账号的功能。</li>
+      </ul>
+
+      <h2>六、投资风险提示</h2>
+      <ul>
+        <li><strong>本服务提供的全部内容，包括情绪分数、资金流向、技术分析、看点文章与用户观点，仅供研究与参考，不构成任何投资建议、要约或承诺，也不是证券投资咨询服务。</strong></li>
+        <li><strong>证券市场有风险，历史数据与过往表现不代表未来。你应独立判断、自主决策，并自行承担投资产生的全部盈亏与风险。</strong></li>
+      </ul>
+
+      <h2>七、知识产权</h2>
+      <ul>
+        <li>本服务的软件、页面设计、文字、图表、算法与标识，归我们或相关权利人所有；行情与资讯数据的权利归数据提供方所有。</li>
+        <li>你可以把本服务生成的分享图片用于个人、非商业的分享，并保留图片中的来源标识。未经我们书面许可，不得复制、转载、汇编本服务的内容，或将其用于商业用途。</li>
+      </ul>
+
+      <h2>八、禁止行为</h2>
+      <p>使用本服务时，你不得：</p>
+      <ul>
+        <li>使用爬虫、脚本或其他自动化方式抓取本服务的数据，或批量请求本服务；</li>
+        <li>绕过或破坏登录、积分、频率限制等安全机制；</li>
+        <li>对本服务进行攻击、渗透测试或逆向工程；</li>
+        <li>利用本服务从事任何违法违规活动。</li>
+      </ul>
+
+      <h2>九、服务的变更、中断与终止</h2>
+      <ul>
+        <li>因系统维护、第三方服务（数据、托管、邮件等）故障、网络问题或不可抗力，本服务可能中断，或数据更新延迟。我们会尽力恢复，但不保证服务不中断、没有错误。</li>
+        <li>你违反本协议的，我们可以视情节暂停或终止向你提供服务。</li>
+        <li>你可以随时停止使用本服务，并按《<a href="/privacy">隐私政策</a>》申请注销账号。</li>
+      </ul>
+
+      <h2>十、责任限制</h2>
+      <p><strong>在法律允许的范围内，对于因使用或无法使用本服务、因资料延迟或错误、或依据本服务内容作出投资决策所造成的损失，我们不承担赔偿责任；因我们的故意或重大过失造成的损失除外。</strong></p>
+
+      <h2>十一、协议的修改</h2>
+      <p>我们可能修改本协议。修改后会更新本页的版本与生效日期；重大变更会在登录页或站内显著位置提示。修改生效后你继续使用本服务，即表示接受修改后的协议；如不同意，你可以停止使用，并申请注销账号。</p>
+
+      <h2>十二、法律适用与争议解决</h2>
+      <ul>
+        <li>本协议适用中华人民共和国法律（为本协议之目的，不包括香港特别行政区、澳门特别行政区和台湾地区的法律）。</li>
+        <li>因本协议产生的争议，双方应先友好协商；协商不成的，任何一方都可以向有管辖权的人民法院提起诉讼。</li>
+      </ul>
+
+      <h2>十三、联系我们</h2>
+      <p>对本协议有任何问题，请发送邮件至 <a href="mailto:pai.product.manager@gmail.com">pai.product.manager@gmail.com</a>，我们会在 15 个工作日内回复。</p>
+    </article>
+    <footer class="legal-links"><a href="/terms" aria-current="page">用户协议</a><span aria-hidden="true">·</span><a href="/privacy">隐私政策</a></footer>
+  </main>
+
+  <script type="module" src="/legal/legal.js?v=1"></script>
+</body>
+</html>

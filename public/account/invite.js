@@ -1,7 +1,7 @@
 // 邀请好友 /account/invite：我的邀请卡（姓名、邀请码、二维码）、分享邀请卡（生成图片）、复制邀请链接、邀请记录。
 // 邀请码只出现在这张邀请卡上；看板与个股分析的长图、小卡都不带邀请码。
 // 邀请链接 = 介绍页 /about?invite=SE…：朋友先看懂产品，登录页会自动填好邀请码。
-import { $, toast, authRequest, setText } from "/account/common.js?v=7";
+import { $, toast, authRequest, setText } from "/account/common.js?v=8";
 
 const shareButton = $("#share-card");
 const copyButton = $("#copy-link");

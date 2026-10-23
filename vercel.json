@@ -33,6 +33,10 @@
   "rewrites": [
     {"source": "/kandian/article", "destination": "/kandian/article.html"},
     {"source": "/about", "destination": "/about/index.html"},
+    {"source": "/terms", "destination": "/terms/index.html"},
+    {"source": "/terms/", "destination": "/terms/index.html"},
+    {"source": "/privacy", "destination": "/privacy/index.html"},
+    {"source": "/privacy/", "destination": "/privacy/index.html"},
     {"source": "/about/", "destination": "/about/index.html"},
     {"source": "/login", "destination": "/login/index.html"},
     {"source": "/login/", "destination": "/login/index.html"},

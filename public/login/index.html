@@ -28,7 +28,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/about/about.css?v=11">
   <link rel="stylesheet" href="/shared/form.css?v=1">
-  <link rel="stylesheet" href="/login/login.css?v=3">
+  <link rel="stylesheet" href="/legal/legal.css?v=1">
+  <link rel="stylesheet" href="/login/login.css?v=4">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -66,6 +67,10 @@
           <input id="invite" class="se-input" name="invite" type="text" autocomplete="off" spellcheck="false" maxlength="20" placeholder="例如 SEK7MX2Q">
         </label>
         <p id="invite-note" class="invite-note" hidden></p>
+        <label class="agree">
+          <input id="agree" type="checkbox" name="agree">
+          <span>我已阅读并同意《<a href="/terms" target="_blank" rel="noopener">用户协议</a>》和《<a href="/privacy" target="_blank" rel="noopener">隐私政策</a>》，并同意将个人信息传输至境外服务器存储和处理。</span>
+        </label>
         <button id="send" class="btn-primary" type="submit">发送验证码</button>
       </form>
 
@@ -81,12 +86,13 @@
 
       <p id="login-error" class="login-error" role="alert" hidden></p>
       <p id="login-done" class="login-done" role="status" hidden></p>
-      <p class="login-note">没收到邮件？看看垃圾邮件；同一个邮箱 60 秒内只能发送一次，验证码 1 小时内有效。<br>登录即表示同意我们记录近 30 天内哪几天使用过（只用于统计活跃人数），以及积分的获得与使用记录。</p>
+      <p class="login-note">没收到邮件？看看垃圾邮件；同一个邮箱 60 秒内只能发送一次，验证码 1 小时内有效。</p>
     </section>
 
     <a class="back-link" href="/about">了解 ShortEmotion</a>
+    <footer class="legal-links"><a href="/terms">用户协议</a><span aria-hidden="true">·</span><a href="/privacy">隐私政策</a></footer>
   </main>
 
-  <script type="module" src="/login/login.js?v=17"></script>
+  <script type="module" src="/login/login.js?v=18"></script>
 </body>
 </html>

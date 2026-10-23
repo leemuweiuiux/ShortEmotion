@@ -4,7 +4,7 @@
 // 浏览器只连本站：大陆手机网络、微信内置浏览器直连 supabase.co 时常失败（只显示「网络连接失败」）。
 // 邀请码（选填）：从邀请链接来的会自动填好（链接 ?invite= 或介绍页记下的 localStorage「se_invite」）；
 //   按「发送验证码」时先检查能不能用；登录完成后才上报（POST /api/auth?action=invite-redeem），失败只提示、不影响登录。
-import { initLanguage, setText } from "/shared/lang.js?v=16";
+import { initLanguage, setText } from "/shared/lang.js?v=17";
 
 const $ = (selector) => document.querySelector(selector);
 initLanguage();
@@ -27,6 +27,8 @@ const verifyButton = $("#verify");
 const resendButton = $("#resend");
 const inviteInput = $("#invite");
 const inviteNote = $("#invite-note");
+const agreeBox = $("#agree");
+agreeBox?.addEventListener("change", () => { if (agreeBox.checked) { agreeBox.closest(".agree")?.classList.remove("need"); showError(""); } });
 let email = "";
 let invite = "";
 
@@ -208,6 +210,13 @@ emailForm.addEventListener("submit", async (event) => {
   if (!EMAIL_PATTERN.test(email)) {
     showError("请输入正确的邮箱地址。");
     emailInput.focus();
+    return;
+  }
+  // 必须勾选同意《用户协议》《隐私政策》（含境外传输的单独同意）才发验证码，不预先勾好
+  if (agreeBox && !agreeBox.checked) {
+    agreeBox.closest(".agree")?.classList.add("need");
+    showError("请先阅读并勾选同意《用户协议》和《隐私政策》。");
+    agreeBox.focus();
     return;
   }
   const code = cleanInvite(inviteInput.value);
