@@ -7,7 +7,7 @@
 //   5. 资金流向：今日累计净流入曲线，流入/流出各前三；进入 /sectorflow 查看完整周期，不扣积分。
 import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderRecent, renderLatest } from "/shared/nav-account.js?v=4";
 import { mountFundFlow } from "/shared/fund-flow.js?v=3";
-import { mountInviteEntry } from "/shared/invite-entry.js?v=2";
+import { mountInviteEntry } from "/shared/invite-entry.js?v=3";
 
 initAccountMenu();
 

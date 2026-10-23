@@ -81,13 +81,9 @@ async function refreshInviteNote() {
 
 const fromLink = cleanInvite(new URLSearchParams(location.search).get("invite"));
 inviteInput.value = INVITE_PATTERN.test(fromLink) ? fromLink : storedInvite();
-if (inviteInput.value) refreshInviteNote();
-inviteInput.addEventListener("input", () => {
-  const value = cleanInvite(inviteInput.value).slice(0, 8);
-  if (inviteInput.value !== value) inviteInput.value = value;
-  if (!value) renderInviteNote(null);
-});
-inviteInput.addEventListener("change", refreshInviteNote);
+if (inviteInput.value) refreshInviteNote(); // 从邀请链接带进来的码：打开时显示一次「谁邀请你」
+// 一般输入框（2026-10-23）：打字时不改写、不检查、不连网，只清掉上次的提示；按「发送验证码」时才检查
+inviteInput.addEventListener("input", () => { if (!inviteNote.hidden) renderInviteNote(null); });
 
 const configReady = fetch("/api/auth?action=config", { headers: { Accept: "application/json" } })
   .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
@@ -215,6 +211,7 @@ emailForm.addEventListener("submit", async (event) => {
     return;
   }
   const code = cleanInvite(inviteInput.value);
+  inviteInput.value = code;
   if (code && !INVITE_PATTERN.test(code)) {
     showError("邀请码是 SE 开头加 6 位；没有邀请码可以留空。");
     inviteInput.focus();

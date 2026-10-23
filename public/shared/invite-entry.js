@@ -3,6 +3,7 @@
 // 领取成功后变回签到（签到 +60：签到 10 + 邀请奖励 50）；也可以「没有邀请码，直接签到」。
 // 从邀请链接进来时记在 localStorage「se_invite」的邀请码会自动填好（与登录页同一份）。
 // 输入框样式：/shared/form.css 的 .se-bar（按钮在框内，全站统一）。
+// 一般输入框（2026-10-23）：打字时不改写、不检查、不连网；按「领取」时才去空白、转大写并检查。
 const PATTERN = /^SE[A-HJKMNP-Z2-9]{6}$/;
 const KEY = "se_invite";
 const DAYS = 7;
@@ -25,7 +26,7 @@ function forgetInvite() {
  */
 export function mountInviteEntry(host, { setText = (element, text) => { element.textContent = text; }, onRedeemed, onSkip } = {}) {
   host.innerHTML = '<p class="invite-entry-title"><span></span><em>50</em><span></span></p>'
-    + '<form class="invite-entry-form se-bar" novalidate><input class="se-code" name="code" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="10" placeholder="SE + 6 位" aria-label="邀请码"><button type="submit"></button></form>'
+    + '<form class="invite-entry-form se-bar" novalidate><input name="code" type="text" autocomplete="off" spellcheck="false" maxlength="20" placeholder="SE + 6 位" aria-label="邀请码"><button type="submit"></button></form>'
     + '<p class="invite-entry-error" role="alert" hidden></p>'
     + '<button type="button" class="invite-entry-skip"></button>';
   const [lead, tail] = host.querySelectorAll(".invite-entry-title span");
@@ -46,15 +47,12 @@ export function mountInviteEntry(host, { setText = (element, text) => { element.
     else input.removeAttribute("aria-invalid");
     if (message) setText(error, message);
   };
-  input.addEventListener("input", () => {
-    const value = clean(input.value).slice(0, 8);
-    if (input.value !== value) input.value = value;
-    showError("");
-  });
+  input.addEventListener("input", () => { if (!error.hidden) showError(""); }); // 只清掉上次的提示，不改写内容
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const code = clean(input.value);
+    input.value = code;
     if (!PATTERN.test(code)) return showError("邀请码是 SE 开头加 6 位，请检查后再试");
     submit.disabled = true;
     try {
