@@ -45,7 +45,14 @@ for (const market of markets) {
     const { refreshStoredHistory } = await import('../../api/_lib/sectorflow/history-task.js');
     const result = await refreshStoredHistory(getStore(market), { force: historyOnly && force });
     console.log(JSON.stringify({ sectorflowHistory: result }, null, 2));
-    if (result.status === 'pending' && (historyOnly || !force)) failures.push(`资金历史未完整：${JSON.stringify(result.issues || result.errors)}`);
+    // 资金历史没补齐只影响板块资金的 5 日 / 20 日，不算整个任务失败（2026-10-26）：记一条警告，按重试规则之后再补。
+    // 手动只跑历史（--history-only）时历史就是全部工作，补不齐仍算失败。还没到重试时间（skipped）时什么都不报。
+    if (!result.skipped && (result.status === 'pending' || result.status === 'partial')) {
+      const names = (result.issues || []).map((i) => i.name || i.reason).filter(Boolean);
+      const message = `资金历史未完整（${result.status === 'partial' ? '已先发布完整的板块' : '沿用上一版'}）：${names.length ? names.join('、') : (result.errors || []).join(' | ') || '原因未知'}`;
+      if (historyOnly) failures.push(message);
+      else console.log(`::warning::${message}`);
+    }
   }
 }
 if (failures.length) {

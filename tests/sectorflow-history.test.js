@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { auditHistory, calendarDates, HISTORY_KEY, historyNeedsRefresh, refreshHistory } from '../api/_lib/sectorflow/history.js';
+import { auditHistory, calendarDates, HISTORY_KEY, historyNeedsRefresh, refreshHistory, resolvedElsewhere } from '../api/_lib/sectorflow/history.js';
 import { refreshStoredHistory } from '../api/_lib/sectorflow/history-task.js';
 import { buildDashboard } from '../api/_lib/sectorflow/dashboard.js';
 const dates = Array.from({ length: 20 }, (_, i) => `202609${String(i + 1).padStart(2, '0')}`);
@@ -106,5 +106,73 @@ describe('历史完整性与发布', () => {
     const data = buildDashboard({ history: {}, windows: { 20: { series: [{ ...board, points: [{ date: dates[0], amount: 1 }] }] } } });
     expect(data.windows[20].series).toEqual([]);
     expect(data.history.status).toBe('pending');
+  });
+});
+
+describe('名称撞到别的证券、个别板块补不齐（2026-10-26 Kimi）', () => {
+  const tableFor = (code, ds, currency = 'CNY') => ({ data: { columns: [{ name: 'Wind代码' }, { name: '证券简称' }, { name: '主力净流入额', unit: '元' }, { name: '成交额', unit: '元' }, { name: '交易币种' }, { name: '日期' }], rows: ds.map((d) => [code, 'X', code === '0210.KL' ? null : 1e8, 10e8, currency, d]) } });
+  const ten = Array.from({ length: 10 }, (_, i) => ({ code: `B${i}`, name: `概念${i}` }));
+  const kimi = { code: '8841867.WI', name: 'Kimi' };
+  const ask = (params) => { const ds = [...params.question.matchAll(/202609\d{2}/g)].map((m) => m[0]); return dates.filter((d) => d >= ds[0] && d <= ds.at(-1)); };
+
+  it('认出返回的是别的证券', () => {
+    expect(resolvedElsewhere(tableFor('0210.KL', dates.slice(0, 2), 'MYR'), kimi.code)).toBe(true);
+    expect(resolvedElsewhere(tableFor(kimi.code, dates.slice(0, 2)), kimi.code)).toBe(false);
+    expect(resolvedElsewhere(table(dates.slice(0, 2)), kimi.code)).toBe(false); // 没有代码栏：不算认错
+  });
+
+  it('按名称查到马来西亚股票时，当场改用代码再查，第一轮就补齐', async () => {
+    const store = memory();
+    const engine = { windCall: vi.fn(async (server, _, params) => {
+      if (server === 'index_data') return calendar;
+      if (params.question.includes('Kimi')) return tableFor('0210.KL', ask(params), 'MYR');
+      return tableFor(params.question.match(/(B\d|8841867\.WI)/)[1], ask(params));
+    }) };
+    const result = await refreshHistory(store, engine, { ...snapshot, boards: [...ten, kimi] }, { now });
+    expect(result.status).toBe('complete');
+    const byCode = engine.windCall.mock.calls.filter(([, , p]) => p?.question?.startsWith('Wind代码为8841867.WI'));
+    expect(byCode).toHaveLength(4); // 20 天分 4 批，每批按代码补一次
+    expect(byCode.every(([, , p]) => !p.question.includes('Kimi'))).toBe(true);
+    expect(store.data.get(HISTORY_KEY).published.series.find((s) => s.code === kimi.code).points).toHaveLength(20);
+  });
+
+  it('个别板块怎么都补不齐：至少 80% 完整就先发布完整的，补不齐的暂不显示，之后继续补', async () => {
+    const store = memory();
+    const engine = { windCall: vi.fn(async (server, _, params) => {
+      if (server === 'index_data') return calendar;
+      if (params.question.includes('8841867.WI')) return { data: '没找到数据' };
+      return tableFor(params.question.match(/B\d/)[0], ask(params));
+    }) };
+    const result = await refreshHistory(store, engine, { ...snapshot, boards: [...ten, kimi] }, { now });
+    expect(result.status).toBe('partial');
+    const state = store.data.get(HISTORY_KEY);
+    expect(state.published.series.map((s) => s.code)).toEqual(ten.map((b) => b.code));
+    expect(state.published.pendingCodes).toEqual([kimi.code]);
+    expect(state.nextRetryAt).not.toBeNull();
+    const data = buildDashboard({ history: state });
+    expect(data.history).toMatchObject({ status: 'partial', pendingBoards: 1 });
+    expect(data.windows[20].series).toHaveLength(10);
+    // 到了重试时间还会再补
+    expect(await historyNeedsRefresh(store, { ...snapshot, boards: [...ten, kimi] }, { now: new Date(now.getTime() + 31 * 60000) })).toBe(true);
+  });
+
+  it('完整的板块不到 80%：不发布，保留上一完整版本', async () => {
+    const store = memory();
+    const published = { dates, series: [], asOf: dates.at(-1), version: 'old' };
+    store.data.set(HISTORY_KEY, { published });
+    const engine = { windCall: vi.fn(async (server, _, params) => server === 'index_data' ? calendar : /B[0-7]/.test(params.question) ? { data: '没找到数据' } : tableFor(params.question.match(/B\d/)[0], ask(params))) };
+    expect((await refreshHistory(store, engine, { ...snapshot, boards: ten }, { now })).status).toBe('pending');
+    expect(store.data.get(HISTORY_KEY).published).toEqual(published);
+  });
+});
+
+describe('定时任务：资金历史没补齐不算整个任务失败', () => {
+  it('只记警告；手动只跑历史时仍算失败；还没到重试时间时不报', async () => {
+    const { readFileSync } = await import('node:fs');
+    const code = readFileSync(new URL('../scripts/short-emotion/refresh.mjs', import.meta.url), 'utf8');
+    expect(code).toContain("if (!result.skipped && (result.status === 'pending' || result.status === 'partial'))");
+    expect(code).toContain('if (historyOnly) failures.push(message);');
+    expect(code).toContain('else console.log(`::warning::${message}`);');
+    expect(code).not.toContain('JSON.stringify(result.issues || result.errors)');
   });
 });

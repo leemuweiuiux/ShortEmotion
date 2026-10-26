@@ -1,6 +1,6 @@
 // 只读现有快照，继续沿用登录校验和免费查看机制。
 import { toast, goLogin, initAccountMenu } from '/shared/nav-account.js?v=4';
-import { mountFundFlow } from '/shared/fund-flow.js?v=5';
+import { mountFundFlow } from '/shared/fund-flow.js?v=6';
 import { setupShare } from '/sectorflow/share.js?v=3';
 initAccountMenu();
 const chart = mountFundFlow(document.querySelector('#fund-flow'), { initialCode: new URLSearchParams(location.search).get('board') || '' });
