@@ -23,9 +23,24 @@ describe("用户协议与隐私政策页面", () => {
       const html = read(file);
       expect(html).toContain("<span>运营者 pai</span>");
       expect(html).toContain(`mailto:${EMAIL}`);
-      expect(html).toContain("<span>生效日期 2026 年 10 月 24 日</span>");
+      expect(html).toMatch(/<span>版本 \d+\.\d+<\/span> · <span>生效日期 2026 年 \d+ 月 \d+ 日<\/span>/);
       expect(html).toContain('/legal/legal.js?v=');
     }
+  });
+
+  it("昵称与点赞（1.1 版）：不再写匿名代号与可修改姓名，写明昵称由系统分配、点赞只显示总数", () => {
+    const privacy = read("public/privacy/index.html");
+    const terms = read("public/terms/index.html");
+    for (const html of [privacy, terms]) {
+      expect(html).toContain("<span>版本 1.1</span>");
+      expect(html).not.toContain("匿名代号");
+      expect(html).not.toContain("个人页面");
+    }
+    expect(privacy).toContain("由系统从固定词库随机分配");
+    expect(privacy).toContain("<h3>7. 点赞记录</h3>");
+    expect(privacy).toContain("看不到是谁点的");
+    expect(privacy).toContain("此前填写的姓名");
+    expect(terms).toContain("以你的昵称");
   });
 
   it("用户协议：投资风险提示、积分无现金价值、未成年人需监护人同意", () => {

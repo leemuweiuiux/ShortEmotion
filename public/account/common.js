@@ -1,5 +1,5 @@
 // 个人中心共用：/account（基本信息、积分、我发布的观点）、/account/edit（编辑电话）、/account/points（积分流水）、/account/settings（设置）。
-import { initLanguage, setText } from "/shared/lang.js?v=18";
+import { initLanguage, setText } from "/shared/lang.js?v=19";
 
 export { setText };
 export const $ = (selector) => document.querySelector(selector);

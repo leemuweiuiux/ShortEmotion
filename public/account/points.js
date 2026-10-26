@@ -1,5 +1,5 @@
 // 积分流水 /account/points（设置页进入）：全部记录，每次 20 笔，「加载更多」往前翻。
-import { $, toast, readPoints, readPointsBefore, renderLedger } from "/account/common.js?v=9";
+import { $, toast, readPoints, readPointsBefore, renderLedger } from "/account/common.js?v=10";
 
 // 返回：从设置、首页积分卡或顶栏积分进来就回到原页面；直接打开时回设置
 (() => {

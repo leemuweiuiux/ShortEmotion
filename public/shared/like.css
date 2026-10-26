@@ -1,0 +1,42 @@
+/* 点赞按钮（/shared/like.js）：线条大拇指 + 赞数；已赞时反色（与看点的选中按钮一致）。颜色只用中性的墨色，避免和涨跌红绿混淆。 */
+.like-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 0; /* 全站按钮直角（/shared/form.css） */
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  cursor: pointer;
+  transition: color .15s ease, border-color .15s ease, background .15s ease;
+}
+.like-btn svg { display: block; flex: none; width: 16px; height: 16px; }
+.like-btn:hover { border-color: var(--ink); color: var(--ink); }
+.like-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.like-btn[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--surface); }
+.like-btn[aria-pressed="true"] svg path { fill: currentColor; fill-opacity: .18; }
+.like-btn[aria-busy="true"] { cursor: progress; }
+
+/* 文章详情文末：大一点、居中 */
+.like-btn.like-lg { min-height: 44px; padding: 0 22px 0 18px; font-size: 15px; }
+.like-btn.like-lg svg { width: 20px; height: 20px; }
+
+/* 观点卡片底部一行 */
+.kd-actions { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+.kd-compact .kd-actions { margin-top: 10px; }
+.kd-actions .kd-close-view { margin: 0 0 0 auto; }
+
+/* 要闻列表卡片：链接下方 */
+.mr-item .mr-card { padding-bottom: 0; border-bottom: 0; }
+.mr-item { padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+.mr-item-actions { margin-top: 12px; }
+.mr-home .mr-item { padding-bottom: 0; border-bottom: 0; }
+
+/* 文章详情文末 */
+.mr-like { display: flex; justify-content: center; margin-top: 28px; }

@@ -13,7 +13,7 @@ describe('真实观点API边界',()=>{
  it('拒绝跨站写入',async()=>{expect((await run(input,'POST',{origin:'https://evil.test',host:'site.test'})).code).toBe(403);expect(quoteStock).not.toHaveBeenCalled();});
  it('发布价格、代码、名称以服务端行情为准，作者不接受客户端输入',async()=>{dbRequest.mockResolvedValueOnce([]).mockResolvedValueOnce(row);const res=await run({...input,price:1,author:'伪造',name:'假名称'});expect(res.code).toBe(200);const args=dbRequest.mock.calls[1][3];expect(args.p_view.price).toBe(18);expect(args.p_view.name).toBe('风华高科');expect(args.p_view).not.toHaveProperty('author');expect(args.p_token).toBe('test-server-token');expect(JSON.stringify(res.body)).not.toContain('test-server-token');});
  it('行情失败不写入观点',async()=>{dbRequest.mockResolvedValueOnce([]);quoteStock.mockRejectedValueOnce(new Error('no quote'));expect((await run()).code).toBe(503);expect(dbRequest).toHaveBeenCalledTimes(1);});
- it('同一发布请求重试读取原记录，不重新取价或写入',async()=>{dbRequest.mockResolvedValueOnce([row]);expect((await run()).body.view.id).toBe(row.id);expect(quoteStock).not.toHaveBeenCalled();expect(dbRequest).toHaveBeenCalledTimes(1);});
+ it('同一发布请求重试读取原记录，不重新取价或写入',async()=>{dbRequest.mockResolvedValueOnce([row]);expect((await run()).body.view.id).toBe(row.id);expect(quoteStock).not.toHaveBeenCalled();expect(dbRequest.mock.calls.map(c=>c[2].split('?')[0])).toEqual(['kandian_views','rpc/like_summary']);});
  it('不能结束他人的观点，关闭前先检查所有者',async()=>{dbRequest.mockResolvedValueOnce([]);expect((await run({action:'close',id:row.id})).code).toBe(404);expect(dbRequest.mock.calls[0][2]).toContain('user_id=eq.owner');expect(quoteStock).not.toHaveBeenCalled();});
  it('空库返回真实空列表，不补入示例',async()=>{dbRequest.mockResolvedValueOnce([]);expect((await run(null,'GET')).body).toEqual({views:[],next:null});});
  it('「我的」只取本人发布的观点，可限制条数（个人中心取最新 5 条）',async()=>{
@@ -53,4 +53,50 @@ it('发布页：看涨｜中性｜看跌、一层 10 项逻辑、没有补充说
   expect(html).toContain('/shared/form.css');
   const css=readFileSync(new URL('../public/kandian/kandian.css',import.meta.url),'utf8');
   expect(css.match(/border-radius:(?!0|var\(--radius-card\)|50%)[^;}]+/g)).toBeNull();
+});
+
+describe('点赞',()=>{
+ const view2={...row,id:'1ea85713-b811-485e-af00-38e706425de9'};
+ it('列表带上每条观点的赞数与本人是否已赞',async()=>{
+  dbRequest.mockResolvedValueOnce([row,view2]).mockResolvedValueOnce({[row.id]:{count:3,liked:true}});
+  const res=await run(null,'GET');
+  expect(dbRequest.mock.calls[1][2]).toBe('rpc/like_summary');
+  expect(dbRequest.mock.calls[1][3]).toEqual({p_type:'view',p_ids:[row.id,view2.id]});
+  expect(res.body.views.map(v=>v.like)).toEqual([{count:3,liked:true},{count:0,liked:false}]);
+ });
+ it('点赞信息读不到（例如数据库还没更新）时列表照常返回，只是不带点赞',async()=>{
+  dbRequest.mockResolvedValueOnce([row]).mockRejectedValueOnce(new Error('missing function'));
+  const res=await run(null,'GET');
+  expect(res.code).toBe(200);expect(res.body.views).toHaveLength(1);expect(res.body.views[0].like).toBeUndefined();
+ });
+ it('点赞与取消：观点与看点文章；可以给自己的观点点赞；不需要发布凭证',async()=>{
+  delete process.env.KANDIAN_WRITE_TOKEN;
+  dbRequest.mockResolvedValueOnce({liked:true,count:1}).mockResolvedValueOnce({liked:false,count:0});
+  const a=await run({action:'like',type:'view',id:row.id.toUpperCase(),liked:true});
+  expect(a.code).toBe(200);expect(a.body).toEqual({like:{liked:true,count:1}});
+  expect(dbRequest.mock.calls[0].slice(2)).toEqual(['rpc/like_set',{p_type:'view',p_id:row.id,p_liked:true}]);
+  const b=await run({action:'like',type:'report',id:'20261023-noon',liked:false});
+  expect(b.body.like).toEqual({liked:false,count:0});
+  expect(dbRequest.mock.calls[1][3]).toEqual({p_type:'report',p_id:'20261023-noon',p_liked:false});
+ });
+ it('参数不对时拒绝，不写库；跨站请求 403',async()=>{
+  for(const body of [{action:'like',type:'view',id:'x',liked:true},{action:'like',type:'report',id:'../x',liked:true},{action:'like',type:'other',id:'20261023',liked:true},{action:'like',type:'report',id:'20261023',liked:'yes'}]) expect((await run(body)).code).toBe(400);
+  expect((await run({action:'like',type:'report',id:'20261023',liked:true},'POST',{origin:'https://evil.test',host:'site.test'})).code).toBe(403);
+  expect(dbRequest).not.toHaveBeenCalled();
+ });
+ it('刚发布的观点带 0 赞',async()=>{
+  dbRequest.mockResolvedValueOnce([]).mockResolvedValueOnce(row);
+  expect((await run()).body.view.like).toEqual({count:0,liked:false});
+ });
+});
+
+it('观点卡片：有点赞信息才显示点赞按钮；本人进行中的观点另有提前结束', async()=>{
+  const {cardHtml}=await import('../public/kandian/data.js');
+  const base={...row,createdAt:row.created_at,quoteAt:row.quote_at};
+  expect(cardHtml(base)).not.toContain('like-btn');
+  const liked=cardHtml({...base,like:{count:2,liked:true},canClose:true});
+  expect(liked).toMatch(/class="like-btn" data-like-type="view" data-like-id="9ea85713-b811-485e-af00-38e706425de8" data-like-count="2" aria-pressed="true"/);
+  expect(liked).toContain('<span>2</span>');expect(liked).toContain('data-close-view');
+  expect(cardHtml({...base,like:{count:0,liked:false}},true)).toContain('<span>赞</span>');
+  expect(cardHtml({...base,like:{count:0,liked:false},canClose:true},true)).not.toContain('data-close-view');
 });
