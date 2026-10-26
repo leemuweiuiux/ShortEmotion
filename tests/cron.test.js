@@ -225,6 +225,14 @@ describe("看点工作流", () => {
     expect(workflow).toContain("(github.event.schedule == '50 3 * * 1-5' || github.event.schedule == '10 4 * * 1-5') && 'noon'");
     expect(workflow).toContain("scripts/morning-report/generate-noon.mjs");
   });
+  it("收评备用：16:15、16:35，以及 17:30、19:00（避开 16 点前后模型服务繁忙）都走收评脚本", () => {
+    const workflow = readFileSync(resolve(root, ".github/workflows/morning-report.yml"), "utf8");
+    for (const cron of ["15,35 8 * * 1-5", "30 9 * * 1-5", "0 11 * * 1-5"]) {
+      expect(workflow).toContain(`cron: '${cron}'`);
+      expect(workflow).toContain(`github.event.schedule == '${cron}'`);
+    }
+    expect(workflow).toMatch(/github\.event\.schedule == '0 11 \* \* 1-5'\) && 'evening'/);
+  });
 });
 
 describe("工作流标题", () => {

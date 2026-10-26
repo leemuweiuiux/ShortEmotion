@@ -12,6 +12,30 @@ describe('看点模型调用', () => {
     expect(fetcher.mock.calls[0][0]).toBe('https://api.moonshot.cn/v1/chat/completions');
     expect(JSON.parse(fetcher.mock.calls[0][1].body)).not.toHaveProperty('api_key');
   });
+  it('429 限流 / 过载：按 Retry-After 或 10、30 秒等待后重试，成功就返回；日志写明错误类型', async () => {
+    const busy = (type, headers = {}) => new Response(JSON.stringify({ error: { type, message: 'The engine is currently overloaded, please try again later' } }), { status: 429, headers });
+    const ok = new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: '{"title":"收评"}' } }] }));
+    const fetcher = vi.fn().mockResolvedValueOnce(busy('engine_overloaded_error', { 'Retry-After': '5' })).mockResolvedValueOnce(busy('rate_limit_reached_error')).mockResolvedValueOnce(ok);
+    const sleep = vi.fn(async () => {}), log = vi.fn();
+    expect(await generateReportJson('p', [], { env, fetcher, sleep, log })).toEqual({ title: '收评' });
+    expect(sleep.mock.calls.map(([ms]) => ms)).toEqual([5000, 30000]);
+    expect(log.mock.calls[0][0]).toContain('engine_overloaded_error');
+    expect(log.mock.calls[1][0]).toContain('rate_limit_reached_error');
+  });
+  it('一直被拒：重试 4 次后失败，错误信息带上 HTTP 状态与错误类型', async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ error: { type: 'engine_overloaded_error', message: 'busy' } }), { status: 429 }));
+    const sleep = vi.fn(async () => {});
+    await expect(generateReportJson('p', [], { env, fetcher, sleep, log: () => {} })).rejects.toThrow('模型调用失败 HTTP 429（engine_overloaded_error：busy），已重试 4 次');
+    expect(fetcher).toHaveBeenCalledTimes(5);
+    expect(sleep.mock.calls.map(([ms]) => ms)).toEqual([10000, 30000, 60000, 90000]);
+  });
+  it('余额不足、参数错误不重试', async () => {
+    for (const [status, type] of [[429, 'exceeded_current_quota_error'], [400, 'invalid_request_error']]) {
+      const fetcher = vi.fn(async () => new Response(JSON.stringify({ error: { type, message: 'x' } }), { status }));
+      await expect(generateReportJson('p', [], { env, fetcher, sleep: async () => {}, log: () => {} })).rejects.toThrow(`HTTP ${status}（${type}：x）`);
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    }
+  });
   it('超时不自动重试，避免同一篇文章重复扣费', async () => {
     const fetcher = vi.fn(async () => { throw new DOMException('timeout', 'TimeoutError'); });
     await expect(generateReportJson('', [], { env, fetcher })).rejects.toThrow('超过10分钟');
