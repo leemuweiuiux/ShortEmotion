@@ -268,3 +268,11 @@ a.invite-entry:hover .row-link, a.invite-entry:focus-visible .row-link { color: 
 /* 都是本人发布的：不重复显示头像与昵称，只留发布时间 */
 .my-views .kd-avatar, .my-views .kd-author b { display: none; }
 .my-views .kd-author time { margin-left: 0; }
+
+/* 编辑页：昵称「换一个」（候选只是预览，按「保存」才生效；每 30 天一次） */
+.nickname-item { align-items: flex-start; }
+.nickname-value { color: var(--ink) !important; font-size: 16px; font-weight: 600; }
+.nickname-value.candidate { text-decoration: underline dashed; text-underline-offset: 4px; } /* 候选：还没保存 */
+.nickname-hint { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.nickname-shuffle { flex: none; min-height: 36px; padding: 0 12px; font-size: 14px; }
+.nickname-shuffle svg { width: 16px; height: 16px; }

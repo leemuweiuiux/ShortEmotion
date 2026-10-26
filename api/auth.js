@@ -7,7 +7,9 @@
 //   （浏览器只连本站：大陆手机网络、微信内置浏览器直连 supabase.co 时常失败）
 // POST /api/auth?action=session  body { access_token, refresh_token }：旧版登录页用：浏览器自己验证后，把凭证换成 HttpOnly cookie
 // POST /api/auth?action=logout   退出登录：注销这台设备的凭证并清除 cookie
-// GET  /api/auth?action=profile  个人资料（昵称、邮箱、电话区号与号码）；POST 同一地址保存电话（昵称不能改，不做手机验证码）
+// GET  /api/auth?action=profile  个人资料（昵称、邮箱、电话区号与号码）；POST 同一地址保存电话（不做手机验证码）
+// POST /api/auth?action=nickname-candidate  「换一个」：随机候选昵称（不保存）
+// POST /api/auth?action=nickname  { nickname }  换成候选昵称（每 30 天一次）
 // GET  /api/auth?action=points   积分余额、今天是否已签到、题材异动解锁到何时，以及最近 20 笔流水；带 before=<id> 时只返回更早的流水
 // POST /api/auth?action=signin   每日签到 +10，body { timezone }（浏览器所在时区，第一次签到后固定）
 // GET  /api/auth?action=invite-check&code=SE…  登录前检查邀请码：{ valid, name, reason, message }（不需要登录）
@@ -16,7 +18,7 @@
 import { pointsStatus, pointsSignin, pointsHistory } from "./_lib/points.js";
 import { inviteCheck, inviteMine, inviteRedeem } from "./_lib/invite.js";
 import { cleanEmail, cleanToken, sendOtp, verifyOtp } from "./_lib/login.js";
-import { authConfig, resolveSession, fetchUser, sessionCookies, clearSessionCookies, parseCookies, isSecureNodeRequest, ACCESS_COOKIE, readProfile, saveProfile, PHONE_COUNTRY_CODES } from "./_lib/session.js";
+import { authConfig, resolveSession, fetchUser, sessionCookies, clearSessionCookies, parseCookies, isSecureNodeRequest, ACCESS_COOKIE, readProfile, saveProfile, nicknameCandidate, changeNickname, PHONE_COUNTRY_CODES } from "./_lib/session.js";
 
 function readJson(body) {
   if (body && typeof body === "object" && !Buffer.isBuffer(body)) return body;
@@ -28,6 +30,15 @@ function sameOrigin(req) {
   const origin = req.headers?.origin;
   if (!origin) return true;
   try { return new URL(origin).host === req.headers?.host; } catch { return false; }
+}
+
+// 「换一个」每人每分钟最多 30 次（每次都查一次数据库）
+const candidateLimits = new Map();
+function permitCandidate(uid) {
+  const now = Date.now(), hit = candidateLimits.get(uid);
+  if (hit && hit.until > now && hit.count >= 30) throw Object.assign(new Error("换得太快了，请稍后再试"), { code: "rate_limited", statusCode: 429 });
+  if (candidateLimits.size > 10000) candidateLimits.clear();
+  candidateLimits.set(uid, hit && hit.until > now ? { ...hit, count: hit.count + 1 } : { count: 1, until: now + 60_000 });
 }
 
 function send(res, status, body, setCookies = []) {
@@ -73,6 +84,27 @@ export default async function handler(req, res) {
       send(res, 200, { profile, phoneCountryCodes: PHONE_COUNTRY_CODES }, session.setCookies);
     } catch (error) {
       send(res, error.statusCode || 503, { error: error.message, code: error.code || "auth_unavailable" });
+    }
+    return;
+  }
+
+  // 换昵称：「换一个」出随机候选（每人每分钟最多 30 次），「保存」换成候选（每 30 天一次，规则在数据库里）
+  if ((action === "nickname-candidate" || action === "nickname") && req.method === "POST") {
+    if (!config) return send(res, 404, { error: "登录未开启", code: "auth_disabled" });
+    if (!sameOrigin(req)) return send(res, 403, { error: "来源不允许", code: "forbidden" });
+    try {
+      const session = await resolveSession(req.headers?.cookie, { config, secure, clearOnFailure: false });
+      if (!session.user) return send(res, 401, { error: "请先登录", code: "login_required" }, session.setCookies);
+      if (!session.accessToken) return send(res, 503, { error: "登录服务暂时不可用，请稍后再试", code: "auth_unavailable" }, session.setCookies);
+      if (action === "nickname-candidate") {
+        permitCandidate(session.user.id);
+        return send(res, 200, { nickname: await nicknameCandidate(config, session.accessToken) }, session.setCookies);
+      }
+      const result = await changeNickname(config, session.accessToken, readJson(req.body).nickname);
+      console.log(`short-emotion nickname changed by user ${session.user.id}`);
+      send(res, 200, result, session.setCookies);
+    } catch (error) {
+      send(res, error.statusCode || 503, { error: error.message, code: error.code || "auth_unavailable", ...(error.nextChangeAt ? { nextChangeAt: error.nextChangeAt } : {}) });
     }
     return;
   }

@@ -224,15 +224,17 @@ export async function recordActivity(config, accessToken) {
 }
 
 // ── 个人资料 ──
-// 昵称：注册时由数据库随机分配、用户不能修改（public.profiles，见 supabase/migrations/20261026080000_nicknames.sql），经 profile_me 读取。
+// 昵称：注册时由数据库随机分配，用户不能自己填写（public.profiles，见 supabase/migrations/20261026080000_nicknames.sql），经 profile_me 读取；
+// 每 30 天可以换一个随机昵称（nickname_candidate 出候选、nickname_change 保存，见 20261026100000_nickname_change.sql）。
 // 电话：存在 Supabase 用户的 user_metadata，只存区号与号码，不做验证码校验。原来的「姓名」（full_name）不再读写。
 export const PHONE_COUNTRY_CODES = ["+86", "+886", "+852", "+853", "+1", "+44", "+60", "+61", "+65", "+81", "+82"];
 
-export function profileFromUser(payload, nickname = null) {
+export function profileFromUser(payload, me = null) {
   const meta = payload?.user_metadata || {};
   return {
     email: payload?.email || null,
-    nickname: nickname ? String(nickname) : null,
+    nickname: me?.nickname ? String(me.nickname) : null,
+    nicknameNextChangeAt: me?.nextChangeAt || null, // 下次可以换昵称的时间；null = 现在就能换
     phoneCountryCode: String(meta.phone_country_code || ""),
     phoneNumber: String(meta.phone_number || "")
   };
@@ -259,24 +261,51 @@ async function supabaseUserRequest(config, accessToken, init = {}) {
   return response.json();
 }
 
-/** 本人的昵称；读不到（例如数据库还没更新）时返回 null，不影响其余资料。 */
+async function profileRpc(config, accessToken, name, args = {}) {
+  const response = await fetch(`${config.url}/rest/v1/rpc/${name}`, {
+    method: "POST",
+    headers: { apikey: config.key, Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(args),
+    signal: AbortSignal.timeout(6_000)
+  });
+  if ([401, 403].includes(response.status)) throw Object.assign(new Error("登录已失效，请重新登录"), { code: "login_required", statusCode: 401 });
+  if (!response.ok) {
+    console.error(`short-emotion ${name} ${response.status}: ${(await response.text().catch(() => "")).slice(0, 200)}`);
+    throw unavailable(response.status);
+  }
+  return response.json();
+}
+
+/** 本人的昵称与下次可更换时间；读不到（例如数据库还没更新）时返回 null，不影响其余资料。 */
 async function readNickname(config, accessToken) {
   try {
-    const response = await fetch(`${config.url}/rest/v1/rpc/profile_me`, {
-      method: "POST",
-      headers: { apikey: config.key, Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json", Accept: "application/json" },
-      body: "{}",
-      signal: AbortSignal.timeout(6_000)
-    });
-    if (!response.ok) {
-      console.error(`short-emotion profile_me ${response.status}: ${(await response.text().catch(() => "")).slice(0, 200)}`);
-      return null;
-    }
-    return (await response.json())?.nickname || null;
+    return await profileRpc(config, accessToken, "profile_me");
   } catch (error) {
     console.error("short-emotion profile_me failed:", error?.message || error);
     return null;
   }
+}
+
+/** 「换一个」：一个随机候选昵称（不保存）。 */
+export async function nicknameCandidate(config, accessToken) {
+  return String((await profileRpc(config, accessToken, "nickname_candidate"))?.nickname || "");
+}
+
+const NICKNAME_ERRORS = {
+  too_soon: "昵称每 30 天只能更换一次",
+  invalid: "昵称只能从系统随机给出的候选里选",
+  taken: "这个昵称刚被别人用了，请再换一个"
+};
+/** 「保存」：换成候选昵称；不允许时抛出带 code 的错误（too_soon / invalid / taken）。返回 { nickname, nextChangeAt }。 */
+export async function changeNickname(config, accessToken, nickname) {
+  const value = String(nickname ?? "").trim();
+  if (!value || value.length > 12) throw Object.assign(new Error(NICKNAME_ERRORS.invalid), { code: "nickname_invalid", statusCode: 400 });
+  const result = await profileRpc(config, accessToken, "nickname_change", { p_nickname: value });
+  if (!result?.ok) {
+    const reason = NICKNAME_ERRORS[result?.reason] ? result.reason : "invalid";
+    throw Object.assign(new Error(NICKNAME_ERRORS[reason]), { code: `nickname_${reason}`, statusCode: reason === "too_soon" ? 429 : reason === "taken" ? 409 : 400, nextChangeAt: result?.nextChangeAt || null });
+  }
+  return { nickname: result.nickname, nextChangeAt: result.nextChangeAt || null };
 }
 
 export async function readProfile(config, accessToken) {
