@@ -34,7 +34,9 @@ let calls;
 let supabaseDown;
 let activity;
 let metadata;
+let nick;
 function installFetch() {
+  nick = { current: "沉静松柏", nextChangeAt: null };
   validTokens = new Set();
   validRefresh = new Map();
   calls = [];
@@ -66,7 +68,18 @@ function installFetch() {
     if (href === `${SUPABASE}/rest/v1/rpc/profile_me`) {
       const token = String(options.headers.Authorization).replace("Bearer ", "");
       if (!validTokens.has(token)) return new Response("{}", { status: 401 });
-      return Response.json({ nickname: "沉静松柏" });
+      return Response.json({ nickname: nick.current, nextChangeAt: nick.nextChangeAt });
+    }
+    if (href === `${SUPABASE}/rest/v1/rpc/nickname_candidate`) return Response.json({ nickname: "从容白鹭" });
+    if (href === `${SUPABASE}/rest/v1/rpc/nickname_change`) {
+      // 模拟数据库的规则：30 天一次、只认词库组合、不能和别人重复
+      const wanted = JSON.parse(options.body).p_nickname;
+      if (nick.nextChangeAt) return Response.json({ ok: false, reason: "too_soon", nickname: nick.current, nextChangeAt: nick.nextChangeAt });
+      if (wanted === "被占用了") return Response.json({ ok: false, reason: "taken", nickname: nick.current, nextChangeAt: null });
+      if (!["从容白鹭"].includes(wanted)) return Response.json({ ok: false, reason: "invalid", nickname: nick.current, nextChangeAt: null });
+      nick.current = wanted;
+      nick.nextChangeAt = "2026-11-25T00:00:00Z";
+      return Response.json({ ok: true, nickname: wanted, nextChangeAt: nick.nextChangeAt });
     }
     if (href === `${SUPABASE}/rest/v1/rpc/record_activity`) {
       const token = String(options.headers.Authorization).replace("Bearer ", "");
@@ -354,13 +367,13 @@ describe("个人资料 /account", () => {
   it("读取与保存：昵称由数据库分配、只读；电话区号与号码存在 Supabase 用户资料；邮箱只读", async () => {
     const cookie = loggedIn({ email: "a@b.co" });
     const empty = await call(authApi, { query: { action: "profile" }, cookie });
-    expect(empty.body.profile).toEqual({ email: "a@b.co", nickname: "沉静松柏", phoneCountryCode: "", phoneNumber: "" });
+    expect(empty.body.profile).toEqual({ email: "a@b.co", nickname: "沉静松柏", nicknameNextChangeAt: null, phoneCountryCode: "", phoneNumber: "" });
 
     // 传进来的姓名、昵称、邮箱一律忽略，只存电话
     const saved = await call(authApi, { method: "POST", query: { action: "profile" }, cookie, headers: origin,
       body: { name: "李牧微", nickname: "我自己取", phoneCountryCode: "+886", phoneNumber: "0912-345 678", email: "hacker@x.com" } });
     expect(saved.statusCode).toBe(200);
-    expect(saved.body.profile).toEqual({ email: "a@b.co", nickname: "沉静松柏", phoneCountryCode: "+886", phoneNumber: "0912345678" });
+    expect(saved.body.profile).toEqual({ email: "a@b.co", nickname: "沉静松柏", nicknameNextChangeAt: null, phoneCountryCode: "+886", phoneNumber: "0912345678" });
     expect(metadata.get("user-1")).toEqual({ phone_country_code: "+886", phone_number: "0912345678" });
 
     const again = await call(authApi, { query: { action: "profile" }, cookie });
@@ -372,7 +385,7 @@ describe("个人资料 /account", () => {
     globalThis.fetch = vi.fn(async (url, options) => String(url).endsWith("/rpc/profile_me") ? new Response("missing", { status: 404 }) : realFetch(url, options));
     const res = await call(authApi, { query: { action: "profile" }, cookie: loggedIn({ email: "a@b.co" }) });
     expect(res.statusCode).toBe(200);
-    expect(res.body.profile).toEqual({ email: "a@b.co", nickname: null, phoneCountryCode: "", phoneNumber: "" });
+    expect(res.body.profile).toEqual({ email: "a@b.co", nickname: null, nicknameNextChangeAt: null, phoneCountryCode: "", phoneNumber: "" });
   });
 
   it("检查输入；未登录 401；别的网站发来 403", async () => {
@@ -382,6 +395,39 @@ describe("个人资料 /account", () => {
     expect(bad.body.code).toBe("invalid_profile");
     expect((await call(authApi, { query: { action: "profile" } })).statusCode).toBe(401);
     expect((await call(authApi, { method: "POST", query: { action: "profile" }, cookie, headers: { origin: "https://evil.com" }, body: {} })).statusCode).toBe(403);
+  });
+
+  it("换昵称：「换一个」给随机候选；保存后 30 天内不能再换；不是词库组合、被别人占用时拒绝", async () => {
+    const cookie = loggedIn();
+    const candidate = await call(authApi, { method: "POST", query: { action: "nickname-candidate" }, cookie, headers: origin });
+    expect(candidate.body).toEqual({ nickname: "从容白鹭" });
+
+    const free = await call(authApi, { method: "POST", query: { action: "nickname" }, cookie, headers: origin, body: { nickname: "我自己取的" } });
+    expect(free.statusCode).toBe(400);
+    expect(free.body.code).toBe("nickname_invalid");
+    const taken = await call(authApi, { method: "POST", query: { action: "nickname" }, cookie, headers: origin, body: { nickname: "被占用了" } });
+    expect(taken.statusCode).toBe(409);
+    expect(taken.body.code).toBe("nickname_taken");
+
+    const changed = await call(authApi, { method: "POST", query: { action: "nickname" }, cookie, headers: origin, body: { nickname: "从容白鹭" } });
+    expect(changed.statusCode).toBe(200);
+    expect(changed.body).toEqual({ nickname: "从容白鹭", nextChangeAt: "2026-11-25T00:00:00Z" });
+    expect((await call(authApi, { query: { action: "profile" }, cookie })).body.profile).toMatchObject({ nickname: "从容白鹭", nicknameNextChangeAt: "2026-11-25T00:00:00Z" });
+
+    const again = await call(authApi, { method: "POST", query: { action: "nickname" }, cookie, headers: origin, body: { nickname: "从容白鹭" } });
+    expect(again.statusCode).toBe(429);
+    expect(again.body).toMatchObject({ code: "nickname_too_soon", nextChangeAt: "2026-11-25T00:00:00Z" });
+  });
+
+  it("换昵称：只接受本站 POST、需要登录；「换一个」每分钟最多 30 次", async () => {
+    expect((await call(authApi, { method: "GET", query: { action: "nickname-candidate" }, cookie: loggedIn() })).statusCode).not.toBe(200);
+    expect((await call(authApi, { method: "POST", query: { action: "nickname" }, cookie: loggedIn(), headers: { origin: "https://evil.com" }, body: { nickname: "从容白鹭" } })).statusCode).toBe(403);
+    expect((await call(authApi, { method: "POST", query: { action: "nickname-candidate" }, headers: origin })).statusCode).toBe(401);
+    const cookie = loggedIn({ email: "many@b.co" });
+    const codes = [];
+    for (let i = 0; i < 31; i += 1) codes.push((await call(authApi, { method: "POST", query: { action: "nickname-candidate" }, cookie, headers: origin })).statusCode);
+    expect(codes.filter((code) => code === 200).length).toBeLessThanOrEqual(30);
+    expect(codes.at(-1)).toBe(429);
   });
 
   it("不填电话时不存区号", async () => {

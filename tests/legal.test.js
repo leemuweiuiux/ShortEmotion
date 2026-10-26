@@ -28,11 +28,12 @@ describe("用户协议与隐私政策页面", () => {
     }
   });
 
-  it("昵称与点赞（1.1 版）：不再写匿名代号与可修改姓名，写明昵称由系统分配、点赞只显示总数", () => {
+  it("昵称与点赞（1.1 版起）：不再写匿名代号与可修改姓名，写明昵称由系统分配、点赞只显示总数；1.2 版加上每 30 天换昵称与更换记录", () => {
     const privacy = read("public/privacy/index.html");
     const terms = read("public/terms/index.html");
     for (const html of [privacy, terms]) {
-      expect(html).toContain("<span>版本 1.1</span>");
+      expect(html).toContain("<span>版本 1.2</span>");
+      expect(html).toContain("每 30 天");
       expect(html).not.toContain("匿名代号");
       expect(html).not.toContain("个人页面");
     }
@@ -40,6 +41,7 @@ describe("用户协议与隐私政策页面", () => {
     expect(privacy).toContain("<h3>7. 点赞记录</h3>");
     expect(privacy).toContain("看不到是谁点的");
     expect(privacy).toContain("此前填写的姓名");
+    expect(privacy).toContain("昵称的更换记录（原昵称、新昵称与更换时间）");
     expect(terms).toContain("以你的昵称");
   });
 
