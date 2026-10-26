@@ -1,9 +1,12 @@
 // 唯一的历史日数据仓库：候选数据逐步补齐，整批校验后原子发布。
+// 部分发布（2026-10-26 与产品确认）：个别板块始终补不齐时，至少 80% 板块完整就先发布完整的那些（status = partial），
+// 补不齐的板块暂不显示 5 日 / 20 日，之后按重试规则继续补；交易日历有问题时仍然整批不发布。
 import { isValue, parseDailyTables, WINDOW_KEY } from './dashboard.js';
 import { isExcludedBoard } from './boards.js';
 export const HISTORY_KEY = 'sectorflow:history:v3';
 const RETRY_MS = 30 * 60_000;
 const MAX_ATTEMPTS = 6;
+const PARTIAL_MIN = 0.8; // 部分发布：至少这么多比例的板块完整
 const dayOf = (v) => String(v || '').replace(/\D/g, '').slice(0, 8);
 const pct = (amount, turnover) => turnover > 0 ? Math.round(amount / turnover * 100000) / 1000 : amount === 0 && turnover === 0 ? 0 : null;
 const good = (p) => p && isValue(p.amount) && isValue(p.turnover) && Number(p.turnover) >= 0 && (Number(p.turnover) > 0 || Number(p.amount) === 0);
@@ -26,6 +29,20 @@ export function calendarDates(payload, day, closed) {
     }
   }
   return [...new Set(dates)].sort().slice(-20);
+}
+
+/** 自然语言接口按名称认错了证券（例如「Kimi」被认成马来西亚股票 0210.KL）：返回的表格有代码栏，但没有一行是要查的代码。 */
+export function resolvedElsewhere(payload, expectedCode) {
+  const text = payload?.content?.find?.((c) => c.type === 'text')?.text;
+  if (text) { try { payload = JSON.parse(text); } catch { return false; } }
+  const value = payload?.data?.data ?? payload?.data ?? payload;
+  const codes = new Set();
+  for (const table of Array.isArray(value) ? value : [value]) {
+    const index = table?.columns?.findIndex?.((c) => /^(Wind代码|证券代码|windcode)$/i.test(c.name));
+    if (index == null || index < 0 || !Array.isArray(table.rows)) continue;
+    for (const row of table.rows) if (row[index]) codes.add(String(row[index]).toUpperCase());
+  }
+  return codes.size > 0 && !codes.has(String(expectedCode).toUpperCase());
 }
 
 export function auditHistory(dates, series, boards) {
@@ -101,6 +118,13 @@ export async function refreshHistory(store, engine, snapshot, { now = new Date()
           const payload = await engine.windCall('analytics_data', 'get_financial_data', { question: `${board.name}（${board.code}）从${batch[0]}至${batch.at(-1)}每个交易日的主力净流入额和成交额，按日期逐日返回完整明细，金额单位为元，不要区间汇总、不要省略记录。` });
           const parsed = parseDailyTables(payload, 80, day, board.code);
           for (const p of parsed) if (batch.includes(p.date) && good(p)) points.set(p.date, normalize(p));
+          // 名称撞到别的证券时，当场改用代码再查一次（不等下一轮）
+          if (batch.some((d) => !good(points.get(d))) && resolvedElsewhere(payload, board.code)) {
+            try {
+              const byCode = await engine.windCall('analytics_data', 'get_financial_data', { question: `Wind代码为${board.code}的指数从${batch[0]}至${batch.at(-1)}每个交易日的主力净流入额和成交额，按日期逐日返回完整明细，金额单位为元，不要区间汇总、不要省略记录。` });
+              for (const p of parseDailyTables(byCode, 80, day, board.code)) if (batch.includes(p.date) && good(p)) points.set(p.date, normalize(p));
+            } catch (error) { state.errors.push(`${board.code} ${batch.join(',')} 按代码: ${String(error.message).slice(0, 160)}`); }
+          }
           // 自然语言接口偶尔将区间查询解析为空结果，第二轮起仅对残余日期降级单日查询。
           if (state.attempts > 1) for (const date of batch.filter((d) => !good(points.get(d)))) {
             try {
@@ -126,6 +150,14 @@ export async function refreshHistory(store, engine, snapshot, { now = new Date()
       state.published = { dates, series: state.draft.series, asOf: dates.at(-1), publishedAt: now.toISOString(), version: `${dates.at(-1)}-${now.getTime()}` };
       state.status = 'complete';
       state.nextRetryAt = null;
+    } else if (!state.issues.some((i) => !i.code)) {
+      // 只有个别板块补不齐：完整的板块够多就先发布它们，其余之后再补
+      const pending = new Set(state.issues.map((i) => i.code));
+      const ready = state.draft.series.filter((s) => !pending.has(s.code));
+      if (ready.length >= Math.ceil(boards.length * PARTIAL_MIN)) {
+        state.published = { dates, series: ready, asOf: dates.at(-1), publishedAt: now.toISOString(), version: `${dates.at(-1)}-${now.getTime()}`, pendingCodes: [...pending] };
+        state.status = 'partial';
+      }
     }
   } catch (error) { state.errors.push(String(error.message).slice(0, 200)); }
   await checkpoint();
