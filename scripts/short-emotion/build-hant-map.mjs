@@ -19,6 +19,9 @@ const sources = [
   "public/account/points.js",
   "public/account/invite/index.html",
   "public/account/invite.js",
+  "public/account/settings/index.html",
+  "public/account/settings.js",
+  "supabase/migrations/20261026080000_nicknames.sql", // 昵称词库：个人中心显示昵称时也要转繁体
   "public/shared/invite-entry.js",
   "api/_lib/invite.js",
   "api/auth.js",
@@ -42,7 +45,7 @@ export const HANT = ${JSON.stringify(map)};
 export const HANT_FIXES = [
   [/臺/g, "台"], [/拉昇/g, "拉升"], [/軟件/g, "軟體"], [/網絡/g, "網路"], [/鍾/g, "鐘"],
   // 登录界面：台湾用语
-  [/退出登錄/g, "登出"], [/登錄/g, "登入"], [/賬號/g, "帳號"], [/郵箱/g, "信箱"], [/注冊/g, "註冊"], [/接口/g, "介面"], [/聯系/g, "聯繫"]
+  [/退出登錄/g, "登出"], [/登錄/g, "登入"], [/賬號/g, "帳號"], [/郵箱/g, "信箱"], [/注冊/g, "註冊"], [/接口/g, "介面"], [/聯系/g, "聯繫"], [/設置/g, "設定"]
 ];
 `;
 await writeFile("public/short-emotion/hant-map.js", output);

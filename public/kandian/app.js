@@ -2,7 +2,10 @@ import { DIRECTIONS, HORIZONS, LOGIC_TAGS, cardHtml, escapeHtml } from "./data.j
 import { toast, goLogin } from "/shared/nav-account.js?v=2";
 
 const $ = (s) => document.querySelector(s);
-let filter = "all";
+// 筛选：最新 / 看涨 / 中性 / 看跌 / 我的（只看本人发布的，个人中心「查看全部」带 ?filter=mine 进来）
+const FILTERS = ["all", "bullish", "neutral", "bearish", "mine"];
+const params = new URLSearchParams(location.search);
+let filter = FILTERS.includes(params.get("filter")) ? params.get("filter") : "all";
 let views = [];
 let next = null;
 let loading = false;
@@ -16,8 +19,9 @@ const tags = new Set();
 const dialog = $("#kd-compose");
 
 function renderFeed() {
-  const filtered = views.filter((v) => filter === "all" || v.direction === filter);
-  $("#kd-feed").innerHTML = filtered.length ? filtered.map((v) => cardHtml(v)).join("") : '<div class="empty">还没有这个方向的看点，来留下你的判断。</div>';
+  const filtered = views.filter((v) => filter === "all" || filter === "mine" || v.direction === filter);
+  const empty = filter === "mine" ? "你还没有发布过看点，来留下你的第一个判断。" : "还没有这个方向的看点，来留下你的判断。";
+  $("#kd-feed").innerHTML = filtered.length ? filtered.map((v) => cardHtml(v)).join("") : `<div class="empty">${empty}</div>`;
 }
 
 async function api(body, before) {
@@ -149,5 +153,15 @@ $("#kd-form").addEventListener("submit", async (event) => {
   window.scrollTo({ top: 0, behavior: "smooth" });
   loadFeed();
 });
-if (new URLSearchParams(location.search).get("tab") === "views") loadFeed();
+$("#kd-filter").value = filter;
+if (params.get("tab") === "views") {
+  loadFeed();
+  // 个人中心「去发布」：/kandian?tab=views&compose=1 直接打开发布框（打开后从网址去掉，刷新不会再弹）
+  if (params.get("compose") === "1") {
+    params.delete("compose");
+    history.replaceState(null, "", `${location.pathname}?${params}`);
+    $("#kd-error").textContent = "";
+    dialog.showModal();
+  }
+}
 renderTags();

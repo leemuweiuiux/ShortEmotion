@@ -7,7 +7,7 @@
 //   （浏览器只连本站：大陆手机网络、微信内置浏览器直连 supabase.co 时常失败）
 // POST /api/auth?action=session  body { access_token, refresh_token }：旧版登录页用：浏览器自己验证后，把凭证换成 HttpOnly cookie
 // POST /api/auth?action=logout   退出登录：注销这台设备的凭证并清除 cookie
-// GET  /api/auth?action=profile  个人资料（姓名、邮箱、电话区号与号码）；POST 同一地址保存（不做手机验证码）
+// GET  /api/auth?action=profile  个人资料（昵称、邮箱、电话区号与号码）；POST 同一地址保存电话（昵称不能改，不做手机验证码）
 // GET  /api/auth?action=points   积分余额、今天是否已签到、题材异动解锁到何时，以及最近 20 笔流水；带 before=<id> 时只返回更早的流水
 // POST /api/auth?action=signin   每日签到 +10，body { timezone }（浏览器所在时区，第一次签到后固定）
 // GET  /api/auth?action=invite-check&code=SE…  登录前检查邀请码：{ valid, name, reason, message }（不需要登录）
@@ -59,7 +59,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  // 个人资料：GET 读取，POST 保存（姓名、电话；邮箱只读）
+  // 个人资料：GET 读取，POST 保存电话（昵称、邮箱只读）
   if (action === "profile" && (req.method === "GET" || req.method === "POST")) {
     if (!config) return send(res, 404, { error: "登录未开启", code: "auth_disabled" });
     if (req.method === "POST" && !sameOrigin(req)) return send(res, 403, { error: "来源不允许", code: "forbidden" });

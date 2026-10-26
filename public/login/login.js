@@ -4,7 +4,7 @@
 // 浏览器只连本站：大陆手机网络、微信内置浏览器直连 supabase.co 时常失败（只显示「网络连接失败」）。
 // 邀请码（选填）：从邀请链接来的会自动填好（链接 ?invite= 或介绍页记下的 localStorage「se_invite」）；
 //   按「发送验证码」时先检查能不能用；登录完成后才上报（POST /api/auth?action=invite-redeem），失败只提示、不影响登录。
-import { initLanguage, setText } from "/shared/lang.js?v=17";
+import { initLanguage, setText } from "/shared/lang.js?v=18";
 
 const $ = (selector) => document.querySelector(selector);
 initLanguage();
@@ -53,7 +53,7 @@ async function checkInvite(code) {
   return response.json();
 }
 
-/** 邀请码下方的说明：「李牧微 邀请你加入……」或不能用的原因。姓名原样显示。 */
+/** 邀请码下方的说明：「沉静松柏 邀请你加入……」或不能用的原因。邀请人显示昵称（系统分配），跟随简繁设置。 */
 function renderInviteNote(result) {
   inviteNote.textContent = "";
   inviteNote.hidden = !result;
@@ -63,7 +63,7 @@ function renderInviteNote(result) {
   inviteNote.classList.toggle("bad", !result.valid);
   if (!result.valid) return setText(inviteNote, result.message || "邀请码无效，请检查后再试");
   const who = document.createElement("b");
-  if (result.name) who.textContent = result.name;
+  if (result.name) setText(who, result.name);
   else setText(who, "好友");
   const parts = [who, document.createElement("span"), document.createElement("em"), document.createElement("span")];
   setText(parts[1], " 邀请你加入：注册并完成第一次签到，双方各得 ");
@@ -291,7 +291,7 @@ async function redeemInvite(code) {
     const who = document.createElement("b");
     const rest = document.createElement("span");
     setText(lead, "已接受 ");
-    if (payload.name) who.textContent = payload.name;
+    if (payload.name) setText(who, payload.name);
     else setText(who, "好友");
     setText(rest, ` 的邀请：完成第一次签到，你们各得 ${payload.reward || 50} 积分。`);
     done.append(lead, who, rest);

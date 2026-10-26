@@ -223,30 +223,29 @@ export async function recordActivity(config, accessToken) {
   }
 }
 
-// ── 个人资料（存在 Supabase 用户的 user_metadata，不另建表）──
-// 姓名写 full_name 与 display_name（Supabase 后台「Display name」会显示）；电话只存区号与号码，不做验证码校验。
+// ── 个人资料 ──
+// 昵称：注册时由数据库随机分配、用户不能修改（public.profiles，见 supabase/migrations/20261026080000_nicknames.sql），经 profile_me 读取。
+// 电话：存在 Supabase 用户的 user_metadata，只存区号与号码，不做验证码校验。原来的「姓名」（full_name）不再读写。
 export const PHONE_COUNTRY_CODES = ["+86", "+886", "+852", "+853", "+1", "+44", "+60", "+61", "+65", "+81", "+82"];
 
-export function profileFromUser(payload) {
+export function profileFromUser(payload, nickname = null) {
   const meta = payload?.user_metadata || {};
   return {
     email: payload?.email || null,
-    name: String(meta.full_name || meta.display_name || meta.name || ""),
+    nickname: nickname ? String(nickname) : null,
     phoneCountryCode: String(meta.phone_country_code || ""),
     phoneNumber: String(meta.phone_number || "")
   };
 }
 
-/** 检查并整理要保存的资料；有问题时抛出带 code 的错误。 */
+/** 检查并整理要保存的资料（只有电话；昵称不能改，传进来也忽略）；有问题时抛出带 code 的错误。 */
 export function cleanProfile(input = {}) {
   const fail = (message) => { throw Object.assign(new Error(message), { code: "invalid_profile", statusCode: 400 }); };
-  const name = String(input.name ?? "").trim().replace(/\s+/g, " ");
   const phoneCountryCode = String(input.phoneCountryCode ?? "").trim();
   const phoneNumber = String(input.phoneNumber ?? "").replace(/[\s-]/g, "");
-  if (name.length > 40) fail("姓名最多 40 个字");
   if (phoneNumber && !/^\d{4,15}$/.test(phoneNumber)) fail("手机号只能是 4–15 位数字");
   if (phoneNumber && !/^\+\d{1,4}$/.test(phoneCountryCode)) fail("请选择区号");
-  return { name, phoneCountryCode: phoneNumber ? phoneCountryCode : "", phoneNumber };
+  return { phoneCountryCode: phoneNumber ? phoneCountryCode : "", phoneNumber };
 }
 
 async function supabaseUserRequest(config, accessToken, init = {}) {
@@ -260,18 +259,39 @@ async function supabaseUserRequest(config, accessToken, init = {}) {
   return response.json();
 }
 
+/** 本人的昵称；读不到（例如数据库还没更新）时返回 null，不影响其余资料。 */
+async function readNickname(config, accessToken) {
+  try {
+    const response = await fetch(`${config.url}/rest/v1/rpc/profile_me`, {
+      method: "POST",
+      headers: { apikey: config.key, Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json", Accept: "application/json" },
+      body: "{}",
+      signal: AbortSignal.timeout(6_000)
+    });
+    if (!response.ok) {
+      console.error(`short-emotion profile_me ${response.status}: ${(await response.text().catch(() => "")).slice(0, 200)}`);
+      return null;
+    }
+    return (await response.json())?.nickname || null;
+  } catch (error) {
+    console.error("short-emotion profile_me failed:", error?.message || error);
+    return null;
+  }
+}
+
 export async function readProfile(config, accessToken) {
-  return profileFromUser(await supabaseUserRequest(config, accessToken));
+  const [user, nickname] = await Promise.all([supabaseUserRequest(config, accessToken), readNickname(config, accessToken)]);
+  return profileFromUser(user, nickname);
 }
 
 export async function saveProfile(config, accessToken, input) {
   const profile = cleanProfile(input);
-  const payload = await supabaseUserRequest(config, accessToken, {
-    method: "PUT",
-    body: JSON.stringify({ data: {
-      full_name: profile.name, display_name: profile.name,
-      phone_country_code: profile.phoneCountryCode, phone_number: profile.phoneNumber
-    } })
-  });
-  return profileFromUser(payload);
+  const [payload, nickname] = await Promise.all([
+    supabaseUserRequest(config, accessToken, {
+      method: "PUT",
+      body: JSON.stringify({ data: { phone_country_code: profile.phoneCountryCode, phone_number: profile.phoneNumber } })
+    }),
+    readNickname(config, accessToken)
+  ]);
+  return profileFromUser(payload, nickname);
 }

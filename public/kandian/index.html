@@ -16,7 +16,7 @@
     <main>
       <div class="kd-toolbar">
       <nav class="mr-tabs" aria-label="内容类型"><a href="/kandian?tab=reports" id="reports-tab">要闻</a><a href="/kandian?tab=views" id="views-tab">观点</a></nav>
-      <div class="kd-filters"><select id="kd-filter" aria-label="观点筛选"><option value="all">最新</option><option value="bullish">看涨</option><option value="neutral">中性</option><option value="bearish">看跌</option></select></div>
+      <div class="kd-filters"><select id="kd-filter" aria-label="观点筛选"><option value="all">最新</option><option value="bullish">看涨</option><option value="neutral">中性</option><option value="bearish">看跌</option><option value="mine">我的</option></select></div>
       </div>
       <section id="reports-panel"><div id="morning-report-feed" aria-live="polite"></div><button id="morning-report-more" type="button">加载更多</button></section>
       <div id="views-panel">
@@ -39,6 +39,6 @@
     </form>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/kandian/app.js?v=4"></script>
+  <script type="module" src="/kandian/app.js?v=5"></script>
 <script>const reports=new URLSearchParams(location.search).get('tab')!=='views';document.querySelector('#reports-panel').hidden=!reports;document.querySelector('#views-panel').hidden=reports;document.querySelector('.kd-filters').hidden=reports;document.querySelector('.kd-publish-bar').hidden=reports;document.querySelector(reports?'#reports-tab':'#views-tab').setAttribute('aria-current','page');</script><script type="module" src="/kandian/reports.js?v=7"></script></body>
 </html>

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#ffffff">
   <meta name="robots" content="noindex">
-  <title>个人页面 · ShortEmotion</title>
+  <title>个人中心 · ShortEmotion</title>
   <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
   <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
@@ -22,14 +22,19 @@
       if (lang !== "hans" && lang !== "hant") lang = /^zh-(tw|hk|mo|hant)/i.test(navigator.language || "") ? "hant" : "hans";
       root.dataset.lang = lang;
       if (lang === "hant") root.lang = "zh-Hant-TW";
+      // 观点卡片的看涨 / 看跌颜色：跟看板的「红涨绿跌 / 绿涨红跌」设置一致
+      if (get("twsvp_price_scheme") === "green_up") {
+        root.style.setProperty("--price-up", "#76BB40");
+        root.style.setProperty("--price-down", "#FF4015");
+      }
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/about/about.css?v=11">
   <link rel="stylesheet" href="/shared/form.css?v=1">
-  <link rel="stylesheet" href="/account/account.css?v=12">
-  <link rel="stylesheet" href="/legal/legal.css?v=2">
+  <link rel="stylesheet" href="/kandian/kandian.css?v=5">
+  <link rel="stylesheet" href="/account/account.css?v=13">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -39,17 +44,27 @@
     <a id="back" class="subnav-btn" href="/home" aria-label="返回">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </a>
-    <div class="subnav-title">个人页面</div>
+    <div class="subnav-title">个人中心</div>
+    <a class="subnav-btn" href="/account/settings" aria-label="设置" title="设置">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
   </nav>
 
   <main class="sub-frame">
+    <!-- 基本信息：昵称注册时由系统随机分配、不能修改；编辑页只改电话 -->
     <section class="sub-card">
       <div class="card-row">
-        <div class="section-title">个人信息</div>
+        <div class="section-title">基本信息</div>
         <a class="row-link" href="/account/edit">编辑<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
       </div>
+      <div class="profile-head">
+        <span id="profile-avatar" class="profile-avatar" aria-hidden="true"></span>
+        <div class="profile-name">
+          <strong id="info-nickname">读取中…</strong>
+          <small>昵称由系统随机分配，不可修改</small>
+        </div>
+      </div>
       <dl class="info-list">
-        <div><dt>姓名</dt><dd id="info-name">读取中…</dd></div>
         <div><dt>邮箱</dt><dd id="info-email">读取中…</dd></div>
         <div><dt>电话</dt><dd id="info-phone">读取中…</dd></div>
       </dl>
@@ -58,7 +73,7 @@
     <section class="sub-card points-card">
       <div class="points-head">
         <div class="points-meta">
-          <span>我的积分</span>
+          <span>剩余积分</span>
           <strong id="points-balance">—</strong>
         </div>
         <button id="signin" class="btn-primary" type="button" disabled>签到 +10</button>
@@ -75,32 +90,18 @@
       <p class="invite-entry-copy">好友完成首次签到，双方各得 <em>50</em> 积分。</p>
     </a>
 
-    <section class="sub-card appearance-card">
+    <!-- 我发布的观点：最新 5 条；没有时引导去发布（直接打开看点的发布框） -->
+    <section class="sub-card my-views-card">
       <div class="card-row">
-        <div class="section-title">外观</div>
-        <div class="theme-switch" role="radiogroup" aria-label="外观">
-          <button type="button" role="radio" aria-checked="false" data-theme-choice="light">白版</button>
-          <button type="button" role="radio" aria-checked="false" data-theme-choice="dark">黑版</button>
-          <button type="button" role="radio" aria-checked="false" data-theme-choice="auto">自适应</button>
-        </div>
+        <div class="section-title">我发布的观点</div>
+        <a id="views-all" class="row-link" href="/kandian?tab=views&amp;filter=mine" hidden>查看全部<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
       </div>
-      <p class="theme-hint">自适应跟随手机或电脑的深浅色设置；只对这台设备的浏览器生效。</p>
+      <div id="my-views" class="my-views" aria-live="polite"><p class="my-views-note">读取中…</p></div>
     </section>
-
-    <section class="sub-card ledger-card">
-      <div class="card-row">
-        <div class="section-title">积分流水</div>
-        <a class="row-link" href="/account/points">查看全部<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
-      </div>
-      <ol id="ledger" class="ledger-list"><li class="ledger-empty">读取中…</li></ol>
-    </section>
-
-    <button id="logout" class="logout-link" type="button">退出登录</button>
-    <footer class="legal-links"><a href="/terms">用户协议</a><span aria-hidden="true">·</span><a href="/privacy">隐私政策</a></footer>
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/account/account.js?v=22"></script>
+  <script type="module" src="/account/account.js?v=23"></script>
 </body>
 </html>

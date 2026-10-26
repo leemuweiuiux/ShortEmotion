@@ -1,21 +1,20 @@
-// 编辑个人信息 /account/edit：姓名、邮箱（只读）、电话区号与手机号（不做验证码）。
+// 编辑个人信息 /account/edit：昵称与邮箱只读（昵称注册时由系统随机分配，不能改），电话区号与手机号可改（不做验证码）。
 // 右上角「保存」；有未保存的修改时点返回，先问是否保存。
-import { $, setText, toast, readProfile, saveProfile, askChoice } from "/account/common.js?v=8";
+import { $, setText, toast, readProfile, saveProfile, askChoice } from "/account/common.js?v=9";
 
 const form = $("#profile-form");
 const saveButton = $("#save");
-const nameInput = $("#name");
 const countrySelect = $("#phone-country");
 const phoneInput = $("#phone");
 let saved = null; // 最近一次读取或保存成功的内容
 let leaving = false; // 已在返回确认里选过，不再触发浏览器的离开提示
 
-const current = () => ({ name: nameInput.value.trim(), phoneCountryCode: countrySelect.value, phoneNumber: phoneInput.value.trim() });
+const current = () => ({ phoneCountryCode: countrySelect.value, phoneNumber: phoneInput.value.trim() });
 const dirty = () => Boolean(saved) && JSON.stringify(current()) !== JSON.stringify(saved);
 
 function fill(profile) {
+  setText($("#nickname"), profile.nickname || "—");
   setText($("#email"), profile.email || "—");
-  nameInput.value = profile.name || "";
   const fallback = document.documentElement.dataset.lang === "hant" ? "+886" : "+86";
   const code = profile.phoneCountryCode || fallback;
   if (![...countrySelect.options].some((option) => option.value === code)) countrySelect.add(new Option(code, code));

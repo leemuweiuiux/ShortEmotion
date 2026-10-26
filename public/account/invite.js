@@ -1,7 +1,7 @@
-// 邀请好友 /account/invite：我的邀请卡（姓名、邀请码、二维码）、分享邀请卡（生成图片）、复制邀请链接、邀请记录。
+// 邀请好友 /account/invite：我的邀请卡（昵称、邀请码、二维码）、分享邀请卡（生成图片）、复制邀请链接、邀请记录。
 // 邀请码只出现在这张邀请卡上；看板与个股分析的长图、小卡都不带邀请码。
 // 邀请链接 = 介绍页 /about?invite=SE…：朋友先看懂产品，登录页会自动填好邀请码。
-import { $, toast, authRequest, setText } from "/account/common.js?v=8";
+import { $, toast, authRequest, setText } from "/account/common.js?v=9";
 
 const shareButton = $("#share-card");
 const copyButton = $("#copy-link");
@@ -40,7 +40,7 @@ function renderFriends(friends) {
   for (const friend of friends) {
     const item = document.createElement("li");
     item.innerHTML = '<span class="ledger-what"><b></b><small></small></span><span class="friend-status"></span>';
-    item.querySelector("b").textContent = friend.label || "新用户"; // 姓名或打码邮箱：原样显示，不做简繁转换
+    setText(item.querySelector("b"), friend.label || "新用户"); // 好友昵称（没有时为打码邮箱），跟随简繁设置
     setText(item.querySelector("small"), `${dateLabel(friend.joinedAt)} 注册`);
     const status = item.querySelector(".friend-status");
     status.classList.toggle("done", Boolean(friend.rewarded));
@@ -58,10 +58,7 @@ function renderFriends(friends) {
 function render(data) {
   invite = data;
   link = `${SITE}/about?invite=${encodeURIComponent(data.code)}`;
-  const name = $("#ic-name");
-  if (data.name) name.textContent = data.name; // 姓名原样显示
-  else setText(name, "好友");
-  $("#name-hint").hidden = Boolean(data.name);
+  setText($("#ic-name"), data.name || "好友"); // 昵称：注册时由系统分配，跟随简繁设置
   $("#ic-code").textContent = data.code;
   $("#ic-qr").innerHTML = window.qrcode ? qrSvg(link) : "";
   $("#invite-link").textContent = link;

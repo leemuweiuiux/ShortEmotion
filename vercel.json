@@ -46,6 +46,8 @@
     {"source": "/account/edit/", "destination": "/account/edit/index.html"},
     {"source": "/account/points", "destination": "/account/points/index.html"},
     {"source": "/account/points/", "destination": "/account/points/index.html"},
+    {"source": "/account/settings", "destination": "/account/settings/index.html"},
+    {"source": "/account/settings/", "destination": "/account/settings/index.html"},
     {"source": "/admin", "destination": "/admin/index.html"},
     {"source": "/admin/", "destination": "/admin/index.html"},
     {"source": "/account/invite", "destination": "/account/invite/index.html"},
