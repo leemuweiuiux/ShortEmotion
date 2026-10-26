@@ -60,10 +60,14 @@ describe("登录页与个人页面的入口", () => {
     expect(read("public/login/login.js")).not.toContain("agreeBox");
   });
 
-  it("个人页面：退出登录下方、页面最底部放两份文件的链接", () => {
-    const html = read("public/account/index.html");
-    expect(html).toMatch(/id="logout"[\s\S]*<footer class="legal-links"><a href="\/terms">用户协议<\/a>[\s\S]*<a href="\/privacy">隐私政策<\/a><\/footer>\s*<\/main>/);
-    expect(html).toContain("/legal/legal.css?v=");
+  it("设置页（个人中心右上角）：外观、积分流水、用户协议、隐私政策、退出登录", () => {
+    const html = read("public/account/settings/index.html");
+    const order = ["data-theme-choice", 'href="/account/points"', 'href="/terms"', 'href="/privacy"', 'id="logout"'].map((text) => html.indexOf(text));
+    expect(order.every((index) => index > 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    const center = read("public/account/index.html");
+    expect(center).toContain('href="/account/settings"');
+    expect(center).not.toMatch(/id="logout"|data-theme-choice|id="ledger"|href="\/terms"/);
   });
 
   it("繁体切换涵盖两份文件的文字", () => {

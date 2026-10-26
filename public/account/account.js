@@ -1,43 +1,18 @@
-// 个人页面 /account：个人信息（只显示，编辑在 /account/edit）、积分（余额 + 签到）、邀请好友入口（/account/invite）、积分流水（最近 3 笔，全部在 /account/points）。
-import { $, setText, toast, readProfile, readPoints, signin, renderLedger } from "/account/common.js?v=8";
+// 个人中心 /account：基本信息（昵称由系统分配、只显示；电话在 /account/edit 改）、剩余积分（余额 + 签到）、
+// 邀请好友入口（/account/invite）、我发布的观点（最新 5 条，全部在看点的观点页「我的」）。
+// 外观、积分流水、用户协议、隐私政策、退出登录在右上角的设置 /account/settings。
+import { $, setText, toast, readProfile, readPoints, signin } from "/account/common.js?v=9";
 import { mountInviteEntry } from "/shared/invite-entry.js?v=3";
+import { cardHtml } from "/kandian/data.js?v=3";
 
 const signinButton = $("#signin");
-
-// 外观：白版 / 黑版 / 自适应。记在这台设备的浏览器（localStorage「twsvp_theme」，各页面打开时读取；没有设置 = 自适应）。
-const THEME_KEY = "twsvp_theme";
-const darkQuery = window.matchMedia?.("(prefers-color-scheme: dark)");
-function readThemeChoice() {
-  try {
-    const value = localStorage.getItem(THEME_KEY);
-    return value === "light" || value === "dark" ? value : "auto";
-  } catch {
-    return "auto";
-  }
-}
-function applyTheme(choice) {
-  const theme = choice === "auto" ? (darkQuery?.matches ? "dark" : "light") : choice;
-  document.documentElement.dataset.theme = theme;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#151922" : "#ffffff");
-  document.querySelectorAll("[data-theme-choice]").forEach((button) => button.setAttribute("aria-checked", String(button.dataset.themeChoice === choice)));
-}
-document.querySelectorAll("[data-theme-choice]").forEach((button) => button.addEventListener("click", () => {
-  const choice = button.dataset.themeChoice;
-  try {
-    if (choice === "auto") localStorage.removeItem(THEME_KEY);
-    else localStorage.setItem(THEME_KEY, choice);
-  } catch {}
-  applyTheme(choice);
-}));
-darkQuery?.addEventListener?.("change", () => { if (readThemeChoice() === "auto") applyTheme("auto"); });
-applyTheme(readThemeChoice());
 
 // 返回：从首页、个股分析或看板进来就回到原页面；直接打开时回首页
 (() => {
   const back = $("#back");
   try {
     const from = new URL(document.referrer);
-    if (from.origin === location.origin && /^\/(home|technicalanalysis|shortemotion)(\/|$)/.test(from.pathname)) back.href = from.pathname + from.search;
+    if (from.origin === location.origin && /^\/(home|technicalanalysis|shortemotion|kandian|sectorflow)(\/|$)/.test(from.pathname)) back.href = from.pathname + from.search;
   } catch {}
 })();
 
@@ -69,8 +44,9 @@ function maskPhone(number) {
 }
 
 function fillProfile(profile) {
-  setText($("#info-name"), profile.name || "未填写");
-  $("#info-name").classList.toggle("empty", !profile.name);
+  // 昵称：注册时由系统分配；万一还没分配到（例如数据库更新前）先显示「—」
+  setText($("#info-nickname"), profile.nickname || "—");
+  setText($("#profile-avatar"), profile.nickname ? profile.nickname.slice(0, 1) : "");
   setText($("#info-email"), profile.email || "—");
   const phone = profile.phoneNumber ? `${profile.phoneCountryCode || ""} ${maskPhone(profile.phoneNumber)}`.trim() : "未填写";
   setText($("#info-phone"), phone);
@@ -88,11 +64,41 @@ async function loadPoints() {
     setSigned(Boolean(payload.signedToday), invitePending);
     inviteEntry.show(showEntry);
     $("#invite-pending").hidden = !invitePending; // 受邀的新用户：第一次签到双方各 +50
-    renderLedger($("#ledger"), (payload.history || []).slice(0, 3));
   } catch (error) {
     setText($("#points-balance"), "—");
-    $("#ledger").textContent = "";
     toast(error.message, true);
+  }
+}
+
+// 我发布的观点：最新 5 条（与看点的观点页同一种卡片，精简版）；没有时引导去发布
+const MY_VIEWS = 5;
+function viewsNote(text, action) {
+  const box = $("#my-views");
+  box.textContent = "";
+  const note = document.createElement("p");
+  note.className = "my-views-note";
+  setText(note, text);
+  box.append(note);
+  if (action) box.append(action);
+}
+async function loadMyViews() {
+  try {
+    const response = await fetch(`/api/kandian?direction=mine&limit=${MY_VIEWS}`, { credentials: "same-origin", headers: { Accept: "application/json" } });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "暂时无法读取观点");
+    const views = payload.views || [];
+    $("#views-all").hidden = !views.length;
+    if (!views.length) {
+      const publish = document.createElement("a");
+      publish.className = "btn-primary my-views-publish";
+      publish.href = "/kandian?tab=views&compose=1";
+      setText(publish, "去发布");
+      viewsNote("还没有发布过观点。选一只你在看的股票，留下看涨、中性或看跌的判断，之后回来看它是否被行情验证。", publish);
+      return;
+    }
+    $("#my-views").innerHTML = views.map((view) => cardHtml(view, true)).join("");
+  } catch (error) {
+    viewsNote(error.message);
   }
 }
 
@@ -108,11 +114,6 @@ signinButton.addEventListener("click", async () => {
   }
 });
 
-$("#logout").addEventListener("click", async (event) => {
-  event.currentTarget.disabled = true;
-  try { await fetch("/api/auth?action=logout", { method: "POST", credentials: "same-origin" }); } catch {}
-  location.replace("/about");
-});
-
 readProfile().then(fillProfile).catch((error) => toast(error.message, true));
 loadPoints();
+loadMyViews();

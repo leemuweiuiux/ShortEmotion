@@ -16,12 +16,15 @@ export default async function handler(req, res) {
     const config = authConfig();
     if (!config) return send(res, 503, { error: '观点服务暂不可用' });
     if (req.method === 'GET') {
+      // direction：all / bullish / neutral / bearish，或 mine（只看本人发布的，个人中心与观点页「我的」）
       const direction = String(req.query?.direction || 'all');
-      if (!['all','bullish','bearish','neutral'].includes(direction)) return send(res, 400, { error: '筛选参数无效' });
+      if (!['all','bullish','bearish','neutral','mine'].includes(direction)) return send(res, 400, { error: '筛选参数无效' });
       const before = String(req.query?.before || '');
       if (before && !/^\d{4}-\d\d-\d\dT[\d:.]+Z$/.test(before)) return send(res, 400, { error: '分页参数无效' });
-      const rows = await dbRequest(config, session.accessToken, `kandian_views?select=${columns}&order=created_at.desc,id.desc&limit=31${direction !== 'all' ? `&direction=eq.${direction}` : ''}${before ? `&created_at=lt.${encodeURIComponent(before)}` : ''}`);
-      return send(res, 200, { views: rows.slice(0, 30).map(r => presentView(r, session.user.id)), next: rows.length > 30 ? rows[29].created_at : null });
+      const limit = Math.min(30, Math.max(1, Number.parseInt(req.query?.limit, 10) || 30));
+      const filter = direction === 'mine' ? `&user_id=eq.${session.user.id}` : direction !== 'all' ? `&direction=eq.${direction}` : '';
+      const rows = await dbRequest(config, session.accessToken, `kandian_views?select=${columns}&order=created_at.desc,id.desc&limit=${limit + 1}${filter}${before ? `&created_at=lt.${encodeURIComponent(before)}` : ''}`);
+      return send(res, 200, { views: rows.slice(0, limit).map(r => presentView(r, session.user.id)), next: rows.length > limit ? rows[limit - 1].created_at : null });
     }
     if (req.method !== 'POST') { res.setHeader('Allow', 'GET, POST'); return send(res, 405, { error: 'Method Not Allowed' }); }
     const origin = req.headers?.origin;

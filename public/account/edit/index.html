@@ -28,7 +28,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/about/about.css?v=11">
   <link rel="stylesheet" href="/shared/form.css?v=1">
-  <link rel="stylesheet" href="/account/account.css?v=12">
+  <link rel="stylesheet" href="/account/account.css?v=13">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -46,15 +46,17 @@
     <section class="sub-card">
       <div class="setting-item">
         <div class="setting-meta">
+          <strong>昵称</strong>
+          <span><span id="nickname">读取中…</span> · 系统随机分配，不可修改</span>
+        </div>
+      </div>
+      <div class="setting-item">
+        <div class="setting-meta">
           <strong>邮箱</strong>
           <span id="email">读取中…</span>
         </div>
       </div>
       <form id="profile-form" class="profile-form" novalidate>
-        <label class="field">
-          <span>姓名</span>
-          <input id="name" class="se-input" name="name" type="text" autocomplete="name" maxlength="40" placeholder="输入你的姓名">
-        </label>
         <div class="field">
           <span id="phone-label">电话</span>
           <div class="phone-row" role="group" aria-labelledby="phone-label">
@@ -80,6 +82,6 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/account/edit.js?v=8"></script>
+  <script type="module" src="/account/edit.js?v=9"></script>
 </body>
 </html>

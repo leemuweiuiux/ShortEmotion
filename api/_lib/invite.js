@@ -22,7 +22,7 @@ export function cleanInviteCode(value) {
 
 const withMessage = (result, okKey) => (result && result[okKey] === false ? { ...result, message: INVITE_REASONS[result.reason] || INVITE_REASONS.invalid } : result);
 
-/** 登录前检查邀请码：能不能用、邀请人姓名（没填为 null）。 */
+/** 登录前检查邀请码：能不能用、邀请人昵称（系统分配，见 20261026080000_nicknames.sql）。 */
 export async function inviteCheck(config, value) {
   const code = cleanInviteCode(value);
   if (!code) return withMessage({ valid: false, reason: "invalid" }, "valid");
@@ -44,7 +44,7 @@ export async function inviteCheck(config, value) {
   return withMessage(await response.json(), "valid");
 }
 
-/** 我的邀请：邀请码（没有就生成）、姓名、已邀请 / 已完成人数、累计获得积分、好友列表。 */
+/** 我的邀请：邀请码（没有就生成）、昵称、已邀请 / 已完成人数、累计获得积分、好友列表。 */
 export const inviteMine = (config, token) => pointsRpc(config, token, "invite_mine");
 
 /** 登录完成后绑定邀请人（只限刚注册的账号）。 */

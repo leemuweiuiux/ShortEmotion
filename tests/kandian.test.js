@@ -16,6 +16,14 @@ describe('真实观点API边界',()=>{
  it('同一发布请求重试读取原记录，不重新取价或写入',async()=>{dbRequest.mockResolvedValueOnce([row]);expect((await run()).body.view.id).toBe(row.id);expect(quoteStock).not.toHaveBeenCalled();expect(dbRequest).toHaveBeenCalledTimes(1);});
  it('不能结束他人的观点，关闭前先检查所有者',async()=>{dbRequest.mockResolvedValueOnce([]);expect((await run({action:'close',id:row.id})).code).toBe(404);expect(dbRequest.mock.calls[0][2]).toContain('user_id=eq.owner');expect(quoteStock).not.toHaveBeenCalled();});
  it('空库返回真实空列表，不补入示例',async()=>{dbRequest.mockResolvedValueOnce([]);expect((await run(null,'GET')).body).toEqual({views:[],next:null});});
+ it('「我的」只取本人发布的观点，可限制条数（个人中心取最新 5 条）',async()=>{
+  dbRequest.mockResolvedValueOnce(Array.from({length:6},(_,i)=>({...row,id:`id-${i}`,created_at:`2026-10-2${i}T01:00:00.000Z`})));
+  const res={setHeader:vi.fn(),status(n){this.code=n;return this},json(b){this.body=b;return this}};
+  await handler({method:'GET',headers:{},query:{direction:'mine',limit:'5'}},res);
+  const path=dbRequest.mock.calls[0][2];
+  expect(path).toContain('user_id=eq.owner');expect(path).toContain('limit=6');expect(path).not.toContain('direction=eq.');
+  expect(res.body.views).toHaveLength(5);expect(res.body.next).toBe('2026-10-24T01:00:00.000Z');
+ });
  it('非法标签与期限在取价前拒绝',async()=>{expect(()=>validateView({...input,horizon:3})).toThrow();expect(()=>validateView({...input,tags:['随意编造']})).toThrow();expect(()=>validateView({...input,tags:['回踩支撑']})).toThrow();expect((await run({...input,tags:['趋势转强','资金流入','题材发酵','政策消息']})).code).toBe(400);expect(quoteStock).not.toHaveBeenCalled();});
  it('补充说明已移除：客户端传来也忽略，写库固定为空字符串，列表不返回',async()=>{dbRequest.mockResolvedValueOnce([]).mockResolvedValueOnce(row);const res=await run({...input,note:'不该写入'});expect(res.code).toBe(200);expect(dbRequest.mock.calls[1][3].p_view.note).toBe('');expect(res.body.view).not.toHaveProperty('note');});
 });
