@@ -404,7 +404,7 @@ async function unlockAnomalies(event) {
       return;
     }
     if (!response.ok) throw new Error(payload.error || `请求失败 (${response.status})`);
-    if (payload.charged) toast(`已解锁，扣除 10 积分（剩余 ${payload.balance}）`);
+    if (payload.charged) toast(Number.isFinite(Number(payload.balance)) ? `已解锁，剩余 ${payload.balance} 积分` : "已解锁");
     await loadAnomalies(true);
   } catch (error) {
     toast(error.message, true);
@@ -1031,7 +1031,7 @@ async function handleManualRefresh() {
     }
     if (payload.dispatched) {
       refreshRun.requestedAt = payload.requestedAt;
-      if (payload.charged > 0) toast(`已扣除 ${payload.charged} 积分，正在获取最新数据`);
+      if (payload.charged > 0) toast(Number.isFinite(Number(payload.balance)) ? `正在获取最新数据，剩余 ${payload.balance} 积分` : "正在获取最新数据");
     } else if (payload.run) {
       // 其他人刚刚发起过刷新：直接跟随那一次的进度
       refreshRun.runId = payload.run.id;
@@ -1050,7 +1050,7 @@ async function handleManualRefresh() {
 function showRefund(refund) {
   if (!refund) return false;
   setBalance(refund.balance);
-  toast(`本次更新未完成，已退回 ${refund.amount} 积分；页面仍显示上一份快照`, true);
+  toast(Number.isFinite(Number(refund.balance)) ? `本次更新未完成，已退回积分，剩余 ${refund.balance} 积分` : "本次更新未完成，已退回积分", true);
   return true;
 }
 

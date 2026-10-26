@@ -272,7 +272,7 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     const res = await call({ body: { q: "样本故障" } }); // 离线样本：认得出，但取日 K 失败
     expect(res.statusCode).toBe(502);
     expect(res.body).toMatchObject({ refunded: true, balance: 50 });
-    expect(res.body.error).toContain("已退回 10 积分");
+    expect(res.body.error).toContain("（已退回积分，剩余 50 积分）");
     expect(ledger.map((row) => row.kind)).toEqual(["signup", "analysis", "analysis_refund"]);
   });
 

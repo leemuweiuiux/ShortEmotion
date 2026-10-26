@@ -290,7 +290,7 @@ async function unlock(event) {
       return;
     }
     if (!response.ok) throw new Error(payload.error || "解锁失败，请稍后再试");
-    if (payload.charged) toast(`已解锁，扣除 10 积分（剩余 ${payload.balance}）`);
+    if (payload.charged) toast(Number.isFinite(Number(payload.balance)) ? `已解锁，剩余 ${payload.balance} 积分` : "已解锁");
     await loadAnomalies();
   } catch (error) {
     toast(error.message, true);

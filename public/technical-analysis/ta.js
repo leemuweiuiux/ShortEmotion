@@ -113,7 +113,7 @@ async function analyze(query, refresh = false) {
     render();
     setUrl({ q: current.code || q });
     if (payload.recent) renderRecent($("#ta-recent"), payload.recent, (row) => openHistory(row.code, true));
-    toast(payload.charged > 0 ? `已扣 ${payload.charged} 积分` : payload.viewed ? "已显示最新结果" : "分析完成");
+    toast(payload.charged > 0 && Number.isFinite(Number(payload.balance)) ? `已完成分析，剩余 ${payload.balance} 积分` : payload.viewed ? "已显示最新结果" : "分析完成");
   } catch (error) {
     toast(error.message, true);
   } finally {
