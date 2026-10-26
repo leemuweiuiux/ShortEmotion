@@ -23,7 +23,7 @@ const copy = (node) => {
 
 /** 整篇：标题、导读、每一节与底部说明（日期、板块已写在抬头，不重复）。 */
 function wholeArticle(root) {
-  return frame(...[...root.children].filter((node) => !node.matches(".mr-meta")).map(copy));
+  return frame(...[...root.children].filter((node) => !node.matches(".mr-meta, .mr-like")).map(copy)); // 点赞按钮不进图片
 }
 
 /** 一张小卡的内容。 */

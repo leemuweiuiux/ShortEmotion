@@ -53,7 +53,9 @@ describe("看点早报分享：页面接线", () => {
     expect(html).toContain('id="share-article"');
     expect(html).toContain('id="toast"');
     expect(html).toContain('src="/short-emotion/vendor/html-to-image.js"');
-    expect(read("public/kandian/reports.js")).toContain("import('/kandian/share.js?v=6').then(m=>m.setupShare(a,article))");
+    expect(read("public/kandian/reports.js")).toMatch(/import\('\/kandian\/share\.js\?v=\d+'\)\.then\(m=>m\.setupShare\(a,article\)\)/);
+    // 点赞按钮不进分享图片
+    expect(read("public/kandian/share.js")).toContain('!node.matches(".mr-meta, .mr-like")');
   });
 
   it("分享模块引用的文件都在", () => {

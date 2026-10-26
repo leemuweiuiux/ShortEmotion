@@ -26,11 +26,24 @@ export async function dbRequest(config, token, path, body) {
   });
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
-    const known = { 'K4001': ['发布过于频繁，请稍后再试', 429], 'K4004': ['找不到可结束的本人观点', 404] }[detail.code];
+    const known = { 'K4001': ['发布过于频繁，请稍后再试', 429], 'K4004': ['找不到可结束的本人观点', 404], 'K4041': ['内容不存在或已删除', 404] }[detail.code];
     throw fail(known?.[0] || '观点服务暂不可用，请稍后重试', known?.[1] || 503);
   }
   return response.json();
 }
-export function presentView(row, uid) {
-  return { id: row.id, author: row.author, avatar: row.author?.slice(0, 1), code: row.code, name: row.name, price: Number(row.price), direction: row.direction, horizon: row.horizon, tags: row.tags, createdAt: row.created_at, quoteAt: row.quote_at, status: row.status, closedAt: row.closed_at, closePrice: row.close_price == null ? null : Number(row.close_price), canClose: row.user_id === uid && row.status === 'active' };
+// 点赞（supabase/migrations/20261026090000_likes.sql）：type = view（观点）/ report（看点文章）
+export const LIKE_TYPES = { view: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, report: /^\d{8}(?:-noon|-evening)?$/ };
+/** 一批内容的赞数与本人是否已赞：{ 编号: { count, liked } }。读不到（例如数据库还没更新）时返回 null，列表照常显示、只是不显示点赞。 */
+export async function likeSummary(request, config, token, type, ids) {
+  const list = [...new Set(ids.map((id) => String(id).toLowerCase()))].filter((id) => LIKE_TYPES[type]?.test(id)).slice(0, 60);
+  if (!list.length) return {};
+  try {
+    const map = await request(config, token, 'rpc/like_summary', { p_type: type, p_ids: list });
+    return map && typeof map === 'object' && !Array.isArray(map) ? map : null;
+  } catch { return null; }
+}
+export const likeOf = (map, id) => map ? (map[String(id).toLowerCase()] || { count: 0, liked: false }) : undefined;
+
+export function presentView(row, uid, like) {
+  return { like, id: row.id, author: row.author, avatar: row.author?.slice(0, 1), code: row.code, name: row.name, price: Number(row.price), direction: row.direction, horizon: row.horizon, tags: row.tags, createdAt: row.created_at, quoteAt: row.quote_at, status: row.status, closedAt: row.closed_at, closePrice: row.close_price == null ? null : Number(row.close_price), canClose: row.user_id === uid && row.status === 'active' };
 }

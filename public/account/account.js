@@ -1,9 +1,10 @@
 // 个人中心 /account：基本信息（昵称由系统分配、只显示；电话在 /account/edit 改）、剩余积分（余额 + 签到）、
 // 邀请好友入口（/account/invite）、我发布的观点（最新 5 条，全部在看点的观点页「我的」）。
 // 外观、积分流水、用户协议、隐私政策、退出登录在右上角的设置 /account/settings。
-import { $, setText, toast, readProfile, readPoints, signin } from "/account/common.js?v=9";
+import { $, setText, toast, readProfile, readPoints, signin } from "/account/common.js?v=10";
 import { mountInviteEntry } from "/shared/invite-entry.js?v=3";
-import { cardHtml } from "/kandian/data.js?v=3";
+import { cardHtml } from "/kandian/data.js?v=4";
+import { initLikes } from "/shared/like.js";
 
 const signinButton = $("#signin");
 
@@ -117,3 +118,4 @@ signinButton.addEventListener("click", async () => {
 readProfile().then(fillProfile).catch((error) => toast(error.message, true));
 loadPoints();
 loadMyViews();
+initLikes(); // 我发布的观点：可以给自己的观点点赞

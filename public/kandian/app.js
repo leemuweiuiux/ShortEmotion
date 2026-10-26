@@ -1,5 +1,8 @@
-import { DIRECTIONS, HORIZONS, LOGIC_TAGS, cardHtml, escapeHtml } from "./data.js?v=3";
+import { DIRECTIONS, HORIZONS, LOGIC_TAGS, cardHtml, escapeHtml } from "./data.js?v=4";
 import { toast, goLogin } from "/shared/nav-account.js?v=2";
+import { initLikes } from "/shared/like.js";
+
+initLikes(); // 观点卡片底部的点赞
 
 const $ = (s) => document.querySelector(s);
 // 筛选：最新 / 看涨 / 中性 / 看跌 / 我的（只看本人发布的，个人中心「查看全部」带 ?filter=mine 进来）
@@ -60,7 +63,7 @@ $('#kd-feed').addEventListener('click', async event => {
   button.disabled = true;
   try {
     const payload = await api({ action: 'close', id: button.dataset.closeView });
-    views = views.map(v => v.id === payload.view.id ? payload.view : v);
+    views = views.map(v => v.id === payload.view.id ? { ...payload.view, like: payload.view.like ?? v.like } : v);
     renderFeed(); toast('观点已结束');
   } catch (error) { button.disabled = false; toast(error.message, true); }
 });
