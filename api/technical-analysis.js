@@ -181,7 +181,7 @@ export default async function handler(req, res) {
     const status = error?.statusCode || 502;
     const message = status >= 500 && !error?.statusCode ? "分析失败，请稍后再试" : error.message;
     send(res, status, {
-      error: charged?.refunded ? `${message}（已退回 ${charged.charged} 积分）` : message,
+      error: charged?.refunded ? `${message}（${Number.isFinite(Number(charged.balance)) ? `已退回积分，剩余 ${charged.balance} 积分` : "已退回积分"}）` : message,
       code: error?.code || "analysis_failed",
       refunded: Boolean(charged?.refunded),
       charged: Boolean(charged && charged.charged > 0 && !charged.refunded), // 扣了分且没退回（极少见）
