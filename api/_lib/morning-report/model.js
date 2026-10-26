@@ -5,19 +5,45 @@ export function reportRequest(prompt, evidence, env = process.env) {
   if (/^kimi-k3(?:$|-)/i.test(model)) Object.assign(body, { reasoning_effort: 'low', max_completion_tokens: 12000 });
   return body;
 }
-export async function generateReportJson(prompt, evidence, { env = process.env, fetcher = fetch } = {}) {
+// 模型服务暂时拒绝（429 限流 / 过载、5xx）时自动重试（2026-10-26：收评 16:05、16:50 两次 HTTP 429）。
+// 有 Retry-After 按它等（最多 90 秒），没有就依次等 10、30、60、90 秒；余额不足（exceeded_current_quota_error）不重试。
+// 被 429 挡下的请求不计费，重试不会多花钱。失败时把服务返回的错误类型写进错误信息，日志里就能分清是哪一种。
+export const RETRY_WAITS = [10, 30, 60, 90];
+const RETRYABLE = new Set([429, 500, 502, 503, 504]);
+const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** 模型服务的错误说明：HTTP 状态 + 错误类型 + 说明（截短）。 */
+async function describeFailure(response) {
+  const body = await response.text().catch(() => "");
+  let type = "", message = "";
+  try { const error = JSON.parse(body)?.error || {}; type = String(error.type || error.code || ""); message = String(error.message || ""); } catch { message = body; }
+  return { type, text: [type, message.replace(/\s+/g, " ").slice(0, 160)].filter(Boolean).join("：") };
+}
+
+export async function generateReportJson(prompt, evidence, { env = process.env, fetcher = fetch, sleep = pause, log = console.log } = {}) {
   if (!env.MORNING_REPORT_API_KEY || !env.MORNING_REPORT_BASE_URL || !env.MORNING_REPORT_MODEL) throw new Error('请配置 MORNING_REPORT_API_KEY / MODEL / BASE_URL');
   let response;
-  try {
-    response = await fetcher(`${env.MORNING_REPORT_BASE_URL.trim().replace(/\/+$/, '')}/chat/completions`, {
-      method: 'POST', headers: { Authorization: `Bearer ${env.MORNING_REPORT_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(reportRequest(prompt, evidence, env)), signal: AbortSignal.timeout(600000)
-    });
-  } catch (error) {
-    if (error.name === 'TimeoutError' || error.name === 'AbortError') throw new Error('模型生成超过10分钟，未发布文章；检查模型调用记录后再重试，避免重复消耗');
-    throw error;
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      response = await fetcher(`${env.MORNING_REPORT_BASE_URL.trim().replace(/\/+$/, '')}/chat/completions`, {
+        method: 'POST', headers: { Authorization: `Bearer ${env.MORNING_REPORT_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(reportRequest(prompt, evidence, env)), signal: AbortSignal.timeout(600000)
+      });
+    } catch (error) {
+      if (error.name === 'TimeoutError' || error.name === 'AbortError') throw new Error('模型生成超过10分钟，未发布文章；检查模型调用记录后再重试，避免重复消耗');
+      throw error;
+    }
+    if (response.ok) break;
+    const failure = await describeFailure(response);
+    const retryable = RETRYABLE.has(response.status) && failure.type !== 'exceeded_current_quota_error';
+    if (!retryable || attempt >= RETRY_WAITS.length) {
+      throw new Error(`模型调用失败 HTTP ${response.status}${failure.text ? `（${failure.text}）` : ''}${attempt ? `，已重试 ${attempt} 次` : ''}`);
+    }
+    const header = Number(response.headers?.get?.('retry-after'));
+    const wait = Number.isFinite(header) && header > 0 ? Math.min(header, 90) : RETRY_WAITS[attempt];
+    log(`模型暂时拒绝 HTTP ${response.status}${failure.text ? `（${failure.text}）` : ''}，${wait} 秒后第 ${attempt + 1} 次重试`);
+    await sleep(wait * 1000);
   }
-  if (!response.ok) throw new Error(`模型调用失败 HTTP ${response.status}`);
   const result = await response.json();
   const choice = result.choices?.[0];
   if (choice?.finish_reason === 'length') throw new Error('模型输出达到上限，文章不完整，拒绝发布');
