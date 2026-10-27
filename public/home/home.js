@@ -6,6 +6,8 @@ import { updateNavPoints } from "/shared/nav-points.js?v=1";
 //      下面再加市场概况（全A涨跌幅、成交额、涨跌家数、涨跌停）与行情时间，点预览或标题进入看板
 //   4. 当日题材异动：未解锁时只显示题材数量，可在首页直接解锁（−10 积分，12 小时）；解锁后列出前 3 个
 //   5. 资金流向：今日累计净流入曲线，流入/流出各前三；进入 /sectorflow 查看完整周期，不扣积分。
+//   6. 涨停情绪：涨停、跌停、最高板、晋级率 4 个数字免费；涨停天梯须解锁（−10 积分，12 小时，与 /limitup 整页共用），
+//      解锁后按板高列出个股。与题材异动的解锁分开计算。
 import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderRecent, renderLatest } from "/shared/nav-account.js?v=4";
 import { mountFundFlow } from "/shared/fund-flow.js?v=6";
 import { mountInviteEntry } from "/shared/invite-entry.js?v=3";
@@ -43,7 +45,9 @@ const inviteEntry = mountInviteEntry($("#invite-entry"), {
 });
 
 function renderPoints(signedToday) {
-  $("#points-balance").textContent = unlimited ? "不限额" : Number.isFinite(Number(balance)) ? balance : "—";
+  const balanceText = $("#points-balance");
+  if (!balanceText) return; // 登录关闭（本地预览）时积分卡已移除
+  balanceText.textContent = unlimited ? "不限额" : Number.isFinite(Number(balance)) ? balance : "—";
   if (signedToday != null) {
     signinButton.disabled = Boolean(signedToday);
     signinButton.textContent = signedToday ? "今日已签到" : invitePending ? "签到 +60" : "签到 +10";
@@ -86,6 +90,7 @@ signinButton.addEventListener("click", async () => {
     $("#invite-pending").hidden = true;
     renderAnalysisHint();
     if (anomalyData?.locked) renderLocked();
+    if (limitupData?.locked) renderLimitUpLocked();
   } catch (error) {
     signinButton.disabled = false;
     toast(error.message, true);
@@ -291,6 +296,7 @@ async function unlock(event) {
     }
     if (!response.ok) throw new Error(payload.error || "解锁失败，请稍后再试");
     if (payload.charged) toast(Number.isFinite(Number(payload.balance)) ? `已解锁，剩余 ${payload.balance} 积分` : "已解锁");
+    if (limitupData?.locked) renderLimitUpLocked(); // 余额变了，涨停天梯的「去签到」提示跟着更新
     await loadAnomalies();
   } catch (error) {
     toast(error.message, true);
@@ -313,8 +319,114 @@ async function loadSectorFlow() {
   }
 }
 
+// ── 6. 涨停情绪 ──
+let limitupData = null;
+const limitupBody = $("#limitup-ladder");
+const streakText = (streak) => (Number(streak) >= 2 ? `${Number(streak)}板` : "首板");
+
+/** 行情时间「2026-10-27T10:05:43+08:00」→「行情时间 10-27 10:05」；不是今天的数据加注「最近交易日」。 */
+function isoQuoteLabel(value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!match) return "";
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const stale = `${match[1]}-${match[2]}-${match[3]}` !== today;
+  return `行情时间 ${match[2]}-${match[3]} ${match[4]}:${match[5]}${stale ? " · 最近交易日" : ""}`;
+}
+
+function renderLimitUpMetrics() {
+  const metrics = limitupData?.metrics || {};
+  const count = (value) => (Number.isFinite(Number(value)) && value !== null ? Number(value).toLocaleString("zh-CN") : "—");
+  $("#limitup-up").textContent = count(metrics.limitUpCount);
+  $("#limitup-down").textContent = count(metrics.limitDownCount);
+  $("#limitup-max").textContent = Number(metrics.maxStreak) > 0 ? streakText(metrics.maxStreak) : "—";
+  $("#limitup-promo").textContent = Number.isFinite(Number(metrics.promotionRate)) && metrics.promotionRate !== null
+    ? `${Math.round(metrics.promotionRate * 100)}%`
+    : "—";
+  $("#limitup-time").textContent = isoQuoteLabel(limitupData?.quoteTime);
+}
+
+function renderLimitUpLocked() {
+  const cost = limitupData.unlockCost || 10;
+  const hours = limitupData.unlockHours || 12;
+  const tiers = Number(limitupData.ladderTiers) || 0;
+  $("#limitup-pill").textContent = tiers ? `今日天梯 ${tiers} 档` : "涨停天梯";
+  limitupBody.classList.add("locked");
+  // 余额以积分卡为准，积分卡还没读到时用接口返回的余额
+  const shown = balance ?? limitupData.balance ?? null;
+  const known = shown != null && Number.isFinite(Number(shown));
+  const short = !unlimited && known && Number(shown) < cost;
+  const action = limitupData.unavailable
+    ? "<p>积分服务暂时不可用，请稍后再试</p>"
+    : `<button id="limitup-unlock" class="pill-btn" type="button">解锁 · ${cost} 积分</button>${known ? `<small>当前积分 ${esc(shown)}</small>` : ""}${short ? '<a class="lock-link" href="/account">去签到</a>' : ""}`;
+  limitupBody.innerHTML = `<div class="lock-skeleton" aria-hidden="true">${"<i></i>".repeat(3)}</div>
+    <div class="anomaly-lock" role="group" aria-label="涨停天梯已锁定">${lockIcon}<b>涨停天梯与涨停情绪详情</b><p>解锁后 ${hours} 小时内，首页天梯与涨停情绪页都能查看</p>${action}</div>`;
+  $("#limitup-unlock")?.addEventListener("click", unlockLimitUp);
+}
+
+function renderLimitUpUnlocked() {
+  limitupBody.classList.remove("locked");
+  const ladder = Array.isArray(limitupData.ladder) ? limitupData.ladder : [];
+  $("#limitup-pill").textContent = !limitupData.unlimited && limitupData.unlockUntil
+    ? `已解锁至 ${untilLabel(limitupData.unlockUntil)}`
+    : ladder.length ? `今日天梯 ${ladder.length} 档` : "涨停天梯";
+  if (!ladder.length) {
+    limitupBody.innerHTML = '<div class="empty">今日暂无涨停天梯数据。</div>';
+    return;
+  }
+  // 板高降序；每档最多列 6 只（同档按封板时间由早到晚），其余写「等 N 家」
+  const rows = [...ladder].sort((a, b) => b.streak - a.streak).map((tier) => {
+    const more = tier.count > (tier.stocks || []).length ? `<em>等 ${tier.count} 家</em>` : "";
+    const list = (tier.stocks || []).map((stock) => `<span>${esc(stock.name)}</span>`).join("");
+    return `<li><b>${streakText(tier.streak)}<small>${esc(tier.count)} 家</small></b><p>${list}${more}</p></li>`;
+  }).join("");
+  limitupBody.innerHTML = `<a class="home-preview-link" href="/limitup" aria-label="查看涨停情绪详情"><ol class="home-limitup-ladder">${rows}</ol></a>`;
+}
+
+async function loadLimitUp() {
+  try {
+    const { response, payload } = await request(`/api/limitup?resource=summary&t=${Date.now()}`);
+    if (!response.ok) throw new Error(payload.code === "not_ready" ? "暂无涨停数据，首份数据将在下一个交易时段生成" : payload.error || "暂时无法读取");
+    limitupData = payload;
+    renderLimitUpMetrics();
+    if (payload.locked) renderLimitUpLocked();
+    else renderLimitUpUnlocked();
+  } catch (error) {
+    $("#limitup-pill").textContent = "—";
+    limitupBody.classList.remove("locked");
+    limitupBody.innerHTML = `<div class="empty">${esc(error.message || "暂时无法读取")}</div>`;
+  }
+}
+
+async function unlockLimitUp(event) {
+  const button = event.currentTarget;
+  button.disabled = true;
+  button.textContent = "解锁中…";
+  try {
+    const { response, payload } = await request("/api/limitup?action=unlock", { method: "POST" });
+    if (Number.isFinite(Number(payload.balance))) {
+      balance = payload.balance;
+      updateNavPoints(payload);
+      renderPoints(null);
+    }
+    if (response.status === 402) {
+      toast(POINTS_TEXT, true);
+      renderLimitUpLocked();
+      return;
+    }
+    if (!response.ok) throw new Error(payload.error || "解锁失败，请稍后再试");
+    if (payload.charged) toast(Number.isFinite(Number(payload.balance)) ? `已解锁，剩余 ${payload.balance} 积分` : "已解锁");
+    if (anomalyData?.locked) renderLocked(); // 余额变了，题材异动的「去签到」提示跟着更新
+    await loadLimitUp();
+  } catch (error) {
+    toast(error.message, true);
+    button.disabled = false;
+    button.textContent = "解锁";
+  }
+}
+
 await loadPoints();
 loadEmotion();
 loadAnomalies();
+loadLimitUp();
 loadSectorFlow();
 

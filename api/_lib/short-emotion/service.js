@@ -9,6 +9,7 @@ import { duePlan, needsCloseCatchUp, scheduleSummary, scheduleFor, MARKETS } fro
 import { getApiKeys, isMockMode } from "./wind-client.js";
 import { CONCEPT_CODES_KEY, mergeConceptCodes } from "../sectorflow/concepts.js";
 import { refreshSectorFlow, sectorflowNeedsClose, SECTORFLOW_KEYS } from "../sectorflow/service.js";
+import { refreshLimitUp, limitupHasClose, LIMITUP_KEYS } from "../limitup/service.js";
 
 const MARKET_CONFIG = {
   cn: { engine: cnEngine },
@@ -40,7 +41,7 @@ const quoteMinuteOf = (snapshot) => {
   const match = String(snapshot?.quoteTime || "").match(/\s(\d{2}):(\d{2})/);
   return match ? Number(match[1]) * 60 + Number(match[2]) : null;
 };
-const ALL_JOBS = { emotion: true, anomalies: true, news: true, cleanup: false };
+const ALL_JOBS = { emotion: true, anomalies: true, limitup: true, news: true, cleanup: false };
 const minuteLabel = (minute) => `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
 
 /**
@@ -135,6 +136,11 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
       jobs.anomalies = false;
       result.skipped.push("emotion/anomalies: 收盘后只更新新闻（当日已有 15:00 收盘快照）");
     }
+    // 涨停情绪看自己的快照：已有当日收盘快照才跳过（短线情绪补过收盘、涨停没补上时仍会取一次）
+    if (jobs.limitup && await limitupHasClose(store, plan.day).catch(() => false)) {
+      jobs.limitup = false;
+      result.skipped.push("limitup: 当日已有 15:00 收盘快照");
+    }
   }
 
   if (!isMockMode() && getApiKeys().length === 0) {
@@ -195,6 +201,16 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
       result.ran.push("anomalies");
     }).catch((error) => { result.errors.push(`anomalies: ${errorText(error)}`); }));
   }
+  // 涨停情绪（/limitup）：与题材异动并行；连板历史与交易日历沿用上面情绪指标已取的缓存，不重复调用
+  if (jobs.limitup && !marketLive && (result.mode === "scheduled" || inAuction)) {
+    result.skipped.push("limitup: 当日行情未就绪，跳过以免覆盖为旧数据");
+  } else if (jobs.limitup) {
+    tasks.push(refreshLimitUp(store, { day: plan.day }).then((output) => {
+      if (output.skipped) result.skipped.push(`limitup: ${output.skipped}`);
+      if (output.ran) result.ran.push("limitup");
+      output.errors.forEach((message) => result.errors.push(`limitup: ${message}`));
+    }).catch((error) => { result.errors.push(`limitup: ${errorText(error)}`); }));
+  }
   if (jobs.news) {
     tasks.push(loadNews().then(async (items) => {
       if (!items.length) { result.skipped.push("news: 无新结果"); return; }
@@ -242,6 +258,9 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
       const cutoff = new Date(now.getTime() - 3 * 86_400_000).toISOString();
       for (const prefix of ["lock:", "engine-state:2", "calendar:"]) await store.kvDeleteOlderThan(prefix, cutoff);
       await store.kvDeleteOlderThan(SECTORFLOW_KEYS.intradayPrefix, new Date(now.getTime() - 30 * 86_400_000).toISOString());
+      // 涨停情绪：资讯复核缓存只留 3 天；每日定格快照留 90 天（约 60 个交易日）
+      await store.kvDeleteOlderThan(LIMITUP_KEYS.newsCachePrefix, cutoff);
+      await store.kvDeleteOlderThan(LIMITUP_KEYS.dayPrefix, new Date(now.getTime() - 90 * 86_400_000).toISOString());
       result.ran.push(`cleanup(-${removedDays}d)`);
     } catch (error) {
       result.errors.push(`cleanup: ${errorText(error)}`);

@@ -5,17 +5,17 @@ import { duePlan, needsCloseCatchUp } from "../api/_lib/short-emotion/schedule.j
 const bj = (date, time) => new Date(`${date}T${time}:00+08:00`);
 const due = (date, time) => Object.entries(duePlan(bj(date, time)).jobs).filter(([, on]) => on).map(([name]) => name).sort();
 
-describe("短线情绪 schedule (A股 every 30 min in session, news hourly)", () => {
+describe("短线情绪 schedule (A股 every 30 min in session, news hourly; 涨停情绪同节奏)", () => {
   it("09:00 pre-open refreshes news only", () => {
     expect(due("2026-10-12", "09:00")).toEqual(["news"]);
   });
 
   it("session slots refresh market data; news only on the hour", () => {
     for (const time of ["10:00", "11:00", "13:00", "14:00"]) {
-      expect(due("2026-10-12", time)).toEqual(["anomalies", "emotion", "news"]);
+      expect(due("2026-10-12", time)).toEqual(["anomalies", "emotion", "limitup", "news"]);
     }
     for (const time of ["09:30", "10:30", "11:30", "13:30", "14:30"]) {
-      expect(due("2026-10-12", time)).toEqual(["anomalies", "emotion"]);
+      expect(due("2026-10-12", time)).toEqual(["anomalies", "emotion", "limitup"]);
     }
   });
 
@@ -25,19 +25,19 @@ describe("短线情绪 schedule (A股 every 30 min in session, news hourly)", ()
   });
 
   it("15:00 is the last run and includes cleanup", () => {
-    expect(due("2026-10-12", "15:00")).toEqual(["anomalies", "cleanup", "emotion", "news"]);
+    expect(due("2026-10-12", "15:00")).toEqual(["anomalies", "cleanup", "emotion", "limitup", "news"]);
     expect(due("2026-10-12", "15:30")).toEqual([]);
   });
 
   it("a delayed GitHub run stays in its 30-minute slot", () => {
     expect(duePlan(bj("2026-10-12", "10:17")).slot).toBe(600);
-    expect(due("2026-10-12", "10:47")).toEqual(["anomalies", "emotion"]);
+    expect(due("2026-10-12", "10:47")).toEqual(["anomalies", "emotion", "limitup"]);
   });
 
   it("runs delayed past a close are flagged for catch-up (11:30 lunch, 15:00 close)", () => {
     expect(duePlan(bj("2026-10-12", "15:34")).close).toMatchObject({ at: 900 });
     expect(duePlan(bj("2026-10-12", "16:40")).close).toMatchObject({ at: 900 });
-    expect(duePlan(bj("2026-10-12", "12:05")).close).toMatchObject({ at: 690, jobs: ["emotion", "anomalies"] });
+    expect(duePlan(bj("2026-10-12", "12:05")).close).toMatchObject({ at: 690, jobs: ["emotion", "anomalies", "limitup"] });
     // 窗口内照常按时段跑，不需要补抓
     expect(duePlan(bj("2026-10-12", "15:10")).close).toBeNull();
     expect(duePlan(bj("2026-10-12", "13:05")).close).toBeNull();

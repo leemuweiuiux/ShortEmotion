@@ -11,6 +11,7 @@ A股短線情緒看板與個股技術分析：**https://lfjmwl.com**（Vercel �
 | `/home` | 首頁（**需登入**）：積分與簽到、個股技術分析輸入框、今日短線情緒（分數、階段、市場概況）、當日題材異動（可直接解鎖） |
 | `/technicalanalysis` | 個股技術分析（**需登入**，每次分析扣 10 積分） |
 | `/shortemotion/cn` | 短線情緒 · A股（**需登入**） |
+| `/limitup` | 漲停情緒（**需登入**，整頁須解鎖：10 積分 / 12 小時）：漲停天梯、跌停股、晉級率、題材強弱與今日亮點 |
 | `/` | 已登入 → `/home`；未登入 → `/about` |
 | `/cn`、`/cn-short-emotion`、`/short-emotion` | 舊網址，轉到上面的新網址 |
 | `/tw`、`/tw-short-emotion`、`/shortemotion/tw`、`/shortemotion/hk` | 已下線的台股、港股看板，轉到 A股看板 |
@@ -30,6 +31,8 @@ Vercel
   ├─ public/about/、public/login/ 介紹頁、登入頁（共用 public/shared/lang.js 簡繁切換）
   ├─ public/short-emotion/        短線情緒看板頁面
   ├─ public/home/、public/technical-analysis/  首頁、個股技術分析頁面（共用 public/shared/nav-account.js）
+  ├─ public/limitup/              漲停情緒頁面
+  ├─ api/limitup.js               漲停情緒：只讀資料分支（4 個數字免費，其餘須解鎖）、解鎖扣積分
   ├─ api/auth.js                  登入：驗證碼通過後把憑證寫進 HttpOnly cookie、查詢登入狀態、退出
   ├─ api/short-emotion.js         只讀資料分支（summary 公開，其餘需登入）；POST action=refresh 觸發上面的工作流
   └─ api/technical-analysis.js    個股技術分析：由網站伺服器直接呼叫 Wind MCP（需要 WIND_API_KEY），扣積分
@@ -151,6 +154,18 @@ SHORT_EMOTION_AUTH=off WIND_MOCK=1 npm run dev            # 個股技術分析�
 ## 第二階段待辦
 
 - 外觀設定的 localStorage 鍵名仍為 `twsvp_theme`、`twsvp_price_scheme`；樣式檔仍叫 `twsvp.css`
+
+## 涨停情绪（/limitup）
+
+- 算法原样移植自 [lfjDashboard／涨停事件工作台20261027](https://github.com/MuWeiLee/lfjDashboard/tree/main/%E6%B6%A8%E5%81%9C%E4%BA%8B%E4%BB%B6%E5%B7%A5%E4%BD%9C%E5%8F%B020261027)（`api/_lib/limitup/engine.js`，对应原版 `limit-engine.js`），计算口径不改。只改了接线：
+  - 题材词表用原版 20261027 那份，单独放在 `api/_lib/limitup/themes.js`；短线情绪 v4 评分与题材雷达仍用自己的词表，两边互不影响，题材名偶尔对不上属于预期。
+  - 连板历史与交易日历沿用 `api/_lib/short-emotion/engine.js`，与短线情绪在同一次更新里共用，不重复取数。
+- 页面：6 个指标、今日亮点、涨停天梯（含断板带）、跌停股、晋级率、概念题材聚合，与原版一致；导航、登录、积分沿用本站，页面不出现数据供应商字样。
+- 更新：跟着短线情绪的数据任务走（`schedule.js` 的 `limitup`，交易时段每 30 分钟，11:30 / 15:00 收盘补抓；当日已有 15:00 之后的收盘快照就不再重算）。用户点「刷新」（−5 积分）会一并重算。
+  - 资讯复核：每只涨停股用当日资讯核对题材（原版逻辑，最多 80 只）。结果按交易日存进数据分支 `kv/limitup_news-cache_<日期>.json`，同一只股票当天只查一次资讯，之后的更新只查新出现的涨停股。
+  - 数据分支：`limitup_latest`（最新）、`limitup_day_<日期>`（每日定格，「较上日」用上一交易日这份，保留 90 天）、资讯缓存（保留 3 天）。
+- 解锁（2026-10-27）：首页「涨停情绪」卡片免费显示涨停、跌停、最高板、晋级率；涨停天梯与 `/limitup` 整页须解锁，−10 积分，12 小时内首页天梯与整页都能看。与题材异动的解锁分开计算、分开扣分；不限额账号不扣分。未解锁时接口只返回 4 个数字，不返回个股。
+- 上线前要做：Supabase SQL Editor 执行 `supabase/migrations/20261027090000_limitup_unlock.sql`（新增 `points_limitup_status`、`points_unlock_limitup` 与流水类型「解锁涨停情绪」）。没执行之前页面显示「积分服务暂时不可用」，不扣分。合并后数据任务跑过一次才有数据，之前页面显示「暂无快照」。
 
 ## 看点早报
 

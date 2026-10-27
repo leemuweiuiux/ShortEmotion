@@ -1571,7 +1571,10 @@ export {
   scoreBreadth,
   scoreLimit,
   scorePremium,
-  limitStreakLabel
+  limitStreakLabel,
+  // 涨停情绪（api/_lib/limitup）共用：同一次更新里只取一次连板历史与交易日历
+  loadLimitHistory,
+  previousTradingDate
 };
 
 export { scoreLiquidity, predictFullDayAmount, limitLadderMetrics, uniqueWindCodeCount, scoreLadder, scoreTheme, stockRoleLayers };

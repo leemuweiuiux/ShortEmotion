@@ -48,6 +48,17 @@
 .home-anomaly-list strong { grid-row: span 2; align-self: center; font-family: "Manrope", sans-serif; font-size: 20px; font-weight: 700; }
 .home-anomaly-list small { color: var(--muted); font-size: 12px; line-height: 1.5; }
 
+/* 涨停情绪：4 个数字免费；天梯未解锁时模糊占位 + 锁（10 积分 / 12 小时，与 /limitup 共用），解锁后按板高列出 */
+.home-limitup-body { position: relative; }
+.home-limitup-body.locked { min-height: 220px; }
+.home-limitup-ladder { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.home-limitup-ladder li { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--border); }
+.home-limitup-ladder li:first-child { border-top: 0; }
+.home-limitup-ladder b { font-size: 13px; font-weight: 600; text-align: right; }
+.home-limitup-ladder b small { display: block; color: var(--muted); font-family: "Manrope", sans-serif; font-size: 11px; font-weight: 500; }
+.home-limitup-ladder p { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 0; font-size: 13px; line-height: 1.6; }
+.home-limitup-ladder p em { color: var(--muted); font-size: 12px; font-style: normal; }
+
 /* 积分卡里的「填写邀请码」（/shared/invite-entry.js）：盖住签到按钮，整行显示 */
 .home-points .invite-entry { flex-basis: 100%; }
 .invite-entry { display: grid; gap: 8px; }

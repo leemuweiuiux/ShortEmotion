@@ -172,11 +172,73 @@ function mockSectorFlow(params, now) {
   return table([...fields, "Wind代码"], rows);
 }
 
+// ── 涨停情绪（/limitup，api/_lib/limitup/engine.js）：结构化涨停 / 跌停事件表、昨日涨停溢价、竞价溢价、个股资讯 ──
+// 历史日涨停名单：所有历史口径必须走同一份，否则「昨日涨停溢价」会被引擎的口径护栏
+// （返回值必须绝大多数命中昨日涨停名单）拒收，本地页面就看不到这条结论。
+const historicalLimitUp = (day) => LIMIT_UP.slice(0, String(day).endsWith("1") ? 2 : 4);
+// 北交所也放一只，否则「北交所空表」会触发引擎的空表重试等待
+const LIMIT_EVENT = [...LIMIT_UP, ["920118.BJ", "北证样本", "商业航天;卫星导航"]];
+const LIMIT_SEAL_TIMES = ["09:25:00", "09:31:12", "09:42:05", "09:58:40", "10:21:33", "13:12:09", "14:05:51", "14:48:20", "10:05:00"];
+const LIMIT_DOWN_EVENT = [
+  ["600001.SH", "样本跌停", "白酒;食品饮料"],
+  ["600002.SH", "样本回落", "零售;百货"],
+  ["300901.SZ", "创业跌停", "创新药;医药"],
+  ["688901.SH", "科创跌停", "半导体;芯片"],
+  ["920901.BJ", "北证跌停", "光伏;储能"]
+];
+const LIMIT_DOWN_TIMES = ["10:12:30", "13:41:02", "14:20:15", "11:05:44", "14:51:09"];
+const SECTOR_TEST = { 沪深: () => true, 主板: (code) => /^(?:60|00)/.test(code), 创业板: (code) => /^30/.test(code), 科创板: (code) => /^68/.test(code), 北交所: (code) => /\.BJ$/.test(code) };
+const isoClock = (day, clock) => `${day.slice(0, 4)}-${day.slice(4, 6)}-${day.slice(6, 8)}T${clock}+08:00`;
+
+function mockLimitUp(serverType, toolName, question, now) {
+  if (serverType === "stock_data" && toolName === "search_stocks") {
+    const up = question.match(/^筛选(\d{8})涨停的(主板|创业板|科创板|北交所)A股并返回.*首次封板时间/);
+    if (up) {
+      const rows = LIMIT_EVENT.map((stock, index) => ({ stock, index })).filter(({ stock }) => SECTOR_TEST[up[2]](stock[0]))
+        .map(({ stock: [code, name, concepts], index }) => [code, name, `全部A股;小市值;${concepts}`, isoClock(up[1], now.time), isoClock(up[1], LIMIT_SEAL_TIMES[index])]);
+      return result({ data: [table(["Wind代码", "证券简称", "所属概念板块", "交易时间", "涨跌停时间"], rows)] });
+    }
+    const down = question.match(/^筛选(\d{8})跌停的(沪深|主板|创业板|科创板|北交所)A股并返回.*首次跌停时间/);
+    if (down) {
+      const day = down[1];
+      const statusColumn = `${day.slice(0, 4)}年${Number(day.slice(4, 6))}月${Number(day.slice(6, 8))}日涨跌停状态`;
+      const rows = LIMIT_DOWN_EVENT.map((stock, index) => ({ stock, index })).filter(({ stock }) => SECTOR_TEST[down[2]](stock[0]))
+        .map(({ stock: [code, name, concepts], index }) => [code, name, "-1", concepts, isoClock(day, now.time), isoClock(day, LIMIT_DOWN_TIMES[index])]);
+      return result({ data: [table(["Wind代码", "证券简称", statusColumn, "所属概念板块", "交易时间", "涨跌停时间"], rows)] });
+    }
+    const named = question.match(/^筛选(\d{8})收盘价等于当日涨停价的沪深A股并返回.*所属概念板块/);
+    if (named) {
+      return result({ data: [table(["Wind代码", "证券简称", "所属概念板块"], historicalLimitUp(named[1]).map(([code, name, concepts]) => [code, name, concepts]))] });
+    }
+  }
+  if (serverType === "analytics_data" && toolName === "get_financial_data") {
+    // 竞价溢价：用「开盘涨幅」列名，验证解析与分流
+    const auction = question.match(/^(\d{8})涨停股票在(\d{8})的开盘涨幅$/);
+    if (auction) {
+      const rows = historicalLimitUp(auction[1]).map(([code, name], index) => [code, name, Number((3.4 - index * 2.2).toFixed(2))]);
+      return result({ data: [table(["Wind代码", "证券简称", "开盘涨幅"], rows)] });
+    }
+  }
+  if (serverType === "financial_docs" && toolName === "get_financial_news") {
+    const target = question.match(/^(?:\d{8})?(.+?)(?:上涨原因|涨停原因)概念题材$/);
+    if (target) {
+      const stock = [...LIMIT_EVENT, ...LIMIT_DOWN_EVENT].find(([, name]) => name === target[1]);
+      const date = `${now.day.slice(0, 4)}-${now.day.slice(4, 6)}-${now.day.slice(6, 8)}`;
+      return result({ data: { items: stock ? [
+        { title: `${stock[1]}涨停：${stock[2].split(";")[0]}方向获资金关注`, content: `${stock[1]}今日封板，市场关注其${stock[2].replaceAll(";", "、")}业务进展。`, date, source: "样例资讯", relevance: 0.88 }
+      ] : [] } });
+    }
+  }
+  return null;
+}
+
 export function mockWindResult(serverType, toolName, params) {
   const now = beijingNow();
   const qt = quoteTime();
   const question = String(params.question || params.query || "");
 
+  const limitUp = mockLimitUp(serverType, toolName, question, now);
+  if (limitUp) return limitUp;
   if (serverType === "index_data" && toolName === "get_index_price_indicators" && String(params.indexes || "").includes("主力净流入")) {
     return result({ data: [mockSectorFlow(params, now)] });
   }
@@ -210,15 +272,18 @@ export function mockWindResult(serverType, toolName, params) {
     }
     const historical = question.match(/筛选(\d{8})收盘价/);
     const rows = historical
-      ? LIMIT_UP.slice(0, historical[1].endsWith("1") ? 2 : 4).map(([code, name]) => [code, name])
+      ? historicalLimitUp(historical[1]).map(([code, name]) => [code, name])
       : LIMIT_UP.map(([code, name], index) => [code, name, "涨停", qt, `${now.day} 10:${String(10 + index).padStart(2, "0")}:00`]);
     return result({ data: [table(historical ? ["Wind代码", "证券简称"] : ["Wind代码", "证券简称", "涨跌停状态", "交易时间", "涨停时间"], rows)] });
   }
   if (serverType === "analytics_data" && toolName === "get_financial_data") {
     if (/涨幅大于5%/.test(question)) return result({ data: [table(["统计口径", "涨幅大于5%股票家数"], [["沪深A股", 128]])] });
     if (/跌幅大于5%/.test(question)) return result({ data: [table(["统计口径", "跌幅大于5%股票家数"], [["沪深A股", 21]])] });
-    if (/涨停股票在\d{8}的最新涨跌幅/.test(question)) {
-      return result({ data: [table(["Wind代码", "证券简称", "最新涨跌幅"], [["000001.SZ", "样本一", 3.2], ["000002.SZ", "样本二", -1.4], ["000003.SZ", "样本三", 5.6]])] });
+    // 昨日涨停溢价：名单与「昨日涨停名单」一致，涨停情绪引擎的口径护栏才会采信（短线情绪也用同一句）
+    const premium = question.match(/^(\d{8})涨停股票在(\d{8})的最新涨跌幅/);
+    if (premium) {
+      const rows = historicalLimitUp(premium[1]).map(([code, name], index) => [code, name, Number((6.8 - index * 3.1).toFixed(2))]);
+      return result({ data: [table(["Wind代码", "证券简称", "最新涨跌幅"], rows)] });
     }
     if (/概念指数涨跌幅排名前十/.test(question)) {
       return result({ data: [table(["Wind代码", "证券简称", "涨跌幅", "交易时间"], CONCEPTS.map(([code, name, change]) => [code, name, change, qt]))] });
