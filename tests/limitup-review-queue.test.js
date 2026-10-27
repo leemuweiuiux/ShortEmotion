@@ -41,39 +41,27 @@ describe("limit-up news review queue", () => {
   });
 });
 
-describe("news concepts override Wind concepts", () => {
-  it("replaces Wind concepts with the families found in news", () => {
-    const item = { code: "300024.SZ", concepts: ["机器人", "减速器", "专精特新小巨人"], newsVerified: false };
-
-    expect(applyNewsConcepts(item, ["机器人", "算力与通信"])).toBe(true);
-    expect(item.concepts).toEqual(["机器人", "算力与通信"]);
-    expect(item.conceptSource).toBe("news");
-    expect(item.newsVerified).toBe(true);
-  });
-
-  it("dedupes repeated family names from news", () => {
-    const item = { code: "300024.SZ", concepts: [] };
-
-    applyNewsConcepts(item, ["机器人", "机器人"]);
-
-    expect(item.concepts).toEqual(["机器人"]);
-  });
-
-  it("keeps Wind concepts when news finds no theme, and marks the stock as reviewed", () => {
-    const item = { code: "600001.SH", concepts: ["种业"] };
-
-    expect(applyNewsConcepts(item, [])).toBe(false);
-    expect(item.concepts).toEqual(["种业"]);
+describe("news must be grounded in Wind concepts", () => {
+  it("keeps all original concepts and only retains supported news hints", () => {
+    const item = { code: "300024.SZ", concepts: ["人形机器人", "减速器", "储能"] };
+    expect(applyNewsConcepts(item, ["机器人", "金融科技"])).toBe(true);
+    expect(item.concepts).toEqual(["人形机器人", "减速器", "储能"]);
+    expect(item.newsThemes).toEqual(["机器人"]);
     expect(item.conceptSource).toBe("wind");
-    expect(item.newsVerified).toBe(true);
+    expect(pickPrimaryConcept(item.concepts, new Map([["储能", 20]]), "", item.newsThemes)).toBe("减速器");
   });
-
-  it("leaves the concept list empty when neither source has a theme", () => {
+  it("does not use news without original concepts", () => {
     const item = { code: "600002.SH", concepts: [] };
-
-    expect(applyNewsConcepts(item, [])).toBe(false);
+    expect(applyNewsConcepts(item, ["金融科技"])).toBe(false);
     expect(item.concepts).toEqual([]);
+    expect(item.newsThemes).toEqual([]);
     expect(item.conceptSource).toBe("none");
+  });
+  it("does not admit unrelated finance news into aggregation", () => {
+    const item = { code: "603565.SH", concepts: ["航运", "物流"] };
+    expect(applyNewsConcepts(item, ["金融科技", "券商"])).toBe(false);
+    expect(item.concepts).toEqual(["航运", "物流"]);
+    expect(aggregateConcepts([item]).map(x => x.name)).not.toContain("金融科技");
   });
 });
 
@@ -81,7 +69,7 @@ describe("news theme detection", () => {
   it("ignores media boilerplate that happens to contain 证券", () => {
     const text = "证券之星消息，青岛食品10月26日涨停收盘；证券代码：001219，证券简称：青岛食品";
 
-    expect(detectThemeFamilies(text)).not.toContain("金融科技与券商");
+    expect(detectThemeFamilies(text)).not.toContain("券商");
   });
 
   it("still detects the real family in a 证券之星 recap title", () => {
