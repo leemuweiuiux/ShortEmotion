@@ -62,7 +62,7 @@ describe("午间看点：素材", () => {
 describe("午间看点：提示词与发布时间", () => {
   it("写明截至 11:30、选定方向、四段与回看早报、上午消息与资金、半天数据的限制", () => {
     const prompt = noonPrompt({ day: "20261023", quoteTime: "20261023 11:30:05", sector: "机器人产业链", previous: { edition: "早报" } });
-    for (const text of ["截至11:30", "500—800字", "80—120字", "「上午盘面」", "「上午主线」", "「驱动与分歧」", "「回看早报」", "观点卡", "今天11:30以前发布", "不能写成上涨原因", "半天的数据不能当成全天结论", "不提供买卖建议", "选定为「机器人产业链」"]) {
+    for (const text of ["截至11:30", "500—800字", "70—130字", "「上午盘面」", "「上午主线」", "「驱动与分歧」", "「回看早报」", "观点卡", "今天11:30以前发布", "不能写成上涨原因", "半天的数据不能当成全天结论", "不提供买卖建议", "选定为「机器人产业链」"]) {
       expect(prompt, text).toContain(text);
     }
   });
@@ -75,13 +75,13 @@ describe("午间看点：提示词与发布时间", () => {
 });
 
 describe("午间看点：与早报共用列表与校验", () => {
-  it("篇幅：三期相同，摘要 80—120 字、正文 500—800 字（校验放宽到 70—130、450—900）", () => {
+  it("篇幅：三期相同，摘要 70—130 字、正文 500—800 字（校验范围 70—200、450—900）", () => {
     const base = { title: "标题", summary: "字".repeat(90), sections: Array.from({ length: 4 }, () => ({ heading: "段", text: "字".repeat(160) })), views: [{ status: "延续", text: "一" }, { status: "修正", text: "二" }, { status: "新增", text: "三" }], watch: ["甲", "乙"], sourceIds: ["market"] };
     const evidence = [{ id: "market" }];
     expect(LIMITS.noon).toBe(LIMITS.morning);
     expect(LIMITS.evening).toBe(LIMITS.morning);
     expect(() => validateArticle(base, evidence, LIMITS.noon)).not.toThrow();
-    expect(() => validateArticle({ ...base, summary: "字".repeat(140) }, evidence, LIMITS.noon)).toThrow("摘要须为70—130字");
+    expect(() => validateArticle({ ...base, summary: "字".repeat(201) }, evidence, LIMITS.noon)).toThrow("摘要须为70—200字");
     expect(() => validateArticle({ ...base, sections: base.sections.map((s) => ({ ...s, text: "字".repeat(240) })) }, evidence, LIMITS.noon)).toThrow("正文过长");
     expect(() => validateArticle({ ...base, sections: base.sections.map((s) => ({ ...s, text: "字".repeat(100) })) }, evidence, LIMITS.noon)).toThrow("正文材料不足");
   });
