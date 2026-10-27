@@ -22,7 +22,10 @@ const ANOMALY_THEME_FAMILIES = [
   { id: "nonferrous", name: "有色金属产业链", test: /有色|稀土|贵金属|黄金|白银|工业金属|铜矿|铝业/ },
   { id: "advanced-materials", name: "新材料产业链", test: /碳纤维|超导|新材料|超硬材料|金属非金属新材料/, exclude: /半导体材料|医药材料|建筑材料/ },
   { id: "consumer", name: "消费产业链", test: /白酒|啤酒|食品饮料|食品|饮料|零售|旅游|酒店|免税|家电|乳业|调味品|餐饮|百货|商贸|预制菜|宠物经济/, exclude: /消费电子|电子消费|消费建材|医药消费|医疗消费/ },
-  { id: "finance", name: "金融科技与券商", test: /金融科技|证券|券商|保险|互金|支付|数字货币|稳定币|银行/ },
+  { id: "fintech", name: "金融科技", test: /金融科技|互联网金融|互金|第三方支付|移动支付|数字货币|数字人民币|稳定币/ },
+  { id: "securities", name: "券商", test: /证券|券商/ },
+  { id: "bank", name: "银行", test: /银行|农商行/ },
+  { id: "insurance", name: "保险", test: /保险/ },
   { id: "property-infrastructure", name: "地产与基建产业链", test: /房地产|地产开发|物业管理|城市更新|建筑施工|基础设施|基建/ },
   { id: "energy", name: "传统能源产业链", test: /石油|天然气|油气|煤炭|页岩气|炼化/ }
 ];
