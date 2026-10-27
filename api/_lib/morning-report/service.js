@@ -14,9 +14,9 @@ export function reportIdentity(article) {
 }
 export const normalizeReport = article => ({ ...article, ...reportIdentity(article) });
 const ID_PATTERN = /^\d{8}(?:-noon|-evening)?$/;
-// 篇幅（2026-10-23 与产品确认，三期相同）：四段正文 500—800 字、摘要 80—120 字，外加观点卡。
+// 篇幅（2026-10-23 与产品确认，三期相同）：四段正文 500—800 字、摘要目标 70—130 字，校验允许 70—200 字，外加观点卡。
 //   aim 写进提示词；summary / text 是校验范围，各留一点余量，避免差几个字就再调一次模型。
-const ARTICLE = { summary: [70, 130], text: [450, 900], sections: 4, views: true, aim: { summary: [80, 120], text: [500, 800] } };
+const ARTICLE = { summary: [70, 200], text: [450, 900], sections: 4, views: true, aim: { summary: [70, 130], text: [500, 800] } };
 export const LIMITS = { morning: ARTICLE, noon: ARTICLE, evening: ARTICLE };
 // 列表（INDEX）只放摘要信息；正文、观点卡与引用只在单篇文章里
 export function indexEntry(article) {
