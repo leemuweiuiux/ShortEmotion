@@ -10,11 +10,17 @@ function cloneSection(node) {
   const copy = node.cloneNode(true);
   copy.classList.add("lu-export-section");
   copy.querySelectorAll("[id]").forEach(el => el.removeAttribute("id"));
-  copy.querySelectorAll("button").forEach(el => el.remove());
+  copy.querySelectorAll("button").forEach(el => {
+    if (!el.classList.contains("lu-concept")) return el.remove();
+    const row = document.createElement("div");
+    row.className = el.className;
+    row.append(...el.childNodes);
+    el.replaceWith(row);
+  });
   return copy;
 }
 function sectionTitle(section, index) { return section.querySelector(".card-title")?.textContent?.trim() || (index === 0 ? "市场概况" : "涨停情绪"); }
-function closeMenu() { $(".export-menu")?.remove(); $("#share-limitup")?.setAttribute("aria-expanded", "false"); }
+function closeMenu() { $(".export-menu:not(.account-menu)")?.remove(); $("#share-limitup")?.setAttribute("aria-expanded", "false"); }
 
 export function setupLimitupShare() {
   const button = $("#share-limitup");
@@ -49,12 +55,12 @@ export function setupLimitupShare() {
   }
   button.addEventListener("click", event => {
     event.stopPropagation();
-    if ($(".export-menu")) return closeMenu();
+    if ($(".export-menu:not(.account-menu)")) return closeMenu();
     const menu = document.createElement("div");
     menu.className = "export-menu"; menu.setAttribute("role", "menu");
     menu.innerHTML = '<button type="button" role="menuitem" data-share="long"><b>导出长图</b><small>当前页面合成一张</small></button><button type="button" role="menuitem" data-share="cards"><b>导出小卡</b><small>各模块分别生成</small></button>';
     menu.addEventListener("click", event => { const item = event.target.closest("[data-share]"); if (item) run(item.dataset.share); });
-    button.closest("nav").append(menu); button.setAttribute("aria-expanded", "true");
+    button.closest(".tabs-wrap").append(menu); button.setAttribute("aria-expanded", "true");
   });
   document.addEventListener("click", event => { if (!event.target.closest(".export-menu")) closeMenu(); });
   document.addEventListener("keydown", event => { if (event.key === "Escape") { closeMenu(); closeGallery(); } });
