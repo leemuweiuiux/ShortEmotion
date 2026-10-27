@@ -134,7 +134,7 @@ export function sharedRules({ sector, previous, sections }) {
     : `第四段写在最后，小标题以「${prefix}」开头：没有上一篇时，对照证据中的昨日数据说明变化。`;
   return `只输出JSON：{title,summary,sections:[{heading,text}],views:[{status,text}],watch:[观察点],sourceIds:[证据id]}。
 本期主线方向已由系统选定为「${sector}」（证据 candidates 中的同名一项），只写这个方向，不要改选。
-正文恰好四段，合计500—800字；先写正文，再提炼80—120字摘要；标点计入字数。前三段小标题自拟，连贯叙事。
+正文恰好四段，合计500—800字；先写正文，再提炼70—130字摘要；标点计入字数。前三段小标题自拟，连贯叙事。
 第一段${sections[0]}
 第二段${sections[1]}
 第三段${sections[2]}
