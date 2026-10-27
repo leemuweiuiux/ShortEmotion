@@ -187,3 +187,8 @@
 /* 未解锁时的 4 个数字与已解锁的指标卡同色：涨停、最高板红涨色，跌停绿跌色 */
 #f-limitup, #f-maxstreak { color: var(--price-up); }
 #f-limitdown { color: var(--price-down); }
+
+/* 导出时去掉交互控件，内容保持与当前页面展示一致。 */
+.lu-export-section { margin: 0 0 12px; }
+.lu-export-section .lu-expand, .lu-export-section button { display: none; }
+.lu-export-section .section { margin: 0; }
