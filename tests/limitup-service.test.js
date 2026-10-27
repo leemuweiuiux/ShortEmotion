@@ -44,7 +44,8 @@ describe("涨停情绪取数与落库", () => {
       expect(existsSync(join(dir, "kv", file)), file).toBe(true);
     }
     const cache = JSON.parse(readFileSync(join(dir, "kv", "limitup_news-cache_20261021.json"), "utf8")).value;
-    expect(cache.entries["300024.SZ"]).toEqual(["机器人"]);
+    expect(cache.version).toBe(3);
+    expect(cache.entries["300024.SZ"]).toEqual([]); // 模拟资讯没有直接业务证据，不能仅凭关键词归类
 
     // 模拟下一次 GitHub Actions：全新进程（模块重新加载，内存缓存清空），只剩数据分支
     vi.resetModules();
