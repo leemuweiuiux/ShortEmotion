@@ -1,7 +1,7 @@
 // @vitest-environment node
 // 资讯复核队列：断板 → 连板 → 首板。顺序错位会让断板概念拿不到、首板先耗尽额度。
 import {
-  aggregateConcepts, applyNewsConcepts, buildNewsReviewQueue, pickPrimaryConcept,
+  aggregateConcepts, applyNewsConcepts, buildNewsReviewQueue, pickPrimaryConcept, extractNewsEvidence,
   pruneUnsupportedBrandConcepts, quoteDayOf, selectStockNews, snapshotDayMismatch
 } from "../api/_lib/limitup/engine.js";
 import { detectThemeFamilies } from "../api/_lib/limitup/themes.js";
@@ -64,3 +64,21 @@ describe("news evidence for supplemental attribution", () => {
   });
 });
 
+
+describe("explicit news evidence extraction", () => {
+  const day = "20261027";
+  const item = content => ({ title: "公司业务动态", content, source: "甲媒体", date: "2026-10-27" });
+  it("extracts a direct business relation with provenance", () => {
+    const records = extractNewsEvidence([item("测试股份研发机器人减速器")], "测试股份", day);
+    expect(records).toMatchObject([{ theme: "机器人", source: "甲媒体", date: "2026-10-27", sentence: "测试股份研发机器人减速器", relation: "business", dated: true }]);
+  });
+  it("rejects market co-mentions, negation and other company subjects", () => {
+    expect(extractNewsEvidence([item("测试股份涨停，机器人板块上涨")], "测试股份", day)).toEqual([]);
+    expect(extractNewsEvidence([item("测试股份不涉及机器人业务")], "测试股份", day)).toEqual([]);
+    expect(extractNewsEvidence([item("测试股份、其他公司研发机器人")], "测试股份", day)).toEqual([]);
+  });
+  it("does not mark undated and future evidence as valid", () => {
+    expect(extractNewsEvidence([{ ...item("测试股份研发机器人"), date: "" }], "测试股份", day)[0].dated).toBe(false);
+    expect(extractNewsEvidence([{ ...item("测试股份研发机器人"), date: "2026-10-28" }], "测试股份", day)[0].dated).toBe(false);
+  });
+});
