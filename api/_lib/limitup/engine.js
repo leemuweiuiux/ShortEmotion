@@ -444,6 +444,7 @@ export function importNewsReviewCache(day, entries) {
   }
   return count;
 }
+
 const NEWS_CONCEPT_MAX = 80;
 // 默认开启；LIMITUP_NEWS_CONCEPT=0 可关闭（每只股票占 1 次 Wind 额度）
 const NEWS_CONCEPT_ENABLED = process.env.LIMITUP_NEWS_CONCEPT !== "0";
@@ -501,6 +502,7 @@ async function askThemeNames(query, stockName = "", day = "") {
   }
 }
 
+
 // 队列顺序：断板 → 连板 → 首板，额度或时间不够时先保证最重要的拿到。
 // 抽成纯函数便于单测：排序规则一变，晋级/断板概念就会错位。
 export function buildNewsReviewQueue(stocks, brokenCodes = [], nameByCode = null) {
@@ -543,4 +545,945 @@ export function applyNewsConcepts(stock, evidence) {
   stock.conceptSource = concepts.length ? (additions.length ? "wind+news" : "wind") : additions.length ? "news" : "none";
   return additions.length > 0;
 }
+async function reviewConceptsByNews(stocks, day, brokenCodes = [], nameByCode = null, brokenDay = day, brokenBase = new Map()) {
+  // reviewed：实际查过资讯的只数；aborted：连续失败熔断，说明后面还没复核完
+  const result = { filled: 0, reviewed: 0, aborted: false, brokenConcepts: new Map() };
+  if (!NEWS_CONCEPT_ENABLED) return result;
 
+  const queue = buildNewsReviewQueue(stocks, brokenCodes, nameByCode);
+
+  const visited = new Set();
+  let consecutiveFailures = 0;
+  for (const target of queue) {
+    if (visited.size >= NEWS_CONCEPT_MAX) break;
+    if (!target.name || visited.has(target.code)) continue;
+    visited.add(target.code);
+
+    // 缓存带上交易日：跨日复用会把昨天的资讯结论套到今天
+    const cacheKey = `${day}:${target.code}`;
+    let evidence = newsConceptCache.get(cacheKey);
+    if (!evidence) {
+      // 断板股涨停发生在上一交易日：用今天去查会一篇都查不到（实测海洋王 0 条）
+      const queryDay = target.broken ? brokenDay : day;
+      let answer = await askThemeNames(`${queryDay}${target.name}上涨原因概念题材`, target.name, queryDay);
+      // 断板股、以及 Wind 概念全空的个股，日期过滤容易筛掉新闻：补一次不带日期的查询
+      if (!answer.failed && !answer.hit && (target.broken || !(target.stock?.concepts?.length))) {
+        if (process.env.WIND_MOCK !== "1") await waitFor(900);
+        answer = await askThemeNames(`${target.name}涨停原因概念题材`, target.name, queryDay);
+      }
+      evidence = answer.evidence;
+      result.reviewed += 1;
+      // 失败不写缓存：额度恢复后同一天刷新时还能补回来
+      if (!answer.failed) newsConceptCache.set(cacheKey, evidence);
+      // 额度耗尽时连续失败，继续排队只会白等，直接熔断
+      if (answer.failed) {
+        consecutiveFailures += 1;
+        if (consecutiveFailures >= 5) {
+          result.aborted = true;
+          break;
+        }
+      } else {
+        consecutiveFailures = 0;
+      }
+      // 节流只在真实调用时生效；离线 mock 跑测试不需要这一秒多的等待
+      if (process.env.WIND_MOCK !== "1") await waitFor(1_200);
+    }
+    // 断板股只有资讯命中了才写；没命中时保留 Wind 昨日概念的兜底
+    if (target.broken) {
+      const supported = new Set((brokenBase.get(target.code) || []).map(conceptLabelOf));
+      const names = (evidence || []).filter(item => item.dated).map(item => conceptLabelOf(item.theme)).filter(name => supported.has(name));
+      if (!names.length) continue;
+      result.brokenConcepts.set(target.code, [...new Set(names)]);
+      result.filled += 1;
+      continue;
+    }
+
+    // 以资讯为准：资讯命中的题材族覆盖 Wind 概念，Wind 只作为资讯无症状时的底稿。
+    // 资讯为空也要走这一步，否则个股不会带上「已复核」与来源标记
+    if (applyNewsConcepts(target.stock, evidence)) result.filled += 1;
+  }
+  return result;
+}
+
+// ── 主营复核（方案 A） ─────────────────────────────────────────────────
+// 只对带「家电」等集团品牌标签的个股取主营，成本可控（通常个位数）。
+const businessTextCache = new Map();
+async function loadBusinessText(day, code) {
+  const key = `${day}:${code}`;
+  if (businessTextCache.has(key)) return businessTextCache.get(key);
+  const payload = await windCall("stock_data", "get_stock_basicinfo", { question: `${code}公司主营业务和核心产品` }, 12_000);
+  const text = tables(payload).flatMap(objects).flatMap((row) => Object.values(row)).filter((value) => value != null).join(" ");
+  businessTextCache.set(key, text);
+  return text;
+}
+
+async function reviewBrandConcepts(stocks, day) {
+  const result = { checked: 0, pruned: 0, failed: 0, businessText: new Map() };
+  for (const stock of stocks) {
+    if (!BRAND_CONCEPT_SUPPORT.some((rule) => stock.concepts?.includes(rule.concept))) continue;
+    let text = "";
+    try {
+      text = await loadBusinessText(day, stock.code);
+      result.checked += 1;
+      result.businessText.set(stock.code, text);
+    } catch {
+      // 取不到主营就保留 Wind 标签，不因为缺证据误删
+      result.failed += 1;
+      continue;
+    }
+    const { concepts, dropped } = pruneUnsupportedBrandConcepts(stock.concepts, text);
+    if (dropped.length) {
+      stock.concepts = concepts;
+      stock.droppedConcepts = [...(stock.droppedConcepts || []), ...dropped];
+      result.pruned += 1;
+      if (process.env.LIMITUP_DEBUG) {
+        console.log(`[brand] ${stock.name} 主营不支持「${dropped.join("/")}」→ 剔除`);
+      }
+    }
+    if (process.env.WIND_MOCK !== "1") await waitFor(600);
+  }
+  return result;
+}
+
+// ── 代码 / 名称派生字段 ─────────────────────────────────────────────────
+const BOARD_BY_PREFIX = [
+  [/^(?:688|689)\d{3}$/, "科创板"],
+  [/^(?:300|301)\d{3}$/, "创业板"],
+  [/^(?:43|83|87|88|92)\d{4}$/, "北交所"],
+  [/^(?:600|601|603|605|000|001|002|003)\d{3}$/, "主板"]
+];
+function boardOf(code) {
+  const numeric = String(code || "").split(".")[0];
+  return BOARD_BY_PREFIX.find(([pattern]) => pattern.test(numeric))?.[1] || "其他";
+}
+const isStName = (name) => /^\*?ST/i.test(String(name || ""));
+
+// ── 连板高度 ────────────────────────────────────────────────────────────
+// `sets[0]` 是昨日、`sets[1]` 前日…；连续命中几个就加几板。
+function streakAgainst(sets, code) {
+  let streak = 1;
+  for (const codes of sets) {
+    if (!codes.has(code)) break;
+    streak += 1;
+  }
+  return streak;
+}
+
+// ── 晋级率（无需落库历史，交易日历 + 涨停名单即可算，因此第一天就能出数） ──
+function promotionOf(todayCodes, sets, yesterdayCodes) {
+  if (!sets.length || !yesterdayCodes?.size) return { baseTradingDate: null, baseLimitUpCount: 0, tiers: [], overallRate: null, promoted: [], failed: [] };
+  const tiers = [];
+  const promoted = [];
+  const failed = [];
+  const byYesterdayStreak = new Map();
+  for (const code of yesterdayCodes) {
+    const streak = streakAgainst(sets.slice(1), code);
+    if (!byYesterdayStreak.has(streak)) byYesterdayStreak.set(streak, []);
+    byYesterdayStreak.get(streak).push(code);
+  }
+  for (const [streak, codes] of [...byYesterdayStreak].sort((a, b) => a[0] - b[0])) {
+    const promotedCodes = codes.filter((code) => todayCodes.has(code));
+    tiers.push({
+      from: streak, to: streak + 1, label: `${streak}进${streak + 1}`,
+      baseCount: codes.length, promotedCount: promotedCodes.length,
+      rate: codes.length ? Number((promotedCodes.length / codes.length).toFixed(4)) : null,
+      promoted: promotedCodes
+    });
+    promotedCodes.forEach((code) => promoted.push({ code, fromStreak: streak, toStreak: streak + 1 }));
+    codes.filter((code) => !todayCodes.has(code)).forEach((code) => failed.push({ code, fromStreak: streak }));
+  }
+  const promotedTotal = tiers.reduce((sum, tier) => sum + tier.promotedCount, 0);
+  return {
+    baseTradingDate: null,
+    baseLimitUpCount: yesterdayCodes.size,
+    tiers, promoted, failed,
+    overallRate: Number((promotedTotal / yesterdayCodes.size).toFixed(4))
+  };
+}
+
+// ── 概念聚合 ────────────────────────────────────────────────────────────
+// streakDistribution 让页面能画「板高微条」：一只股票一个方块，深浅=板高。
+// 光看家数分不清「5家全首板（跟风）」和「3家有4板（主线）」，分布才能区分。
+export function aggregateConcepts(stocks) {
+  const groups = new Map();
+  for (const stock of stocks) {
+    const streak = stock.streak || 1;
+    for (const name of stock.concepts) {
+      // 与「题材异动」保持同一题材维度：先映射到题材家族
+      // （人形机器人 / 机器人 / 减速器 → 机器人产业链），否则同一件事会被拆成多行
+      const family = anomalyFamily(name);
+      // 族名去掉「产业链」后缀，只留核心词（机器人产业链 → 机器人）
+      const label = conceptLabelOf(name);
+      // 以展示名作聚合键：族名与 Wind 原始概念可能走不同分支（汽车智能化 vs 华为汽车），
+      // 按 family.id 分组会把同一件事拆成两行、家数各算一遍
+      const key = label;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          name: label, aliases: [], stocks: [], maxStreak: 0, firstSealTime: null,
+          whitelist: Boolean(family) || isWhitelistTheme(name), streakDistribution: {},
+          leaderCode: null, leaderSealTime: null, evidence: {}, reviewReasons: []
+        });
+      }
+      const group = groups.get(key);
+      if (!group.whitelist && isWhitelistTheme(name)) group.whitelist = true;
+      if (!group.aliases.includes(name)) group.aliases.push(name);
+      (group.evidence[stock.code] ||= []).push(stock.newsAdded?.includes(name) ? `资讯补充：${name}` : `原始概念：${name}`);
+      if (familyCandidates(name).length > 1 && !group.reviewReasons.includes("归并存在多个候选题材，保留原概念")) group.reviewReasons.push("归并存在多个候选题材，保留原概念");
+      if (stock.newsAdded?.includes(name) && !group.reviewReasons.includes("题材由资讯补充，请查看证据")) group.reviewReasons.push("题材由资讯补充，请查看证据");
+      // 同一只股票可能同时带族内多个概念，只计一次，否则家数会虚高
+      if (group.stocks.includes(stock.code)) continue;
+      group.stocks.push(stock.code);
+      group.streakDistribution[streak] = (group.streakDistribution[streak] || 0) + 1;
+      // 龙头 = 最高板里封板最早的那只，决定次日谁能接过身位
+      if (streak > group.maxStreak) {
+        group.maxStreak = streak;
+        group.leaderCode = stock.code;
+        group.leaderSealTime = stock.sealTime;
+      } else if (streak === group.maxStreak && String(stock.sealTime || "99") < String(group.leaderSealTime || "99")) {
+        group.leaderCode = stock.code;
+        group.leaderSealTime = stock.sealTime;
+      }
+      const seal = stock.sealTime;
+      if (seal && (!group.firstSealTime || seal < group.firstSealTime)) group.firstSealTime = seal;
+    }
+  }
+  return [...groups.values()].map((group) => ({
+    ...group,
+    limitCount: group.stocks.length,
+    hasLeader: group.maxStreak >= 2
+  }))
+    // 有龙头 > 家数 > 白名单 > 首封时间：3家有4板比5家全首板更该排前面
+    .sort((a, b) => Number(b.hasLeader) - Number(a.hasLeader)
+      || b.limitCount - a.limitCount
+      || Number(b.whitelist) - Number(a.whitelist)
+      || String(a.firstSealTime || "99").localeCompare(String(b.firstSealTime || "99")));
+}
+
+// 主标签口径（方案 A）：资讯优先；没有资讯时，优先选「主营能匹配」的概念。
+// 概念炒作不一定贴主营，所以主营只用来挑主标签，不覆盖资讯结论。
+export function pickPrimaryConcept(concepts, conceptCounts, businessText = "", newsThemes = []) {
+  const text = String(businessText || "");
+  const matchesBusiness = (name) => {
+    if (!text) return false;
+    if (text.includes(name)) return true;
+    const family = anomalyFamily(name);
+    if (!family) return false;
+    if (family.business) {
+      family.business.lastIndex = 0;
+      if (family.business.test(text)) return true;
+    }
+    family.test.lastIndex = 0;
+    return family.test.test(text);
+  };
+  const supportedNews = new Set(newsThemes.map(conceptLabelOf));
+  const score = (name) =>
+    (supportedNews.has(conceptLabelOf(name)) ? 1_000_000 : 0)
+    + (matchesBusiness(name) ? 100_000 : 0)
+    + (conceptCounts.get(name) || 0) * 10
+    + (isWhitelistTheme(name) ? 1000 : 0);
+  return [...concepts].sort((a, b) => score(b) - score(a) || a.length - b.length)[0] || null;
+}
+
+// ── 题材强弱：涨停题材 vs 跌停题材 ──────────────────────────────────────
+// 把「若干只股票的题材标签」聚合为 { name, count, maxStreak }，供强弱对比与历史题材复用。
+// 归一化走 conceptLabelOf（题材族名去「产业链」），保证涨停、跌停、昨日名单落在同一行。
+export function aggregateThemeOccurrences(entries = []) {
+  const groups = new Map();
+  for (const entry of entries) {
+    const streak = entry?.streak || 1;
+    const names = [...new Set((entry?.names || []).map(conceptLabelOf).filter(Boolean))];
+    for (const name of names) {
+      if (!groups.has(name)) groups.set(name, { name, count: 0, maxStreak: 0 });
+      const group = groups.get(name);
+      group.count += 1;
+      if (streak > group.maxStreak) group.maxStreak = streak;
+    }
+  }
+  return [...groups.values()].sort((a, b) => b.count - a.count || b.maxStreak - a.maxStreak);
+}
+
+// 涨停个股 → 题材计数（复用概念聚合的族归一与龙头判定）
+export function themeCountsOf(stocks = []) {
+  return aggregateConcepts(stocks).map((item) => ({
+    name: item.name, count: item.limitCount, maxStreak: item.maxStreak, stocks: item.stocks
+  }));
+}
+
+function themeStrengthStatus(group) {
+  const { upCount, downCount, maxUpStreak, previousUpCount } = group;
+  if (upCount && !downCount) {
+    // 昨日是主线、今日涨停家数腰斩：不是走弱，但明显在降温，不能继续标成主升
+    if (previousUpCount >= 3 && upCount <= previousUpCount * 0.6) return "降温";
+    // 「主升」必须既有梯队又成规模：至少 3 家，且满足「4 家起出 2 板」或「3 家起出 3 板」。
+    // 2 只涨停（哪怕一只是 4 板高标）只是试错资金，标成主升会误导仓位。
+    if ((upCount >= 4 && maxUpStreak >= 2) || (upCount >= 3 && maxUpStreak >= 3)) return "主升";
+    if (upCount >= 2) return "走强";
+    return "异动";
+  }
+  if (upCount && downCount) return "分歧";
+  if (!upCount && downCount >= 3) return "冰点";
+  if (!upCount && downCount) return "走弱";
+  return "退潮";
+}
+const strengthTone = (status) => (status === "主升" || status === "走强" ? "up" : status === "走弱" || status === "冰点" || status === "退潮" ? "down" : "warn");
+
+// 强弱判定（纯函数）：
+//   有涨停无跌停 → 主升/走强/异动；涨跌同现 → 分歧；只有跌停 → 走弱/冰点；只剩断板 → 退潮。
+// 负反馈只认「跌停」：前期主线昨天还有一堆涨停，今天却出现跌停，才叫突然负反馈。
+// 单纯断板/未晋级不算负反馈（晋级率低的日子几乎每个题材都在断板，会把冰点预警刷成噪音）。
+export function buildThemeStrength({ upThemes = [], downThemes = [], previousThemes = [], brokenThemes = [] } = {}) {
+  const groups = new Map();
+  const ensure = (name) => {
+    if (!groups.has(name)) {
+      groups.set(name, {
+        name, upCount: 0, downCount: 0, maxUpStreak: 0,
+        brokenCount: 0, previousUpCount: 0, previousMaxStreak: 0
+      });
+    }
+    return groups.get(name);
+  };
+  for (const theme of upThemes) {
+    const group = ensure(theme.name);
+    group.upCount += theme.count || 0;
+    group.maxUpStreak = Math.max(group.maxUpStreak, theme.maxStreak || 1);
+  }
+  for (const theme of downThemes) ensure(theme.name).downCount += theme.count || 0;
+  for (const theme of previousThemes) {
+    const group = ensure(theme.name);
+    group.previousUpCount += theme.count || 0;
+    group.previousMaxStreak = Math.max(group.previousMaxStreak, theme.maxStreak || 1);
+  }
+  for (const theme of brokenThemes) ensure(theme.name).brokenCount += theme.count || 0;
+
+  return [...groups.values()]
+    .filter((group) => group.upCount || group.downCount || group.brokenCount)
+    .map((group) => {
+      const hotYesterday = group.previousUpCount >= 3 || group.previousMaxStreak >= 2;
+      // 还要求「今天涨停家数比昨天少」：昨天 5 家、今天 6 家 + 1 家跌停，是分歧不是负反馈
+      const negativeFeedback = hotYesterday && group.downCount > 0 && group.upCount < group.previousUpCount;
+      const status = themeStrengthStatus(group);
+      return { ...group, net: group.upCount - group.downCount, negativeFeedback, status, tone: strengthTone(status) };
+    })
+    .sort((a, b) => Number(b.negativeFeedback) - Number(a.negativeFeedback)
+      || b.upCount - a.upCount
+      || b.downCount - a.downCount
+      || b.previousUpCount - a.previousUpCount
+      || a.name.localeCompare(b.name));
+}
+
+// 题材强弱合并进「概念聚合」：同一行里既有涨停家数/最高板/首封时间，也有跌停、断板、强弱状态。
+// 涨停题材以概念聚合的富信息为准；只有跌停、没有涨停的题材补成 limitCount=0 的行，
+// 否则「谁在走弱」看不到——而这恰恰是判断冰点最需要的另一半。
+export function mergeThemeBoard({ concepts = [], themeStrength = [] } = {}) {
+  const strengthByName = new Map(themeStrength.map((theme) => [theme.name, theme]));
+  const rows = concepts.map((concept) => {
+    const strength = strengthByName.get(concept.name);
+    return {
+      ...concept,
+      downCount: strength?.downCount || 0,
+      brokenCount: strength?.brokenCount || 0,
+      previousUpCount: strength?.previousUpCount || 0,
+      negativeFeedback: Boolean(strength?.negativeFeedback),
+      status: strength?.status || null,
+      tone: strength?.tone || null,
+      downOnly: false
+    };
+  });
+  const upNames = new Set(concepts.map((concept) => concept.name));
+  for (const strength of themeStrength) {
+    if (upNames.has(strength.name)) continue;
+    // 没有涨停的弱方向也要留：只有跌停的（走弱/冰点）必然可见，
+    // 纯断板的退潮题材在断了 ≥2 家时也留一行，否则删掉「题材强弱」卡片后这些方向就彻底看不到了。
+    if (!strength.downCount && (strength.brokenCount || 0) < 2) continue;
+    rows.push({
+      name: strength.name, aliases: [], stocks: [], maxStreak: 0, firstSealTime: null,
+      whitelist: false, streakDistribution: {}, leaderCode: null, leaderSealTime: null, hasLeader: false,
+      limitCount: 0,
+      downCount: strength.downCount || 0, brokenCount: strength.brokenCount || 0,
+      previousUpCount: strength.previousUpCount,
+      negativeFeedback: strength.negativeFeedback, status: strength.status, tone: strength.tone,
+      downOnly: true
+    });
+  }
+  return rows
+    // 单个涨停只是个股行为，不构成题材，一律不展示（哪怕它同时有跌停/断板）；
+    // 1 家涨停也没有的弱方向，则要 ≥2 家跌停或 ≥2 家断板才留，否则同样是噪音。
+    .filter((row) => row.limitCount >= 2
+      || (row.limitCount === 0 && (row.downCount >= 2 || row.brokenCount >= 2)))
+    // 负反馈最优先；其余按「有梯队 > 涨停家数 > 跌停家数 > 断板家数」排，弱方向自然沉底但仍可见
+    .sort((a, b) => Number(b.negativeFeedback) - Number(a.negativeFeedback)
+      || Number(b.hasLeader) - Number(a.hasLeader)
+      || b.limitCount - a.limitCount
+      || b.downCount - a.downCount
+      || b.brokenCount - a.brokenCount
+      || String(a.firstSealTime || "99").localeCompare(String(b.firstSealTime || "99")));
+}
+
+// 顶部亮点（纯函数）：主线 → 冰点预警 → 负反馈 → 退潮 → 高位断板 → 结构风险/亮点，最多 6 条。
+// 主线永远排第一：先回答「今天资金在哪」，风险与退潮类结论放后面。
+//
+// 每条结论带 priority，最后统一排序再截断：
+//   0 主线 → 1 冰点 → 1.5 赚钱效应 → 2 负反馈 → 3 退潮/走弱 → 4 高位断板 →
+//   4.5 竞价强度 → 5 结构风险（接力差 / 高度断层 / 封板偏晚 / 题材发散）→
+//   6 结构亮点（接力顺 / 封板扎实 / 空间打开 / 主线清晰）
+// 结构类只在「明显偏离中性」时给出，否则宁可不占版面。
+const pctText = (value) => `${Math.round(value * 100)}%`;
+const signedText = (value) => `${value > 0 ? "+" : ""}${round2(value)}`;
+// 板高文案：1 板统一叫「首板」（与 limitStreakLabel 口径一致），避免出现「1板」
+const boardText = (streak) => (Number(streak) >= 2 ? `${Number(streak)}板` : "首板");
+
+// 前 3 大题材覆盖了多少只涨停（按并集，不重复计数），用来判断「主线清晰」还是「资金发散」
+function topThemeCoverage(concepts, upCount) {
+  const top = (concepts || [])
+    .filter((concept) => concept.limitCount > 0)
+    .sort((a, b) => b.limitCount - a.limitCount)
+    .slice(0, 3);
+  if (!top.length || !upCount) return null;
+  const codes = new Set();
+  for (const concept of top) for (const code of concept.stocks || []) codes.add(code);
+  return { ratio: Math.min(1, codes.size / upCount), names: top.map((concept) => concept.name) };
+}
+
+export function buildHighlights({
+  summary = {}, themeStrength = [], brokenStreaks = null, concepts = [], ladder = [], quoteTime = null, premium = null
+} = {}) {
+  const items = [];
+  const add = (priority, item) => items.push({ priority, item });
+  const upCount = summary.limitUpCount || 0;
+  const downCount = summary.limitDownCount || 0;
+  const feedback = themeStrength.filter((theme) => theme.negativeFeedback);
+  const maxStreak = summary.maxStreak || 0;
+  // 盘中快照只包含「此刻已经封板/晋级」的股票：早封占比会天然偏高、晋级率天然偏低，
+  // 这两项必须等到 14:00 之后（或收盘/历史快照）才成立，否则会给出方向相反的结论。
+  const quoteMinute = (() => {
+    const match = String(quoteTime || "").match(/(\d{2}):(\d{2})/);
+    return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+  })();
+  const fullDay = quoteMinute == null || quoteMinute >= 840;
+
+  // 主线只在真正的「主升」里选；没有主升时退而取最强「走强」，
+  // 避免 2 只涨停的试错题材被当成当日主线。
+  const main = (themeStrength
+    .filter((theme) => theme.status === "主升")
+    .sort((a, b) => b.maxUpStreak - a.maxUpStreak || b.upCount - a.upCount)[0])
+    || (themeStrength
+      .filter((theme) => theme.status === "走强")
+      .sort((a, b) => b.upCount - a.upCount || b.maxUpStreak - a.maxUpStreak)[0]);
+  if (main) {
+    add(0, {
+      tone: "up",
+      title: `主线 · ${main.name}`,
+      detail: `${main.upCount} 家涨停${main.maxUpStreak >= 2 ? `（最高 ${main.maxUpStreak} 板）` : "（均为首板）"}，无跌停`
+    });
+  }
+
+  // 冰点不能只看跌停家数：涨停也少、跌停接近涨停一半，才说明赚钱效应真的塌了
+  if (downCount >= 5 && feedback.length && (upCount === 0 || downCount >= upCount * 0.5)) {
+    add(1, {
+      tone: "warn",
+      title: "冰点预警",
+      detail: `跌停 ${downCount} 家、涨停 ${upCount} 家，${feedback.length} 个前期主线题材出现负反馈（${feedback.slice(0, 3).map((theme) => theme.name).join("、")}）`
+    });
+  }
+  feedback.slice(0, 2).forEach((theme, index) => add(2 + index * 0.1, {
+    tone: "down",
+    title: `负反馈 · ${theme.name}`,
+    detail: `昨日 ${theme.previousUpCount} 家涨停${theme.previousMaxStreak >= 2 ? `（最高 ${theme.previousMaxStreak} 板）` : ""} → 今日 ${theme.upCount} 家涨停、${theme.downCount} 家跌停、${theme.brokenCount} 家断板/未晋级`
+  }));
+
+  // ── 赚钱效应：昨日涨停股今日中位数（短线最直接的「昨天的票今天能不能兑现」）──
+  // 中位数落在 -2% ~ +3% 的常态区间就不说话，避免每天都刷一条无信息量的结论。
+  const yesterdayPremium = Number.isFinite(premium?.median) && premium.sampleSize >= 5 ? premium : null;
+  if (yesterdayPremium) {
+    const ratio = Number.isFinite(premium.upRatio) ? `，上涨占比 ${pctText(premium.upRatio)}` : "";
+    if (premium.median <= -2) {
+      add(1.5, {
+        tone: "down", title: "赚钱效应差",
+        detail: `昨日 ${premium.sampleSize} 家涨停今日中位数 ${signedText(premium.median)}%${ratio}，隔夜承接弱、兑现为主`
+      });
+    } else if (premium.median >= 3) {
+      add(1.5, {
+        tone: "up", title: "赚钱效应好",
+        detail: `昨日 ${premium.sampleSize} 家涨停今日中位数 ${signedText(premium.median)}%${ratio}，隔夜资金愿意接力`
+      });
+    }
+    // 连板 vs 首板：高度是否被认可。差距不明显就不下结论
+    const { first, ladder: ladderGroup } = premium;
+    if (first.count >= 2 && ladderGroup.count >= 2 && Number.isFinite(first.median) && Number.isFinite(ladderGroup.median)) {
+      const gap = ladderGroup.median - first.median;
+      if (gap <= -3) {
+        add(5, {
+          tone: "warn", title: "高度不被认可",
+          detail: `连板中位数 ${signedText(ladderGroup.median)}%（${ladderGroup.count} 家）明显弱于首板 ${signedText(first.median)}%（${first.count} 家），空间板接力意愿差`
+        });
+      } else if (gap >= 3) {
+        add(6, {
+          tone: "up", title: "高度获认可",
+          detail: `连板中位数 ${signedText(ladderGroup.median)}%（${ladderGroup.count} 家）强于首板 ${signedText(first.median)}%（${first.count} 家），越高越受追捧`
+        });
+      }
+    }
+  }
+
+  // ── 竞价强度：一字板（9:25 竞价直接封板）+ 昨日涨停股今日开盘溢价 ─────────
+  // auctionSealCount 缺失时不下结论：字段没取到与「真的一字板为 0」是两回事。
+  const hasSealData = Number.isFinite(summary.auctionSealCount);
+  const auctionSeal = hasSealData ? summary.auctionSealCount : 0;
+  const auctionMedian = premium?.auction?.sampleSize >= 5 ? premium.auction.median : null;
+  const auctionBits = [
+    hasSealData && upCount >= 8 ? `${auctionSeal} 家一字板（占涨停 ${pctText(auctionSeal / upCount)}）` : null,
+    Number.isFinite(auctionMedian) ? `昨日涨停股今日开盘中位数 ${signedText(auctionMedian)}%` : null
+  ].filter(Boolean);
+  if (auctionBits.length && (auctionSeal >= 3 || (Number.isFinite(auctionMedian) && auctionMedian >= 1))) {
+    add(4.5, { tone: "up", title: "竞价强势", detail: `${auctionBits.join("，")}，隔夜资金愿意溢价接` });
+  } else if (auctionBits.length && Number.isFinite(auctionMedian) && auctionMedian <= -1) {
+    add(4.5, { tone: "down", title: "竞价走弱", detail: `${auctionBits.join("，")}，隔夜资金不愿竞价承接` });
+  } else if (hasSealData && upCount >= 15 && auctionSeal === 0) {
+    add(5, { tone: "warn", title: "无一字板", detail: `涨停 ${upCount} 家却无一家集合竞价直接封板，资金抢筹意愿一般` });
+  }
+
+  // 退潮：昨天还是主线，今天一只涨停都没有、也没有跌停，但断板一大片
+  const faded = themeStrength
+    .filter((theme) => theme.previousUpCount >= 3 && theme.upCount === 0 && theme.downCount === 0 && theme.brokenCount > 0)
+    .sort((a, b) => b.brokenCount - a.brokenCount)[0];
+  if (faded) {
+    add(3, {
+      tone: "down",
+      title: `退潮 · ${faded.name}`,
+      detail: `昨日 ${faded.previousUpCount} 家涨停，今日 0 家涨停、${faded.brokenCount} 家断板/未晋级`
+    });
+  }
+
+  const weak = themeStrength
+    .filter((theme) => theme.downCount >= 2 && theme.upCount === 0)
+    .sort((a, b) => b.downCount - a.downCount)[0];
+  if (weak) add(3.1, { tone: "down", title: `走弱 · ${weak.name}`, detail: `${weak.downCount} 家跌停，无涨停` });
+
+  if (brokenStreaks && brokenStreaks.brokenCount > 0) {
+    add(4, {
+      tone: "warn",
+      title: "高位断板",
+      detail: `昨日 ${boardText(brokenStreaks.streak)} ${brokenStreaks.brokenCount}/${brokenStreaks.totalCount} 家未晋级，高度止步于 ${boardText(maxStreak)}`
+    });
+  }
+
+  // ── 接力氛围：短线看的是「昨天涨停今天能不能兑现」 ──────────────────────
+  const rate = summary.promotionRate;
+  const yesterdayCount = summary.yesterdayLimitUpCount || 0;
+  if (fullDay && Number.isFinite(rate) && yesterdayCount >= 5) {
+    const promoted = Math.round(rate * yesterdayCount);
+    if (rate <= 0.2) {
+      add(5, {
+        tone: "down", title: "接力亏钱",
+        detail: `昨日 ${yesterdayCount} 家涨停仅 ${promoted} 家晋级（${pctText(rate)}），打板次日承接差，跟风票不宜隔夜`
+      });
+    } else if (rate >= 0.4) {
+      add(6, {
+        tone: "up", title: "接力顺畅",
+        detail: `昨日 ${yesterdayCount} 家涨停 ${promoted} 家晋级（${pctText(rate)}），连板有承接，可继续做接力`
+      });
+    }
+  }
+
+  // ── 高度结构：最高板与中位板之间断档 = 空间板孤立，最容易 A 字杀 ────────
+  const tierCount = new Map((ladder || []).map((tier) => [tier.streak, tier.count]));
+  if (ladder && ladder.length && maxStreak >= 3) {
+    // 不能只看最高板下面一层：5 板 1 家、4 板 3 家、3 板 0 家同样是断层（中位部队脱节）
+    const missing = [];
+    for (let streak = 2; streak < maxStreak; streak += 1) {
+      if (!(tierCount.get(streak) > 0)) missing.push(streak);
+    }
+    if (missing.length) {
+      add(5, {
+        tone: "warn", title: "高度断层",
+        detail: `最高 ${maxStreak} 板（${tierCount.get(maxStreak)} 家），但 ${missing.join("、")} 板断档，中位部队脱节、空间板孤立`
+      });
+    } else if (maxStreak >= 4) {
+      add(6, {
+        tone: "up", title: "空间打开",
+        detail: `高度 ${maxStreak} 板（${tierCount.get(maxStreak)} 家），${maxStreak - 1} 板 ${tierCount.get(maxStreak - 1)} 家，梯队 ${summary.ladderDepth || 0} 层连续`
+      });
+    }
+  }
+
+  // ── 封板质量：早盘封板占比高=资金坚决，偏低=尾盘偷袭、次日兑现压力大 ────
+  if (fullDay && Number.isFinite(summary.firstSealCount) && upCount >= 8) {
+    const ratio = summary.firstSealCount / upCount;
+    if (ratio <= 0.35) {
+      add(5, {
+        tone: "warn", title: "封板偏晚",
+        detail: `${pctText(ratio)} 在 10:00 前封板（${summary.firstSealCount}/${upCount}），尾盘偷袭多，次日兑现压力大`
+      });
+    } else if (ratio >= 0.6) {
+      add(6, {
+        tone: "up", title: "封板扎实",
+        detail: `${pctText(ratio)} 在 10:00 前封板（${summary.firstSealCount}/${upCount}），资金进场坚决`
+      });
+    }
+  }
+
+  // ── 题材集中度：是「一条主线」还是「四处试错」 ─────────────────────────
+  const coverage = topThemeCoverage(concepts, upCount);
+  if (coverage && upCount >= 8 && concepts.length >= 4) {
+    if (coverage.ratio <= 0.3) {
+      add(5, {
+        tone: "warn", title: "题材发散",
+        detail: `前 3 题材仅覆盖 ${pctText(coverage.ratio)} 涨停（${coverage.names.join("/")}），资金四处试错、无主线`
+      });
+    } else if (coverage.ratio >= 0.55) {
+      add(6, {
+        tone: "up", title: "主线清晰",
+        detail: `前 3 题材覆盖 ${pctText(coverage.ratio)} 涨停（${coverage.names.join("/")}）`
+      });
+    }
+  }
+
+  // 没有明显信号时给一句状态描述，避免顶部空白
+  if (!items.length && upCount > 0 && downCount === 0) {
+    add(0, { tone: "up", title: "情绪偏强", detail: `涨停 ${upCount} 家、跌停 0 家，暂无题材负反馈` });
+  }
+  if (!items.length && downCount > 0 && upCount === 0) {
+    add(0, { tone: "down", title: "情绪冰点", detail: `跌停 ${downCount} 家、无涨停，等待修复信号` });
+  }
+  return items.sort((a, b) => a.priority - b.priority).map((entry) => entry.item).slice(0, 6);
+}
+
+// 行情时间戳 → 交易日（YYYYMMDD）。盘前 / 休市时 Wind 会回上一交易日的收盘快照，
+// 板块必须按「行情日期」而不是本地日期落库，否则会把昨日数据写成今日快照。
+export function quoteDayOf(quoteTime) {
+  const match = String(quoteTime || "").match(/(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[1]}${match[2]}${match[3]}` : null;
+}
+// 行情日期 != 期望日期：说明拿到的还是上一交易日的收盘快照（盘前 / 假日）
+export function snapshotDayMismatch(quoteTime, expectedDay) {
+  const quoteDay = quoteDayOf(quoteTime);
+  return Boolean(quoteDay && expectedDay && quoteDay !== String(expectedDay));
+}
+
+// ── 主入口 ──────────────────────────────────────────────────────────────
+export async function loadLimitUpBoard(day = localDate()) {
+  const errors = [];
+  const [eventResult, historyResult] = await Promise.all([
+    fetchLimitEventRows(day),
+    loadLimitHistory(day).catch((error) => {
+      errors.push(`涨停历史: ${String(error?.message || error)}`);
+      return { sets: [], dates: [], complete: false };
+    })
+  ]);
+  errors.push(...eventResult.errors, ...(historyResult.errors || []));
+
+  const sets = historyResult.sets || [];
+  const rawByCode = new Map();
+  for (const row of eventResult.rows) {
+    const code = row["Wind代码"];
+    if (!code || rawByCode.has(code)) continue;
+    rawByCode.set(code, row);
+  }
+
+  const allStocks = [...rawByCode.values()].map((row) => {
+    const code = row["Wind代码"];
+    const sealTime = sealClock(row["涨跌停时间"]);
+    return {
+      code, name: row["证券简称"],
+      sealTime, bucket: sealBucketLabel(sealTime),
+      streak: sets.length ? streakAgainst(sets, code) : null,
+      rawConcepts: String(row["所属概念板块"] || "").split(/[;；]/).map(x => x.trim()).filter(Boolean),
+      concepts: limitConcepts(row["所属概念板块"]),
+      boardType: boardOf(code), isST: isStName(row["证券简称"])
+    };
+  }).filter((stock) => stock.code && stock.name);
+
+  // ST 股不参与统计与展示：涨跌幅受限、连板口径失真，留在天梯里会误导高度判断。
+  const stCount = allStocks.filter((stock) => stock.isST).length;
+  const kept = allStocks.filter((stock) => !stock.isST);
+
+  // 资讯复核排队：断板 → 连板 → 首板。
+  // 断板股今日不涨停、Wind 概念多为空，最需要资讯解释「为什么断了」，所以排最前；
+  // 连板股次之（决定空间高度），首板最后（数量大、单只信息量低）。
+  const todayCodes = new Set(kept.map((stock) => stock.code));
+  const yesterdayCodes = sets[0] || null;
+  const baseTradingDate = historyResult.dates?.[0] || await previousTradingDate(day).catch(() => null);
+  const promotion = promotionOf(todayCodes, sets, yesterdayCodes);
+  promotion.baseTradingDate = baseTradingDate;
+
+  const topStreak = yesterdayCodes?.size
+    ? Math.max(...[...yesterdayCodes].map((code) => streakAgainst(sets.slice(1), code)))
+    : 0;
+  const topCodes = topStreak && yesterdayCodes?.size
+    ? [...yesterdayCodes].filter((code) => streakAgainst(sets.slice(1), code) === topStreak)
+    : [];
+  const brokenCodes = topCodes.filter((code) => !todayCodes.has(code));
+
+  // 昨日名单（简称 + 概念）：断板、未晋级、以及题材强弱里「昨日涨停家数」都要用。
+  // 即便今天全部晋级也要取一次，否则无法判断前期主线是否出现负反馈。
+  const yesterday = baseTradingDate
+    ? await fetchYesterdayNames(baseTradingDate)
+    : { names: new Map(), concepts: new Map() };
+  const nameByCode = yesterday.names;
+  const brokenConceptMap = yesterday.concepts;
+  if (brokenCodes.length && !nameByCode.size) {
+    errors.push("断板股简称未补齐（昨日涨停名单查询失败），暂以代码展示");
+  }
+
+  // 盘前构建时本地日期已是新交易日，但行情还停在上一交易日收盘：
+  // 资讯检索、断板解释、跌停取数都必须用「行情日期」，否则当天数据一条都取不到。
+  const quoteTime = eventResult.rows.map((row) => row["交易时间"]).filter(Boolean).sort().at(-1) || null;
+  const dataDay = quoteDayOf(quoteTime) || day;
+
+  // 跌停取数：按行情日期查当日跌停（历史日同样支持「跌停」措辞），
+  // 同时补一次上一交易日的跌停家数，给「跌停扩散 / 收敛」提供环比。
+  // 顺带取昨日涨停股今日溢价（赚钱效应）与竞价溢价，三者互不依赖，并行发出。
+  const [downResult, previousDownCount, premium] = await Promise.all([
+    fetchLimitDownRows(dataDay),
+    fetchLimitDownCount(baseTradingDate),
+    fetchPremium({
+      baseDay: baseTradingDate,
+      day: dataDay,
+      codes: [...(yesterdayCodes || [])],
+      streakOf: (code) => streakAgainst(sets.slice(1), code)
+    })
+  ]);
+  errors.push(...downResult.errors);
+  // 溢价失手会直接砍掉一条短线核心结论，必须告警；竞价溢价措辞待验证，只记录不刷告警
+  if (premium?.error) errors.push(`昨日涨停溢价: ${premium.error}`);
+  const rawDownStocks = downResult.rows.map((row) => {
+    const code = row["Wind代码"];
+    const downTime = sealClock(row["涨跌停时间"]);
+    return {
+      code, name: row["证券简称"],
+      downTime, bucket: sealBucketLabel(downTime),
+      concepts: limitConcepts(row["所属概念板块"]),
+      boardType: boardOf(code), isST: isStName(row["证券简称"]),
+      conceptSource: "wind"
+    };
+  }).filter((stock) => stock.code && stock.name);
+  const downStCount = rawDownStocks.filter((stock) => stock.isST).length;
+  // 与涨停同一口径剔除 ST：跌停股里 ST 占比高，混在一起会夸大恐慌程度
+  const downStocks = rawDownStocks.filter((stock) => !stock.isST)
+    .sort((a, b) => String(a.downTime || "99").localeCompare(String(b.downTime || "99")));
+
+  // 资讯复核：Wind 概念准不准、有没有漏，都用当日资讯过一遍
+  const newsReview = await reviewConceptsByNews(kept, dataDay, brokenCodes, nameByCode, baseTradingDate || dataDay, brokenConceptMap);
+  const newsConceptFilled = newsReview.filled;
+  // 熔断说明队列没跑完，页面应知道「未被资讯验证」而不是「资讯确认无题材」
+  if (newsReview.aborted) {
+    errors.push(`资讯复核中断（Wind 接口/额度连续失败），仅复核 ${newsReview.reviewed} 只`);
+  }
+
+  // 主营复核（方案 A）：集团品牌标签必须有主营支撑，否则剔除（创维数字的家电）。
+  // 资讯复核已因额度熔断时不再试主营，否则每只都要把 5 把 Key 轮一遍
+  const brandReview = newsReview.aborted
+    ? { checked: 0, pruned: 0, failed: 0, skipped: true, businessText: new Map() }
+    : await reviewBrandConcepts(kept, day);
+  if (brandReview.failed) {
+    errors.push(`主营复核失败 ${brandReview.failed} 只，相关个股保留 Wind 标签`);
+  }
+  if (process.env.LIMITUP_DEBUG) {
+    console.log(`[brand] checked=${brandReview.checked} pruned=${brandReview.pruned} failed=${brandReview.failed}${brandReview.skipped ? " skipped" : ""}`);
+  }
+
+  // 概念家数只按留下来的股票统计，避免剔除后 primaryConcept 仍按含 ST 的口径打分
+  const conceptCounts = new Map();
+  for (const stock of kept) {
+    for (const name of stock.concepts) conceptCounts.set(name, (conceptCounts.get(name) || 0) + 1);
+  }
+
+  const stocks = kept.map((stock) => ({
+    ...stock,
+    streakLabel: stock.streak == null ? null : limitStreakLabel(stock.streak),
+    // 集合竞价封板（09:25-09:30）即一字板，是次日溢价最强的形态
+    isAuctionSeal: stock.bucket === "09:30前(竞价)",
+    // 资讯来源的概念不再拿主营改写；Wind 来源的才用主营挑主标签
+    primaryConcept: pickPrimaryConcept(
+      stock.concepts,
+      conceptCounts,
+      brandReview.businessText.get(stock.code) || "",
+      stock.newsThemes || []
+    )
+  }))
+    .sort((a, b) => (b.streak || 1) - (a.streak || 1) || String(a.sealTime || "99").localeCompare(String(b.sealTime || "99")));
+
+  // 昨日涨停题材：既要给页面做「较上日」对比，也是判断负反馈的基准。
+  const previousThemes = aggregateThemeOccurrences([...(yesterdayCodes || [])].map((code) => ({
+    names: yesterday.concepts.get(code) || [],
+    streak: streakAgainst(sets.slice(1), code)
+  })));
+
+  // 上一交易日的涨停家数与最高板可由既定连板历史直接反推：
+  // sets[0] 就是昨日涨停名单，逐个回看 sets[1..] 即得它昨天的板高。
+  // 这样环比不依赖"历史日定格快照"（历史日拿不到封板时间，永远补不出来）。
+  // 但封板时间与概念在历史日确实取不到，因此标记 partial，让页面只展示能算的部分。
+  const previousDay = yesterdayCodes?.size ? (() => {
+    let maxStreak = 0;
+    for (const code of yesterdayCodes) maxStreak = Math.max(maxStreak, streakAgainst(sets.slice(1), code));
+    return {
+      tradingDate: baseTradingDate,
+      limitUpCount: yesterdayCodes.size,
+      limitDownCount: previousDownCount,
+      maxStreak: maxStreak || null,
+      firstSealCount: null,
+      // 昨日涨停题材（家数/最高板），供页面画「较上日」与负反馈基准
+      concepts: previousThemes.map((theme) => ({ name: theme.name, limitCount: theme.count, maxStreak: theme.maxStreak })),
+      partial: true,
+      verified: Boolean(historyResult.complete)
+    };
+  })() : null;
+
+  // 天梯：按板高降序
+  const tierMap = new Map();
+  for (const stock of stocks) {
+    const streak = stock.streak || 1;
+    if (!tierMap.has(streak)) tierMap.set(streak, []);
+    tierMap.get(streak).push(stock.code);
+  }
+  const ladder = [...tierMap].sort((a, b) => b[0] - a[0])
+    .map(([streak, codes]) => ({ streak, label: limitStreakLabel(streak), count: codes.length, stocks: codes }));
+  const levels = new Set(tierMap.keys());
+  let ladderDepth = 0;
+  while (levels.has(ladderDepth + 1)) ladderDepth += 1;
+
+  // 断板带：昨日最高板里今日没再接上的，是退潮最直接的信号，优先于"今天最高几板"。
+  const brokenStreaks = brokenCodes.length ? {
+    streak: topStreak,
+    totalCount: topCodes.length,
+    brokenCount: brokenCodes.length,
+    promotedCount: topCodes.length - brokenCodes.length,
+    broken: brokenCodes.map((code) => {
+      const reviewed = newsReview.brokenConcepts.get(code) || [];
+      const list = reviewed.length ? reviewed : (brokenConceptMap.get(code) || []);
+      const best = list.find(isWhitelistTheme) || list[0] || null;
+      return { code, name: nameByCode.get(code) || null, concept: best ? conceptLabelOf(best) : null };
+    }),
+    namesComplete: nameByCode.size > 0,
+    // 断板股本身是否有概念，而不是"这批名单里是否有人带概念"；资讯复核结果也算
+    conceptsComplete: brokenCodes.every((code) =>
+      (newsReview.brokenConcepts.get(code) || []).length > 0 || (brokenConceptMap.get(code) || []).length > 0)
+  } : null;
+
+  // 同一份名单顺带补全未晋级股简称，零额外调用
+  promotion.failed = promotion.failed.map((item) => ({ ...item, name: nameByCode.get(item.code) || null }));
+
+  // 题材强弱：涨停题材 vs 跌停题材，叠加昨日涨停题材与今日断板/未晋级题材。
+  // 断板题材用「昨日该股所属概念」而非今日概念（今日已无涨停，资讯也查不到）。
+  const brokenThemes = aggregateThemeOccurrences(promotion.failed.map((item) => ({
+    names: brokenConceptMap.get(item.code) || [],
+    streak: item.fromStreak || 1
+  })));
+  const themeStrength = buildThemeStrength({
+    upThemes: themeCountsOf(stocks),
+    downThemes: themeCountsOf(downStocks),
+    previousThemes,
+    brokenThemes
+  });
+  // 概念聚合不再只讲涨停：涨跌强弱状态直接挂在同一行，页面只保留一个题材模块
+  const conceptBoard = mergeThemeBoard({ concepts: aggregateConcepts(stocks), themeStrength }).slice(0, 30);
+  // 变化仅是排查线索：完整历史且昨日有一定样本时才提示，不认定为错误或行情原因。
+  if (historyResult.complete) for (const concept of conceptBoard) {
+    const prior = previousThemes.find(item => item.name === concept.name)?.count || 0;
+    const current = concept.limitCount || 0;
+    if (prior >= 3 && Math.abs(current - prior) >= 3 && (current >= prior * 2 || current * 2 <= prior)) {
+      (concept.reviewReasons ||= []).push(`较上日 ${prior} → ${current} 家，变化较大，需结合行情核实`);
+    }
+  }
+
+  // 晋级成功的个股按题材归类：只看晋级率不够，还要知道"分子"落在哪些题材上
+  const promotedCodes = new Set(promotion.promoted.map((item) => item.code));
+  const promotedStocks = stocks.filter((stock) => promotedCodes.has(stock.code));
+  promotion.themeBreakdown = aggregateConcepts(promotedStocks)
+    .slice(0, 8)
+    .map((concept) => ({
+      name: concept.name,
+      limitCount: concept.limitCount,
+      maxStreak: concept.maxStreak,
+      whitelist: concept.whitelist
+    }));
+
+  // 封板时间分布
+  const bucketed = new Map(SEAL_BUCKETS.map((bucket) => [bucket.label, []]));
+  bucketed.set("时间未知", []); bucketed.set("其他", []);
+  for (const stock of stocks) bucketed.get(stock.bucket)?.push(stock.code);
+  const sealTimeBuckets = [...bucketed].filter(([, codes]) => codes.length)
+    .map(([label, codes]) => ({ label, count: codes.length, stocks: codes }));
+
+  const firstSealCount = stocks.filter((stock) => clockMinutes(stock.sealTime) != null && clockMinutes(stock.sealTime) < 600).length;
+
+  const summary = {
+    limitUpCount: stocks.length,
+    limitDownCount: downStocks.length,
+    upDownNet: stocks.length - downStocks.length,
+    maxStreak: ladder[0]?.streak || 0,
+    ladderDepth,
+    firstSealCount,
+    stCount,
+    limitDownStCount: downStCount,
+    newsConceptFilled,
+    newsConceptReviewed: newsReview.reviewed,
+    newsConceptAborted: newsReview.aborted,
+    brandConceptChecked: brandReview.checked,
+    brandConceptPruned: brandReview.pruned,
+    brandConceptSkipped: Boolean(brandReview.skipped),
+    promotionRate: promotion.overallRate,
+    yesterdayLimitUpCount: promotion.baseLimitUpCount,
+    previousLimitDownCount: previousDownCount,
+    negativeFeedbackThemes: themeStrength.filter((theme) => theme.negativeFeedback).length,
+    // 一字板=集合竞价直接封板，是竞价强度最硬的证据（今日涨停股口径，零额外取数）
+    auctionSealCount: stocks.filter((stock) => stock.isAuctionSeal).length,
+    // 昨日涨停股今日表现（赚钱效应）：今日涨跌幅中位数 / 隔夜开盘（竞价）溢价中位数
+    premiumMedian: premium?.median ?? null,
+    premiumSampleSize: premium?.sampleSize ?? 0,
+    auctionPremiumMedian: premium?.auction?.median ?? null
+  };
+  // 顶部亮点：把「主线 / 赚钱效应 / 竞价 / 接力 / 高度 / 封板 / 集中度 / 负反馈 / 冰点 / 断板」
+  // 压缩成几句话，先看结论再看明细。结构类维度依赖 ladder 与 concepts，必须传原始天梯与合并后的题材行。
+  const reviewNames = new Set(conceptBoard.filter(item => item.reviewReasons?.length).map(item => item.name));
+  const highlights = buildHighlights({
+    summary, themeStrength: themeStrength.filter(item => !reviewNames.has(item.name)), brokenStreaks,
+    concepts: conceptBoard.filter(item => !reviewNames.has(item.name)), ladder, quoteTime, premium
+  });
+
+  return {
+    classificationVersion: 2,
+    tradingDate: dataDay,
+    requestedDate: day,
+    capturedAt: new Date().toISOString(),
+    quoteTime,
+    degraded: stocks.length === 0,
+    summary,
+    // 跌停明细：题材判断与涨停同口径（同题材族归一、剔除 ST）
+    limitDown: {
+      day: dataDay,
+      count: downStocks.length,
+      stCount: downStCount,
+      stocks: downStocks,
+      concepts: themeCountsOf(downStocks).slice(0, 30),
+      complete: downResult.complete,
+      cappedSectors: downResult.cappedSectors || [],
+      errors: downResult.errors || []
+    },
+    themeStrength,
+    highlights,
+    // 昨日涨停股今日溢价（赚钱效应）：首板/连板分组与竞价溢价，取不到则为 null
+    premium,
+    ladder, stocks, sealTimeBuckets,
+    concepts: conceptBoard,
+    promotion,
+    previous: previousDay,
+    brokenStreaks,
+    // 触顶板块家数会被截断，页面需要据此标注"可能不全"
+    dataQuality: {
+      cappedSectors: eventResult.cappedSectors || [],
+      truncated: (eventResult.cappedSectors || []).length > 0,
+      historyComplete: Boolean(historyResult.complete),
+      conceptAudit: {
+        missingConcepts: stocks.filter(stock => !stock.concepts?.length).length,
+        newsConflicts: stocks.filter(stock => stock.newsUnmatched?.length).length,
+        ambiguousConcepts: stocks.filter(stock => stock.concepts?.some(name => familyCandidates(name).length > 1)).length
+      },
+      limitDownComplete: Boolean(downResult.complete),
+      errors: [...errors]
+    },
+    errors
+  };
+}
+
+export { LIMIT_STYLE_TAG_PATTERN, limitConceptEligible, isWhitelistTheme, boardOf, sealBucketLabel, SEAL_BUCKETS, localDate };
