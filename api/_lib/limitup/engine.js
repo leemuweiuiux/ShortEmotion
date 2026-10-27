@@ -461,18 +461,18 @@ export function selectStockNews(items, stockName = "") {
 }
 // 严格限定：同一句明确以股票为主语，描述业务或明确题材归属；否定、并列比较和缺日期均不作为确定证据。
 export function extractNewsEvidence(items, stockName, day) {
-  if (!stockName || !/^\\d{8}$/.test(String(day || ""))) return [];
+  if (!stockName || !/^\d{8}$/.test(String(day || ""))) return [];
   const cutoff = Date.parse(`${day.slice(0,4)}-${day.slice(4,6)}-${day.slice(6,8)}T23:59:59+08:00`);
   const evidence = [];
   for (const item of selectStockNews(items, stockName)) {
     const title = String(item.title || "").trim();
     const date = String(item.date || item.publishedAt || item.publish_time || item.publishTime || "").trim();
-    const compact = date.replace(/\\D/g, "").slice(0, 8);
-    const published = /^\\d{8}$/.test(compact) ? Date.parse(`${compact.slice(0,4)}-${compact.slice(4,6)}-${compact.slice(6,8)}T12:00:00+08:00`) : NaN;
+    const compact = date.replace(/\D/g, "").slice(0, 8);
+    const published = /^\d{8}$/.test(compact) ? Date.parse(`${compact.slice(0,4)}-${compact.slice(4,6)}-${compact.slice(6,8)}T12:00:00+08:00`) : NaN;
     const dated = Number.isFinite(published) && published <= cutoff && cutoff - published <= 31 * 86400000;
     const source = String(item.source || item.publisher || item.site || "").trim();
-    const url = /^https?:\\/\\//i.test(String(item.url || "")) ? String(item.url) : "";
-    const sentences = [title, ...String(item.content || item.summary || "").split(/[。！？；\\n]/)];
+    const url = /^https?:\/\//i.test(String(item.url || "")) ? String(item.url) : "";
+    const sentences = [title, ...String(item.content || item.summary || "").split(/[。！？；\n]/)];
     for (const raw of sentences) {
       const sentence = raw.trim();
       const pos = sentence.indexOf(stockName);
@@ -480,7 +480,7 @@ export function extractNewsEvidence(items, stockName, day) {
       const after = sentence.slice(pos + stockName.length);
       // 媒体常见“公司A、公司B”及否定语句不推断关联。
       const negative = /不属于|不涉及|未涉及|没有|无关|并非|否认|不从事|未从事|无业务|不构成|与.*无关|尚未/.test(after);
-      const direct = /^(?:（[^）]{0,20}）|\\([^)]{0,20}\\))?(?:公司)?(?:主要)?(?:从事|经营|生产|研发|提供|供应|布局|主营|属于|入选|涉及|拥有|开发|应用|为).{0,80}/.test(after);
+      const direct = /^(?:（[^）]{0,20}）|\([^)]{0,20}\))?(?:公司)?(?:主要)?(?:从事|经营|生产|研发|提供|供应|布局|主营|属于|入选|涉及|拥有|开发|应用|为).{0,80}/.test(after);
       if (!direct || negative || /^(?:、|及|与|和|等公司)/.test(after)) continue;
       const themes = detectThemeFamilies(after);
       for (const theme of themes) {
