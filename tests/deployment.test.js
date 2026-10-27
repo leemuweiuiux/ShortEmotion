@@ -157,9 +157,9 @@ describe("页面脚本", () => {
     expect([...versions]).toHaveLength(1);
   });
 
-  it("中间件只拦介绍页以外的入口：/、/login、首页、看点、个股分析、板块资金、个人页面、看板、管理后台", async () => {
+  it("中间件只拦介绍页以外的入口：/、/login、首页、看点、个股分析、板块资金、涨停情绪、个人页面、看板、管理后台", async () => {
     const { config } = await import("../middleware.js");
-    expect(config.matcher).toEqual(["/", "/login", "/login/", "/home", "/home/", "/kandian", "/kandian/", "/kandian/:path*", "/technicalanalysis", "/technicalanalysis/", "/sectorflow", "/sectorflow/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]);
+    expect(config.matcher).toEqual(["/", "/login", "/login/", "/home", "/home/", "/kandian", "/kandian/", "/kandian/:path*", "/technicalanalysis", "/technicalanalysis/", "/sectorflow", "/sectorflow/", "/limitup", "/limitup/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]);
   });
 });
 
@@ -169,8 +169,8 @@ describe("页面文字：不到处标注数据供应商", () => {
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/function plain\([\s\S]*?\n}\n/, "");    // 去除供应商字样的函数本身
 
-  it("看板、首页、个股分析、板块资金与登录页不出现 Wind / 万得", () => {
-    for (const file of ["public/short-emotion/index.html", "public/short-emotion/app.js", "public/login/index.html", "public/login/login.js", "public/account/index.html", "public/account/account.js", "public/account/invite/index.html", "public/account/invite.js", "public/home/index.html", "public/home/home.js", "public/technical-analysis/index.html", "public/technical-analysis/ta.js", "public/sectorflow/index.html", "public/sectorflow/sectorflow.js", "public/shared/nav-account.js"]) {
+  it("看板、首页、个股分析、板块资金、涨停情绪与登录页不出现 Wind / 万得", () => {
+    for (const file of ["public/short-emotion/index.html", "public/short-emotion/app.js", "public/login/index.html", "public/login/login.js", "public/account/index.html", "public/account/account.js", "public/account/invite/index.html", "public/account/invite.js", "public/home/index.html", "public/home/home.js", "public/technical-analysis/index.html", "public/technical-analysis/ta.js", "public/sectorflow/index.html", "public/sectorflow/sectorflow.js", "public/limitup/index.html", "public/limitup/limitup.js", "public/shared/nav-account.js"]) {
       const text = visible(readFileSync(resolve(root, file), "utf8")).replace(/window|Window/g, "");
       expect(text, file).not.toMatch(/Wind|万得|萬得/);
     }

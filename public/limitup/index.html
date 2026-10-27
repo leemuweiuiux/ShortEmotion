@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="robots" content="noindex">
+  <title>涨停情绪 · ShortEmotion</title>
+  <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
+  <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <script>
+    // 与看板共用外观设置：深浅色主题与红涨/绿涨配色（twsvp_*）。
+    (function () {
+      var root = document.documentElement;
+      var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
+      var theme = get("twsvp_theme");
+      if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      root.dataset.theme = theme;
+      if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
+      if (get("twsvp_price_scheme") === "green_up") {
+        root.style.setProperty("--price-up", "#76BB40");
+        root.style.setProperty("--price-down", "#FF4015");
+      }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/short-emotion/twsvp.css?v=17">
+  <link rel="stylesheet" href="/limitup/limitup.css?v=1">
+  <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
+  <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <nav class="nav">
+      <a class="nav-logo" href="/home" aria-label="首页"><img src="/short-emotion/logo.svg?v=2" alt="ShortEmotion"></a>
+      <div class="nav-title">涨停情绪</div>
+      <button id="account" class="nav-btn" type="button" aria-label="账号" title="账号" aria-haspopup="menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5" stroke="currentColor" stroke-width="1.6"/><path d="M5 19.5c1.2-3.3 3.8-5 7-5s5.8 1.7 7 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </nav>
+
+    <main>
+      <div class="status-bar">
+        <span id="connection-dot" class="status-dot"></span>
+        <div class="status-copy"><b id="connection">读取快照中</b><small id="quote-time">等待行情时间</small></div>
+        <button id="refresh" class="pill-btn" type="button" hidden>刷新</button>
+      </div>
+
+      <!-- 未解锁：只显示 4 个免费数字（与首页卡片相同）和解锁卡片 -->
+      <div id="lu-locked" hidden>
+        <section class="section">
+          <div class="lu-summary lu-free">
+            <article class="lu-metric"><span>涨停家数</span><strong id="f-limitup">—</strong><small id="f-limitup-note">已剔除 ST</small></article>
+            <article class="lu-metric"><span>跌停家数</span><strong id="f-limitdown">—</strong><small id="f-limitdown-note">已剔除 ST</small></article>
+            <article class="lu-metric"><span>最高板</span><strong id="f-maxstreak">—</strong><small id="f-maxstreak-note">梯队深度 —</small></article>
+            <article class="lu-metric"><span>昨日涨停晋级率</span><strong id="f-promotion">—</strong><small id="f-promotion-note">基准 —</small></article>
+          </div>
+        </section>
+        <section class="section">
+          <article class="card">
+            <div class="card-head"><h2 class="card-title">涨停天梯 · 题材强弱</h2><span class="pill">未解锁</span></div>
+            <div id="lu-lock" class="lu-lock-body"></div>
+          </article>
+        </section>
+      </div>
+
+      <!-- 已解锁：原版涨停事件工作台的全部区块 -->
+      <div id="lu-content" hidden>
+        <section class="section">
+          <div class="lu-summary">
+            <article class="lu-metric"><span>涨停家数</span><strong id="m-limitup">—</strong><small id="m-limitup-note">已剔除 ST</small></article>
+            <article class="lu-metric"><span>跌停家数</span><strong id="m-limitdown">—</strong><small id="m-limitdown-note">已剔除 ST</small></article>
+            <article class="lu-metric"><span>最高板</span><strong id="m-maxstreak">—</strong><small id="m-maxstreak-note">梯队深度 —</small></article>
+            <article class="lu-metric"><span>涨跌停差</span><strong id="m-netlimit">—</strong><small id="m-netlimit-note">情绪温度</small></article>
+            <article class="lu-metric"><span>早盘封板 ≤10:00</span><strong id="m-firstseal">—</strong><small id="m-firstseal-note">封板意愿强度</small></article>
+            <article class="lu-metric"><span>昨日涨停晋级率</span><strong id="m-promotion">—</strong><small id="m-promotion-note">基准 —</small></article>
+          </div>
+        </section>
+
+        <section class="section">
+          <article class="card">
+            <div class="card-head"><h2 class="card-title">今日亮点</h2><span id="highlight-pill" class="pill">—</span></div>
+            <div id="highlights" class="lu-highlights"><div class="lu-empty">读取中…</div></div>
+          </article>
+        </section>
+
+        <section class="section">
+          <article class="card">
+            <div class="card-head"><h2 class="card-title">涨停天梯</h2><span id="ladder-pill" class="pill">—</span></div>
+            <p class="card-desc">按连板高度分档，同档内按首次封板时间排列；首板默认折叠。</p>
+            <div id="broken"></div>
+            <div id="ladder" class="lu-ladder"><div class="lu-empty">读取中…</div></div>
+          </article>
+        </section>
+
+        <section class="section">
+          <article class="card">
+            <div class="card-head"><h2 class="card-title">跌停股</h2><span id="limitdown-pill" class="pill">—</span></div>
+            <div id="limitdown" class="lu-down-wrap"><div class="lu-empty">读取中…</div></div>
+          </article>
+        </section>
+
+        <section class="section">
+          <article class="card">
+            <div class="card-head"><h2 class="card-title">晋级率</h2><span id="promo-pill" class="pill">—</span></div>
+            <div id="promo-overall" class="lu-promo-overall"><strong>—</strong><span>等待数据</span></div>
+            <div id="promo-list" class="lu-promo-list"></div>
+            <p id="promo-note" class="card-desc">昨日各板高今日继续涨停的比例；高位板样本少，比率波动大。</p>
+            <div id="promo-themes" class="lu-promo-themes"></div>
+          </article>
+        </section>
+
+        <section class="section">
+          <article class="card">
+            <div class="card-head"><h2 class="card-title">概念题材聚合</h2><span id="concept-pill" class="pill">—</span></div>
+            <p class="card-desc">按题材族合并涨停个股，仅展示 ≥2 家涨停的题材，并标注当日强弱状态与跌停、断板家数；⚠ 表示前期主线出现负反馈。</p>
+            <div id="concepts" class="lu-concept-list"><div class="lu-empty">读取中…</div></div>
+            <div id="quality"></div>
+          </article>
+        </section>
+      </div>
+
+      <footer class="legal">
+        <p>仅用于研究与情绪观察，不构成投资建议；涨停家数与封板时间取自结构化事件表，请以“行情时间”判断新鲜度。</p>
+      </footer>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/limitup/limitup.js?v=1"></script>
+  <script type="module" src="/shared/nav-points.js?v=1"></script>
+</body>
+</html>

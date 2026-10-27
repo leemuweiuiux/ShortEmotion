@@ -31,7 +31,7 @@
   <script defer src="/_vercel/insights/script.js"></script>
 <link rel="stylesheet" href="/kandian/reports.css?v=5">
 <link rel="stylesheet" href="/shared/like.css?v=1">
-<link rel="stylesheet" href="/home/home.css?v=10"></head>
+<link rel="stylesheet" href="/home/home.css?v=11"></head>
 <body>
   <div class="app-shell">
     <nav class="nav">
@@ -92,6 +92,19 @@
         <div id="anomaly-body" class="home-anomaly-body"><div class="loading">正在读取题材异动…</div></div></div>
       </section>
 
+      <section id="limitup-card" class="card home-card home-limitup">
+        <div class="card-head"><h2 class="card-title"><a href="/limitup">涨停情绪</a></h2><a class="home-more" href="/limitup" aria-label="查看更多涨停情绪">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+        <div class="home-card-body"><div class="home-card-meta"><span id="limitup-pill" class="pill">读取中</span></div>
+        <div class="home-market" aria-label="涨停概况">
+          <div><span>涨停</span><b id="limitup-up" class="up-text">—</b></div>
+          <div><span>跌停</span><b id="limitup-down" class="down-text">—</b></div>
+          <div><span>最高板</span><b id="limitup-max">—</b></div>
+          <div><span>晋级率</span><b id="limitup-promo">—</b></div>
+        </div>
+        <div id="limitup-ladder" class="home-limitup-body"><div class="loading">正在读取涨停天梯…</div></div>
+        <span id="limitup-time" class="home-time"></span></div>
+      </section>
+
       <section id="sectorflow-card" class="card home-card home-sectorflow">
         <div class="card-head"><h2 class="card-title"><a href="/sectorflow">资金流向</a></h2><a class="home-more" href="/sectorflow" aria-label="查看更多资金流向">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
         <div id="sectorflow-chart" class="home-card-body"></div>
@@ -107,7 +120,7 @@
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/home/home.js?v=22"></script>
+  <script type="module" src="/home/home.js?v=23"></script>
 <script type="module" src="/kandian/reports.js?v=8"></script>
 
   <script type="module" src="/shared/nav-points.js?v=1"></script>
