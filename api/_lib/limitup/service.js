@@ -96,7 +96,8 @@ async function resolvePrevious(store, board) {
     limitDownCount: base.summary?.limitDownCount ?? board?.previous?.limitDownCount ?? null,
     maxStreak: base.summary?.maxStreak ?? null,
     firstSealCount: base.summary?.firstSealCount ?? null,
-    concepts: base.concepts || [],
+    // 新旧归类口径不同，不混用已存快照做题材环比；优先本次同口径计算的昨日数据。
+    concepts: base.classificationVersion === board.classificationVersion && board.classificationVersion ? (base.concepts || []) : (board.previous?.concepts || []),
     partial: false,
     verified: Boolean(base.dataQuality?.historyComplete)
   };
