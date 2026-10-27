@@ -327,6 +327,7 @@ function renderConcepts(data) {
         ? '<i class="is-flat"></i>'
         : `<i style="opacity:${opacity}"></i>`));
     }).join("");
+    const newsProof = stocks.flatMap(stock => (stock.newsEvidence || []).filter(item => stock.newsAdded?.includes(concept.name) && item.theme === concept.name).map(item => `<span class="lu-proof">${esc(stock.name)} · ${esc(item.source || "来源未提供")} · ${esc(item.date || "日期未提供")} · ${esc(item.title)}：${esc(item.sentence)}</span>`)).join("");
     const tags = stocks.length
       ? stocks.map((stock) => `<span class="lu-stock${stock.isST ? " is-st" : ""}" title="${esc(`概念依据：${(concept.evidence?.[stock.code] || []).join("、") || "未记录"}${stock.newsUnmatched?.length ? `；资讯线索待核实：${stock.newsUnmatched.join("、")}` : ""}`)}"><b>${esc(stock.name)}</b><em>${streakText(stock.streak)} ${esc(shortClock(stock.sealTime))}</em><small>依据：${esc((concept.evidence?.[stock.code] || []).join("、") || "未记录")}</small></span>`).join("")
       : '<span class="lu-tier-empty">—</span>';
@@ -356,7 +357,7 @@ function renderConcepts(data) {
         <div class="lu-concept-meta">${meta}</div>
       </div>
       <div class="lu-concept-count">${countCell}</div>
-      <div class="lu-concept-stocks">${tags}</div>
+      <div class="lu-concept-stocks">${tags}${newsProof}</div>
     </button>`;
   }).join("");
 
