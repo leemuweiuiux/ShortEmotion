@@ -162,3 +162,20 @@ describe("trading-day guard", () => {
     expect(snapshotDayMismatch(null, "20261026")).toBe(false);
   });
 });
+
+describe("concept audit and traceability", () => {
+  it("keeps a multi-family concept separate and records its source", () => {
+    const [group] = aggregateConcepts([{ code: "X", concepts: ["机器人芯片"], streak: 1 }]);
+    expect(group.name).toBe("机器人芯片");
+    expect(group.evidence.X).toEqual(["机器人芯片"]);
+    expect(group.reviewReasons).toContain("归并存在多个候选题材，保留原概念");
+  });
+  it("records unmatched news as a review signal without changing attribution", () => {
+    const stock = { code: "X", concepts: ["物流"] };
+    applyNewsConcepts(stock, ["金融科技"]);
+    expect(stock.newsUnmatched).toEqual(["金融科技"]);
+    const [group] = aggregateConcepts([stock]);
+    expect(group.name).toBe("物流");
+    expect(group.reviewReasons).toContain("部分个股资讯线索与原始概念不一致");
+  });
+});
