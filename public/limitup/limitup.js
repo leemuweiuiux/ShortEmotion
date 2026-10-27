@@ -328,11 +328,12 @@ function renderConcepts(data) {
         : `<i style="opacity:${opacity}"></i>`));
     }).join("");
     const tags = stocks.length
-      ? stocks.map((stock) => `<span class="lu-stock${stock.isST ? " is-st" : ""}" title="${esc(`概念依据：${(concept.evidence?.[stock.code] || []).join("、") || "未记录"}${stock.newsUnmatched?.length ? `；资讯线索待核实：${stock.newsUnmatched.join("、")}` : ""}`)}"><b>${esc(stock.name)}</b><em>${streakText(stock.streak)} ${esc(shortClock(stock.sealTime))}</em></span>`).join("")
+      ? stocks.map((stock) => `<span class="lu-stock${stock.isST ? " is-st" : ""}" title="${esc(`概念依据：${(concept.evidence?.[stock.code] || []).join("、") || "未记录"}${stock.newsUnmatched?.length ? `；资讯线索待核实：${stock.newsUnmatched.join("、")}` : ""}`)}"><b>${esc(stock.name)}</b><em>${streakText(stock.streak)} ${esc(shortClock(stock.sealTime))}</em><small>依据：${esc((concept.evidence?.[stock.code] || []).join("、") || "未记录")}</small></span>`).join("")
       : '<span class="lu-tier-empty">—</span>';
     // 强弱状态与跌停、断板家数：概念聚合不再只讲涨停，弱方向也要能一眼看到
-    const status = concept.status
-      ? `<span class="lu-status ${esc(concept.tone || "")}">${esc(concept.status)}</span>`
+    const status = concept.reviewReasons?.length
+      ? '<span class="lu-status warn">待核实</span>'
+      : concept.status ? `<span class="lu-status ${esc(concept.tone || "")}">${esc(concept.status)}</span>`
       : "";
     const meta = [
       concept.downOnly ? "无涨停" : ((concept.maxStreak || 1) === 1 ? "首板" : `最高 ${concept.maxStreak} 板`),
