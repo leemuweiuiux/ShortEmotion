@@ -3,9 +3,11 @@
 // 数据来自 /api/limitup（只读定时任务写入的快照）；「刷新」沿用短线情绪（/api/short-emotion action=refresh，扣 5 积分），
 // 同一次更新会重算涨停情绪。各区块的计算与展示原样取自 lfjDashboard「涨停事件工作台20261027」limit.js。
 import { toast, goLogin, initAccountMenu } from "/shared/nav-account.js?v=4";
+import { setupLimitupShare } from "/limitup/share.js?v=1";
 import { updateNavPoints } from "/shared/nav-points.js?v=1";
 
 initAccountMenu();
+setupLimitupShare();
 
 const API = "/api/limitup";
 const REFRESH_API = "/api/short-emotion?market=cn";
@@ -491,6 +493,7 @@ async function unlock(event) {
 
 function show(data) {
   current = data;
+  $("#share-limitup").hidden = Boolean(data.locked);
   setBalance(data);
   if (data.locked) {
     renderLocked(data);
