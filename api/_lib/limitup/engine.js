@@ -1395,8 +1395,10 @@ export async function loadLimitUpBoard(day = localDate()) {
   };
   // 顶部亮点：把「主线 / 赚钱效应 / 竞价 / 接力 / 高度 / 封板 / 集中度 / 负反馈 / 冰点 / 断板」
   // 压缩成几句话，先看结论再看明细。结构类维度依赖 ladder 与 concepts，必须传原始天梯与合并后的题材行。
+  const reviewNames = new Set(conceptBoard.filter(item => item.reviewReasons?.length).map(item => item.name));
   const highlights = buildHighlights({
-    summary, themeStrength, brokenStreaks, concepts: conceptBoard, ladder, quoteTime, premium
+    summary, themeStrength: themeStrength.filter(item => !reviewNames.has(item.name)), brokenStreaks,
+    concepts: conceptBoard.filter(item => !reviewNames.has(item.name)), ladder, quoteTime, premium
   });
 
   return {
