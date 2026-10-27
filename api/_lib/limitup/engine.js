@@ -26,6 +26,7 @@ import {
 import {
   anomalyThemeName,
   anomalyFamily,
+  familyCandidates,
   NON_NARRATIVE_ANOMALY_PATTERN,
   VERIFIED_STANDALONE_THEME_PATTERN,
   isEligibleNarrativeTheme,
@@ -497,7 +498,9 @@ export function applyNewsConcepts(stock, names) {
   const concepts = stock.concepts || [];
   // 资讯只标记与原始概念同一题材的候选，不能新增或覆盖聚合归属。
   const allowed = new Set(concepts.map(conceptLabelOf));
-  stock.newsThemes = [...new Set((names || []).map(conceptLabelOf).filter(name => allowed.has(name)))];
+  const candidates = [...new Set((names || []).map(conceptLabelOf))];
+  stock.newsThemes = candidates.filter(name => allowed.has(name));
+  stock.newsUnmatched = candidates.filter(name => !allowed.has(name));
   stock.conceptSource = concepts.length ? "wind" : "none";
   return stock.newsThemes.length > 0;
 }
@@ -670,7 +673,7 @@ export function aggregateConcepts(stocks) {
       // （人形机器人 / 机器人 / 减速器 → 机器人产业链），否则同一件事会被拆成多行
       const family = anomalyFamily(name);
       // 族名去掉「产业链」后缀，只留核心词（机器人产业链 → 机器人）
-      const label = family ? family.name.replace(/产业链$/, "") : name;
+      const label = conceptLabelOf(name);
       // 以展示名作聚合键：族名与 Wind 原始概念可能走不同分支（汽车智能化 vs 华为汽车），
       // 按 family.id 分组会把同一件事拆成两行、家数各算一遍
       const key = label;
@@ -678,12 +681,15 @@ export function aggregateConcepts(stocks) {
         groups.set(key, {
           name: label, aliases: [], stocks: [], maxStreak: 0, firstSealTime: null,
           whitelist: Boolean(family) || isWhitelistTheme(name), streakDistribution: {},
-          leaderCode: null, leaderSealTime: null
+          leaderCode: null, leaderSealTime: null, evidence: {}, reviewReasons: []
         });
       }
       const group = groups.get(key);
       if (!group.whitelist && isWhitelistTheme(name)) group.whitelist = true;
       if (!group.aliases.includes(name)) group.aliases.push(name);
+      (group.evidence[stock.code] ||= []).push(name);
+      if (familyCandidates(name).length > 1 && !group.reviewReasons.includes("归并存在多个候选题材，保留原概念")) group.reviewReasons.push("归并存在多个候选题材，保留原概念");
+      if (stock.newsUnmatched?.length && !group.reviewReasons.includes("部分个股资讯线索与原始概念不一致")) group.reviewReasons.push("部分个股资讯线索与原始概念不一致");
       // 同一只股票可能同时带族内多个概念，只计一次，否则家数会虚高
       if (group.stocks.includes(stock.code)) continue;
       group.stocks.push(stock.code);
@@ -1141,6 +1147,7 @@ export async function loadLimitUpBoard(day = localDate()) {
       code, name: row["证券简称"],
       sealTime, bucket: sealBucketLabel(sealTime),
       streak: sets.length ? streakAgainst(sets, code) : null,
+      rawConcepts: String(row["所属概念板块"] || "").split(/[;；]/).map(x => x.trim()).filter(Boolean),
       concepts: limitConcepts(row["所属概念板块"]),
       boardType: boardOf(code), isST: isStName(row["证券简称"])
     };
@@ -1330,6 +1337,14 @@ export async function loadLimitUpBoard(day = localDate()) {
   });
   // 概念聚合不再只讲涨停：涨跌强弱状态直接挂在同一行，页面只保留一个题材模块
   const conceptBoard = mergeThemeBoard({ concepts: aggregateConcepts(stocks), themeStrength }).slice(0, 30);
+  // 变化仅是排查线索：完整历史且昨日有一定样本时才提示，不认定为错误或行情原因。
+  if (historyResult.complete) for (const concept of conceptBoard) {
+    const prior = previousThemes.find(item => item.name === concept.name)?.count || 0;
+    const current = concept.limitCount || 0;
+    if (prior >= 3 && Math.abs(current - prior) >= 3 && (current >= prior * 2 || current * 2 <= prior)) {
+      (concept.reviewReasons ||= []).push(`较上日 ${prior} → ${current} 家，变化较大，需结合行情核实`);
+    }
+  }
 
   // 晋级成功的个股按题材归类：只看晋级率不够，还要知道"分子"落在哪些题材上
   const promotedCodes = new Set(promotion.promoted.map((item) => item.code));
@@ -1385,6 +1400,7 @@ export async function loadLimitUpBoard(day = localDate()) {
   });
 
   return {
+    classificationVersion: 2,
     tradingDate: dataDay,
     requestedDate: day,
     capturedAt: new Date().toISOString(),
@@ -1416,6 +1432,11 @@ export async function loadLimitUpBoard(day = localDate()) {
       cappedSectors: eventResult.cappedSectors || [],
       truncated: (eventResult.cappedSectors || []).length > 0,
       historyComplete: Boolean(historyResult.complete),
+      conceptAudit: {
+        missingConcepts: stocks.filter(stock => !stock.concepts?.length).length,
+        newsConflicts: stocks.filter(stock => stock.newsUnmatched?.length).length,
+        ambiguousConcepts: stocks.filter(stock => stock.concepts?.some(name => familyCandidates(name).length > 1)).length
+      },
       limitDownComplete: Boolean(downResult.complete),
       errors: [...errors]
     },
