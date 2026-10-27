@@ -56,7 +56,7 @@ describe("涨停情绪取数与落库", () => {
     expect(second.ran).toBe(true);
     expect(wind.windCallStats().byTool["financial_docs/get_financial_news"] || 0).toBe(0);
     expect(second.board.summary.newsConceptReviewed).toBe(0);
-    expect(second.board.stocks.find((stock) => stock.code === "300024.SZ").concepts).toEqual(["机器人"]);
+    expect(second.board.stocks.find((stock) => stock.code === "300024.SZ").concepts).toEqual(["机器人", "人形机器人", "减速器"]);
   });
 
   it("强制刷新（用户点「刷新」）会一并重算涨停情绪，页面读得到", async () => {
