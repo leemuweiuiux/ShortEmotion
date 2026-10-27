@@ -6,6 +6,8 @@ describe('morning reports',()=>{
  it('rejects fabricated source IDs, out-of-range summaries and missing view cards',()=>{
   const a={title:'标题',summary:'字'.repeat(100),sections:Array.from({length:4},()=>({heading:'段落',text:'正文'.repeat(80)})),views:[{status:'延续',text:'观点一'},{status:'修正',text:'观点二'},{status:'新增',text:'观点三'}],watch:['观察一','观察二'],sourceIds:['real']};
   expect(()=>validateArticle(a,[{id:'real'}])).not.toThrow();
+  expect(()=>validateArticle({...a,summary:'字'.repeat(200)},[{id:'real'}])).not.toThrow();
+  expect(()=>validateArticle({...a,summary:'字'.repeat(201)},[{id:'real'}])).toThrow('摘要须为70—200字');
   expect(()=>validateArticle({...a,summary:'少'},[{id:'real'}])).toThrow();
   expect(()=>validateArticle({...a,sourceIds:['invented']},[{id:'real'}])).toThrow();
   expect(()=>validateArticle({...a,views:undefined},[{id:'real'}])).toThrow('观点卡不合格');
