@@ -1,6 +1,6 @@
 -- 涨停情绪（/limitup）解锁：10 积分，12 小时内有效；与「题材异动」的解锁分开计算、分开扣分。
 -- 不限额账号一直解锁、不扣分。流水类型 unlock_limitup（页面显示「解锁涨停情绪」）。
--- 在 Supabase SQL Editor 执行一次。没执行之前，/limitup 显示「解锁服务暂未开通」，不扣分。
+-- 在 Supabase SQL Editor 执行一次。没执行之前，/limitup 显示「积分服务暂时不可用」，不扣分。
 
 alter table public.point_accounts add column if not exists limitup_unlock_until timestamptz;
 
