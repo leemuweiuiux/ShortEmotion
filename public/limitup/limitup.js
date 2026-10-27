@@ -328,7 +328,7 @@ function renderConcepts(data) {
         : `<i style="opacity:${opacity}"></i>`));
     }).join("");
     const tags = stocks.length
-      ? stocks.map((stock) => `<span class="lu-stock${stock.isST ? " is-st" : ""}"><b>${esc(stock.name)}</b><em>${streakText(stock.streak)} ${esc(shortClock(stock.sealTime))}</em></span>`).join("")
+      ? stocks.map((stock) => `<span class="lu-stock${stock.isST ? " is-st" : ""}" title="${esc(`概念依据：${(concept.evidence?.[stock.code] || []).join("、") || "未记录"}${stock.newsUnmatched?.length ? `；资讯线索待核实：${stock.newsUnmatched.join("、")}` : ""}`)}"><b>${esc(stock.name)}</b><em>${streakText(stock.streak)} ${esc(shortClock(stock.sealTime))}</em></span>`).join("")
       : '<span class="lu-tier-empty">—</span>';
     // 强弱状态与跌停、断板家数：概念聚合不再只讲涨停，弱方向也要能一眼看到
     const status = concept.status
@@ -339,7 +339,8 @@ function renderConcepts(data) {
       concept.downOnly ? null : `首封 ${esc(shortClock(concept.firstSealTime))}`,
       concept.downCount ? `<span class="is-down">跌停 ${concept.downCount}</span>` : null,
       concept.brokenCount ? `<span class="is-broken">断板/未晋级 ${concept.brokenCount}</span>` : null,
-      delta != null ? `较上日 ${signed(delta)}` : null
+      delta != null ? `较上日 ${signed(delta)}` : null,
+      ...(concept.reviewReasons || []).map(reason => esc(`待核实：${reason}`))
     ].filter(Boolean).join(" · ");
     // 右侧主数字：有涨停就报涨停家数；没有涨停的弱方向改报跌停/断板，避免出现「0 涨停」
     const countCell = concept.limitCount
@@ -371,6 +372,10 @@ function renderQuality(data) {
   const messages = [];
   if (quality.truncated) messages.push(`${(quality.cappedSectors || []).join("/")}触顶单次查询 100 行上限，该板块家数可能不全。`);
   if (quality.historyComplete === false) messages.push("上一交易日涨停名单不完整，晋级率可能偏差。");
+  const audit = quality.conceptAudit;
+  if (audit?.missingConcepts) messages.push(`${audit.missingConcepts} 只涨停股缺少可用概念，未纳入题材聚合。`);
+  if (audit?.ambiguousConcepts) messages.push(`${audit.ambiguousConcepts} 只股票概念有多个归并候选，已保留原概念待核实。`);
+  if (audit?.newsConflicts) messages.push(`${audit.newsConflicts} 只股票的资讯线索与原始概念不一致；资讯线索仅供核实。`);
   const errors = (data.errors || []).map((message) => plain(message)).filter(Boolean);
   if (errors.length) messages.push(...errors);
   $("#quality").innerHTML = messages.length ? `<div class="lu-warn">${messages.map(esc).join("<br>")}</div>` : "";
