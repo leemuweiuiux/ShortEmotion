@@ -45,7 +45,7 @@ export async function limitupHasClose(store, day) {
 async function importCache(store, day) {
   if (!day) return 0;
   const saved = (await store.kvGet(LIMITUP_KEYS.newsCache(day)).catch(() => null))?.value;
-  return importNewsReviewCache(day, saved?.entries);
+  return saved?.version === 2 ? importNewsReviewCache(day, saved.entries) : 0;
 }
 
 /**
@@ -65,7 +65,7 @@ export async function refreshLimitUp(store, { day } = {}) {
   const cacheDay = board.tradingDate || day;
   const entries = exportNewsReviewCache(cacheDay);
   if (Object.keys(entries).length) {
-    await store.kvSet(LIMITUP_KEYS.newsCache(cacheDay), { day: cacheDay, entries }).catch((error) => {
+    await store.kvSet(LIMITUP_KEYS.newsCache(cacheDay), { day: cacheDay, version: 2, entries }).catch((error) => {
       output.errors.push(`news-cache: ${String(error?.message || error)}`);
     });
   }
