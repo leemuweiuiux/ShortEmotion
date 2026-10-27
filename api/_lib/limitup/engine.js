@@ -26,6 +26,7 @@ import {
 import {
   anomalyThemeName,
   anomalyFamily,
+  familyCandidates,
   NON_NARRATIVE_ANOMALY_PATTERN,
   VERIFIED_STANDALONE_THEME_PATTERN,
   isEligibleNarrativeTheme,
@@ -436,13 +437,14 @@ export function exportNewsReviewCache(day) {
 export function importNewsReviewCache(day, entries) {
   if (!day || !entries || typeof entries !== "object") return 0;
   let count = 0;
-  for (const [code, names] of Object.entries(entries)) {
-    if (!Array.isArray(names)) continue;
-    newsConceptCache.set(`${day}:${code}`, names.filter((name) => typeof name === "string"));
+  for (const [code, evidence] of Object.entries(entries)) {
+    if (!Array.isArray(evidence)) continue;
+    newsConceptCache.set(`${day}:${code}`, evidence.filter(item => item && typeof item.theme === "string" && typeof item.sentence === "string"));
     count += 1;
   }
   return count;
 }
+
 const NEWS_CONCEPT_MAX = 80;
 // 默认开启；LIMITUP_NEWS_CONCEPT=0 可关闭（每只股票占 1 次 Wind 额度）
 const NEWS_CONCEPT_ENABLED = process.env.LIMITUP_NEWS_CONCEPT !== "0";
@@ -457,21 +459,49 @@ export function selectStockNews(items, stockName = "") {
     return !NEWS_GENERIC_ARTICLE.test(String(item.title || ""));
   });
 }
-async function askThemeNames(query, stockName = "") {
+// 严格限定：同一句明确以股票为主语，描述业务或明确题材归属；否定、并列比较和缺日期均不作为确定证据。
+export function extractNewsEvidence(items, stockName, day) {
+  if (!stockName || !/^\d{8}$/.test(String(day || ""))) return [];
+  const cutoff = Date.parse(`${day.slice(0,4)}-${day.slice(4,6)}-${day.slice(6,8)}T23:59:59+08:00`);
+  const evidence = [];
+  for (const item of selectStockNews(items, stockName)) {
+    const title = String(item.title || "").trim();
+    const date = String(item.date || item.publishedAt || item.publish_time || item.publishTime || "").trim();
+    const compact = date.replace(/\D/g, "").slice(0, 8);
+    const published = /^\d{8}$/.test(compact) ? Date.parse(`${compact.slice(0,4)}-${compact.slice(4,6)}-${compact.slice(6,8)}T12:00:00+08:00`) : NaN;
+    const dated = Number.isFinite(published) && published <= cutoff && cutoff - published <= 31 * 86400000;
+    const source = String(item.source || item.publisher || item.site || "").trim();
+    const url = /^https?:\/\//i.test(String(item.url || "")) ? String(item.url) : "";
+    const sentences = [title, ...String(item.content || item.summary || "").split(/[。！？；\n]/)];
+    for (const raw of sentences) {
+      const sentence = raw.trim();
+      const pos = sentence.indexOf(stockName);
+      if (pos < 0 || sentence.length > 200) continue;
+      const after = sentence.slice(pos + stockName.length);
+      // 媒体常见“公司A、公司B”及否定语句不推断关联。
+      const negative = /不属于|不涉及|未涉及|没有|无关|并非|否认|不从事|未从事|无业务|不构成|与.*无关|尚未/.test(after);
+      const direct = /^(?:（[^）]{0,20}）|\([^)]{0,20}\))?(?:公司)?(?:主要)?(?:从事|经营|生产|研发|提供|供应|布局|主营|属于|入选|涉及|拥有|开发|应用|为).{0,80}/.test(after);
+      if (!direct || negative || /^(?:、|及|与|和|等公司)/.test(after)) continue;
+      const themes = detectThemeFamilies(after);
+      for (const theme of themes) {
+        if (familyCandidates(theme).length !== 1) continue;
+        evidence.push({ theme, relation: "business", sentence, title, date, source, url, dated });
+      }
+    }
+  }
+  return evidence;
+}
+async function askThemeNames(query, stockName = "", day = "") {
   try {
     const payload = await windCall("financial_docs", "get_financial_news", { query, top_k: 3 }, 15_000);
     const items = payload?.data?.items || payload?.data?.data?.items || [];
     const relevant = selectStockNews(items, stockName);
-    const names = detectThemeFamilies(relevant.map((item) => `${item.title || ""}${item.content || item.summary || ""}`).join(" ")).slice(0, 3);
-    if (process.env.LIMITUP_DEBUG) {
-      console.log(`[news] ${query.slice(-14)} items=${items.length}/${relevant.length} hits=${names.join("/") || "-"}`);
-    }
-    // hit 用来判断要不要换措辞重试：raw 有稿但没提到这只股票，也算没命中
-    return { names, failed: false, hit: relevant.length > 0 };
+    return { evidence: extractNewsEvidence(relevant, stockName, day), failed: false, hit: relevant.length > 0 };
   } catch {
-    return { names: [], failed: true, hit: false };
+    return { evidence: [], failed: true, hit: false };
   }
 }
+
 
 // 队列顺序：断板 → 连板 → 首板，额度或时间不够时先保证最重要的拿到。
 // 抽成纯函数便于单测：排序规则一变，晋级/断板概念就会错位。
@@ -489,20 +519,33 @@ export function buildNewsReviewQueue(stocks, brokenCodes = [], nameByCode = null
   return queue;
 }
 
-// 资讯优先：资讯识别到题材族就以资讯为准覆盖 Wind 概念；
-// 资讯没识别出题材时不覆盖（否则会把 Wind 的有效概念清空），只做「已复核」标记。
-export function applyNewsConcepts(stock, names) {
+// 原始概念确定聚合归属，资讯仅在已有题材范围内辅助选择主标签。
+export function applyNewsConcepts(stock, evidence) {
   stock.newsVerified = true;
-  if (!names?.length) {
-    stock.conceptSource = stock.concepts?.length ? "wind" : "none";
-    return false;
+  const concepts = stock.concepts || [];
+  const allowed = new Set(concepts.map(conceptLabelOf));
+  const records = (evidence || []).filter(item => item && typeof item === "object" && typeof item.theme === "string");
+  const themes = [...new Set(records.map(item => conceptLabelOf(item.theme)))];
+  const additions = [];
+  const pending = [];
+  for (const theme of themes) {
+    if (allowed.has(theme)) continue;
+    const hits = records.filter(item => conceptLabelOf(item.theme) === theme && item.dated && item.title && item.source && item.sentence);
+    // 额外题材需要两家不同来源独立明确说明；缺来源/日期或单一报道先待核实。
+    const sources = new Set(hits.map(item => item.source));
+    if (sources.size >= 2) additions.push(theme);
+    else pending.push(theme);
   }
-  stock.concepts = [...new Set(names)];
-  stock.conceptSource = "news";
-  return true;
+  stock.concepts = [...new Set([...concepts, ...additions])];
+  stock.newsAdded = additions;
+  stock.newsEvidence = records;
+  stock.newsUnmatched = pending;
+  // 业务关联不是当天上涨原因，不能用于推断催化。
+  stock.newsThemes = [];
+  stock.conceptSource = concepts.length ? (additions.length ? "wind+news" : "wind") : additions.length ? "news" : "none";
+  return additions.length > 0;
 }
-
-async function reviewConceptsByNews(stocks, day, brokenCodes = [], nameByCode = null, brokenDay = day) {
+async function reviewConceptsByNews(stocks, day, brokenCodes = [], nameByCode = null, brokenDay = day, brokenBase = new Map()) {
   // reviewed：实际查过资讯的只数；aborted：连续失败熔断，说明后面还没复核完
   const result = { filled: 0, reviewed: 0, aborted: false, brokenConcepts: new Map() };
   if (!NEWS_CONCEPT_ENABLED) return result;
@@ -518,20 +561,20 @@ async function reviewConceptsByNews(stocks, day, brokenCodes = [], nameByCode = 
 
     // 缓存带上交易日：跨日复用会把昨天的资讯结论套到今天
     const cacheKey = `${day}:${target.code}`;
-    let names = newsConceptCache.get(cacheKey);
-    if (!names) {
+    let evidence = newsConceptCache.get(cacheKey);
+    if (!evidence) {
       // 断板股涨停发生在上一交易日：用今天去查会一篇都查不到（实测海洋王 0 条）
       const queryDay = target.broken ? brokenDay : day;
-      let answer = await askThemeNames(`${queryDay}${target.name}上涨原因概念题材`, target.name);
+      let answer = await askThemeNames(`${queryDay}${target.name}上涨原因概念题材`, target.name, queryDay);
       // 断板股、以及 Wind 概念全空的个股，日期过滤容易筛掉新闻：补一次不带日期的查询
       if (!answer.failed && !answer.hit && (target.broken || !(target.stock?.concepts?.length))) {
         if (process.env.WIND_MOCK !== "1") await waitFor(900);
-        answer = await askThemeNames(`${target.name}涨停原因概念题材`, target.name);
+        answer = await askThemeNames(`${target.name}涨停原因概念题材`, target.name, queryDay);
       }
-      names = answer.names;
+      evidence = answer.evidence;
       result.reviewed += 1;
       // 失败不写缓存：额度恢复后同一天刷新时还能补回来
-      if (!answer.failed) newsConceptCache.set(cacheKey, names);
+      if (!answer.failed) newsConceptCache.set(cacheKey, evidence);
       // 额度耗尽时连续失败，继续排队只会白等，直接熔断
       if (answer.failed) {
         consecutiveFailures += 1;
@@ -547,15 +590,17 @@ async function reviewConceptsByNews(stocks, day, brokenCodes = [], nameByCode = 
     }
     // 断板股只有资讯命中了才写；没命中时保留 Wind 昨日概念的兜底
     if (target.broken) {
+      const supported = new Set((brokenBase.get(target.code) || []).map(conceptLabelOf));
+      const names = (evidence || []).filter(item => item.dated).map(item => conceptLabelOf(item.theme)).filter(name => supported.has(name));
       if (!names.length) continue;
-      result.brokenConcepts.set(target.code, names);
+      result.brokenConcepts.set(target.code, [...new Set(names)]);
       result.filled += 1;
       continue;
     }
 
     // 以资讯为准：资讯命中的题材族覆盖 Wind 概念，Wind 只作为资讯无症状时的底稿。
     // 资讯为空也要走这一步，否则个股不会带上「已复核」与来源标记
-    if (applyNewsConcepts(target.stock, names)) result.filled += 1;
+    if (applyNewsConcepts(target.stock, evidence)) result.filled += 1;
   }
   return result;
 }
@@ -575,8 +620,6 @@ async function loadBusinessText(day, code) {
 async function reviewBrandConcepts(stocks, day) {
   const result = { checked: 0, pruned: 0, failed: 0, businessText: new Map() };
   for (const stock of stocks) {
-    // 资讯已经说明市场在炒什么，就以资讯为准，不再拿主营去改它
-    if (stock.conceptSource === "news") continue;
     if (!BRAND_CONCEPT_SUPPORT.some((rule) => stock.concepts?.includes(rule.concept))) continue;
     let text = "";
     try {
@@ -670,7 +713,7 @@ export function aggregateConcepts(stocks) {
       // （人形机器人 / 机器人 / 减速器 → 机器人产业链），否则同一件事会被拆成多行
       const family = anomalyFamily(name);
       // 族名去掉「产业链」后缀，只留核心词（机器人产业链 → 机器人）
-      const label = family ? family.name.replace(/产业链$/, "") : name;
+      const label = conceptLabelOf(name);
       // 以展示名作聚合键：族名与 Wind 原始概念可能走不同分支（汽车智能化 vs 华为汽车），
       // 按 family.id 分组会把同一件事拆成两行、家数各算一遍
       const key = label;
@@ -678,12 +721,15 @@ export function aggregateConcepts(stocks) {
         groups.set(key, {
           name: label, aliases: [], stocks: [], maxStreak: 0, firstSealTime: null,
           whitelist: Boolean(family) || isWhitelistTheme(name), streakDistribution: {},
-          leaderCode: null, leaderSealTime: null
+          leaderCode: null, leaderSealTime: null, evidence: {}, reviewReasons: []
         });
       }
       const group = groups.get(key);
       if (!group.whitelist && isWhitelistTheme(name)) group.whitelist = true;
       if (!group.aliases.includes(name)) group.aliases.push(name);
+      (group.evidence[stock.code] ||= []).push(stock.newsAdded?.includes(name) ? `资讯补充：${name}` : `原始概念：${name}`);
+      if (familyCandidates(name).length > 1 && !group.reviewReasons.includes("归并存在多个候选题材，保留原概念")) group.reviewReasons.push("归并存在多个候选题材，保留原概念");
+      if (stock.newsAdded?.includes(name) && !group.reviewReasons.includes("题材由资讯补充，请查看证据")) group.reviewReasons.push("题材由资讯补充，请查看证据");
       // 同一只股票可能同时带族内多个概念，只计一次，否则家数会虚高
       if (group.stocks.includes(stock.code)) continue;
       group.stocks.push(stock.code);
@@ -715,7 +761,7 @@ export function aggregateConcepts(stocks) {
 
 // 主标签口径（方案 A）：资讯优先；没有资讯时，优先选「主营能匹配」的概念。
 // 概念炒作不一定贴主营，所以主营只用来挑主标签，不覆盖资讯结论。
-export function pickPrimaryConcept(concepts, conceptCounts, businessText = "") {
+export function pickPrimaryConcept(concepts, conceptCounts, businessText = "", newsThemes = []) {
   const text = String(businessText || "");
   const matchesBusiness = (name) => {
     if (!text) return false;
@@ -729,8 +775,10 @@ export function pickPrimaryConcept(concepts, conceptCounts, businessText = "") {
     family.test.lastIndex = 0;
     return family.test.test(text);
   };
+  const supportedNews = new Set(newsThemes.map(conceptLabelOf));
   const score = (name) =>
-    (matchesBusiness(name) ? 100_000 : 0)
+    (supportedNews.has(conceptLabelOf(name)) ? 1_000_000 : 0)
+    + (matchesBusiness(name) ? 100_000 : 0)
     + (conceptCounts.get(name) || 0) * 10
     + (isWhitelistTheme(name) ? 1000 : 0);
   return [...concepts].sort((a, b) => score(b) - score(a) || a.length - b.length)[0] || null;
@@ -1139,6 +1187,7 @@ export async function loadLimitUpBoard(day = localDate()) {
       code, name: row["证券简称"],
       sealTime, bucket: sealBucketLabel(sealTime),
       streak: sets.length ? streakAgainst(sets, code) : null,
+      rawConcepts: String(row["所属概念板块"] || "").split(/[;；]/).map(x => x.trim()).filter(Boolean),
       concepts: limitConcepts(row["所属概念板块"]),
       boardType: boardOf(code), isST: isStName(row["证券简称"])
     };
@@ -1214,7 +1263,7 @@ export async function loadLimitUpBoard(day = localDate()) {
     .sort((a, b) => String(a.downTime || "99").localeCompare(String(b.downTime || "99")));
 
   // 资讯复核：Wind 概念准不准、有没有漏，都用当日资讯过一遍
-  const newsReview = await reviewConceptsByNews(kept, dataDay, brokenCodes, nameByCode, dataDay);
+  const newsReview = await reviewConceptsByNews(kept, dataDay, brokenCodes, nameByCode, baseTradingDate || dataDay, brokenConceptMap);
   const newsConceptFilled = newsReview.filled;
   // 熔断说明队列没跑完，页面应知道「未被资讯验证」而不是「资讯确认无题材」
   if (newsReview.aborted) {
@@ -1248,7 +1297,8 @@ export async function loadLimitUpBoard(day = localDate()) {
     primaryConcept: pickPrimaryConcept(
       stock.concepts,
       conceptCounts,
-      stock.conceptSource === "news" ? "" : (brandReview.businessText.get(stock.code) || "")
+      brandReview.businessText.get(stock.code) || "",
+      stock.newsThemes || []
     )
   }))
     .sort((a, b) => (b.streak || 1) - (a.streak || 1) || String(a.sealTime || "99").localeCompare(String(b.sealTime || "99")));
@@ -1327,6 +1377,14 @@ export async function loadLimitUpBoard(day = localDate()) {
   });
   // 概念聚合不再只讲涨停：涨跌强弱状态直接挂在同一行，页面只保留一个题材模块
   const conceptBoard = mergeThemeBoard({ concepts: aggregateConcepts(stocks), themeStrength }).slice(0, 30);
+  // 变化仅是排查线索：完整历史且昨日有一定样本时才提示，不认定为错误或行情原因。
+  if (historyResult.complete) for (const concept of conceptBoard) {
+    const prior = previousThemes.find(item => item.name === concept.name)?.count || 0;
+    const current = concept.limitCount || 0;
+    if (prior >= 3 && Math.abs(current - prior) >= 3 && (current >= prior * 2 || current * 2 <= prior)) {
+      (concept.reviewReasons ||= []).push(`较上日 ${prior} → ${current} 家，变化较大，需结合行情核实`);
+    }
+  }
 
   // 晋级成功的个股按题材归类：只看晋级率不够，还要知道"分子"落在哪些题材上
   const promotedCodes = new Set(promotion.promoted.map((item) => item.code));
@@ -1377,11 +1435,14 @@ export async function loadLimitUpBoard(day = localDate()) {
   };
   // 顶部亮点：把「主线 / 赚钱效应 / 竞价 / 接力 / 高度 / 封板 / 集中度 / 负反馈 / 冰点 / 断板」
   // 压缩成几句话，先看结论再看明细。结构类维度依赖 ladder 与 concepts，必须传原始天梯与合并后的题材行。
+  const reviewNames = new Set(conceptBoard.filter(item => item.reviewReasons?.length).map(item => item.name));
   const highlights = buildHighlights({
-    summary, themeStrength, brokenStreaks, concepts: conceptBoard, ladder, quoteTime, premium
+    summary, themeStrength: themeStrength.filter(item => !reviewNames.has(item.name)), brokenStreaks,
+    concepts: conceptBoard.filter(item => !reviewNames.has(item.name)), ladder, quoteTime, premium
   });
 
   return {
+    classificationVersion: 2,
     tradingDate: dataDay,
     requestedDate: day,
     capturedAt: new Date().toISOString(),
@@ -1413,6 +1474,11 @@ export async function loadLimitUpBoard(day = localDate()) {
       cappedSectors: eventResult.cappedSectors || [],
       truncated: (eventResult.cappedSectors || []).length > 0,
       historyComplete: Boolean(historyResult.complete),
+      conceptAudit: {
+        missingConcepts: stocks.filter(stock => !stock.concepts?.length).length,
+        newsConflicts: stocks.filter(stock => stock.newsUnmatched?.length).length,
+        ambiguousConcepts: stocks.filter(stock => stock.concepts?.some(name => familyCandidates(name).length > 1)).length
+      },
       limitDownComplete: Boolean(downResult.complete),
       errors: [...errors]
     },

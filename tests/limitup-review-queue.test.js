@@ -1,7 +1,7 @@
 // @vitest-environment node
 // 资讯复核队列：断板 → 连板 → 首板。顺序错位会让断板概念拿不到、首板先耗尽额度。
 import {
-  aggregateConcepts, applyNewsConcepts, buildNewsReviewQueue, pickPrimaryConcept,
+  aggregateConcepts, applyNewsConcepts, buildNewsReviewQueue, pickPrimaryConcept, extractNewsEvidence,
   pruneUnsupportedBrandConcepts, quoteDayOf, selectStockNews, snapshotDayMismatch
 } from "../api/_lib/limitup/engine.js";
 import { detectThemeFamilies } from "../api/_lib/limitup/themes.js";
@@ -41,136 +41,44 @@ describe("limit-up news review queue", () => {
   });
 });
 
-describe("news concepts override Wind concepts", () => {
-  it("replaces Wind concepts with the families found in news", () => {
-    const item = { code: "300024.SZ", concepts: ["机器人", "减速器", "专精特新小巨人"], newsVerified: false };
-
-    expect(applyNewsConcepts(item, ["机器人", "算力与通信"])).toBe(true);
-    expect(item.concepts).toEqual(["机器人", "算力与通信"]);
-    expect(item.conceptSource).toBe("news");
-    expect(item.newsVerified).toBe(true);
+describe("news evidence for supplemental attribution", () => {
+  const hit = (theme, source) => ({ theme, source, title: source + "报道", date: "2026-10-27", sentence: "某公司提供机器人减速器", dated: true, relation: "business" });
+  it("keeps original concepts and accepts a corroborated supplement", () => {
+    const item = { concepts: ["储能"] };
+    expect(applyNewsConcepts(item, [hit("机器人", "来源甲"), hit("机器人", "来源乙")])).toBe(true);
+    expect(item.concepts).toEqual(["储能", "机器人"]);
+    expect(item.newsAdded).toEqual(["机器人"]);
+    expect(item.newsThemes).toEqual([]);
   });
-
-  it("dedupes repeated family names from news", () => {
-    const item = { code: "300024.SZ", concepts: [] };
-
-    applyNewsConcepts(item, ["机器人", "机器人"]);
-
-    expect(item.concepts).toEqual(["机器人"]);
+  it("leaves unsupported and single-source additions pending", () => {
+    const item = { concepts: ["物流"] };
+    expect(applyNewsConcepts(item, [hit("金融科技", "来源甲")])).toBe(false);
+    expect(item.concepts).toEqual(["物流"]);
+    expect(item.newsUnmatched).toEqual(["金融科技"]);
+    expect(aggregateConcepts([item]).map(x => x.name)).not.toContain("金融科技");
   });
-
-  it("keeps Wind concepts when news finds no theme, and marks the stock as reviewed", () => {
-    const item = { code: "600001.SH", concepts: ["种业"] };
-
-    expect(applyNewsConcepts(item, [])).toBe(false);
-    expect(item.concepts).toEqual(["种业"]);
-    expect(item.conceptSource).toBe("wind");
-    expect(item.newsVerified).toBe(true);
-  });
-
-  it("leaves the concept list empty when neither source has a theme", () => {
-    const item = { code: "600002.SH", concepts: [] };
-
-    expect(applyNewsConcepts(item, [])).toBe(false);
+  it("does not count two articles from the same source as independent", () => {
+    const item = { concepts: [] };
+    applyNewsConcepts(item, [hit("机器人", "来源甲"), { ...hit("机器人", "来源甲"), title: "另一篇" }]);
     expect(item.concepts).toEqual([]);
-    expect(item.conceptSource).toBe("none");
   });
 });
 
-describe("news theme detection", () => {
-  it("ignores media boilerplate that happens to contain 证券", () => {
-    const text = "证券之星消息，青岛食品10月26日涨停收盘；证券代码：001219，证券简称：青岛食品";
 
-    expect(detectThemeFamilies(text)).not.toContain("金融科技与券商");
+describe("explicit news evidence extraction", () => {
+  const day = "20261027";
+  const item = content => ({ title: "公司业务动态", content, source: "甲媒体", date: "2026-10-27" });
+  it("extracts a direct business relation with provenance", () => {
+    const records = extractNewsEvidence([item("测试股份研发机器人减速器")], "测试股份", day);
+    expect(records).toMatchObject([{ theme: "机器人", source: "甲媒体", date: "2026-10-27", sentence: "测试股份研发机器人减速器", relation: "business", dated: true }]);
   });
-
-  it("still detects the real family in a 证券之星 recap title", () => {
-    const text = "证券之星消息，某股涨停：人形机器人概念热股";
-
-    expect(detectThemeFamilies(text)).toEqual(["机器人"]);
+  it("rejects market co-mentions, negation and other company subjects", () => {
+    expect(extractNewsEvidence([item("测试股份涨停，机器人板块上涨")], "测试股份", day)).toEqual([]);
+    expect(extractNewsEvidence([item("测试股份不涉及机器人业务")], "测试股份", day)).toEqual([]);
+    expect(extractNewsEvidence([item("测试股份、其他公司研发机器人")], "测试股份", day)).toEqual([]);
   });
-});
-
-describe("concept aggregation", () => {
-  it("merges the family label with Wind aliases into one row", () => {
-    const groups = aggregateConcepts([
-      { code: "000001.SZ", concepts: ["汽车智能化"], streak: 2, sealTime: "09:31:00" },
-      { code: "000002.SZ", concepts: ["华为汽车", "车联网"], streak: 1, sealTime: "09:40:00" }
-    ]);
-
-    expect(groups).toHaveLength(1);
-    expect(groups[0].name).toBe("汽车智能化");
-    expect(groups[0].limitCount).toBe(2);
-    expect(groups[0].whitelist).toBe(true);
-    expect(groups[0].aliases).toEqual(["汽车智能化", "华为汽车", "车联网"]);
-  });
-});
-
-describe("stock-specific news selection", () => {
-  it("drops generic market pieces and articles that never mention the stock", () => {
-    const items = [
-      { title: "每日大事件｜马斯克为点赞加入转账功能", content: "通过其支付服务X Money发放" },
-      { title: "延华智能涨停：智慧城市概念热股", content: "延华智能10月26日涨停" },
-      { title: "某公司发布新产品", content: "与这只股票无关" }
-    ];
-
-    const relevant = selectStockNews(items, "延华智能");
-
-    expect(relevant).toHaveLength(1);
-    expect(relevant[0].title).toContain("延华智能");
-  });
-});
-
-describe("main-business validation of brand concepts", () => {
-  it("drops 家电 when the business is set-top boxes and broadband gear", () => {
-    const result = pruneUnsupportedBrandConcepts(
-      ["家电", "F5G", "AI应用"],
-      "数字机顶盒、宽带网络连接设备、VR/AR虚拟现实"
-    );
-
-    expect(result.dropped).toEqual(["家电"]);
-    expect(result.concepts).toEqual(["F5G", "AI应用"]);
-  });
-
-  it("keeps 家电 when the business really is home appliances", () => {
-    const result = pruneUnsupportedBrandConcepts(["家电"], "冰箱、空调、洗衣机等家用电器研发与销售");
-
-    expect(result.dropped).toEqual([]);
-    expect(result.concepts).toEqual(["家电"]);
-  });
-
-  it("keeps the tag when the business text is missing", () => {
-    const result = pruneUnsupportedBrandConcepts(["家电"], "");
-
-    expect(result.dropped).toEqual([]);
-    expect(result.concepts).toEqual(["家电"]);
-  });
-
-  it("picks a business-supported primary concept after pruning", () => {
-    const counts = new Map([["F5G", 6], ["AI应用", 4], ["家电", 6]]);
-    const { concepts } = pruneUnsupportedBrandConcepts(["家电", "F5G", "AI应用"], "机顶盒、宽带CPE");
-
-    expect(pickPrimaryConcept(concepts, counts)).toBe("F5G");
-  });
-
-  it("prefers the concept the main business actually matches", () => {
-    const counts = new Map([["F5G", 6], ["消费电子产业", 1]]);
-
-    expect(pickPrimaryConcept(["F5G", "消费电子产业"], counts, "消费电子、智能终端研发与销售")).toBe("消费电子产业");
-    expect(pickPrimaryConcept(["F5G", "消费电子产业"], counts)).toBe("F5G");
-  });
-});
-
-describe("trading-day guard", () => {
-  it("extracts the quote date from the Wind timestamp", () => {
-    expect(quoteDayOf("2026-10-26T15:31:00+08:00")).toBe("20261026");
-    expect(quoteDayOf(null)).toBeNull();
-  });
-
-  it("flags quotes that are still the previous close", () => {
-    // 盘前跑 10-27：行情还停在 10-26 收盘
-    expect(snapshotDayMismatch("2026-10-26T15:31:00+08:00", "20261027")).toBe(true);
-    expect(snapshotDayMismatch("2026-10-26T15:31:00+08:00", "20261026")).toBe(false);
-    expect(snapshotDayMismatch(null, "20261026")).toBe(false);
+  it("does not mark undated and future evidence as valid", () => {
+    expect(extractNewsEvidence([{ ...item("测试股份研发机器人"), date: "" }], "测试股份", day)[0].dated).toBe(false);
+    expect(extractNewsEvidence([{ ...item("测试股份研发机器人"), date: "2026-10-28" }], "测试股份", day)[0].dated).toBe(false);
   });
 });

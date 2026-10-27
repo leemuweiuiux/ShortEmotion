@@ -22,23 +22,26 @@ const ANOMALY_THEME_FAMILIES = [
   { id: "nonferrous", name: "有色金属产业链", test: /有色|稀土|贵金属|黄金|白银|工业金属|铜矿|铝业/ },
   { id: "advanced-materials", name: "新材料产业链", test: /碳纤维|超导|新材料|超硬材料|金属非金属新材料/, exclude: /半导体材料|医药材料|建筑材料/ },
   { id: "consumer", name: "消费产业链", test: /白酒|啤酒|食品饮料|食品|饮料|零售|旅游|酒店|免税|家电|乳业|调味品|餐饮|百货|商贸|预制菜|宠物经济/, exclude: /消费电子|电子消费|消费建材|医药消费|医疗消费/ },
-  { id: "finance", name: "金融科技与券商", test: /金融科技|证券|券商|保险|互金|支付|数字货币|稳定币|银行/ },
+  { id: "fintech", name: "金融科技", test: /金融科技|互联网金融|互金|第三方支付|移动支付|数字货币|数字人民币|稳定币/ },
+  { id: "securities", name: "券商", test: /证券|券商/ },
+  { id: "bank", name: "银行", test: /银行|农商行/ },
+  { id: "insurance", name: "保险", test: /保险/ },
   { id: "property-infrastructure", name: "地产与基建产业链", test: /房地产|地产开发|物业管理|城市更新|建筑施工|基础设施|基建/ },
   { id: "energy", name: "传统能源产业链", test: /石油|天然气|油气|煤炭|页岩气|炼化/ }
 ];
 const NON_NARRATIVE_ANOMALY_PATTERN = /^(?:TMT|大消费|新质生产力综合|三新|双循环|先进制造|老经济|新经济|资源股|成长|价值|质量|规模|均衡)$|(?:大|中|小|微)盘(?:成长|价值|均衡|风格|股)?|(?:大|中|小|微)市值(?:成长|价值|均衡)?|成长(?:风格|股|指数|精选)?$|价值(?:风格|股|指数|精选)?$|质量风格|规模风格|高盈利成长|低估值|高估值|蓝筹|白马|核心资产|茅指数|高贝塔|低贝塔|高波动|低波动|顺周期|逆周期|转融券|融资融券|场外期权|挂钩标的|证券公司.*业务|股权激励|全样本|样本池|样本|金股|券商推荐|机构推荐|超涨|超跌|市场情绪|情绪指数|打板|连板|首板|涨停|跌停|炸板|破板|一字板|反包|领涨|龙头|中军|补涨|跟风|竞价|抢筹|趋势股|突破股|放量股|缩量股|高开|低开|非.?ST|ST股|强势股|活跃股|高换手|低换手|高价股|低价股|微盘股|小盘股|大盘股|绩优股|亏损股|昨日|近\d+日|龙虎榜|陆股通|基金重仓|机构重仓|北向重仓|高股息|红利|低波|动量|等权|全A|百元股|次新股|解禁|破净|破发|风格指数|成交额|成交量|换手率|振幅|涨速|量比|市值|市盈率|市净率|排名|排行|榜单|股票池|精选组合|策略指数|因子指数|点位贡献|预增|预减|含可转债|可转债正股|行业龙头|地方国企|华为平台|举牌/i;
 const VERIFIED_STANDALONE_THEME_PATTERN = /首发经济|两岸融合|一带一路|统一大市场|自贸区|自贸港|国企改革|供销社|乡村振兴|西部大开发|东北振兴|成渝特区|粤港澳大湾区|长三角|海洋经济|新型城镇化|设备更新|以旧换新|碳中和|碳交易|文化传媒|影视|院线|游戏|短剧|出版|教育产业|体育产业|物流|航运|港口|机场|铁路|轨道交通|水泥|玻璃|建筑材料|化工|化肥|农药|造纸|纺织|服装|工程机械|工业母机|机床|船舶|环保|水务|燃气|数据要素|网络安全|工业互联网|物联网/;
-function anomalyFamily(name) {
+// 多个题材族都命中时不猜测：保留原概念并提示人工核实。
+function familyCandidates(name) {
   const value = String(name || "").trim();
-  if (!value) return null;
-  // 族名本身不一定命中自己的匹配式（如「汽车智能化」不在 automotive 的 test 里），
-  // 但资讯反推出来的就是族名，必须能回到同一族，否则同一件事会被拆成两行
-  const byLabel = ANOMALY_THEME_FAMILIES.find((rule) => {
-    const label = rule.name.replace(/产业链$/, "");
-    return (value === rule.name || value === label) && !rule.exclude?.test(value);
-  });
-  if (byLabel) return byLabel;
-  return ANOMALY_THEME_FAMILIES.find((rule) => rule.test.test(value) && !rule.exclude?.test(value)) || null;
+  if (!value) return [];
+  const exact = ANOMALY_THEME_FAMILIES.find(rule => (value === rule.name || value === rule.name.replace(/产业链$/, "")) && !rule.exclude?.test(value));
+  if (exact) return [exact];
+  return ANOMALY_THEME_FAMILIES.filter(rule => rule.test.test(value) && !rule.exclude?.test(value));
+}
+function anomalyFamily(name) {
+  const matches = familyCandidates(name);
+  return matches.length === 1 ? matches[0] : null;
 }
 // 从新闻 / 主营文本反推题材族：仅用于 Wind「所属概念板块」为空的个股兜底
 // 资讯署名与披露套话含「证券」，不剔除会把普通个股误判成券商题材
@@ -61,11 +64,12 @@ function detectThemeFamilies(text) {
 function isEligibleNarrativeTheme(name) {
   const value = anomalyThemeName(name);
   if (!value || NON_NARRATIVE_ANOMALY_PATTERN.test(value)) return false;
-  return Boolean(anomalyFamily(value) || VERIFIED_STANDALONE_THEME_PATTERN.test(value));
+  return Boolean(familyCandidates(value).length || VERIFIED_STANDALONE_THEME_PATTERN.test(value));
 }
 
 export {
   ANOMALY_THEME_FAMILIES,
+  familyCandidates,
   NON_NARRATIVE_ANOMALY_PATTERN,
   VERIFIED_STANDALONE_THEME_PATTERN,
   anomalyThemeName,

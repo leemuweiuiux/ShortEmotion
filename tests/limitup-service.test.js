@@ -44,7 +44,8 @@ describe("涨停情绪取数与落库", () => {
       expect(existsSync(join(dir, "kv", file)), file).toBe(true);
     }
     const cache = JSON.parse(readFileSync(join(dir, "kv", "limitup_news-cache_20261021.json"), "utf8")).value;
-    expect(cache.entries["300024.SZ"]).toEqual(["机器人"]);
+    expect(cache.version).toBe(3);
+    expect(cache.entries["300024.SZ"]).toEqual([]); // 模拟资讯没有直接业务证据，不能仅凭关键词归类
 
     // 模拟下一次 GitHub Actions：全新进程（模块重新加载，内存缓存清空），只剩数据分支
     vi.resetModules();
@@ -56,7 +57,7 @@ describe("涨停情绪取数与落库", () => {
     expect(second.ran).toBe(true);
     expect(wind.windCallStats().byTool["financial_docs/get_financial_news"] || 0).toBe(0);
     expect(second.board.summary.newsConceptReviewed).toBe(0);
-    expect(second.board.stocks.find((stock) => stock.code === "300024.SZ").concepts).toEqual(["机器人"]);
+    expect(second.board.stocks.find((stock) => stock.code === "300024.SZ").concepts).toEqual(["机器人", "人形机器人", "减速器"]);
   });
 
   it("强制刷新（用户点「刷新」）会一并重算涨停情绪，页面读得到", async () => {
