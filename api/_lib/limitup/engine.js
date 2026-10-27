@@ -462,7 +462,9 @@ async function askThemeNames(query, stockName = "") {
     const payload = await windCall("financial_docs", "get_financial_news", { query, top_k: 3 }, 15_000);
     const items = payload?.data?.items || payload?.data?.data?.items || [];
     const relevant = selectStockNews(items, stockName);
-    const names = detectThemeFamilies(relevant.map((item) => `${item.title || ""}${item.content || item.summary || ""}`).join(" ")).slice(0, 3);
+    // 只从明确提及该股的标题或句子提取，避免整篇资讯中无关词影响主标签。
+    const passages = relevant.flatMap(item => [item.title || "", ...String(item.content || item.summary || "").split(/[。！？；\n]/)]).filter(text => !stockName || text.includes(stockName));
+    const names = detectThemeFamilies(passages.join(" ")).slice(0, 3);
     if (process.env.LIMITUP_DEBUG) {
       console.log(`[news] ${query.slice(-14)} items=${items.length}/${relevant.length} hits=${names.join("/") || "-"}`);
     }
@@ -489,20 +491,18 @@ export function buildNewsReviewQueue(stocks, brokenCodes = [], nameByCode = null
   return queue;
 }
 
-// 资讯优先：资讯识别到题材族就以资讯为准覆盖 Wind 概念；
-// 资讯没识别出题材时不覆盖（否则会把 Wind 的有效概念清空），只做「已复核」标记。
+// 原始概念确定聚合归属，资讯仅在已有题材范围内辅助选择主标签。
 export function applyNewsConcepts(stock, names) {
   stock.newsVerified = true;
-  if (!names?.length) {
-    stock.conceptSource = stock.concepts?.length ? "wind" : "none";
-    return false;
-  }
-  stock.concepts = [...new Set(names)];
-  stock.conceptSource = "news";
-  return true;
+  const concepts = stock.concepts || [];
+  // 资讯只标记与原始概念同一题材的候选，不能新增或覆盖聚合归属。
+  const allowed = new Set(concepts.map(conceptLabelOf));
+  stock.newsThemes = [...new Set((names || []).map(conceptLabelOf).filter(name => allowed.has(name)))];
+  stock.conceptSource = concepts.length ? "wind" : "none";
+  return stock.newsThemes.length > 0;
 }
 
-async function reviewConceptsByNews(stocks, day, brokenCodes = [], nameByCode = null, brokenDay = day) {
+async function reviewConceptsByNews(stocks, day, brokenCodes = [], nameByCode = null, brokenDay = day, brokenBase = new Map()) {
   // reviewed：实际查过资讯的只数；aborted：连续失败熔断，说明后面还没复核完
   const result = { filled: 0, reviewed: 0, aborted: false, brokenConcepts: new Map() };
   if (!NEWS_CONCEPT_ENABLED) return result;
@@ -547,8 +547,10 @@ async function reviewConceptsByNews(stocks, day, brokenCodes = [], nameByCode = 
     }
     // 断板股只有资讯命中了才写；没命中时保留 Wind 昨日概念的兜底
     if (target.broken) {
+      const supported = new Set((brokenBase.get(target.code) || []).map(conceptLabelOf));
+      names = names.map(conceptLabelOf).filter(name => supported.has(name));
       if (!names.length) continue;
-      result.brokenConcepts.set(target.code, names);
+      result.brokenConcepts.set(target.code, [...new Set(names)]);
       result.filled += 1;
       continue;
     }
@@ -575,8 +577,6 @@ async function loadBusinessText(day, code) {
 async function reviewBrandConcepts(stocks, day) {
   const result = { checked: 0, pruned: 0, failed: 0, businessText: new Map() };
   for (const stock of stocks) {
-    // 资讯已经说明市场在炒什么，就以资讯为准，不再拿主营去改它
-    if (stock.conceptSource === "news") continue;
     if (!BRAND_CONCEPT_SUPPORT.some((rule) => stock.concepts?.includes(rule.concept))) continue;
     let text = "";
     try {
@@ -715,7 +715,7 @@ export function aggregateConcepts(stocks) {
 
 // 主标签口径（方案 A）：资讯优先；没有资讯时，优先选「主营能匹配」的概念。
 // 概念炒作不一定贴主营，所以主营只用来挑主标签，不覆盖资讯结论。
-export function pickPrimaryConcept(concepts, conceptCounts, businessText = "") {
+export function pickPrimaryConcept(concepts, conceptCounts, businessText = "", newsThemes = []) {
   const text = String(businessText || "");
   const matchesBusiness = (name) => {
     if (!text) return false;
@@ -729,8 +729,10 @@ export function pickPrimaryConcept(concepts, conceptCounts, businessText = "") {
     family.test.lastIndex = 0;
     return family.test.test(text);
   };
+  const supportedNews = new Set(newsThemes.map(conceptLabelOf));
   const score = (name) =>
-    (matchesBusiness(name) ? 100_000 : 0)
+    (supportedNews.has(conceptLabelOf(name)) ? 1_000_000 : 0)
+    + (matchesBusiness(name) ? 100_000 : 0)
     + (conceptCounts.get(name) || 0) * 10
     + (isWhitelistTheme(name) ? 1000 : 0);
   return [...concepts].sort((a, b) => score(b) - score(a) || a.length - b.length)[0] || null;
@@ -1214,7 +1216,7 @@ export async function loadLimitUpBoard(day = localDate()) {
     .sort((a, b) => String(a.downTime || "99").localeCompare(String(b.downTime || "99")));
 
   // 资讯复核：Wind 概念准不准、有没有漏，都用当日资讯过一遍
-  const newsReview = await reviewConceptsByNews(kept, dataDay, brokenCodes, nameByCode, dataDay);
+  const newsReview = await reviewConceptsByNews(kept, dataDay, brokenCodes, nameByCode, baseTradingDate || dataDay, brokenConceptMap);
   const newsConceptFilled = newsReview.filled;
   // 熔断说明队列没跑完，页面应知道「未被资讯验证」而不是「资讯确认无题材」
   if (newsReview.aborted) {
@@ -1248,7 +1250,8 @@ export async function loadLimitUpBoard(day = localDate()) {
     primaryConcept: pickPrimaryConcept(
       stock.concepts,
       conceptCounts,
-      stock.conceptSource === "news" ? "" : (brandReview.businessText.get(stock.code) || "")
+      brandReview.businessText.get(stock.code) || "",
+      stock.newsThemes || []
     )
   }))
     .sort((a, b) => (b.streak || 1) - (a.streak || 1) || String(a.sealTime || "99").localeCompare(String(b.sealTime || "99")));
