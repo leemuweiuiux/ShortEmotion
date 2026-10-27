@@ -3,7 +3,7 @@
 // 数据来自 /api/limitup（只读定时任务写入的快照）；「刷新」沿用短线情绪（/api/short-emotion action=refresh，扣 5 积分），
 // 同一次更新会重算涨停情绪。各区块的计算与展示原样取自 lfjDashboard「涨停事件工作台20261027」limit.js。
 import { toast, goLogin, initAccountMenu } from "/shared/nav-account.js?v=4";
-import { setupLimitupShare } from "/limitup/share.js?v=1";
+import { setupLimitupShare } from "/limitup/share.js?v=2";
 import { updateNavPoints } from "/shared/nav-points.js?v=1";
 
 initAccountMenu();
@@ -699,6 +699,40 @@ async function resumeRunningRefresh() {
     }
   } catch {}
 }
+
+
+function setupTabs() {
+  const buttons = [...document.querySelectorAll(".tabs .tab-btn")];
+  const activate = (target) => buttons.forEach(item => {
+    const active = item.dataset.target === target;
+    item.classList.toggle("active", active);
+    if (active) {
+      const bar = item.parentElement;
+      if (item.offsetLeft < bar.scrollLeft || item.offsetLeft + item.offsetWidth > bar.scrollLeft + bar.clientWidth) bar.scrollTo({ left: item.offsetLeft - 16, behavior: "smooth" });
+    }
+  });
+  buttons.forEach(button => button.addEventListener("click", () => {
+    if (current?.locked) {
+      const target = button.dataset.target === "lu-overview" ? $("#lu-locked .section") : $("#lu-lock")?.closest(".section");
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (button.dataset.target !== "lu-overview") toast("解锁后查看完整涨停情绪");
+      return;
+    }
+    activate(button.dataset.target);
+    document.getElementById(button.dataset.target)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }));
+  if ("IntersectionObserver" in window) {
+    const visible = new Map();
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => visible.set(entry.target.id, entry.isIntersecting));
+      if (current?.locked) return;
+      const active = buttons.map(button => button.dataset.target).find(id => visible.get(id));
+      if (active) activate(active);
+    }, { rootMargin: "-120px 0px -55% 0px" });
+    buttons.forEach(button => { const section = document.getElementById(button.dataset.target); if (section) observer.observe(section); });
+  }
+}
+setupTabs();
 
 $("#refresh").addEventListener("click", handleManualRefresh);
 setInterval(updateRefreshButton, 30_000);
