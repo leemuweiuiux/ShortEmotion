@@ -1,3 +1,4 @@
+import { withUsage } from "./_lib/usage.js";
 // 涨停情绪（/limitup）— 页面接口（需登录）
 //
 // GET  /api/limitup?resource=summary
@@ -48,7 +49,7 @@ export async function unlockState(session, { status = pointsLimitupStatus, confi
   }
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method === "POST") {
     if (req.query?.action !== "unlock") {
       res.status(404).json({ error: "接口不存在" });
@@ -98,3 +99,5 @@ export default async function handler(req, res) {
     fail(res, error);
   }
 }
+
+export default withUsage("limitup", handler);

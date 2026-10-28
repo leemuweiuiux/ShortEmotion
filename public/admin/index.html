@@ -30,7 +30,7 @@
   <link rel="stylesheet" href="/shared/form.css?v=1">
   <link rel="stylesheet" href="/shared/date-range.css?v=1">
   <link rel="stylesheet" href="/account/account.css?v=14">
-  <link rel="stylesheet" href="/admin/admin.css?v=4">
+  <link rel="stylesheet" href="/admin/admin.css?v=5">
   </head>
 <body class="sub-page admin-page">
   <nav class="subnav">
@@ -78,10 +78,10 @@
       <section class="sub-card">
         <div class="card-row"><div class="section-title">积分概况</div><span class="admin-muted">流通 <b id="points-circulating">—</b> 分</span></div>
         <div class="admin-stats">
-          <div><span>今日发放</span><strong id="points-issued-today" class="plus">—</strong></div>
-          <div><span>今日消耗</span><strong id="points-spent-today" class="minus">—</strong></div>
-          <div><span>近 7 日发放</span><strong id="points-issued-week" class="plus">—</strong></div>
-          <div><span>近 7 日消耗</span><strong id="points-spent-week" class="minus">—</strong></div>
+          <div><span>今日入账（含退款）</span><strong id="points-issued-today" class="plus">—</strong></div>
+          <div><span>今日扣分（退款另列）</span><strong id="points-spent-today" class="minus">—</strong></div>
+          <div><span>近 7 日入账（含退款）</span><strong id="points-issued-week" class="plus">—</strong></div>
+          <div><span>近 7 日扣分（退款另列）</span><strong id="points-spent-week" class="minus">—</strong></div>
         </div>
       </section>
 
@@ -112,15 +112,25 @@
       </section>
 
       <section class="sub-card">
-        <div class="section-title">个股分析</div>
+        <div class="section-title">个股分析（历史流水）</div>
         <div class="admin-stats">
-          <div><span>今日次数</span><strong id="analyses-today">—</strong></div>
-          <div><span>近 7 日次数</span><strong id="analyses-week">—</strong></div>
-          <div><span>近 7 日使用人数</span><strong id="analyses-users">—</strong></div>
-          <div><span>近 7 日人均次数</span><strong id="analyses-avg">—</strong></div>
+          <div><span>今日未退款请求</span><strong id="analyses-today">—</strong></div>
+          <div><span>近 7 日未退款请求</span><strong id="analyses-week">—</strong></div>
+          <div><span>近 7 日请求人数</span><strong id="analyses-users">—</strong></div>
+          <div><span>近 7 日人均请求</span><strong id="analyses-avg">—</strong></div>
         </div>
       </section>
-      <p class="admin-note">统计按北京时间；个股分析次数已扣除失败退回。</p>
+      <p class="admin-note">统计按北京时间；历史个股分析按未退款请求统计，次数与人数使用同一口径，不等同于成功次数；新采集的成功、失败见下方；消耗人数及人均消耗排除已退款流水，包含涨停情绪解锁。</p>
+      <section class="sub-card">
+        <div class="section-title">全站功能使用</div>
+        <p id="usage-start" class="admin-muted">读取中…</p>
+        <p class="admin-muted">页面访问、控件操作与接口结果分别统计。人数为登录用户去重；匿名数为浏览器标识数，不等于真实人数。自动轮询不计入操作次数。</p>
+        <div class="admin-table-wrap"><table class="admin-table usage-table">
+          <thead><tr><th>功能 / 操作</th><th>今日次数 / 人数</th><th>近7日次数 / 人数 / 匿名数</th><th>近7日结果</th></tr></thead>
+          <tbody id="usage-rows"><tr><td colspan="4">读取中…</td></tr></tbody>
+        </table></div>
+        <p class="admin-muted">点击导出只代表操作尝试；接口成功不保证页面渲染成功。刷新任务已受理与完成分开理解。历史未采集的行为不回补。</p>
+      </section>
     </div>
 
     <!-- 2. 积分列表：时间、类型、变动、匿名用户代号 -->
@@ -173,6 +183,6 @@
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/admin/admin.js?v=3"></script>
+  <script type="module" src="/admin/admin.js?v=4"></script>
 </body>
 </html>

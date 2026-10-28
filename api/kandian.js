@@ -1,3 +1,4 @@
+import { withUsage } from "./_lib/usage.js";
 import { requireSession, authConfig } from './_lib/session.js';
 import { validateView, quoteStock, dbRequest, presentView, likeSummary, likeOf, LIKE_TYPES } from './_lib/kandian/service.js';
 const send = (res, status, body) => { res.setHeader('Cache-Control', 'no-store'); return res.status(status).json(body); };
@@ -17,7 +18,7 @@ function permitLike(uid) {
   likeLimits.set(uid, hit && hit.until > now ? { ...hit, count: hit.count + 1 } : { count: 1, until: now + 60000 });
 }
 const columns = 'id,user_id,author,code,name,price,quote_at,direction,horizon,tags,created_at,status,closed_at,close_price';
-export default async function handler(req, res) {
+async function handler(req, res) {
   try {
     const session = await requireSession(req, res);
     if (!session.user || !session.accessToken || session.degraded) return send(res, 401, { error: '请先登录', code: 'login_required' });
@@ -75,3 +76,5 @@ export default async function handler(req, res) {
     return send(res, status, { error: status === 400 || error.statusCode ? error.message : '暂时无法完成操作，请稍后重试', ...(error.code === 'login_required' ? { code: error.code } : {}) });
   }
 }
+
+export default withUsage("kandian", handler);

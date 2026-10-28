@@ -31,6 +31,7 @@ beforeEach(() => {
       if (!admin) return Response.json({ code: "42501", message: "forbidden" }, { status: 403 });
       const LIMITS = { maxAmount: 1000, dailyLimit: 50, undoMinutes: 10 };
       if (name === "admin_overview") return Response.json({ generatedAt: "2026-10-21T06:40:00Z", limits: LIMITS, users: { total: 9 }, points: { circulating: 510, today: [{ kind: "signin", issued: 10, spent: 0, count: 1 }], week: [{ kind: "analysis", issued: 0, spent: -20, count: 2 }] }, balances: { accounts: 2, lt10: 1, b10to49: 0, b50to99: 0, gte100: 1 }, spend7d: { users: 1, points: 20 }, invites: { bound: 1, rewarded: 0 }, analyses: { today: 2, week: 10, users7d: 3 }, grants: { myToday: 3 } });
+      if (name === "admin_usage") return Response.json({ startedAt: "2026-10-28T10:00:00Z", rows: [], analyses: {today: 2, week: 9, users7d: 2}, spend7d: {users: 2, points: 30} });
       if (name === "admin_ledger") return Response.json([{ id: 7, kind: "admin_grant", delta: 300, created_at: "2026-10-21T06:00:00Z", user_code: "U-3F9A1C" }]);
       if (name === "admin_lookup") {
         if (args.p_email === "pending@example.com") return Response.json({ found: false, reason: "unverified" });
@@ -80,9 +81,12 @@ describe("管理后台接口", () => {
     const res = await call({ query: { action: "overview" } });
     expect(res.statusCode).toBe(200);
     expect(res.headers["cache-control"]).toBe("no-store");
+    expect(res.body.usage.rows).toEqual([]);
+    expect(res.body.analyses).toEqual({today: 2, week: 9, users7d: 2});
+    expect(res.body.spend7d).toEqual({users: 2, points: 30});
     expect(res.body.points.today[0]).toMatchObject({ kind: "signin", label: "每日签到" });
     expect(res.body).toMatchObject({ generatedAt: "2026-10-21T06:40:00Z", limits: { maxAmount: 1000, dailyLimit: 50, undoMinutes: 10 }, balances: { lt10: 1 } });
-    expect(res.body.analyses).toEqual({ today: 2, week: 10, users7d: 3 });
+
     expect(res.body.kinds).toMatchObject({ admin_grant: "平台发放", admin_revoke: "平台发放撤销" });
   });
 

@@ -1,3 +1,4 @@
+import { withUsage, browserEvent, recordUsage } from "./_lib/usage.js";
 // 登录接口（配合 /login 页面与 api/_lib/session.js）
 //
 // GET  /api/auth?action=config   Supabase 项目地址与 Publishable key（公开值），页面用来直接申请 / 验证验证码
@@ -47,10 +48,18 @@ function send(res, status, body, setCookies = []) {
   res.status(status).json(body);
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   const action = String(req.query?.action || "");
   const config = authConfig();
   const secure = isSecureNodeRequest(req);
+
+  if (req.method === "POST" && action === "usage") {
+    if (!sameOrigin(req)) return send(res, 403, { error: "来源不允许" });
+    const event = browserEvent(readJson(req.body));
+    if (!event) return send(res, 400, { error: "无效统计事件" });
+    const recorded = await recordUsage(req, event);
+    return send(res, recorded ? 200 : 503, { ok: recorded });
+  }
 
   if (req.method === "GET" && action === "config") {
     res.setHeader("Cache-Control", "public, max-age=0, s-maxage=300");
@@ -230,3 +239,5 @@ export default async function handler(req, res) {
   }
   send(res, 200, { ok: true }, clearSessionCookies({ secure }));
 }
+
+export default withUsage("auth", handler);
