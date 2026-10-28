@@ -1,3 +1,4 @@
+import { startAnalysisRefresh } from "./analysis-refresh.js?v=1";
 import { updateNavPoints } from "/shared/nav-points.js?v=1";
 // 首页 /home（登录后打开 / 会到这里），都只读现有数据，不调用 Wind：
 //   1. 我的积分：余额 + 签到 +5（注册当天还没填邀请码的新用户，先在这里显示「填写邀请码」）
@@ -98,7 +99,7 @@ function renderAnalysisHint() {
   hint.textContent = !analysis.configured ? "*个股分析暂未开通。" : unlimited ? "*不限额账号，分析不扣积分。" : `*首次查询或更新需要 ${analysis.cost} 积分`;
 }
 
-readAnalysisConfig({ includeLatest: true }).then((config) => {
+startAnalysisRefresh(() => readAnalysisConfig({ includeLatest: true }).then((config) => {
   analysis = config;
   personalRecent = config.recent;
   renderRecent(recent, personalRecent); // 个人历史仍打开本人的已保存结果，不扣分。
@@ -113,7 +114,11 @@ readAnalysisConfig({ includeLatest: true }).then((config) => {
   });
   if (config.unlimited) unlimited = true;
   renderAnalysisHint();
-}).catch(() => { $("#ta-latest").textContent = "大家都在看：暂时无法读取"; });
+}).catch(() => {
+  if (!$("#ta-latest").querySelector(".ta-stock-pill")) {
+    $("#ta-latest").textContent = "大家都在看：暂时无法读取";
+  }
+}));
 renderAnalysisHint();
 
 form.addEventListener("submit", (event) => {
