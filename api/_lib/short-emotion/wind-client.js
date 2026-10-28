@@ -110,7 +110,7 @@ function validateCall(serverType, toolName, params) {
     }
   }
   for (const key of ["begin", "end"]) {
-    if (key in params && (typeof params[key] !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(params[key]))) {
+    if (key in params && (typeof params[key] !== "string" || (params[key] !== "LAST" && !/^\d{4}-\d{2}-\d{2}$/.test(params[key])))) {
       errors.push(`字段 '${key}' 日期格式错误，要求 yyyy-MM-dd`);
     }
   }
