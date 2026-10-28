@@ -39,6 +39,7 @@
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
+  <link rel="stylesheet" href="/shared/global-header.css?v=1">
 </head>
 <body class="sub-page">
   <nav class="subnav">
@@ -77,7 +78,7 @@
           <span>剩余积分</span>
           <strong id="points-balance">—</strong>
         </div>
-        <button id="signin" class="btn-primary" type="button" disabled>签到 +10</button>
+        <button id="signin" class="btn-primary" type="button" disabled>签到 +5</button>
       </div>
       <div id="invite-entry" class="invite-entry" hidden></div>
       <p id="invite-pending" class="invite-entry-copy" hidden>你是受邀注册的新用户：完成第一次签到，你和邀请人各得 <em>50</em> 积分。</p>
@@ -104,5 +105,6 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script type="module" src="/account/account.js?v=25"></script>
+  <script type="module" src="/shared/global-header.js?v=1"></script>
 </body>
 </html>

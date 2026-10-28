@@ -1,6 +1,6 @@
 import { updateNavPoints } from "/shared/nav-points.js?v=1";
 // 首页 /home（登录后打开 / 会到这里），都只读现有数据，不调用 Wind：
-//   1. 我的积分：余额 + 签到 +10（注册当天还没填邀请码的新用户，先在这里显示「填写邀请码」）
+//   1. 我的积分：余额 + 签到 +5（注册当天还没填邀请码的新用户，先在这里显示「填写邀请码」）
 //   2. 个股技术分析：输入股票按「开始分析」→ 跳到 /technicalanalysis 并由那边发起分析（扣 10 积分）
 //   3. 今日短线情绪：与看板「A股短线情绪」卡同款（姿态、分数、阶段与说明、六个维度），
 //      下面再加市场概况（全A涨跌幅、成交额、涨跌家数、涨跌停）与行情时间，点预览或标题进入看板
@@ -14,7 +14,7 @@ import { mountInviteEntry } from "/shared/invite-entry.js?v=3";
 
 initAccountMenu();
 
-const POINTS_TEXT = "积分不足，签到获取 +10积分";
+const POINTS_TEXT = "积分不足，签到获取 +5积分";
 const TIMEZONE = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch { return ""; } })();
 const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
 
@@ -28,7 +28,7 @@ async function request(url, options = {}) {
 // ── 1. 我的积分 ──
 let balance = null;
 let unlimited = false;
-let invitePending = false; // 已绑定邀请、还没第一次签到：签到 +60
+let invitePending = false; // 已绑定邀请、还没第一次签到：签到 +55
 const signinButton = $("#signin");
 
 // 注册 1 天内、还没签到、还没绑定邀请：在签到的位置先显示「填写邀请码」
@@ -50,7 +50,7 @@ function renderPoints(signedToday) {
   balanceText.textContent = unlimited ? "不限额" : Number.isFinite(Number(balance)) ? balance : "—";
   if (signedToday != null) {
     signinButton.disabled = Boolean(signedToday);
-    signinButton.textContent = signedToday ? "今日已签到" : invitePending ? "签到 +60" : "签到 +10";
+    signinButton.textContent = signedToday ? "今日已签到" : invitePending ? "签到 +55" : "签到 +5";
   }
 }
 
@@ -85,7 +85,7 @@ signinButton.addEventListener("click", async () => {
     balance = payload.balance;
     updateNavPoints(payload);
     renderPoints(true);
-    toast(!payload.ok ? "今天已经签到过了" : payload.inviteBonus ? `签到成功 +${payload.delta || 10}，邀请奖励 +${payload.inviteBonus}` : `签到成功 +${payload.delta || 10}`);
+    toast(!payload.ok ? "今天已经签到过了" : payload.inviteBonus ? `签到成功 +${payload.delta || 5}，邀请奖励 +${payload.inviteBonus}` : `签到成功 +${payload.delta || 5}`);
     invitePending = false;
     $("#invite-pending").hidden = true;
     renderAnalysisHint();
@@ -430,3 +430,5 @@ loadAnomalies();
 loadLimitUp();
 loadSectorFlow();
 
+
+window.addEventListener("se:points-updated", loadPoints);
