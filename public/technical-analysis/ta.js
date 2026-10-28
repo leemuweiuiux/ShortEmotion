@@ -108,12 +108,12 @@ async function analyze(query, refresh = false) {
       throw new Error(`${payload.error || "分析失败，请稍后再试"}${note}`);
     }
     current = payload.data;
-    $("#ta-history-bar").hidden = false;
-    $("#ta-history-time").textContent = `最新结果 · 更新于 ${shortTime(payload.analyzedAt)}`;
+    $("#ta-history-bar").hidden = Boolean(payload.partial);
+    $("#ta-history-time").textContent = payload.partial ? "免费日线参考 · 未保存完整报告" : `最新结果 · 更新于 ${shortTime(payload.analyzedAt)}`;
     render();
     setUrl({ q: current.code || q });
     if (payload.recent) renderRecent($("#ta-recent"), payload.recent, (row) => openHistory(row.code, true));
-    toast(payload.charged > 0 && Number.isFinite(Number(payload.balance)) ? `已完成分析，剩余 ${payload.balance} 积分` : payload.viewed ? "已显示最新结果" : "分析完成");
+    toast(payload.partial ? (payload.refunded ? "日线参考已生成，积分已退回" : "日线参考已生成，本次免费") : payload.charged > 0 && Number.isFinite(Number(payload.balance)) ? `已完成分析，剩余 ${payload.balance} 积分` : payload.viewed ? "已显示最新结果" : "分析完成");
   } catch (error) {
     toast(error.message, true);
   } finally {
@@ -153,9 +153,16 @@ function render() {
   change.textContent = `${signed(data.delta)} · ${signed(data.pct, "%")}`;
   change.className = signClass(data.pct);
   setText("#ta-time", data.date);
-  $("#ta-session").hidden = !data.intradaySnapshot;
-  $("#ta-intraday-note").hidden = !data.intradaySnapshot;
-  setText("#ta-opportunity", `综合评分 ${data.opportunityScore ?? decision.opportunityScore ?? data.score}`);
+  const partial = data.dataMode === "daily_only";
+  $("#ta-session").hidden = partial || !data.intradaySnapshot;
+  $("#ta-intraday-note").hidden = partial || !data.intradaySnapshot;
+  if (partial) chartMode = "daily";
+  $(".ta-tabs .timeline-toggle").forEach(item => {
+    item.disabled = partial && item.dataset.chart === "intraday";
+    item.classList.toggle("active", item.dataset.chart === chartMode);
+    item.setAttribute("aria-pressed", String(item.dataset.chart === chartMode));
+  });
+  setText("#ta-opportunity", partial ? "综合评分 待补全" : `综合评分 ${data.opportunityScore ?? decision.opportunityScore ?? data.score}`);
   setText("#ta-winodds", decision.winOdds || "—");
   setText("#ta-structure", decision.grade || data.phase || "—");
   setText("#ta-headline", data.headline);
@@ -169,8 +176,8 @@ function render() {
 
   // 胜率
   setLevel("#ta-win-level", decision.winLevel);
-  setText("#ta-score", data.score);
-  $("#ta-score-ring").style.setProperty("--score", Number(data.score) || 0);
+  setText("#ta-score", partial ? "—" : data.score);
+  $("#ta-score-ring").style.setProperty("--score", partial ? 0 : Number(data.score) || 0);
   $("#ta-dims").innerHTML = (data.dims || []).map(([label, value, max]) => `
     <div class="ta-dim"><span>${esc(label)}</span><div class="dimension-track"><i style="width:${Math.max(0, Math.min(100, (Number(value) / Number(max)) * 100))}%"></i></div><b>${esc(value)}</b></div>`).join("");
   setText("#ta-win-verdict", decision.winVerdict || "");
@@ -265,9 +272,10 @@ function spark(series, pct) {
 function calcRisk() {
   if (!current) return;
   const position = Number($("#ta-position").value) || 0;
-  const stop = Number($("#ta-stop").value);
+  const rawStop = String($("#ta-stop").value || "").trim();
+  const stop = Number(rawStop);
   const price = Number(current.price);
-  if (!Number.isFinite(stop) || !price) return setText("#ta-risk", "—");
+  if (!rawStop || !Number.isFinite(stop) || !price || current.dataMode === "daily_only") return setText("#ta-risk", "—");
   const loss = Math.max(0, (price - stop) / price);
   setText("#ta-risk", `${(position * loss).toFixed(2)}%`);
 }
@@ -543,7 +551,7 @@ function exportSources() {
     if (card.querySelector("#ta-events") && !current.surge?.trigger) continue; // 事件驱动没触发
     if (card.querySelector("#ta-links") && !card.querySelector("#ta-links a")) continue; // 没有新闻与公告
     if (card.querySelector("#ta-canvas")) {
-      for (const mode of Object.keys(CHART_MODES)) sources.push({ name: `走势 · ${CHART_MODES[mode]}`, node: chartCard(card, mode) });
+      for (const mode of (current?.dataMode === "daily_only" ? ["daily"] : Object.keys(CHART_MODES))) sources.push({ name: `走势 · ${CHART_MODES[mode]}`, node: chartCard(card, mode) });
       continue;
     }
     const isHead = card.classList.contains("ta-head");
