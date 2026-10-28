@@ -11,33 +11,37 @@ function iconCoins(){ return '<svg width="20" height="20" viewBox="0 0 24 24" fi
 function notify(message){ const toast=$('#toast'); if(toast){ toast.textContent=message; toast.className='toast show'; setTimeout(()=>toast.className='toast',3000); }else{ const tip=document.createElement('div');tip.className='global-header-tip';tip.textContent=message;document.body.append(tip);setTimeout(()=>tip.remove(),3000); } }
 if (nav) {
   nav.classList.add('global-header');
-  let logo = $('.nav-logo, .brand',nav);
+  // Secondary/tertiary pages use the original in-header back control, not a logo.
+  // Its explicit href preserves the intended parent (e.g. points -> settings -> account).
   const back = $('.mr-back, .subnav-btn[aria-label="返回"]',nav);
-  if(!logo){
-    logo=document.createElement('a');logo.className='nav-logo';logo.innerHTML='<img src="/short-emotion/logo.svg?v=2" alt="ShortEmotion">';
-    nav.insertBefore(logo,nav.firstChild);
+  const secondary = Boolean(back);
+  nav.classList.toggle('global-header-secondary', secondary);
+  let logo = $('.nav-logo, .brand',nav);
+  if (secondary) {
+    logo?.remove();
+    back.classList.add('global-header-back');
+  } else {
+    if(!logo){
+      logo=document.createElement('a');logo.className='nav-logo';logo.innerHTML='<img src="/short-emotion/logo.svg?v=2" alt="ShortEmotion">';
+      nav.insertBefore(logo,nav.firstChild);
+    }
+    logo.href='/about';
+    logo.setAttribute('aria-label','返回首页或介绍页');
+    logo.addEventListener('click',async event=>{
+      event.preventDefault();
+      try {
+        const res=await fetch('/api/auth?action=me',{credentials:'same-origin',headers:{Accept:'application/json'},cache:'no-store'});
+        const data=await res.json().catch(()=>({}));
+        location.assign(res.ok && (data.user || data.enabled===false) ? '/home' : '/about');
+      }catch{ location.assign('/about'); }
+    });
   }
-  logo.href='/about';
-  logo.setAttribute('aria-label','返回首页或介绍页');
-  logo.addEventListener('click',async event=>{
-    event.preventDefault();
-    try {
-      const res=await fetch('/api/auth?action=me',{credentials:'same-origin',headers:{Accept:'application/json'},cache:'no-store'});
-      const data=await res.json().catch(()=>({}));
-      location.assign(res.ok && (data.user || data.enabled===false) ? '/home' : '/about');
-    }catch{ location.assign('/about'); }
-  });
-  if(back){
-    back.remove();
-    const main=$('main');
-    if(main){ back.classList.add('global-page-back'); main.prepend(back); }
-  } // Preserve secondary-page return action outside the shared five-area header
   let title=$('.nav-title, .subnav-title',nav);
-  if(!title){title=document.createElement('div');title.className='nav-title';logo.after(title);}
+  if(!title){title=document.createElement('div');title.className='nav-title';(back||logo).after(title);}
   title.classList.add('global-header-title');
   const path=location.pathname.replace(/\/$/,'')||'/';
   if(labels[path])title.textContent=labels[path];
-  if(path==='/kandian/article' && $('.mr-article-nav')) title.textContent='看点文章';
+  // Keep article titles managed by the report detail page.
   const space=document.createElement('span');space.className='global-header-space';title.after(space);
   const extra=$('.subnav-save, .mr-share',nav);
   if(extra){extra.classList.add('global-header-extra');space.after(extra);}
