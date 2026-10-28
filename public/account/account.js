@@ -19,7 +19,7 @@ const signinButton = $("#signin");
 
 function setSigned(signed, invitePending = false) {
   signinButton.disabled = signed;
-  setText(signinButton, signed ? "今日已签到" : invitePending ? "签到 +60" : "签到 +10");
+  setText(signinButton, signed ? "今日已签到" : invitePending ? "签到 +55" : "签到 +5");
 }
 
 // 注册 1 天内、还没签到、还没绑定邀请：在签到的位置先显示「填写邀请码」
@@ -119,3 +119,5 @@ readProfile().then(fillProfile).catch((error) => toast(error.message, true));
 loadPoints();
 loadMyViews();
 initLikes(); // 我发布的观点：可以给自己的观点点赞
+
+window.addEventListener("se:points-updated", loadPoints);
