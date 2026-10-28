@@ -31,7 +31,8 @@
   <script defer src="/_vercel/insights/script.js"></script>
 <link rel="stylesheet" href="/kandian/reports.css?v=5">
 <link rel="stylesheet" href="/shared/like.css?v=1">
-<link rel="stylesheet" href="/home/home.css?v=11"></head>
+<link rel="stylesheet" href="/home/home.css?v=11">  <link rel="stylesheet" href="/shared/global-header.css?v=1">
+</head>
 <body>
   <div class="app-shell">
     <nav class="nav">
@@ -45,7 +46,7 @@
     <main>
       <section id="points-card" class="card home-card home-points" aria-label="我的积分">
         <div class="card-head"><h2 class="card-title"><a href="/account/points">我的积分</a></h2><a class="home-more" href="/account/points" aria-label="查看更多我的积分">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
-        <div class="home-card-body home-points-actions"><strong id="points-balance">—</strong><button id="signin" class="pill-btn" type="button" disabled>签到 +10</button></div>
+        <div class="home-card-body home-points-actions"><strong id="points-balance">—</strong><button id="signin" class="pill-btn" type="button" disabled>签到 +5</button></div>
         <div id="invite-entry" class="invite-entry" hidden></div>
         <p id="invite-pending" class="home-invite-pending" hidden>含邀请奖励：完成第一次签到，你和邀请人各得 <em>50</em> 积分</p>
       </section>
@@ -124,6 +125,7 @@
 <script type="module" src="/kandian/reports.js?v=8"></script>
 
   <script type="module" src="/shared/nav-points.js?v=1"></script>
+  <script type="module" src="/shared/global-header.js?v=1"></script>
 </body>
 </html>
 
