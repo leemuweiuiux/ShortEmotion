@@ -8,11 +8,13 @@
   <title>每日签到 · ShortEmotion</title>
   <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
   <script>(function(){const t=localStorage.getItem("twsvp_theme");const dark=t==="dark"||(t!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.dataset.theme=dark?"dark":"light";})();</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/about/about.css?v=11">
   <link rel="stylesheet" href="/shared/form.css?v=1">
   <link rel="stylesheet" href="/account/account.css?v=14">
   <link rel="stylesheet" href="/shared/global-header.css?v=2">
-  <link rel="stylesheet" href="/account/signin/signin.css?v=1">
+  <link rel="stylesheet" href="/account/signin/signin.css?v=2">
   <script defer src="/_vercel/insights/script.js"></script>
   <script defer src="/shared/usage.js?v=1"></script>
 </head>
@@ -24,22 +26,64 @@
     <div class="subnav-title">每日签到</div>
   </nav>
   <main class="sub-frame signin-page">
-    <section class="sub-card signin-card" aria-labelledby="signin-heading">
-      <p class="signin-eyebrow">每日积分奖励</p>
-      <h1 id="signin-heading">每天签到，领取积分</h1>
-      <div class="signin-reward"><strong>+5</strong><span>积分 / 天</span></div>
-      <p class="signin-info">每日固定奖励，不累计连续签到天数。每天北京时间 00:00 更新签到资格。</p>
-      <button id="signin-submit" class="btn-primary signin-submit" type="button" disabled>正在读取签到状态…</button>
+    <section class="sub-card signin-hero" aria-labelledby="streak-label">
+      <div class="signin-top">
+        <div>
+          <p id="streak-label" class="signin-label">已连续签到</p>
+          <p class="signin-streak"><strong id="streak">—</strong><span>天</span></p>
+        </div>
+        <a id="signin-balance" class="signin-balance" href="/account/points" aria-label="查看积分流水"><span>积分</span><b>—</b></a>
+      </div>
+      <p id="signin-hint" class="signin-hint">正在读取签到记录…</p>
+      <ol id="week" class="signin-week" aria-label="本周签到"></ol>
+      <button id="signin-submit" class="btn-primary signin-submit" type="button" disabled>正在读取…</button>
       <p id="signin-status" class="signin-status" role="status" aria-live="polite"></p>
       <p id="signin-invite" class="signin-invite" hidden>首次签到可能影响邀请奖励。如需填写邀请码，请先前往 <a href="/account">个人中心</a>。</p>
     </section>
-    <section class="sub-card signin-summary">
-      <div class="card-row"><div class="section-title">当前积分</div><strong id="signin-balance">—</strong></div>
-      <a class="settings-row" href="/account/points"><span>查看积分流水</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+
+    <section class="sub-card signin-calendar" aria-labelledby="month-title">
+      <div class="calendar-head">
+        <h2 id="month-title">—</h2>
+        <span id="month-count" class="calendar-count"></span>
+        <button id="month-prev" class="calendar-nav" type="button" aria-label="上个月">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button id="month-next" class="calendar-nav" type="button" aria-label="下个月">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <ol class="calendar-weekdays" aria-hidden="true"><li>一</li><li>二</li><li>三</li><li>四</li><li>五</li><li>六</li><li>日</li></ol>
+      <ol id="calendar" class="calendar-grid"></ol>
+      <ul class="calendar-legend" aria-hidden="true">
+        <li><i class="is-signed"></i>已签到</li>
+        <li><i class="is-missed"></i>未签到</li>
+        <li><i class="is-today"></i>今天</li>
+      </ul>
+    </section>
+
+    <section class="sub-card signin-stats" aria-label="签到统计">
+      <div><span>累计签到</span><b id="stat-total">—</b><small>天</small></div>
+      <div><span>最长连续</span><b id="stat-longest">—</b><small>天</small></div>
+      <div><span>签到获得</span><b id="stat-earned">—</b><small>积分</small></div>
+    </section>
+
+    <section class="sub-card signin-badges" aria-labelledby="badges-title">
+      <div class="card-row"><h2 id="badges-title" class="section-title">签到成就</h2><span class="signin-note">只记录，不另加积分</span></div>
+      <ul id="badges" class="badge-list"></ul>
+    </section>
+
+    <section class="sub-card signin-uses" aria-labelledby="uses-title">
+      <h2 id="uses-title" class="section-title">积分可以用来</h2>
+      <nav class="uses-list">
+        <a class="use-row" href="/shortemotion/cn"><span><b>解锁题材异动</b><small id="use-unlock-note">12 小时内有效</small></span><em id="use-unlock">10 积分</em></a>
+        <a class="use-row" href="/limitup"><span><b>解锁涨停情绪</b><small id="use-limitup-note">12 小时内有效</small></span><em id="use-limitup">10 积分</em></a>
+        <a class="use-row" href="/technicalanalysis"><span><b>个股技术分析</b><small>每次分析</small></span><em id="use-analysis">10 积分</em></a>
+        <a class="use-row" href="/shortemotion/cn"><span><b>刷新看板数据</b><small>每次刷新</small></span><em id="use-refresh">5 积分</em></a>
+      </nav>
     </section>
   </main>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/account/signin/signin.js?v=1"></script>
+  <script type="module" src="/account/signin/signin.js?v=2"></script>
   <script type="module" src="/shared/global-header.js?v=2"></script>
 </body>
 </html>
