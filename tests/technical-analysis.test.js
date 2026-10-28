@@ -8,6 +8,14 @@ const wind = await import("../api/_lib/short-emotion/wind-client.js");
 const session = await import("../api/_lib/session.js");
 const { default: api, analysisConfigured } = await import("../api/technical-analysis.js");
 
+// 固定默认模拟时间在收盘后：避免 CI 在北京时间 09:30 刚开盘时分钟数据不足
+// 触发预期内的日线降级，导致原本验证完整分析的测试受运行时间影响。
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-20T16:00:00+08:00"));
+});
+afterEach(() => vi.useRealTimers());
+
 describe("个股技术分析算法（离线样本）", () => {
   beforeEach(() => engine.clearAnalysisCache());
 
@@ -69,6 +77,24 @@ describe("个股技术分析算法（离线样本）", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("盘前数据容错", () => {
+  afterEach(() => { delete process.env.WIND_MOCK_EMPTY_QUOTE; engine.clearAnalysisCache(); });
+  it("分时为空时仅给出真实日 K 参考，不伪造盘中行情或胜率", async () => {
+    process.env.WIND_MOCK_EMPTY_QUOTE = "1";
+    engine.clearAnalysisCache();
+    const result = await engine.analyze("603936");
+    expect(result.partial).toBe(true);
+    expect(result.dataMode).toBe("daily_only");
+    expect(result.intraday).toEqual([]);
+    expect(result.daily.length).toBeGreaterThanOrEqual(20);
+    expect(result.score).toBeNull();
+    expect(result.opportunityScore).toBeNull();
+    expect(result.rr).toBe("—");
+    expect(result.dataWarnings.join(" ")).toContain("胜率");
+    expect(result.referenceDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
 
@@ -226,7 +252,23 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
   });
   afterEach(() => {
     process.env.SHORT_EMOTION_AUTH = "off";
+    delete process.env.WIND_MOCK_EMPTY_QUOTE;
     globalThis.fetch = realFetch;
+  });
+
+  it("盘前分时缺失时生成免费日 K 参考并退回已扣积分，不发布报告", async () => {
+    process.env.WIND_MOCK_EMPTY_QUOTE = "1";
+    const res = await call({body:{q:"603936"}});
+    expect(res.statusCode).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.partial).toBe(true);
+    expect(res.body.refunded).toBe(true);
+    expect(res.body.charged).toBe(0);
+    expect(res.body.balance).toBe(50);
+    expect(res.body.data.dataMode).toBe("daily_only");
+    expect(history).toHaveLength(0);
+    expect(ledger.filter(item=>item.kind==="analysis")).toHaveLength(1);
+    expect(ledger.filter(item=>item.kind==="analysis_refund")).toHaveLength(1);
   });
 
   it("只接受本站页面发起", async () => {

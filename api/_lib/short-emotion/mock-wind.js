@@ -68,7 +68,7 @@ function seeded(seedText) {
 }
 
 const ymd = (date) => date.toISOString().slice(0, 10);
-const parseDay = (text) => new Date(Date.UTC(Number(text.slice(0, 4)), Number(text.slice(4, 6)) - 1, Number(text.slice(6, 8))));
+const parseDay = (text) => { const value = String(text).replaceAll("-", ""); return new Date(Date.UTC(Number(value.slice(0, 4)), Number(value.slice(4, 6)) - 1, Number(value.slice(6, 8)))); };
 
 /** 日 K：从 2018 年起按代码生成同一条走势，再截取 begin–end（周末跳过）。 */
 function mockDaily(windcode, begin, end) {
@@ -98,7 +98,7 @@ function mockDaily(windcode, begin, end) {
     const avg = (open + close + high + low) / 4;
     rows.push({ time: ymd(date), open: +open.toFixed(2), close: +close.toFixed(2), high: +high.toFixed(2), low: +low.toFixed(2), volume, amount: Math.round(volume * avg), turnover: +(volume / 2.5e8 * 100).toFixed(2), avg: +avg.toFixed(2) });
   });
-  return rows.filter((row) => row.time.replaceAll("-", "") >= String(begin));
+  return rows.filter((row) => row.time.replaceAll("-", "") >= String(begin).replaceAll("-", ""));
 }
 
 /** 分时：最近一个交易日 09:31 起，盘中到当前分钟、其余时间到 15:00；收盘价与日 K 最后一根一致。 */
@@ -248,7 +248,7 @@ export function mockWindResult(serverType, toolName, params) {
       [["881001.WI", 6123.45, 0.86, 1_235_000_000_000, 3312, 1876, 142, qt]]
     )] });
   }
-  if (serverType === "index_data" && toolName === "get_index_kline") {
+  if (serverType === "index_data" && toolName === "get_index_kline" && !["000001.SH", "399001.SZ", "399006.SZ", "000688.SH"].includes(params.windcode)) {
     const rows = [];
     for (let offset = 100; offset >= 1; offset -= 1) {
       const date = new Date(Date.UTC(Number(now.day.slice(0, 4)), Number(now.day.slice(4, 6)) - 1, Number(now.day.slice(6, 8)) - offset));
@@ -318,12 +318,13 @@ export function mockWindResult(serverType, toolName, params) {
   if (serverType === "stock_data" && toolName === "get_stock_kline" && mockStock(params.windcode)?.failKline) {
     return { isError: true, content: [{ type: "text", text: "TOOL_RUNTIME_ERROR: 模拟失败" }] };
   }
-  if ((serverType === "stock_data" && toolName === "get_stock_kline") || (serverType === "index_data" && toolName === "get_index_kline" && params.period === "10")) {
+  if ((serverType === "stock_data" && toolName === "get_stock_kline") || (serverType === "index_data" && toolName === "get_index_kline" && ["10", "1d"].includes(params.period))) {
     const rows = mockDaily(params.windcode, params.begin_date, params.end_date)
       .map((d) => [d.time, d.open, d.close, d.high, d.low, d.amount, d.volume, d.turnover, d.avg]);
     return result({ data: table(KLINE_COLUMNS, rows) });
   }
   if ((serverType === "stock_data" && toolName === "get_stock_quote") || (serverType === "index_data" && toolName === "get_index_quote")) {
+    if (serverType === "stock_data" && process.env.WIND_MOCK_EMPTY_QUOTE === "1") return result({ data: table(KLINE_COLUMNS, []) });
     return result({ data: table(KLINE_COLUMNS, mockMinutes(params.windcode, now)) });
   }
   if (serverType === "financial_docs" && toolName === "get_company_announcements") {

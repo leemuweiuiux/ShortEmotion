@@ -146,6 +146,22 @@ export default async function handler(req, res) {
       }
       throw error;
     }
+    // 部分有效日K仅提供免费参考，不写入共享结果，也不增加新股票的查看权。
+    if (data?.partial) {
+      if (charged?.ledgerId && charged.charged > 0) {
+        const refund = await pointsRefundAnalysis(config, session.accessToken, charged.ledgerId).catch(() => null);
+        if (!refund?.ok) {
+          throw Object.assign(new Error("退款未确认，请联系客服核查积分流水"),
+            {code:"refund_failed",statusCode:503});
+        }
+        charged = {...charged, refunded:true, balance:refund.balance};
+      }
+      return send(res, 200, {
+        ok:true, partial:true, data, charged:0, refunded:Boolean(charged?.refunded),
+        balance:charged?.balance ?? null, unlimited:Boolean(charged?.unlimited),
+        analyzedAt:new Date().toISOString()
+      });
+    }
     if (session.user) console.log(`technical-analysis ${stock.code} by user ${session.user.id}`);
     // 成功发布才取得查看权；保存失败退回积分。
     let historyId = null;
