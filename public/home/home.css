@@ -9,7 +9,7 @@
 .home-card .home-more { display: inline-flex; align-items: center; justify-content: flex-end; flex-shrink: 0; gap: 3px; min-height: 32px; font-size: 12px; font-weight: 500; white-space: nowrap; }
 .home-more svg { width: 14px; height: 14px; flex-shrink: 0; }
 .home-preview-link { display: block; min-width: 0; color: var(--ink); text-decoration: none; border-radius: 6px; }
-.home-card :is(a,button,input):focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.home-card :is(a,button):focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 .home-card :is(.home-more,.card-title a):hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
 .home-preview-link:hover { background: var(--panel); }
 .home-preview-link:active { background: var(--panel); opacity: .8; }

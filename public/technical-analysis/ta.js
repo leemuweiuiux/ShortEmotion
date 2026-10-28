@@ -157,7 +157,7 @@ function render() {
   $("#ta-session").hidden = partial || !data.intradaySnapshot;
   $("#ta-intraday-note").hidden = partial || !data.intradaySnapshot;
   if (partial) chartMode = "daily";
-  $(".ta-tabs .timeline-toggle").forEach(item => {
+  $$(".ta-tabs .timeline-toggle").forEach(item => {
     item.disabled = partial && item.dataset.chart === "intraday";
     item.classList.toggle("active", item.dataset.chart === chartMode);
     item.setAttribute("aria-pressed", String(item.dataset.chart === chartMode));
