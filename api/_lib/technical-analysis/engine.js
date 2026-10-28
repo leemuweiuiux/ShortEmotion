@@ -1700,7 +1700,7 @@ export async function analyzeStock(resolved) {
   const profile = surgeProfile(parseDaily(klineRows), name, code);
   let documents = { news: { items: [] }, announcements: { items: [] } };
   if (profile.trigger) {
-    const cleanName = name.normalize("NFKC").replace(/\\s+/g, ""),
+    const cleanName = name.normalize("NFKC").replace(/\s+/g, ""),
       dateRange = eventQueryRange(profile.asOf, 3),
       queries = [`${cleanName}${dateRange}新闻资讯`, `${cleanName}${dateRange}经营债务融资行业政策股价异动`],
       docs = await Promise.allSettled([
