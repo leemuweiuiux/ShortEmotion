@@ -1,8 +1,11 @@
-import { readPoints, signin, toast, goLogin } from "/account/common.js?v=11";
+import { readPoints, signin, toast } from "/account/common.js?v=11";
 const button=document.querySelector("#signin-submit");
 const balance=document.querySelector("#signin-balance");
 const status=document.querySelector("#signin-status");
 const invite=document.querySelector("#signin-invite");
+const back=document.querySelector("#back");
+// Back to the page that opened check-in, otherwise the account landing page.
+try { const previous=new URL(document.referrer); if(previous.origin===location.origin && previous.pathname!==location.pathname && !previous.pathname.startsWith("/login")) back.href=previous.pathname+previous.search; } catch {}
 let signedToday=null;
 let unlimited=false;
 let busy=false;
@@ -30,8 +33,7 @@ button.addEventListener("click",async()=>{
   const result=await signin();
   signedToday=true;
   if(result.balance!=null)balance.textContent=Number(result.balance).toLocaleString("zh-CN");
-  status.textContent=result.ok?(result.inviteBonus?"签到成功 +5，邀请奖励 +"+result.inviteBonus:"签到成功，获得 5 积分"):"今日已经签到过了";
-  toast(status.textContent);
+  toast(result.ok?(result.inviteBonus?"签到成功 +5，邀请奖励 +"+result.inviteBonus:"签到成功，获得 5 积分"):"今日已经签到过了");
   window.dispatchEvent(new Event("se:points-updated"));
  }catch(e){toast(e.message||"签到失败，请重试",true);signedToday=false;}
  finally{busy=false;render();}
