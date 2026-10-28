@@ -44,6 +44,8 @@
     {"source": "/account/", "destination": "/account/index.html"},
     {"source": "/account/edit", "destination": "/account/edit/index.html"},
     {"source": "/account/edit/", "destination": "/account/edit/index.html"},
+    {"source": "/account/signin", "destination": "/account/signin/index.html"},
+    {"source": "/account/signin/", "destination": "/account/signin/index.html"},
     {"source": "/account/points", "destination": "/account/points/index.html"},
     {"source": "/account/points/", "destination": "/account/points/index.html"},
     {"source": "/account/settings", "destination": "/account/settings/index.html"},

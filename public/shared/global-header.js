@@ -1,7 +1,7 @@
 // One shared header for every ShortEmotion page.
 // Existing page-specific account menus remain in charge of their own account button.
 const $ = (s, root=document) => root.querySelector(s);
-const labels = {"/home":"首页","/about":"关于我们","/login":"登录","/shortemotion/cn":"短线情绪","/short-emotion":"短线情绪","/limitup":"涨停情绪","/sectorflow":"资金流向","/technicalanalysis":"个股技术分析","/kandian":"看点","/kandian/article":"看点文章","/account":"个人中心","/account/points":"积分流水","/account/settings":"设置","/account/edit":"编辑个人信息","/account/invite":"邀请好友"};
+const labels = {"/home":"首页","/about":"关于我们","/login":"登录","/shortemotion/cn":"短线情绪","/short-emotion":"短线情绪","/limitup":"涨停情绪","/sectorflow":"资金流向","/technicalanalysis":"个股技术分析","/kandian":"看点","/kandian/article":"看点文章","/account":"个人中心","/account/signin":"每日签到","/account/points":"积分流水","/account/settings":"设置","/account/edit":"编辑个人信息","/account/invite":"邀请好友"};
 let state = { authenticated: false, enabled: true, signedToday: null, unlimited: false };
 let busy = false;
 const nav = document.querySelector('nav.nav, nav.subnav');
@@ -47,8 +47,8 @@ if (nav) {
   if(extra){extra.classList.add('global-header-extra');space.after(extra);}
   const lang=$('.lang-toggle',nav);
   if(lang){lang.classList.add('global-header-lang');}
-  const signin=document.createElement('button');signin.id='global-signin';signin.className='global-header-signin';signin.type='button';
-  signin.innerHTML=iconCheck()+'<span>签到</span>';signin.disabled=true;
+  const signin=document.createElement('a');signin.id='global-signin';signin.className='global-header-signin';signin.href='/account/signin';
+  signin.innerHTML=iconCheck()+'<span>签到</span>';
   let points=$('#nav-points',nav);
   if(!points){points=document.createElement('a');points.id='nav-points';}
   points.href='/account/points';points.title='剩余积分';points.className='global-header-points';points.innerHTML=iconCoins()+'<span aria-live="polite">—</span>';
@@ -56,8 +56,10 @@ if (nav) {
   const ownsAccount=!account;
   if(!account){account=document.createElement('button');account.id='account';account.className='nav-btn';account.type='button';account.innerHTML=iconAccount();}
   account.setAttribute('aria-label','个人中心');account.title='个人中心';
-  nav.append(signin,points,account);
-  if(ownsAccount){
+  // Secondary pages retain only their own actions (settings, save, share).
+  // In particular /account must finish with its existing settings button.
+  if (!secondary && path !== '/login') nav.append(signin,points,account);
+  if(ownsAccount && !secondary && path !== '/login'){
     account.addEventListener('click',()=>{
       if(!state.authenticated){location.assign('/login');return;}
       const existing=$('.global-header-menu');if(existing){existing.remove();return;}
@@ -73,29 +75,15 @@ if (nav) {
     });
   }
   function renderSignin(){
-    signin.hidden=!state.authenticated||state.unlimited;
-    signin.disabled=!state.authenticated||state.signedToday!==false||busy;
+    signin.hidden=secondary||path==='/login'||!state.authenticated||state.unlimited;
+    signin.classList.toggle('is-signed',Boolean(state.signedToday));
     signin.querySelector('span').textContent=state.signedToday?'已签到':'签到 +5';
-    signin.setAttribute('aria-label',state.signedToday?'今日已签到':'每日签到领取5积分');
-    points.hidden=!state.authenticated;
+    signin.setAttribute('aria-label',state.signedToday?'查看每日签到（今日已签到）':'进入每日签到页面');
+    points.hidden=secondary||path==='/login'||!state.authenticated;
     account.setAttribute('aria-label',state.authenticated?'个人中心':'登录');
     if(ownsAccount)account.title=state.authenticated?'个人中心':'登录';
   }
   renderSignin();
-  signin.addEventListener('click',async()=>{
-    if(busy || state.signedToday!==false)return;
-    busy=true;renderSignin();
-    try{
-      const response=await fetch('/api/auth?action=signin',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({timezone:'Asia/Shanghai'})});
-      const result=await response.json().catch(()=>({}));
-      if(!response.ok)throw new Error(result.error||'签到失败，请稍后重试');
-      if(result.balance!=null)updateNavPoints(result);
-      state.signedToday=true;
-      notify(result.ok?(result.inviteBonus?'签到 +5，邀请奖励 +'+result.inviteBonus:'签到成功 +5 积分'):'今日已签到');
-      window.dispatchEvent(new Event('se:points-updated'));
-    }catch(e){notify(e.message||'签到失败');}
-    finally{busy=false;renderSignin();}
-  });
   async function refresh(){
     try{
       const auth=await fetch('/api/auth?action=me',{credentials:'same-origin',headers:{Accept:'application/json'},cache:'no-store'});

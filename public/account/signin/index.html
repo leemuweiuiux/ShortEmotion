@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="robots" content="noindex">
+  <title>每日签到 · ShortEmotion</title>
+  <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
+  <script>(function(){const t=localStorage.getItem("twsvp_theme");const dark=t==="dark"||(t!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.dataset.theme=dark?"dark":"light";})();</script>
+  <link rel="stylesheet" href="/about/about.css?v=11">
+  <link rel="stylesheet" href="/shared/form.css?v=1">
+  <link rel="stylesheet" href="/account/account.css?v=14">
+  <link rel="stylesheet" href="/shared/global-header.css?v=2">
+  <link rel="stylesheet" href="/account/signin/signin.css?v=1">
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body class="sub-page">
+  <nav class="subnav">
+    <a id="back" class="subnav-btn" href="/account" aria-label="返回">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+    <div class="subnav-title">每日签到</div>
+  </nav>
+  <main class="sub-frame signin-page">
+    <section class="sub-card signin-card" aria-labelledby="signin-heading">
+      <p class="signin-eyebrow">每日积分奖励</p>
+      <h1 id="signin-heading">每天签到，领取积分</h1>
+      <div class="signin-reward"><strong>+5</strong><span>积分 / 天</span></div>
+      <p class="signin-info">每日固定奖励，不累计连续签到天数。每天北京时间 00:00 更新签到资格。</p>
+      <button id="signin-submit" class="btn-primary signin-submit" type="button" disabled>正在读取签到状态…</button>
+      <p id="signin-status" class="signin-status" role="status" aria-live="polite"></p>
+      <p id="signin-invite" class="signin-invite" hidden>首次签到可能影响邀请奖励。如需填写邀请码，请先前往 <a href="/account">个人中心</a>。</p>
+    </section>
+    <section class="sub-card signin-summary">
+      <div class="card-row"><div class="section-title">当前积分</div><strong id="signin-balance">—</strong></div>
+      <a class="settings-row" href="/account/points"><span>查看积分流水</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+    </section>
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/account/signin/signin.js?v=1"></script>
+  <script type="module" src="/shared/global-header.js?v=2"></script>
+</body>
+</html>

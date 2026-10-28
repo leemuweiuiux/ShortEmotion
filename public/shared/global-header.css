@@ -1,5 +1,5 @@
 /* Shared site header: logo | dynamic page title | flexible space | check-in | points | account */
-nav.global-header { display:flex!important;align-items:center!important;gap:12px!important;box-sizing:border-box;position:relative;min-height:64px;width:100%;max-width:600px;margin-left:auto;margin-right:auto;padding-left:16px;padding-right:16px;background:var(--surface);color:var(--ink); }
+nav.global-header { display:flex!important;align-items:center!important;gap:12px!important;box-sizing:border-box;min-height:64px;width:100%;max-width:600px;margin-left:auto;margin-right:auto;padding-left:16px;padding-right:16px;background:var(--surface);color:var(--ink); }
 nav.global-header .nav-logo, nav.global-header .brand {display:inline-flex;flex:0 0 28px;width:28px;height:28px;margin:0;padding:0;align-items:center;justify-content:center;}
 nav.global-header .nav-logo img, nav.global-header .brand .brand-logo {width:28px;height:28px;display:block;}
 nav.global-header .brand-text {display:none;}
@@ -25,3 +25,8 @@ nav.global-header .global-header-back {display:inline-flex;align-items:center;ju
 nav.global-header .global-header-back svg {display:block;width:18px;height:18px;}
 nav.global-header.global-header-secondary .global-header-title {font-size:20px;}
 @media(max-width:480px){nav.global-header.global-header-secondary .global-header-title {font-size:18px;}}
+
+/* Preserve each page family's original header behavior: board sticky, account fixed. */
+nav.global-header.nav {position:sticky;top:0;z-index:10;}
+nav.global-header.subnav {position:fixed;inset:0 0 auto;z-index:10;height:calc(64px + env(safe-area-inset-top, 0px));padding-top:env(safe-area-inset-top, 0px);}
+nav.global-header .global-header-signin.is-signed {color:var(--muted);}
