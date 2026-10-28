@@ -45,14 +45,14 @@
     </nav>
 
     <main>
-      <form id="ta-form" class="card ta-search" autocomplete="off">
-        <p class="card-desc">输入股票，生成趋势结构、胜率与赔率、历史同类量价结构和事件驱动分析。</p>
+      <form id="ta-form" class="card ta-search ta-search-consistent" autocomplete="off">
         <div class="se-bar">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-4.2-4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
           <input id="ta-input" name="q" type="search" inputmode="search" enterkeyhint="go" maxlength="30" placeholder="输入完整股票名称或代码" aria-label="股票代码或简称" required>
           <button id="ta-run" class="ta-run" type="submit">开始分析</button>
         </div>
         <p id="ta-recent" class="ta-recent" hidden></p>
+        <p class="card-desc">生成趋势结构、胜率与赔率、历史同类量价结构和事件驱动分析。</p>
         <p id="ta-hint" class="ta-hint">*首次查询或更新需要 10 积分，查看已查询股票的最新结果免费。</p>
       </form>
 
