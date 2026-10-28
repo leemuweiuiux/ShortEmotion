@@ -8,6 +8,14 @@ const wind = await import("../api/_lib/short-emotion/wind-client.js");
 const session = await import("../api/_lib/session.js");
 const { default: api, analysisConfigured } = await import("../api/technical-analysis.js");
 
+// 固定默认模拟时间在收盘后：避免 CI 在北京时间 09:30 刚开盘时分钟数据不足
+// 触发预期内的日线降级，导致原本验证完整分析的测试受运行时间影响。
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-20T16:00:00+08:00"));
+});
+afterEach(() => vi.useRealTimers());
+
 describe("个股技术分析算法（离线样本）", () => {
   beforeEach(() => engine.clearAnalysisCache());
 
