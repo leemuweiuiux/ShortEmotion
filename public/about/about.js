@@ -60,7 +60,7 @@ async function loadLive(tile) {
     $(".live-ring", tile).style.setProperty("--score", score);
     setText($(".live-score", tile), String(score));
     setText($(".live-phase", tile), payload.regime?.phase || "—");
-    setText($(".live-posture", tile), payload.regime?.posture ? `当前姿态 · ${payload.regime.posture}` : "—");
+    setText($(".live-posture", tile), payload.regime?.posture ? `姿态 · ${payload.regime.posture}` : "—");
     setText($(".live-summary", tile), payload.regime?.summary || "");
     const dimensions = payload.dimensions || {};
     $$(".live-dim", tile).forEach((item) => {

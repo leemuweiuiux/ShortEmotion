@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#ffffff">
   <title>ShortEmotion · 看懂A股情绪与走势</title>
-  <meta name="description" content="把涨跌家数、涨跌停、连板、溢价、题材和成交合成一个情绪分，告诉你现在该进攻还是防守；输入一只股票，看懂它的趋势结构、胜率与赔率。">
+  <meta name="description" content="一个情绪分，告诉你今天该进攻还是防守；输入一只股票，看懂趋势、胜率与赔率。">
   <meta property="og:title" content="ShortEmotion · 看懂A股情绪与走势">
   <meta property="og:description" content="一个分数看清短线情绪，一只股票看懂趋势结构、胜率与赔率。">
   <meta property="og:image" content="/about/img/pulse-light.webp">
@@ -34,7 +34,7 @@
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
-  <link rel="stylesheet" href="/shared/global-header.css?v=2">
+  <link rel="stylesheet" href="/shared/global-header.css?v=3">
   <script defer src="/shared/usage.js?v=1"></script>
 </head>
 <body>
@@ -66,7 +66,7 @@
         <span class="hero-word" aria-hidden="true">量化</span>
         <span class="hero-object" aria-hidden="true">每天的短线情绪</span>
       </h1>
-      <p class="hero-lead">把涨跌家数、涨跌停、连板、溢价、题材和成交合成一个情绪分，告诉你现在该进攻还是防守；输入一只股票，看懂它的趋势结构、胜率与赔率。</p>
+      <p class="hero-lead">一个情绪分，告诉你今天该进攻还是防守；输入一只股票，看懂趋势、胜率与赔率。</p>
 
       <div class="live">
         <!-- 与看板「A股短线情绪」卡同款：姿态、分数环、阶段与说明、六个维度 -->
@@ -74,7 +74,7 @@
           <div class="live-head"><span class="live-title">A股短线情绪</span><span class="live-posture">—</span></div>
           <div class="live-main">
             <div class="live-ring" style="--score: 0"><div><strong class="live-score">—</strong><small>/ 100</small></div></div>
-            <div class="live-copy"><span>当前情绪阶段</span><b class="live-phase">读取中</b><p class="live-summary"></p></div>
+            <div class="live-copy"><span>情绪阶段</span><b class="live-phase">读取中</b><p class="live-summary"></p></div>
           </div>
           <div class="live-dims">
             <div class="live-dim" data-key="breadth"><span>市场广度</span><i><em></em></i><b>—</b></div>
@@ -90,13 +90,13 @@
           <span class="live-market">个股技术分析</span>
           <div class="se-bar">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-4.2-4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-            <input name="q" type="search" inputmode="search" enterkeyhint="go" maxlength="30" placeholder="股票代码或简称" aria-label="股票代码或简称" required>
+            <input name="q" type="search" inputmode="search" enterkeyhint="go" maxlength="30" placeholder="股票代码或完整名称" aria-label="股票代码或完整名称" required>
             <button type="submit">开始分析</button>
           </div>
-          <small class="live-time">趋势结构、胜率与赔率、历史同类量价结构、事件驱动</small>
+          <small class="live-time">趋势结构、胜率与赔率、关键价位、历史同类量价结构、事件驱动</small>
         </form>
       </div>
-      <p class="hero-note">情绪分 0–100，越高代表短线情绪越热。</p>
+      <p class="hero-note">情绪分 0–100，越高越热。</p>
     </header>
 
     <section class="steps-intro">
@@ -108,7 +108,7 @@
       <div class="feature-text">
         <span class="step-no" aria-hidden="true">01</span>
         <h3>情绪总览</h3>
-        <p>市场广度、极端反馈、连板梯队、赚钱效应、题材聚焦、成交环境六个维度合成一个 0–100 的情绪分，标出所处阶段（冰点、退潮、分歧、修复、启动、主升、高潮），并给出对应的交易姿态，例如进攻、精选、防守。</p>
+        <p>市场广度、极端反馈、连板梯队、赚钱效应、题材聚焦、成交环境六个维度合成 0–100 的情绪分，标出所处阶段，并给出进攻、精选或防守的姿态。</p>
       </div>
       <picture class="feature-shot">
         <source srcset="/about/img/pulse-dark.webp" media="(prefers-color-scheme: dark)">
@@ -120,7 +120,7 @@
       <div class="feature-text">
         <span class="step-no" aria-hidden="true">02</span>
         <h3>市场广度</h3>
-        <p>上涨、平盘、下跌家数，加上涨跌停与涨跌幅超过 5% 的个股数，看赚钱效应是在扩散还是收缩，避免被指数涨跌误导。</p>
+        <p>上涨、平盘、下跌家数，加上涨跌停与涨跌幅超过 5% 的个股数，看上涨是在扩散还是收缩，避免被指数涨跌误导。</p>
       </div>
       <picture class="feature-shot">
         <source srcset="/about/img/breadth-dark.webp" media="(prefers-color-scheme: dark)">
@@ -131,12 +131,12 @@
     <section class="feature">
       <div class="feature-text">
         <span class="step-no" aria-hidden="true">03</span>
-        <h3>题材雷达</h3>
-        <p>按涨停点火、批量拉升和消息催化，找出当天真正在动的题材，个股分成点火、跟风、候选三层。每只个股都标明归属依据和主归因，找不到依据的不列入。</p>
+        <h3>题材异动</h3>
+        <p>按涨停点火、批量拉升和消息催化，找出当天真正在动的题材，个股分为核心、点火、跟风、候选四层。每只个股都标明归属依据和主归因，找不到依据的不列入。</p>
       </div>
       <picture class="feature-shot fade-bottom">
         <source srcset="/about/img/themes-dark.webp?v=2" media="(prefers-color-scheme: dark)">
-        <img src="/about/img/themes-light.webp?v=2" alt="题材雷达：当日题材异动与个股" width="776" height="1050" loading="lazy">
+        <img src="/about/img/themes-light.webp?v=2" alt="题材异动与个股分层" width="776" height="1050" loading="lazy">
       </picture>
     </section>
 
@@ -209,7 +209,7 @@
 
     <section class="data-source">
       <h2>用 Wind MCP 数据搭建</h2>
-      <p>ShortEmotion 的数据来自 Wind Alice Market 的 MCP 服务。行情、涨跌停与连板、概念板块和财经新闻都通过 MCP 接口按交易时段定时取得，再由我们的算法合成情绪分、整理成题材雷达；个股技术分析则在你发起分析时，即时取得这只股票的行情与公告新闻。</p>
+      <p>ShortEmotion 的数据来自 Wind Alice Market 的 MCP 服务。行情、涨跌停与连板、概念板块和财经新闻都通过 MCP 接口按交易时段定时取得，再由我们的算法合成情绪分、整理成题材异动；个股技术分析则在你发起分析时，即时取得这只股票的行情与公告新闻。</p>
       <ul class="source-list">
         <li><b>行情与涨跌停</b><span>涨跌家数、涨跌停、连板与溢价</span></li>
         <li><b>概念板块</b><span>板块分钟行情与成分股</span></li>
@@ -223,10 +223,10 @@
       <article class="board">
         <div>
           <h3>短线情绪</h3>
-          <p>情绪总览、市场广度、题材雷达、情绪路径；可导出长图或小卡分享。免费注册，登录后查看。</p>
+          <p>情绪总览、市场广度、题材异动、情绪路径；可导出长图或小卡分享。免费注册，登录后查看。</p>
         </div>
         <div class="board-links">
-          <a class="board-link" href="/shortemotion/cn">A股</a>
+          <a class="board-link" href="/shortemotion/cn">查看看板</a>
         </div>
       </article>
       <article class="board">
@@ -248,12 +248,12 @@
 
   <div class="drawer">
     <div class="drawer-inner">
-      <span class="drawer-copy">免费注册，邮箱验证码一键登录</span>
+      <span class="drawer-copy">免费注册 · 邮箱验证码登录</span>
       <a class="drawer-cta" href="/login">登录</a>
     </div>
   </div>
 
-  <script type="module" src="/about/about.js?v=24"></script>
-  <script type="module" src="/shared/global-header.js?v=2"></script>
+  <script type="module" src="/about/about.js?v=25"></script>
+  <script type="module" src="/shared/global-header.js?v=3"></script>
 </body>
 </html>

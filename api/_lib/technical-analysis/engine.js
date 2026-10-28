@@ -1533,7 +1533,7 @@ function buildAnalysis(snapshotRows, stockQuote, stockDaily, markets, styleMarke
     headline,
     summary,
     relative: pctText(relative),
-    amp: pctText(amplitude),
+    amp: `${round(amplitude)}%`, // 振幅没有正负
     vr: `${round(volumeRatio, 2)}×`,
     rr: round(rr, 2).toFixed(2),
     score,

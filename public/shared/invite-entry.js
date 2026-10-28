@@ -38,7 +38,7 @@ export function mountInviteEntry(host, { setText = (element, text) => { element.
   setText(lead, "有好友的邀请码？填写后完成签到，双方各得 ");
   setText(tail, " 积分");
   setText(submit, "领取");
-  setText(skip, "没有邀请码，直接签到 +10 ›");
+  setText(skip, "没有邀请码，直接签到 +5 ›");
   input.value = storedInvite();
 
   const showError = (message) => {

@@ -1,5 +1,5 @@
 import { startAnalysisRefresh } from "./analysis-refresh.js?v=1";
-import { updateNavPoints } from "/shared/nav-points.js?v=1";
+import { updateNavPoints } from "/shared/nav-points.js?v=2";
 // 首页 /home（登录后打开 / 会到这里），都只读现有数据，不调用 Wind：
 //   1. 我的积分：余额 + 签到 +5（注册当天还没填邀请码的新用户，先在这里显示「填写邀请码」）
 //   2. 个股技术分析：输入股票按「开始分析」→ 跳到 /technicalanalysis 并由那边发起分析（扣 10 积分）
@@ -10,8 +10,8 @@ import { updateNavPoints } from "/shared/nav-points.js?v=1";
 //   6. 涨停情绪：涨停、跌停、最高板、晋级率 4 个数字免费；涨停天梯须解锁（−10 积分，12 小时，与 /limitup 整页共用），
 //      解锁后按板高列出个股。与题材异动的解锁分开计算。
 import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderLatest } from "/shared/nav-account.js?v=4";
-import { mountFundFlow } from "/shared/fund-flow.js?v=6";
-import { mountInviteEntry } from "/shared/invite-entry.js?v=3";
+import { mountFundFlow } from "/shared/fund-flow.js?v=7";
+import { mountInviteEntry } from "/shared/invite-entry.js?v=4";
 
 initAccountMenu();
 
@@ -135,8 +135,9 @@ function amount(value) {
 }
 function pair(selector, left, right) {
   const [a, b] = document.querySelectorAll(`${selector} em`);
-  a.textContent = Number.isFinite(Number(left)) ? Number(left).toLocaleString("zh-CN") : "—";
-  b.textContent = Number.isFinite(Number(right)) ? Number(right).toLocaleString("zh-CN") : "—";
+  const show = (value) => value != null && value !== "" && Number.isFinite(Number(value)) ? Number(value).toLocaleString("zh-CN") : "—";
+  a.textContent = show(left);
+  b.textContent = show(right);
 }
 
 /** 行情时间「20261021 11:26:00」→「行情时间 10-21 11:26」；不是今天（北京时间）的数据加注「最近交易日」。 */
@@ -168,7 +169,7 @@ async function loadEmotion() {
     $("#emotion-score").textContent = Number.isFinite(score) ? Math.round(score) : "—";
     $("#emotion-ring").style.setProperty("--score", Number.isFinite(score) ? score : 0);
     $("#emotion-phase").textContent = payload.regime?.phase || "—";
-    $("#emotion-posture").textContent = payload.regime?.posture ? `当前姿态 · ${payload.regime.posture}` : "—";
+    $("#emotion-posture").textContent = payload.regime?.posture ? `姿态 · ${payload.regime.posture}` : "—";
     $("#emotion-copy").textContent = payload.regime?.summary || "";
     $("#emotion-time").textContent = quoteTimeLabel(payload.quoteTime);
     renderDimensions(payload.dimensions);
@@ -205,7 +206,7 @@ function renderLocked() {
   const short = !unlimited && Number.isFinite(Number(balance)) && balance < cost;
   const action = anomalyData.unavailable
     ? "<p>积分服务暂时不可用，请稍后再试</p>"
-    : `<button id="unlock" class="pill-btn" type="button">解锁 · ${cost} 积分</button>${Number.isFinite(Number(balance)) ? `<small>当前积分 ${esc(balance)}</small>` : ""}${short ? '<a class="lock-link" href="/account">去签到</a>' : ""}`;
+    : `<button id="unlock" class="pill-btn" type="button">解锁 · ${cost} 积分</button>${Number.isFinite(Number(balance)) ? `<small>积分 ${esc(balance)}</small>` : ""}${short ? '<a class="lock-link" href="/account/signin">去签到</a>' : ""}`;
   body.innerHTML = `<div class="lock-skeleton" aria-hidden="true">${"<i></i>".repeat(3)}</div>
     <div class="anomaly-lock" role="group" aria-label="题材异动已锁定">${lockIcon}<b>今日识别到 ${total} 个题材异动</b><p>解锁后 ${hours} 小时内，首页与看板都能查看</p>${action}</div>`;
   $("#unlock")?.addEventListener("click", unlock);
@@ -327,7 +328,7 @@ function renderLimitUpLocked() {
   const short = !unlimited && known && Number(shown) < cost;
   const action = limitupData.unavailable
     ? "<p>积分服务暂时不可用，请稍后再试</p>"
-    : `<button id="limitup-unlock" class="pill-btn" type="button">解锁 · ${cost} 积分</button>${known ? `<small>当前积分 ${esc(shown)}</small>` : ""}${short ? '<a class="lock-link" href="/account">去签到</a>' : ""}`;
+    : `<button id="limitup-unlock" class="pill-btn" type="button">解锁 · ${cost} 积分</button>${known ? `<small>积分 ${esc(shown)}</small>` : ""}${short ? '<a class="lock-link" href="/account/signin">去签到</a>' : ""}`;
   limitupBody.innerHTML = `<div class="lock-skeleton" aria-hidden="true">${"<i></i>".repeat(3)}</div>
     <div class="anomaly-lock" role="group" aria-label="涨停天梯已锁定">${lockIcon}<b>涨停天梯与涨停情绪详情</b><p>解锁后 ${hours} 小时内，首页天梯与涨停情绪页都能查看</p>${action}</div>`;
   $("#limitup-unlock")?.addEventListener("click", unlockLimitUp);

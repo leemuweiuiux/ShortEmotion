@@ -173,7 +173,7 @@ describe("积分：题材异动", () => {
     account.balance = 9;
     const res = await call(dataApi, { method: "POST", query: { action: "unlock-anomalies" } });
     expect(res.statusCode).toBe(402);
-    expect(res.body).toMatchObject({ code: "insufficient_points", error: "积分不足，签到获取 +10积分", balance: 9 });
+    expect(res.body).toMatchObject({ code: "insufficient_points", error: "积分不足，每日签到可得 +5 积分", balance: 9 });
   });
 });
 

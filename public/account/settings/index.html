@@ -32,7 +32,7 @@
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
-  <link rel="stylesheet" href="/shared/global-header.css?v=2">
+  <link rel="stylesheet" href="/shared/global-header.css?v=3">
   <script defer src="/shared/usage.js?v=1"></script>
 </head>
 <body class="sub-page">
@@ -48,12 +48,12 @@
       <div class="card-row">
         <div class="section-title">外观</div>
         <div class="theme-switch" role="radiogroup" aria-label="外观">
-          <button type="button" role="radio" aria-checked="false" data-theme-choice="light">白版</button>
-          <button type="button" role="radio" aria-checked="false" data-theme-choice="dark">黑版</button>
-          <button type="button" role="radio" aria-checked="false" data-theme-choice="auto">自适应</button>
+          <button type="button" role="radio" aria-checked="false" data-theme-choice="light">浅色</button>
+          <button type="button" role="radio" aria-checked="false" data-theme-choice="dark">深色</button>
+          <button type="button" role="radio" aria-checked="false" data-theme-choice="auto">跟随系统</button>
         </div>
       </div>
-      <p class="theme-hint">自适应跟随手机或电脑的深浅色设置；只对这台设备的浏览器生效。</p>
+      <p class="theme-hint">仅对本设备生效。</p>
     </section>
 
     <nav class="sub-card settings-list" aria-label="设置">
@@ -67,7 +67,7 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/account/settings.js?v=3"></script>
-  <script type="module" src="/shared/global-header.js?v=2"></script>
+  <script type="module" src="/account/settings.js?v=4"></script>
+  <script type="module" src="/shared/global-header.js?v=3"></script>
 </body>
 </html>

@@ -192,3 +192,8 @@
 .lu-export-section { margin: 0 0 12px; }
 .lu-export-section .lu-expand, .lu-export-section button { display: none; }
 .lu-export-section .section { margin: 0; }
+
+/* 卡片标题右侧的长标签放不下时换到下一行，标题保持一行 */
+.card-head-wrap { flex-wrap: wrap; }
+.card-head-wrap .card-title { flex: none; }
+.card-head-wrap .pill { max-width: 100%; white-space: normal; }

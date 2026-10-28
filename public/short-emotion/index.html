@@ -29,7 +29,7 @@
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
-  <link rel="stylesheet" href="/shared/global-header.css?v=2">
+  <link rel="stylesheet" href="/shared/global-header.css?v=3">
   <script defer src="/shared/usage.js?v=1"></script>
 </head>
 <body>
@@ -46,7 +46,7 @@
       <div class="tabs" role="tablist" aria-label="页面分区">
         <button class="tab-btn active" data-target="overview" type="button">情绪总览</button>
         <button id="breadth-tab" class="tab-btn" data-target="breadth" type="button">市场广度</button>
-        <button id="themes-tab" class="tab-btn" data-target="themes" type="button">题材雷达</button>
+        <button id="themes-tab" class="tab-btn" data-target="themes" type="button">题材异动</button>
         <button class="tab-btn" data-target="timeline" type="button">情绪路径</button>
       </div>
       <button id="export-image" class="nav-btn tabs-action" type="button" aria-label="导出图片" title="导出图片" aria-haspopup="menu" aria-expanded="false">
@@ -66,13 +66,13 @@
           <div class="card-head"><h2 id="pulse-title" class="card-title">A股短线情绪</h2><span id="posture" class="pill pill-solid">—</span></div>
           <div class="pulse-main">
             <div id="score-ring" class="score-ring"><div><strong id="score">—</strong><small>/ 100</small></div></div>
-            <div class="phase-copy"><span>当前情绪阶段</span><h3 id="phase">读取中</h3><p id="summary">正在读取市场广度与短线极端反馈。</p></div>
+            <div class="phase-copy"><span>情绪阶段</span><h3 id="phase">读取中</h3><p id="summary">正在读取市场广度与短线极端反馈。</p></div>
           </div>
           <div id="dimension-bars" class="dimension-bars"></div>
         </article>
 
         <article class="card signal-card">
-          <div class="card-head"><h2 class="card-title">当前交易姿态</h2><span id="phase-badge" class="pill">识别中</span></div>
+          <div class="card-head"><h2 class="card-title">操作建议</h2><span id="phase-badge" class="pill">识别中</span></div>
           <div class="signal-copy"><strong id="action-title">等待多维数据形成共识</strong><p id="action-copy">不依据单一指数涨跌判断短线情绪。</p></div>
           <div class="guardrails">
             <div><span>确认信号</span><b id="confirm-signal">广度与溢价同步修复</b></div>
@@ -82,7 +82,7 @@
 
         <div class="metric-strip">
           <article><span id="index-label">全A涨跌幅</span><strong id="index-change">—</strong><small id="index-level">881001.WI</small></article>
-          <article><span id="amount-label">两市成交额</span><strong id="amount">—</strong><small id="amount-note">全A口径</small></article>
+          <article><span id="amount-label">两市成交额</span><strong id="amount">—</strong><small id="amount-note"></small></article>
           <article><span>昨日涨停溢价</span><strong id="premium">—</strong><small>今日平均涨跌幅</small></article>
           <article><span>涨停 / 跌停</span><strong id="limit-pair" class="limit-pair"><span class="up-text">—</span><i>/</i><span class="down-text">—</span></strong><small>极端反馈</small></article>
         </div>
@@ -97,7 +97,7 @@
         </article>
 
         <article class="card">
-          <div class="card-head"><h2 class="card-title">赚钱与亏钱尾部</h2><span class="pill">全市场统计</span></div>
+          <div class="card-head"><h2 class="card-title">涨跌分布</h2></div>
           <div class="extreme-grid">
             <div class="positive"><span>涨停</span><strong id="limit-up">—</strong></div>
             <div class="negative"><span>跌停</span><strong id="limit-down">—</strong></div>
@@ -120,7 +120,7 @@
           </div>
           <small id="anomaly-time" class="anomaly-time">等待异动数据</small>
           <div id="anomaly-list" class="anomaly-list"><div class="loading">正在构建多信号异动雷达…</div></div>
-          <p class="anomaly-note">异动是观察线索，不等于主线确认；“候选上车”必须等待触发条件，不构成无条件买入建议。</p>
+          <p class="anomaly-note">异动只是线索，不等于主线；候选需等触发条件。</p>
         </article>
 
         <article id="theme-ranking" class="card">
@@ -152,10 +152,10 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="/short-emotion/vendor/html-to-image.js" defer></script>
-  <script type="module" src="/short-emotion/app.js?v=52"></script>
+  <script type="module" src="/short-emotion/app.js?v=53"></script>
 
 
-  <script type="module" src="/shared/nav-points.js?v=1"></script>
-  <script type="module" src="/shared/global-header.js?v=2"></script>
+  <script type="module" src="/shared/nav-points.js?v=2"></script>
+  <script type="module" src="/shared/global-header.js?v=3"></script>
 </body>
 </html>

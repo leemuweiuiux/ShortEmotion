@@ -2,7 +2,7 @@
 // 邀请好友入口（/account/invite）、我发布的观点（最新 5 条，全部在看点的观点页「我的」）。
 // 外观、积分流水、用户协议、隐私政策、退出登录在右上角的设置 /account/settings。
 import { $, setText, toast, readProfile, readPoints } from "/account/common.js?v=11";
-import { mountInviteEntry } from "/shared/invite-entry.js?v=3";
+import { mountInviteEntry } from "/shared/invite-entry.js?v=4";
 import { cardHtml } from "/kandian/data.js?v=4";
 import { initLikes } from "/shared/like.js";
 

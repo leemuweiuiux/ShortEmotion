@@ -1,4 +1,4 @@
-import { updateNavPoints } from "/shared/nav-points.js?v=1";
+import { updateNavPoints } from "/shared/nav-points.js?v=2";
 // 个股技术分析 /technicalanalysis
 // 输入六位代码或准确简称 → POST /api/technical-analysis（每次扣 10 积分，认不出股票或分析失败不扣分）。
 // 版面与图表沿用 lfjDashboard「个股技术分析助手」，改成本站的单列卡片样式；页面不标注数据来源。
