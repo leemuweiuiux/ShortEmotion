@@ -171,7 +171,7 @@ export function mountFundFlow(root, { compact = false, initialCode = '', onSelec
     const what = period === 'today' ? '盘中累计主力净流入' : `近${period}个交易日 · ${cumulative ? '累计' : '每日'}主力净流入`;
     const caption = `${what}${metric === 'pct' ? (cumulative ? ' / 累计成交额' : ' / 对应成交额') : ''} · 单位：${metric === 'amount' ? '亿元' : '%'}${end ? ` · ${date}${period === 'today' ? ` ${end}` : ''}` : ''}`;
     const incomplete = ranked.filter((line) => keys.some((key) => !line.points.some((p) => p.date === key && valid(p[metric === 'pct' && cumulative ? 'amount' : metric]))));
-    const note = period === 'today' ? '按定时快照采样；缺失时点不补零。' : `按区间净流入强弱选线；${cumulative ? '从区间第一天起累计，右端标签为区间合计。' : '右端标签为最后一日数值。'}${data?.history?.status === 'pending' ? (data.history.asOf ? '新一期历史数据补齐中，暂展示上一完整版本。' : '历史日数据补齐中。') : data?.history?.status === 'partial' && data.history.pendingBoards ? `${data.history.pendingBoards}个板块历史数据补齐中，暂不显示。` : ''}${keys.length < Number(period) ? `当前仅有${keys.length}个交易日记录。` : ''}${incomplete.length ? `${incomplete.length}个板块历史数据未完整，缺失日期保留断点，等待补齐。` : ''}`;
+    const note = period === 'today' ? '' : `按区间净流入强弱选线；${cumulative ? '从区间第一天起累计，右端标签为区间合计。' : '右端标签为最后一日数值。'}${data?.history?.status === 'pending' ? (data.history.asOf ? '新一期历史数据补齐中，暂展示上一完整版本。' : '历史日数据补齐中。') : data?.history?.status === 'partial' && data.history.pendingBoards ? `${data.history.pendingBoards}个板块历史数据补齐中，暂不显示。` : ''}${keys.length < Number(period) ? `当前仅有${keys.length}个交易日记录。` : ''}${incomplete.length ? `${incomplete.length}个板块历史数据未完整，缺失日期保留断点，等待补齐。` : ''}`;
     const hasValues = chosen.some((line) => line.points.some((p) => valid(p[metric])));
     return { source, lines, keys, chosen, caption, note, hasValues, date, end, cumulative };
   }

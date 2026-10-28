@@ -62,7 +62,7 @@ export async function pointsHistory(config, token, { before = null, limit = 20 }
 
 export class InsufficientPointsError extends Error {
   constructor(balance) {
-    super("积分不足，签到获取 +10积分");
+    super(`积分不足，每日签到可得 +${POINTS.signin} 积分`);
     this.code = "insufficient_points";
     this.statusCode = 402;
     this.balance = balance;

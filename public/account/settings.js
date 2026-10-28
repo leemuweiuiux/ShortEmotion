@@ -1,7 +1,7 @@
 // 设置 /account/settings（个人中心右上角进入）：外观、积分流水、用户协议、隐私政策、退出登录。
 import { $ } from "/account/common.js?v=11";
 
-// 外观：白版 / 黑版 / 自适应。记在这台设备的浏览器（localStorage「twsvp_theme」，各页面打开时读取；没有设置 = 自适应）。
+// 外观：浅色 / 深色 / 跟随系统。记在这台设备的浏览器（localStorage「twsvp_theme」，各页面打开时读取；没有设置 = 自适应）。
 const THEME_KEY = "twsvp_theme";
 const darkQuery = window.matchMedia?.("(prefers-color-scheme: dark)");
 function readThemeChoice() {

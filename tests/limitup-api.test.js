@@ -183,7 +183,7 @@ describe("涨停情绪接口 /api/limitup", () => {
     account.balance = 9;
     const short = await call({ method: "POST", query: { action: "unlock" } });
     expect(short.statusCode).toBe(402);
-    expect(short.body).toMatchObject({ code: "insufficient_points", error: "积分不足，签到获取 +10积分", balance: 9 });
+    expect(short.body).toMatchObject({ code: "insufficient_points", error: "积分不足，每日签到可得 +5 积分", balance: 9 });
 
     account.unlimited = true;
     const full = await call({ query: { resource: "full" } });

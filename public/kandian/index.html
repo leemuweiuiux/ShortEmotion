@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="/shared/form.css?v=1">
   <link rel="stylesheet" href="/kandian/kandian.css?v=5">
 <link rel="stylesheet" href="/kandian/reports.css?v=5">
-<link rel="stylesheet" href="/shared/like.css?v=1">  <link rel="stylesheet" href="/shared/global-header.css?v=2">
+<link rel="stylesheet" href="/shared/like.css?v=1">  <link rel="stylesheet" href="/shared/global-header.css?v=3">
   <script defer src="/shared/usage.js?v=1"></script>
 </head>
 <body>
@@ -43,6 +43,6 @@
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script type="module" src="/kandian/app.js?v=6"></script>
-<script>const reports=new URLSearchParams(location.search).get('tab')!=='views';document.querySelector('#reports-panel').hidden=!reports;document.querySelector('#views-panel').hidden=reports;document.querySelector('.kd-filters').hidden=reports;document.querySelector('.kd-publish-bar').hidden=reports;document.querySelector(reports?'#reports-tab':'#views-tab').setAttribute('aria-current','page');</script><script type="module" src="/kandian/reports.js?v=8"></script>  <script type="module" src="/shared/global-header.js?v=2"></script>
+<script>const reports=new URLSearchParams(location.search).get('tab')!=='views';document.querySelector('#reports-panel').hidden=!reports;document.querySelector('#views-panel').hidden=reports;document.querySelector('.kd-filters').hidden=reports;document.querySelector('.kd-publish-bar').hidden=reports;document.querySelector(reports?'#reports-tab':'#views-tab').setAttribute('aria-current','page');</script><script type="module" src="/kandian/reports.js?v=8"></script>  <script type="module" src="/shared/global-header.js?v=3"></script>
 </body>
 </html>

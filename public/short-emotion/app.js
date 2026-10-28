@@ -1,4 +1,4 @@
-import { updateNavPoints } from "/shared/nav-points.js?v=1";
+import { updateNavPoints } from "/shared/nav-points.js?v=2";
 import { prepareTimelineForExport } from "./export-svg.js?v=1";
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -20,10 +20,10 @@ const MARKETS = {
     indexPrefix: "全A",
     indexCode: "881001.WI",
     amountLabel: "两市成交额",
-    amountNote: "全A口径",
+    amountNote: "",
     themeTitle: "题材热度排名",
     themePill: "A股概念板块",
-    themesTab: "题材雷达",
+    themesTab: "题材异动",
     breadthTitle: "市场广度",
     anomalyTitle: "当日题材异动",
     anomalyDesc: "相似分支先归并为父题材，再按涨停、批量拉升与消息催化筛选高价值方向。",
@@ -76,7 +76,7 @@ function escapeHtml(value) {
 }
 
 function formatNumber(value) {
-  return Number.isFinite(Number(value)) ? Number(value).toLocaleString("zh-CN") : "—";
+  return value != null && value !== "" && Number.isFinite(Number(value)) ? Number(value).toLocaleString("zh-CN") : "—";
 }
 
 function formatPct(value, digits = 2) {
@@ -150,25 +150,26 @@ function setText(selector, value) {
 
 function renderHeader() {
   const quote = data.quoteTime ? String(data.quoteTime).replace(/^\d{4}(\d{2})(\d{2})\s?(\d{2}:\d{2}).*$/, "$1-$2 $3") : null;
-  const stored = shanghaiTimeLabel(data.storedAt || data.capturedAt)?.split(" ").at(-1);
-  const status = data.endOfDay ? `盘后快照${data.partial ? " · 部分数据可用" : ""}` : data.offSession ? "定时快照 · 非交易时段" : data.partial ? "定时快照 · 部分数据可用" : "定时快照";
+  const closed = data.endOfDay || /\s(1[5-9]|2\d):\d{2}/.test(String(data.quoteTime || ""));
+  const phase = closed ? "已收盘" : data.offSession ? "非交易时段" : "盘中";
+  const status = data.partial ? `${phase} · 部分数据未更新` : phase;
   if (refreshRun.active) return; // 更新中由 renderRefreshState 接管状态条
   $("#connection-dot").className = data.partial ? "status-dot" : "status-dot ok";
   setText("#connection", status);
   const quoteLabel = data.endOfDay && quote ? `收盘数据 ${quote.slice(0, 5)}` : quote ? `行情时间 ${quote}` : "未返回行情时间";
-  setText("#quote-time", `${quoteLabel}${stored ? ` · 快照 ${stored}` : ""}`);
+  setText("#quote-time", quoteLabel);
   reportToolbarState({ connection: status, quoteTime: quote ? `行情时间 ${quote}` : "未返回行情时间", partial: data.partial });
 }
 
 function reportToolbarState(overrides = {}) {
   if (!isEmbedded || window.parent === window) return;
-  window.parent.postMessage({ type: "emotion-toolbar-state", connection: data?.partial ? "部分数据可用" : "数据已连接", quoteTime: data?.quoteTime ? `行情时间 ${String(data.quoteTime).replace(/^(\d{8})\s?/, "$1 ")}` : "等待行情时间", partial: Boolean(data?.partial), ...overrides }, "*");
+  window.parent.postMessage({ type: "emotion-toolbar-state", connection: data?.partial ? "部分数据未更新" : "数据已连接", quoteTime: data?.quoteTime ? `行情时间 ${String(data.quoteTime).replace(/^(\d{8})\s?/, "$1 ")}` : "等待行情时间", partial: Boolean(data?.partial), ...overrides }, "*");
 }
 
 function renderPulse() {
   setText("#score", data.score);
   setText("#phase", data.regime.phase);
-  setText("#posture", `当前姿态 · ${data.regime.posture}`);
+  setText("#posture", `姿态 · ${data.regime.posture}`);
   setText("#summary", data.regime.summary);
   setText("#phase-badge", data.regime.phase);
   $("#score-ring").style.setProperty("--score", data.score);
@@ -184,7 +185,7 @@ function renderPulse() {
     高潮: "去弱留强，防范次日一致转分歧"
   };
   setText("#action-title", titles[data.regime.phase] || "等待市场结构进一步确认");
-  setText("#action-copy", `情绪分数 ${data.score}，操作姿态为“${data.regime.posture}”。评分来自广度、极端反馈、梯队、溢价、题材和成交环境。`);
+  $("#action-copy").hidden = true; // 分数、姿态与六个维度已在上一张卡显示
   setText("#confirm-signal", data.score >= 57 ? "核心强势延续、后排不出现批量掉队" : "跌停与大跌收缩、昨日强势股溢价转正");
   setText("#risk-signal", data.score >= 70 ? "炸板上升、昨日涨停溢价快速转负" : "跌停扩散、高位股负反馈加剧");
   const names = dimensionNames;
@@ -226,7 +227,7 @@ function renderBreadth() {
   const bigDown = Number(data.extremes.bigDown);
   const balance = Number.isFinite(bigUp + bigDown) && bigUp + bigDown ? bigUp / (bigUp + bigDown) * 100 : 50;
   $("#tail-balance i").style.left = `${balance}%`;
-  setText("#tail-balance span", balance >= 55 ? "大涨尾部占优，弹性方向反馈较好" : balance <= 45 ? "大跌尾部占优，亏钱效应更强" : "大涨与大跌尾部接近平衡");
+  setText("#tail-balance span", balance >= 55 ? "大涨股多于大跌股，强势股反馈好" : balance <= 45 ? "大跌股多于大涨股，亏钱效应强" : "大涨与大跌股数接近");
 }
 
 function renderThemes() {
@@ -236,7 +237,7 @@ function renderThemes() {
     return;
   }
   const max = Math.max(...themes.map((item) => Math.abs(Number(item.changePct))), 1);
-  $("#theme-list").innerHTML = themes.map((item, index) => `<div class="theme-row"><span class="theme-rank">${String(index + 1).padStart(2, "0")}</span><span class="theme-name"><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.code)}</small></span><span class="theme-bar"><i style="width:${Math.max(4, Math.abs(item.changePct) / max * 100)}%"></i></span><span class="theme-change ${signClass(item.changePct)}">${formatPct(item.changePct)}</span></div>`).join("");
+  $("#theme-list").innerHTML = themes.map((item, index) => `<div class="theme-row"><span class="theme-rank">${String(index + 1).padStart(2, "0")}</span><span class="theme-name"><b>${escapeHtml(item.name)}</b></span><span class="theme-bar"><i style="width:${Math.max(4, Math.abs(item.changePct) / max * 100)}%"></i></span><span class="theme-change ${signClass(item.changePct)}">${formatPct(item.changePct)}</span></div>`).join("");
 }
 
 // 个股分层默认收起；记住用户展开过的题材，切换筛选后保持展开。
@@ -276,7 +277,7 @@ function renderAnomalies() {
   const items = sourceItems.filter((item) => (anomalyFilter === "all" || item.signals.includes(anomalyFilter)) && (item.tabScores?.[anomalyFilter] ?? item.score) >= 60).sort(sorters[anomalyFilter] || sorters.all);
   const quoteTime = anomalyData?.items?.[0]?.tradeTime ? `行情时间 ${anomalyData.items[0].tradeTime} · ` : "";
   setText("#anomaly-time", `${quoteTime}`);
-  const viewState = `<div class="anomaly-view-state"><b>${filterLabels[anomalyFilter]}</b><span>当前 ${items.length} 个题材</span></div>`;
+  const viewState = items.length ? "" : `<div class="anomaly-view-state"><b>${filterLabels[anomalyFilter]}</b><span>0 个题材</span></div>`;
   if (!items.length) {
     $("#anomaly-list").innerHTML = `${viewState}<div class="anomaly-empty">当前筛选条件下没有识别到题材异动。</div>`;
     return;
@@ -303,7 +304,7 @@ function renderAnomalies() {
       ? `${item.sortMetrics?.limitCount || item.limitStocks?.length || 0}家涨停`
       : anomalyFilter === "news"
         ? `${item.news?.length || 0}条催化`
-        : `综合分 ${activeScore}`;
+        : "";
     const showNews = (anomalyFilter === "all" || anomalyFilter === "news") && item.news?.length;
     const newsCards = showNews ? `<div class="catalyst-news-list">${item.news.slice(0, 3).map((article) => `<article class="catalyst-news"><div class="catalyst-news-head"><b>${escapeHtml(plain(article.title, "市场消息"))}</b><span>${escapeHtml(plain(article.source, "财经新闻"))}${article.date ? ` · ${escapeHtml(article.date)}` : ""}</span></div><p><strong>刺激观点</strong>${escapeHtml(article.viewpoint || article.catalyst || "正文观点待补充")}</p><p><strong>可能影响</strong>${escapeHtml(article.impact || article.relation || `需要继续验证该消息对${item.name}基本面预期的实际影响。`)}</p>${article.matchedKeywords?.length ? `<div class="catalyst-keywords">${article.matchedKeywords.map((keyword) => `<i>${escapeHtml(keyword)}</i>`).join("")}${Number.isFinite(Number(article.relevanceScore)) ? `<em>关联度 ${article.relevanceScore}</em>` : ""}</div>` : ""}</article>`).join("")}</div>` : "";
     const displayStatus = anomalyFilter === "limit" ? "涨停点火" : anomalyFilter === "news" ? "消息催化" : item.status;
@@ -314,7 +315,7 @@ function renderAnomalies() {
     const coreCount = coreStocks.length;
     const coreCodes = new Set(coreStocks.map((stock) => String(stock.code).split(".")[0]));
     const ignitionStocks = (item.ignition ?? item.limitStocks ?? []).filter((stock) => !coreCodes.has(String(stock.code).split(".")[0]));
-    return `<article class="anomaly-card filter-${anomalyFilter}${index < 3 ? " primary" : ""}"><div class="anomaly-card-head"><div><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.code || "概念板块")}</small><em class="anomaly-rank-metric">${rankingMetric}</em></div><span class="anomaly-score">${activeScore}</span></div><span class="anomaly-status">${escapeHtml(displayStatus)}</span><div class="anomaly-evidence">${chips}${limitChip}${highBoardChip}${fullLadderChip}</div><p class="anomaly-detail" title="${escapeHtml(detail)}">${escapeHtml(detail)}</p>${newsCards}<details class="stock-details" data-theme="${escapeHtml(item.name)}"${stockDetailsOpen(item.name) ? " open" : ""}><summary>个股分层 <small>${coreCount ? `核心 ${coreCount} · ` : ""}点火 ${ignitionStocks.length} · 跟风 ${(item.followers || []).length} · 候选 ${(item.rideable || []).length}</small></summary><div class="stock-layers"><section class="role-section ignition"><h4>点火个股 <small>率先封板</small></h4>${stockItems(ignitionStocks, "ignition")}</section>${coreCount ? `<section class="role-section core"><h4>核心梯队 <small>领涨 · 龙头 · 中军</small></h4>${stockItems(coreStocks, "core")}</section>` : ""}<section class="role-section follower"><h4>跟风个股 <small>同步走强未封板</small></h4>${stockItems(item.followers || [], "follower")}</section><section class="role-section ride"><h4>候选上车 <small>需等待触发</small></h4>${stockItems(item.rideable || [], "ride")}</section></div></details></article>`;
+    return `<article class="anomaly-card filter-${anomalyFilter}${index < 3 ? " primary" : ""}"><div class="anomaly-card-head"><div><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.code || "概念板块")}</small>${rankingMetric ? `<em class="anomaly-rank-metric">${rankingMetric}</em>` : ""}</div><span class="anomaly-score">${activeScore}</span></div><span class="anomaly-status">${escapeHtml(displayStatus)}</span><div class="anomaly-evidence">${chips}${limitChip}${highBoardChip}${fullLadderChip}</div><p class="anomaly-detail" title="${escapeHtml(detail)}">${escapeHtml(detail)}</p>${newsCards}<details class="stock-details" data-theme="${escapeHtml(item.name)}"${stockDetailsOpen(item.name) ? " open" : ""}><summary>个股分层 <small>${coreCount ? `核心 ${coreCount} · ` : ""}点火 ${ignitionStocks.length} · 跟风 ${(item.followers || []).length} · 候选 ${(item.rideable || []).length}</small></summary><div class="stock-layers"><section class="role-section ignition"><h4>点火个股 <small>率先封板</small></h4>${stockItems(ignitionStocks, "ignition")}</section>${coreCount ? `<section class="role-section core"><h4>核心梯队 <small>领涨 · 龙头 · 中军</small></h4>${stockItems(coreStocks, "core")}</section>` : ""}<section class="role-section follower"><h4>跟风个股 <small>同步走强未封板</small></h4>${stockItems(item.followers || [], "follower")}</section><section class="role-section ride"><h4>候选上车 <small>需等待触发</small></h4>${stockItems(item.rideable || [], "ride")}</section></div></details></article>`;
   }).join("");
   // 首页的具体题材进入该题材内容；标题和更多入口仍进入整个模块。
   if (requestedTheme) {
@@ -332,7 +333,7 @@ function renderAnomalies() {
 // ── 题材异动的积分锁：未解锁时服务器只给题材数量；解锁扣 10 积分，12 小时内有效（倒计时到 0 自动重新上锁）──
 let pointsBalance = null;
 let unlockTimer = null;
-const POINTS_TEXT = "积分不足，签到获取 +10积分";
+const POINTS_TEXT = "积分不足，每日签到可得 +5 积分";
 
 function setBalance(value) {
   if (value != null && Number.isFinite(Number(value))) { pointsBalance = Number(value); updateNavPoints({ balance: pointsBalance }); }
@@ -385,7 +386,7 @@ function renderLockedAnomalies() {
   const balance = pointsBalance != null ? `<small>当前积分 ${pointsBalance}</small>` : "";
   const body = anomalyData?.unavailable
     ? '<p>积分服务暂时不可用，请稍后再试</p>'
-    : `<button id="unlock-anomalies" class="pill-btn" type="button">解锁 · ${cost} 积分</button>${balance}${pointsBalance != null && pointsBalance < cost ? '<a class="lock-link" href="/account">去签到</a>' : ""}`;
+    : `<button id="unlock-anomalies" class="pill-btn" type="button">解锁 · ${cost} 积分</button>${balance}${pointsBalance != null && pointsBalance < cost ? '<a class="lock-link" href="/account/signin">去签到</a>' : ""}`;
   $("#anomaly-list").innerHTML = `${skeleton}<div class="anomaly-lock" role="group" aria-label="题材异动已锁定"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><b>解锁后 ${hours} 小时内可查看</b>${body}</div>`;
   $("#unlock-anomalies")?.addEventListener("click", unlockAnomalies);
 }
@@ -573,7 +574,7 @@ async function loadNews() {
     const items = payload.items || [];
     const asOf = shanghaiTimeLabel(payload.asOf);
     setText("#news-asof", asOf ? `快照 ${asOf}` : "等待快照");
-    $("#news-list").innerHTML = items.length ? items.slice(0, 5).map((item) => `<article class="news-item"><b>${escapeHtml(plain(item.title, "市场消息"))}</b><span>${escapeHtml(item.date || "")} · 相关度 ${Number(item.relevance || 0).toFixed(2)}</span><p>${escapeHtml(String(item.content || "").slice(0, 170))}${String(item.content || "").length > 170 ? "…" : ""}</p></article>`).join("") : '<div class="empty">暂无新闻快照。</div>';
+    $("#news-list").innerHTML = items.length ? items.slice(0, 5).map((item) => `<article class="news-item"><b>${escapeHtml(plain(item.title, "市场消息"))}</b><span>${escapeHtml(item.date || "")}${Number(item.relevance) > 0 ? ` · 相关度 ${Number(item.relevance).toFixed(2)}` : ""}</span><p>${escapeHtml(String(item.content || "").slice(0, 170))}${String(item.content || "").length > 170 ? "…" : ""}</p></article>`).join("") : '<div class="empty">暂无新闻快照。</div>';
   } catch (error) {
     $("#news-list").innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`;
     toast(error.message, true);

@@ -11,6 +11,9 @@ nav.global-header .global-header-signin:disabled {opacity:.56;cursor:default;}
 nav.global-header .global-header-points {display:inline-flex;flex:none;align-items:center;gap:4px;color:var(--ink);text-decoration:none;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap;}
 nav.global-header .global-header-points svg {width:19px;height:19px;}
 nav.global-header #account {flex:none;margin:0!important;}
+nav.global-header .nav-btn {display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--ink);cursor:pointer;}
+nav.global-header .nav-btn svg {width:18px;height:18px;}
+nav.global-header .nav-btn[hidden] {display:none;}
 nav.global-header .global-header-signin[hidden],nav.global-header .global-header-points[hidden] {display:none!important;}
 nav.global-header .global-header-extra{margin:0 2px;}
 nav.global-header .global-header-lang {margin:0 3px 0 0;font-size:11px;}

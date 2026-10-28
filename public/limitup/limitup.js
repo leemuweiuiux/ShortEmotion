@@ -4,14 +4,14 @@
 // 同一次更新会重算涨停情绪。各区块的计算与展示原样取自 lfjDashboard「涨停事件工作台20261027」limit.js。
 import { toast, goLogin, initAccountMenu } from "/shared/nav-account.js?v=4";
 import { setupLimitupShare } from "/limitup/share.js?v=2";
-import { updateNavPoints } from "/shared/nav-points.js?v=1";
+import { updateNavPoints } from "/shared/nav-points.js?v=2";
 
 initAccountMenu();
 setupLimitupShare();
 
 const API = "/api/limitup";
 const REFRESH_API = "/api/short-emotion?market=cn";
-const POINTS_TEXT = "积分不足，签到获取 +10积分";
+const POINTS_TEXT = "积分不足，每日签到可得 +5 积分";
 const $ = (selector) => document.querySelector(selector);
 const setText = (selector, value) => { const element = $(selector); if (element) element.textContent = value ?? "—"; };
 
@@ -375,9 +375,8 @@ function renderQuality(data) {
   if (quality.truncated) messages.push(`${(quality.cappedSectors || []).join("/")}触顶单次查询 100 行上限，该板块家数可能不全。`);
   if (quality.historyComplete === false) messages.push("上一交易日涨停名单不完整，晋级率可能偏差。");
   const audit = quality.conceptAudit;
-  if (audit?.missingConcepts) messages.push(`${audit.missingConcepts} 只涨停股缺少可用概念，未纳入题材聚合。`);
-  if (audit?.ambiguousConcepts) messages.push(`${audit.ambiguousConcepts} 只股票概念有多个归并候选，已保留原概念待核实。`);
-  if (audit?.newsConflicts) messages.push(`${audit.newsConflicts} 只股票的资讯线索与原始概念不一致；资讯线索仅供核实。`);
+  // 概念归并的内部核验（缺概念、多候选、资讯冲突）只留在数据里，不展示给用户
+  void audit;
   const errors = (data.errors || []).map((message) => plain(message)).filter(Boolean);
   if (errors.length) messages.push(...errors);
   $("#quality").innerHTML = messages.length ? `<div class="lu-warn">${messages.map(esc).join("<br>")}</div>` : "";
@@ -417,10 +416,10 @@ function renderHeader() {
   if (refreshRun.active || !current) return;
   const degraded = Boolean(current.degraded);
   $("#connection-dot").className = `status-dot${degraded ? "" : " ok"}`;
-  setText("#connection", current.locked ? "涨停情绪 · 未解锁" : degraded ? "快照降级：未取到涨停列表" : "涨停情绪快照");
-  const stored = shanghaiTimeLabel(current.storedAt);
+  const closed = /[T\s](1[5-9]|2\d):\d{2}/.test(String(current.quoteTime || ""));
+  setText("#connection", current.locked ? "未解锁" : degraded ? "部分数据未更新" : closed ? "已收盘" : "盘中");
   const until = !current.locked && !current.unlimited && current.unlockUntil ? `已解锁至 ${untilLabel(current.unlockUntil)}` : null;
-  setText("#quote-time", [quoteLabel(current.quoteTime) || "未返回行情时间", stored ? `快照 ${stored}` : null, until].filter(Boolean).join(" · "));
+  setText("#quote-time", [quoteLabel(current.quoteTime) || "未返回行情时间", until].filter(Boolean).join(" · "));
 }
 
 function setBalance(payload) {
@@ -467,7 +466,7 @@ function renderLocked(data) {
   const short = !data.unlimited && Number.isFinite(balance) && balance < cost;
   const action = data.unavailable
     ? "<p>积分服务暂时不可用，请稍后再试</p>"
-    : `<button id="unlock" class="pill-btn" type="button">解锁 · ${cost} 积分</button>${Number.isFinite(balance) ? `<small>当前积分 ${esc(balance)}</small>` : ""}${short ? '<a class="lock-link" href="/home">去签到</a>' : ""}`;
+    : `<button id="unlock" class="pill-btn" type="button">解锁 · ${cost} 积分</button>${Number.isFinite(balance) ? `<small>积分 ${esc(balance)}</small>` : ""}${short ? '<a class="lock-link" href="/account/signin">去签到</a>' : ""}`;
   const tiers = Number(data.ladderTiers) || 0;
   $("#lu-lock").innerHTML = `<div class="lock-skeleton" aria-hidden="true">${"<i></i>".repeat(3)}</div>
     <div class="anomaly-lock" role="group" aria-label="涨停情绪已锁定">${lockIcon}<b>今日亮点、涨停天梯${tiers ? `（${tiers} 档）` : ""}、跌停股、晋级率与题材强弱</b><p>解锁后 ${hours} 小时内，本页与首页天梯都能查看</p>${action}</div>`;

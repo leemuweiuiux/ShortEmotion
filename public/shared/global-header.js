@@ -1,7 +1,7 @@
 // One shared header for every ShortEmotion page.
 // Existing page-specific account menus remain in charge of their own account button.
 const $ = (s, root=document) => root.querySelector(s);
-const labels = {"/home":"首页","/about":"关于我们","/login":"登录","/shortemotion/cn":"短线情绪","/short-emotion":"短线情绪","/limitup":"涨停情绪","/sectorflow":"资金流向","/technicalanalysis":"个股技术分析","/kandian":"看点","/kandian/article":"看点文章","/account":"个人中心","/account/signin":"每日签到","/account/points":"积分流水","/account/settings":"设置","/account/edit":"编辑个人信息","/account/invite":"邀请好友"};
+const labels = {"/home":"首页","/about":"ShortEmotion","/login":"ShortEmotion","/shortemotion/cn":"短线情绪","/short-emotion":"短线情绪","/limitup":"涨停情绪","/sectorflow":"资金流向","/technicalanalysis":"个股技术分析","/kandian":"看点","/kandian/article":"看点文章","/account":"个人中心","/account/signin":"每日签到","/account/points":"积分流水","/account/settings":"设置","/account/edit":"编辑个人信息","/account/invite":"邀请好友"};
 let state = { authenticated: false, enabled: true, signedToday: null, unlimited: false };
 let busy = false;
 const nav = document.querySelector('nav.nav, nav.subnav');
@@ -51,7 +51,7 @@ if (nav) {
   signin.innerHTML=iconCheck()+'<span>签到</span>';
   let points=$('#nav-points',nav);
   if(!points){points=document.createElement('a');points.id='nav-points';}
-  points.href='/account/points';points.title='剩余积分';points.className='global-header-points';points.innerHTML=iconCoins()+'<span aria-live="polite">—</span>';
+  points.href='/account/points';points.title='积分';points.className='global-header-points';points.innerHTML=iconCoins()+'<span aria-live="polite">—</span>';
   let account=$('#account',nav);
   const ownsAccount=!account;
   if(!account){account=document.createElement('button');account.id='account';account.className='nav-btn';account.type='button';account.innerHTML=iconAccount();}
