@@ -11,8 +11,8 @@ let unlimited=false;
 let busy=false;
 let inviteEligible=false;
 function render(){
- button.disabled=busy || signedToday!==false || unlimited || inviteEligible;
- button.textContent=busy?"签到中…":unlimited?"不限额账户无需签到":signedToday===null?"暂时无法读取签到状态":signedToday?"今日已签到":inviteEligible?"请先处理邀请码":"签到领取 +5 积分";
+ button.disabled=busy || signedToday!==false || unlimited;
+ button.textContent=busy?"签到中…":unlimited?"不限额账户无需签到":signedToday===null?"暂时无法读取签到状态":signedToday?"今日已签到":"签到领取 +5 积分";
  status.textContent=unlimited?"账户积分不限额":signedToday?"今天的签到已完成，明天再来领取。":signedToday===false?"今日尚未签到":"";
  invite.hidden=!inviteEligible;
 }
@@ -27,7 +27,7 @@ async function load(){
  }catch(e){signedToday=null;render();toast(e.message||"读取签到状态失败",true);}
 }
 button.addEventListener("click",async()=>{
- if(busy || signedToday!==false || unlimited || inviteEligible)return;
+ if(busy || signedToday!==false || unlimited)return;
  busy=true;render();
  try{
   const result=await signin();
