@@ -73,8 +73,7 @@ if (nav) {
     account.setAttribute('aria-label',state.authenticated?'个人中心':'登录');
     if(ownsAccount)account.title=state.authenticated?'个人中心':'登录';
   }
-  exportState();
-  function exportState(){renderSignin();}
+  renderSignin();
   signin.addEventListener('click',async()=>{
     if(busy || state.signedToday!==false)return;
     busy=true;renderSignin();
