@@ -11,7 +11,7 @@
 // POST /api/auth?action=nickname-candidate  「换一个」：随机候选昵称（不保存）
 // POST /api/auth?action=nickname  { nickname }  换成候选昵称（每 30 天一次）
 // GET  /api/auth?action=points   积分余额、今天是否已签到、题材异动解锁到何时，以及最近 20 笔流水；带 before=<id> 时只返回更早的流水
-// POST /api/auth?action=signin   每日签到 +10，body { timezone }（浏览器所在时区，第一次签到后固定）
+// POST /api/auth?action=signin   每日签到 +5，body { timezone }（浏览器所在时区，第一次签到后固定）
 // GET  /api/auth?action=invite-check&code=SE…  登录前检查邀请码：{ valid, name, reason, message }（不需要登录）
 // GET  /api/auth?action=invite   我的邀请：邀请码、姓名、已邀请 / 已完成人数、累计获得积分、好友列表
 // POST /api/auth?action=invite-redeem  body { code }：登录完成后绑定邀请人（只限刚注册的账号）
