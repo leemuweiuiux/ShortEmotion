@@ -1,0 +1,16 @@
+/* Dedicated sign-in screen, consistent with account cards and existing form controls. */
+.signin-page{display:grid;gap:12px;}
+.signin-card{display:grid;gap:14px;text-align:center;justify-items:center;padding:28px 20px;}
+.signin-eyebrow{font-size:12px;color:var(--muted);}
+.signin-card h1{font-size:20px;font-weight:600;line-height:1.4;margin:0;}
+.signin-reward{display:flex;align-items:baseline;gap:6px;color:var(--ink);}
+.signin-reward strong{font-family:Manrope,sans-serif;font-size:54px;line-height:1.2;letter-spacing:-2px;}
+.signin-reward span{font-size:13px;color:var(--muted);}
+.signin-info{font-size:12px;line-height:1.8;color:var(--muted);max-width:320px;}
+.signin-submit{min-height:44px;width:100%;max-width:300px;}
+.signin-status{min-height:20px;font-size:12px;color:var(--muted);}
+.signin-invite{font-size:12px;color:var(--muted);line-height:1.7;text-align:left;}
+.signin-invite a{color:var(--ink);}
+.signin-summary .card-row{align-items:center;}
+.signin-summary #signin-balance{font-size:22px;font-family:Manrope,sans-serif;font-weight:700;font-variant-numeric:tabular-nums;}
+.signin-summary .settings-row{margin-top:12px;}
