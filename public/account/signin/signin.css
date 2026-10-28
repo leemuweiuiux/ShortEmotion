@@ -1,16 +1,105 @@
-/* Dedicated sign-in screen, consistent with account cards and existing form controls. */
-.signin-page{display:grid;gap:12px;}
-.signin-card{display:grid;gap:14px;text-align:center;justify-items:center;padding:28px 20px;}
-.signin-eyebrow{font-size:12px;color:var(--muted);}
-.signin-card h1{font-size:20px;font-weight:600;line-height:1.4;margin:0;}
-.signin-reward{display:flex;align-items:baseline;gap:6px;color:var(--ink);}
-.signin-reward strong{font-family:Manrope,sans-serif;font-size:54px;line-height:1.2;letter-spacing:-2px;}
-.signin-reward span{font-size:13px;color:var(--muted);}
-.signin-info{font-size:12px;line-height:1.8;color:var(--muted);max-width:320px;}
-.signin-submit{min-height:44px;width:100%;max-width:300px;}
-.signin-status{min-height:20px;font-size:12px;color:var(--muted);}
-.signin-invite{font-size:12px;color:var(--muted);line-height:1.7;text-align:left;}
-.signin-invite a{color:var(--ink);}
-.signin-summary .card-row{align-items:center;}
-.signin-summary #signin-balance{font-size:22px;font-family:Manrope,sans-serif;font-weight:700;font-variant-numeric:tabular-nums;}
-.signin-summary .settings-row{margin-top:12px;}
+/* 每日签到 /account/signin：沿用个人中心的直角卡片与 Manrope 数字，签到色用品牌红。
+   颜色变量：签到格填色 --sign（白字对比 ≥ 4.5:1）、提示文字 --sign-text；深色模式另设。 */
+.signin-page {
+  --sign: #d92d0b;
+  --on-sign: #ffffff;
+  --sign-text: #c42a0a;
+  --sign-soft: rgba(255, 64, 21, 0.08);
+  --sign-tint: rgba(217, 45, 11, 0.12);
+}
+:root[data-theme="dark"] .signin-page {
+  --sign: #ff5a33;
+  --on-sign: #0f1115;
+  --sign-text: #ff7a59;
+  --sign-soft: rgba(255, 90, 51, 0.12);
+  --sign-tint: rgba(255, 90, 51, 0.2);
+}
+.signin-page h2 { margin: 0; }
+
+/* 首屏：连签天数 + 本周 + 签到按钮 */
+.signin-hero { gap: 18px; padding: 22px 18px 18px; }
+.signin-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.signin-label { margin: 0; color: var(--muted); font-size: 13px; }
+.signin-streak { display: flex; align-items: baseline; gap: 6px; margin: 4px 0 0; }
+.signin-streak strong { color: var(--heat, #ff4015); font-family: "Manrope", sans-serif; font-size: 56px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.signin-streak strong.is-zero { color: var(--ink); }
+.signin-streak span { font-size: 16px; font-weight: 600; }
+.signin-balance { display: grid; justify-items: end; gap: 2px; padding: 6px 0 6px 12px; color: var(--ink); text-decoration: none; }
+.signin-balance span { color: var(--muted); font-size: 12px; }
+.signin-balance b { font-family: "Manrope", sans-serif; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.signin-balance b::after { content: " ›"; color: var(--muted); font-weight: 500; }
+.signin-balance:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.signin-hint { margin: -6px 0 0; font-size: 15px; font-weight: 600; line-height: 1.5; }
+
+.signin-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin: 0; padding: 0; list-style: none; }
+.week-cell { display: grid; justify-items: center; gap: 6px; }
+.week-day, .week-date { color: var(--muted); font-size: 12px; line-height: 1; }
+.week-box { display: grid; place-items: center; width: 100%; max-width: 44px; aspect-ratio: 1; border: 1px solid transparent; background: var(--panel); color: var(--muted); font-family: "Manrope", sans-serif; font-size: 13px; font-weight: 700; }
+.week-box svg { width: 20px; height: 20px; }
+.week-cell.is-signed .week-box { border-color: var(--sign); background: var(--sign); color: var(--on-sign); }
+.week-cell.is-today .week-box { border: 2px dashed var(--sign); background: var(--sign-soft); color: var(--sign-text); }
+.week-cell.is-today .week-date { color: var(--sign-text); font-weight: 600; }
+.week-cell.is-missed .week-box { border-color: var(--border); background: transparent; }
+
+.signin-submit { width: 100%; min-height: 48px; font-size: 16px; }
+.signin-submit.is-done, .signin-submit.is-done:disabled { border-color: var(--panel); background: var(--panel); color: var(--muted); opacity: 1; }
+.signin-status { min-height: 18px; margin: -8px 0 0; color: var(--muted); font-size: 12px; text-align: center; }
+.signin-invite { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.signin-invite a { color: var(--ink); }
+
+/* 月历 */
+.signin-calendar { gap: 12px; }
+.calendar-head { display: flex; align-items: center; gap: 8px; }
+.calendar-head h2 { font-size: 16px; font-weight: 600; }
+.calendar-count { margin-right: auto; color: var(--muted); font-size: 12px; }
+.calendar-nav { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--ink); cursor: pointer; }
+.calendar-nav svg { width: 16px; height: 16px; }
+.calendar-nav:disabled { color: var(--border); cursor: default; }
+.calendar-nav:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.calendar-weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin: 0; padding: 0; list-style: none; }
+.calendar-weekdays li { color: var(--muted); font-size: 12px; text-align: center; }
+.calendar-grid li { display: grid; place-items: center; aspect-ratio: 1; border: 1px solid transparent; color: var(--ink); font-family: "Manrope", sans-serif; font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.calendar-grid li.is-signed { position: relative; background: var(--sign-tint); color: var(--sign-text); font-weight: 700; }
+.calendar-grid li.is-signed::after { content: ""; position: absolute; bottom: 5px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--sign); }
+.calendar-grid li.is-missed { background: var(--panel); color: var(--muted); }
+.calendar-grid li.is-future { color: var(--muted); }
+.calendar-grid li.is-today { border: 2px dashed var(--sign); background: var(--sign-soft); color: var(--sign-text); font-weight: 700; }
+.calendar-grid li.is-current.is-signed { border: 2px solid var(--sign); }
+.calendar-legend { display: flex; flex-wrap: wrap; gap: 16px; margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: 12px; }
+.calendar-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.calendar-legend i { width: 10px; height: 10px; border: 1px solid transparent; }
+.calendar-legend i.is-signed { background: var(--sign-tint); border-color: var(--sign); }
+.calendar-legend i.is-missed { background: var(--panel); border-color: var(--border); }
+.calendar-legend i.is-today { border: 1.5px dashed var(--sign); }
+
+/* 统计 */
+.signin-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; padding: 16px 0; }
+.signin-stats > div { display: grid; grid-template-columns: auto 1fr; align-items: baseline; column-gap: 4px; row-gap: 6px; padding: 0 16px; border-left: 1px solid var(--border); }
+.signin-stats > div:first-child { border-left: 0; }
+.signin-stats span { grid-column: 1 / -1; color: var(--muted); font-size: 12px; }
+.signin-stats b { font-family: "Manrope", sans-serif; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.signin-stats small { color: var(--muted); font-size: 12px; }
+
+/* 签到成就（只记录） */
+.signin-note { color: var(--muted); font-size: 12px; }
+.badge-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.badge { display: grid; justify-items: center; gap: 6px; text-align: center; }
+.badge-mark { display: grid; place-items: center; width: 48px; height: 48px; border: 2px solid var(--border); color: var(--muted); font-family: "Manrope", sans-serif; font-size: 17px; font-weight: 800; }
+.badge.is-done .badge-mark { border-color: var(--sign); background: var(--sign); color: var(--on-sign); }
+.badge b { font-size: 12px; font-weight: 600; }
+.badge small { color: var(--muted); font-family: "Manrope", sans-serif; font-size: 11px; }
+.badge-bar { position: relative; width: 48px; height: 3px; background: var(--panel); overflow: hidden; }
+.badge-bar::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--progress, 0%); background: var(--sign); }
+.badge.is-done .badge-bar { display: none; }
+
+/* 积分用途 */
+.signin-uses { gap: 4px; }
+.uses-list { display: grid; }
+.use-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; border-top: 1px solid var(--border); color: var(--ink); text-decoration: none; }
+.use-row:first-child { border-top: 0; }
+.use-row span { display: grid; gap: 2px; }
+.use-row b { font-size: 15px; font-weight: 500; }
+.use-row small { color: var(--muted); font-size: 12px; }
+.use-row em { color: var(--muted); font-size: 13px; font-style: normal; white-space: nowrap; }
+.use-row em::after { content: " ›"; }
+.use-row:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }

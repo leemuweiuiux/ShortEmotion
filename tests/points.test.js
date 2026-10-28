@@ -127,6 +127,16 @@ describe("积分：签到与流水", () => {
     expect((await call(authApi, { query: { action: "points", before: "2" } })).body.history.map((row) => row.kind)).toEqual(["signup"]);
   });
 
+  it("签到日历：数据库函数未建时翻流水，按北京时间返回签到日与价格", async () => {
+    await call(authApi, { method: "POST", query: { action: "signin" }, body: {} });
+    ledger.push({ id: ledger.length + 1, kind: "signin", delta: 10, balance_after: 70, created_at: "2026-10-18T17:00:00Z" }); // 北京时间 10-19 01:00
+    const res = await call(authApi, { query: { action: "signin-calendar" } });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({ today: "2026-10-20", complete: true, costs: { signin: 5, unlock: 10, analysis: 10, refresh: 5 } });
+    expect(res.body.days.map((row) => row.day).sort()).toEqual(["2026-10-19", "2026-10-20"]);
+    expect((await call(authApi, { query: { action: "signin-calendar" }, cookie: "" })).statusCode).toBe(401);
+  });
+
   it("未登录不能看积分", async () => {
     expect((await call(authApi, { query: { action: "points" }, cookie: "" })).statusCode).toBe(401);
   });
