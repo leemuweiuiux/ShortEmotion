@@ -73,29 +73,8 @@ async function loadPoints() {
   }
 }
 
-signinButton.addEventListener("click", async () => {
-  signinButton.disabled = true;
-  try {
-    const { response, payload } = await request("/api/auth?action=signin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ timezone: TIMEZONE })
-    });
-    if (!response.ok) throw new Error(payload.error || "签到失败，请稍后再试");
-    balance = payload.balance;
-    updateNavPoints(payload);
-    renderPoints(true);
-    toast(!payload.ok ? "今天已经签到过了" : payload.inviteBonus ? `签到成功 +${payload.delta || 5}，邀请奖励 +${payload.inviteBonus}` : `签到成功 +${payload.delta || 5}`);
-    invitePending = false;
-    $("#invite-pending").hidden = true;
-    renderAnalysisHint();
-    if (anomalyData?.locked) renderLocked();
-    if (limitupData?.locked) renderLimitUpLocked();
-  } catch (error) {
-    signinButton.disabled = false;
-    toast(error.message, true);
-  }
-});
+// All sign-in actions share the dedicated page. No credit is awarded on navigation.
+signinButton.addEventListener("click", () => { location.assign("/account/signin"); });
 
 // ── 2. 个股技术分析 ──
 const form = $("#ta-form");
