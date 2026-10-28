@@ -105,7 +105,14 @@ function validateCall(serverType, toolName, params) {
   const multiCodeTool = serverType === "index_data" && toolName === "get_index_price_indicators";
   if (typeof params.windcode === "string" && params.windcode.includes(",") && !multiCodeTool) errors.push("字段 'windcode' 只允许单个标的");
   for (const key of ["begin_date", "end_date", "beginDate", "endDate", "date", "tradeDate"]) {
-    if (key in params && typeof params[key] === "string" && !/^\d{8}$/.test(params[key])) errors.push(`字段 '${key}' 日期格式错误，要求 yyyyMMdd`);
+    if (key in params && typeof params[key] === "string" && !/^(?:\d{8}|\d{4}-\d{2}-\d{2})$/.test(params[key])) {
+      errors.push(`字段 '${key}' 日期格式错误，要求 yyyy-MM-dd 或兼容旧 yyyyMMdd`);
+    }
+  }
+  for (const key of ["begin", "end"]) {
+    if (key in params && (typeof params[key] !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(params[key]))) {
+      errors.push(`字段 '${key}' 日期格式错误，要求 yyyy-MM-dd`);
+    }
   }
   if (errors.length) throw new WindError("PARAM_VALIDATION_ERROR", errors.join("；"));
 }
