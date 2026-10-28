@@ -27,7 +27,8 @@ if (nav) {
       location.assign(res.ok && (data.user || data.enabled===false) ? '/home' : '/about');
     }catch{ location.assign('/about'); }
   });
-  if(back){back.remove();} // logo is the global return entry
+  if(back){
+    back.remove();\n    const main=$('main');\n    if(main){ back.classList.add('global-page-back'); main.prepend(back); }\n  } // Preserve secondary-page return action outside the shared five-area header
   let title=$('.nav-title, .subnav-title',nav);
   if(!title){title=document.createElement('div');title.className='nav-title';logo.after(title);}
   title.classList.add('global-header-title');
