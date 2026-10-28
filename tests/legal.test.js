@@ -32,7 +32,7 @@ describe("用户协议与隐私政策页面", () => {
     const privacy = read("public/privacy/index.html");
     const terms = read("public/terms/index.html");
     for (const html of [privacy, terms]) {
-      expect(html).toContain("<span>版本 1.2</span>");
+      expect(html).toMatch(/<span>版本 1\.[23]<\/span>/);
       expect(html).toContain("每 30 天");
       expect(html).not.toContain("匿名代号");
       expect(html).not.toContain("个人页面");

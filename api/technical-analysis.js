@@ -1,3 +1,4 @@
+import { withUsage } from "./_lib/usage.js";
 // 个股技术分析 — 页面接口
 //
 // POST /api/technical-analysis   body: { "q": "603936" }（六位代码或准确简称）
@@ -47,7 +48,7 @@ function send(res, status, payload) {
   res.status(status).json(payload);
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   let session;
   try {
     session = await requireSession(req, res);
@@ -205,3 +206,5 @@ export default async function handler(req, res) {
     });
   }
 }
+
+export default withUsage("technicalanalysis", handler);

@@ -116,3 +116,6 @@
 .admin-confirm div { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
 .admin-confirm dt { color: var(--muted); }
 .admin-confirm dd { margin: 0; font-weight: 600; text-align: right; word-break: break-all; }
+
+.usage-table th small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; }
+.usage-table td:last-child { min-width: 180px; max-width: 240px; white-space: normal; line-height: 1.6; }

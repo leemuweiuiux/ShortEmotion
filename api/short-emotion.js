@@ -1,3 +1,4 @@
+import { withUsage } from "./_lib/usage.js";
 // 短线情绪工作台 — 页面接口（A股）
 //
 // GET  /api/short-emotion?market=cn&resource=summary
@@ -131,7 +132,7 @@ function fail(res, error) {
   res.status(notReady ? 503 : error?.statusCode || 500).json({ error: error instanceof Error ? error.message : String(error), code });
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   let market;
   try {
     market = normalizeMarket(req.query?.market);
@@ -280,3 +281,5 @@ export default async function handler(req, res) {
     fail(res, error);
   }
 }
+
+export default withUsage("shortemotion", handler);
