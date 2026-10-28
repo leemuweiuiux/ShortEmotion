@@ -9,7 +9,7 @@ import { updateNavPoints } from "/shared/nav-points.js?v=1";
 //   5. 资金流向：今日累计净流入曲线，流入/流出各前三；进入 /sectorflow 查看完整周期，不扣积分。
 //   6. 涨停情绪：涨停、跌停、最高板、晋级率 4 个数字免费；涨停天梯须解锁（−10 积分，12 小时，与 /limitup 整页共用），
 //      解锁后按板高列出个股。与题材异动的解锁分开计算。
-import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderRecent, renderLatest } from "/shared/nav-account.js?v=4";
+import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderLatest } from "/shared/nav-account.js?v=4";
 import { mountFundFlow } from "/shared/fund-flow.js?v=6";
 import { mountInviteEntry } from "/shared/invite-entry.js?v=3";
 
@@ -83,17 +83,6 @@ const input = $("#ta-input");
 const runButton = $("#ta-run");
 const hint = $("#ta-hint");
 let analysis = { configured: true, cost: 10 };
-let personalRecent = [];
-const recent = $("#ta-recent");
-input.addEventListener("focus", () => renderRecent(recent, personalRecent));
-input.addEventListener("click", () => renderRecent(recent, personalRecent));
-form.addEventListener("focusout", (event) => {
-  if (!form.contains(event.relatedTarget)) recent.hidden = true;
-});
-input.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") recent.hidden = true;
-});
-
 function renderAnalysisHint() {
   runButton.disabled = !analysis.configured;
   hint.textContent = !analysis.configured ? "*个股分析暂未开通。" : unlimited ? "*不限额账号，分析不扣积分。" : `*首次查询或更新需要 ${analysis.cost} 积分`;
@@ -101,9 +90,6 @@ function renderAnalysisHint() {
 
 startAnalysisRefresh(() => readAnalysisConfig({ includeLatest: true }).then((config) => {
   analysis = config;
-  personalRecent = config.recent;
-  renderRecent(recent, personalRecent); // 个人历史仍打开本人的已保存结果，不扣分。
-  recent.hidden = document.activeElement !== input || recent.hidden;
   renderLatest($("#ta-latest"), config.latest, (row) => {
     if (row.canView) {
       location.href = `/technicalanalysis?view=${encodeURIComponent(row.code)}`;
