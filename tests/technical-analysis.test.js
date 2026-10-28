@@ -86,7 +86,7 @@ describe("盘前数据容错", () => {
     expect(result.opportunityScore).toBeNull();
     expect(result.rr).toBe("—");
     expect(result.dataWarnings.join(" ")).toContain("胜率");
-    expect(result.referenceDate).toMatch(/^\\d{4}-\\d{2}-\\d{2}$/);
+    expect(result.referenceDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
 
