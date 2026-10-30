@@ -226,3 +226,32 @@ describe("仓库", () => {
     expect(calls.at(-1)).toBe("https://api.github.com/repos/leemuweiuiux/ShortEmotion/actions/workflows/short-emotion.yml/dispatches");
   });
 });
+
+describe("设计 Demo 子网域 demo.lfjmwl.com", () => {
+  const DEMO_HOST = { type: "host", value: "demo.lfjmwl.com" };
+  const onDemo = (rule) => (rule.has || []).some((h) => h.type === DEMO_HOST.type && h.value === DEMO_HOST.value);
+
+  it("主站的 / → /about 不作用在 demo 网域；demo 网域的 / 由 middleware 送到 /like", async () => {
+    const home = vercel.redirects.find((r) => r.source === "/");
+    expect(home.destination).toBe("/about");
+    expect(home.missing).toEqual([DEMO_HOST]);
+    const { default: middleware } = await import("../middleware.js");
+    const res = await middleware(new Request("https://demo.lfjmwl.com/"));
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe("/like");
+  });
+
+  it("demo 网域的一层路径改写到 public/demo/<名称>/index.html，且排在主站改写之前", () => {
+    const demo = vercel.rewrites.filter(onDemo);
+    expect(demo.map((r) => r.source)).toEqual(["/:name", "/:name/"]);
+    for (const rule of demo) expect(rule.destination).toBe("/demo/:name/index.html");
+    expect(vercel.rewrites.slice(0, demo.length)).toEqual(demo);
+  });
+
+  it("点赞反馈 Demo（手机版）是完整的独立页面", () => {
+    const html = readFileSync(resolve(root, "public/demo/like/index.html"), "utf8");
+    expect(html.startsWith("<!doctype html>")).toBe(true);
+    expect(html).toContain("<title>點讚反饋 Demo</title>");
+    expect(html).toContain('<meta name="robots" content="noindex">');
+  });
+});

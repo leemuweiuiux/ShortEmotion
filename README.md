@@ -117,6 +117,16 @@ Supabase Auth                     寄送與驗證郵箱驗證碼（經 Resend �
   流水只記類型（註冊贈送／簽到／刷新／解鎖異動／退回），永久保留。營運概況：`select * from points_overview;`
 - 個人資料頁 `/account` 顯示餘額、簽到按鈕與積分記錄。
 
+## 設計 Demo 子網域（demo.lfjmwl.com）
+
+同一個 Vercel 專案順便提供設計 Demo，和看板互不影響：
+
+- 頁面放在 `public/demo/<名稱>/index.html`，網址是 `https://demo.lfjmwl.com/<名稱>`（`vercel.json` 開頭兩條帶 `has: host` 的改寫）。
+- `demo.lfjmwl.com/` 由 `middleware.js` 送到 `/like`（點讚反饋 Demo，手機版：單擊／雙擊／連擊 × 顏色／動畫／文字共 9 種條件，底部淺色按鈕切換與重置；網址後加 `#double-anim` 等可直接打開某個條件）。
+- 主站 `/ → /about` 的跳轉加了 `missing: host`，不作用在 demo 網域；demo 網域上看板相關網址照常需要登入。
+- 本地預覽：`npm run dev` 後打開 http://localhost:3000/demo/like/index.html 。
+- 一次性設定：Vercel 專案 → Settings → Domains 加入 `demo.lfjmwl.com`；若 lfjmwl.com 的 DNS 不在 Vercel，到 DNS 服務商加 `CNAME demo → cname.vercel-dns.com`。
+
 ## 部署設定（只需做一次）
 
 1. **GitHub 倉庫 Secret**：Settings → Secrets and variables → Actions → 新增 `WIND_API_KEY`。

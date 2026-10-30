@@ -1,7 +1,8 @@
 // Vercel Routing Middleware：在页面送出前判断登录状态（看板只给登录的人看）。
 //
 //   /                  已登录 → /home（首页：个股技术分析 + 今日短线情绪）；未登录 → /about（介绍页）
-//   /login             已登录 → 直接去 next（默认 /home）
+//                      设计 Demo 子网域 demo.lfjmwl.com 的 / → /like（点赞反馈原型，见 vercel.json 的 demo 改写）
+//   /login            已登录 → 直接去 next（默认 /home）
 //   /account/...       个人页面（及编辑个人信息、积分流水），需登录（未登录 → /login?next=原网址）
 //   /admin/...         管理后台：只给管理员名单里的人（数据库 admin_me 检查）；未登录或不是管理员 → 与不存在的网址一样（404）
 //   /home、/technicalanalysis、/sectorflow、/limitup、/shortemotion/...
@@ -16,6 +17,10 @@ import { authConfig, resolveSession, safeNext, isSecureRequest, seenCookieFor, r
 export const config = {
   matcher: ["/", "/login", "/login/", "/home", "/home/", "/kandian", "/kandian/", "/kandian/:path*", "/technicalanalysis", "/technicalanalysis/", "/sectorflow", "/sectorflow/", "/limitup", "/limitup/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]
 };
+
+/** 设计 Demo 子网域（静态页放在 public/demo/<名称>/index.html，由 vercel.json 改写）。 */
+const DEMO_HOST = "demo.lfjmwl.com";
+const DEMO_HOME = "/like";
 
 function redirect(location, setCookies = []) {
   const headers = new Headers({ Location: location, "Cache-Control": "no-store" });
@@ -38,6 +43,10 @@ function proceed(setCookies = []) {
 export default async function middleware(request) {
   const url = new URL(request.url);
   const path = url.pathname;
+
+  // 设计 Demo 子网域：只接管根目录，其余路径照常经过下面的登录判断
+  if (url.hostname === DEMO_HOST && path === "/") return redirect(DEMO_HOME);
+
   const settings = authConfig();
 
   if (path === "/admin" || path.startsWith("/admin/")) {
