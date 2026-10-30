@@ -1,7 +1,6 @@
 import { startAnalysisRefresh } from "./analysis-refresh.js?v=1";
 import { updateNavPoints } from "/shared/nav-points.js?v=2";
 // 首页 /home（登录后打开 / 会到这里），都只读现有数据，不调用 Wind：
-//   1. 我的积分：余额 + 签到 +5（注册当天还没填邀请码的新用户，先在这里显示「填写邀请码」）
 //   2. 个股技术分析：输入股票按「开始分析」→ 跳到 /technicalanalysis 并由那边发起分析（扣 10 积分）
 //   3. 今日短线情绪：与看板「A股短线情绪」卡同款（姿态、分数、阶段与说明、六个维度），
 //      下面再加市场概况（全A涨跌幅、成交额、涨跌家数、涨跌停）与行情时间，点预览或标题进入看板
@@ -11,7 +10,6 @@ import { updateNavPoints } from "/shared/nav-points.js?v=2";
 //      解锁后按板高列出个股。与题材异动的解锁分开计算。
 import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderLatest } from "/shared/nav-account.js?v=4";
 import { mountFundFlow } from "/shared/fund-flow.js?v=7";
-import { mountInviteEntry } from "/shared/invite-entry.js?v=4";
 
 initAccountMenu();
 
@@ -26,56 +24,18 @@ async function request(url, options = {}) {
   return { response, payload };
 }
 
-// ── 1. 我的积分 ──
+// 读取余额供首页分析与解锁使用；积分与签到入口由顶部导航提供。
 let balance = null;
 let unlimited = false;
-let invitePending = false; // 已绑定邀请、还没第一次签到：签到 +55
-const signinButton = $("#signin");
-
-// 注册 1 天内、还没签到、还没绑定邀请：在签到的位置先显示「填写邀请码」
-const inviteEntry = mountInviteEntry($("#invite-entry"), {
-  onRedeemed: () => {
-    toast("已接受邀请：完成第一次签到，双方各得 50 积分");
-    signinButton.hidden = false;
-    loadPoints();
-  },
-  onSkip: () => {
-    signinButton.hidden = false;
-    signinButton.click();
-  }
-});
-
-function renderPoints(signedToday) {
-  const balanceText = $("#points-balance");
-  if (!balanceText) return; // 登录关闭（本地预览）时积分卡已移除
-  balanceText.textContent = unlimited ? "不限额" : Number.isFinite(Number(balance)) ? balance : "—";
-  if (signedToday != null) {
-    signinButton.disabled = Boolean(signedToday);
-    signinButton.textContent = signedToday ? "今日已签到" : invitePending ? "签到 +55" : "签到 +5";
-  }
-}
-
 async function loadPoints() {
   try {
     const { response, payload } = await request(`/api/auth?action=points&tz=${encodeURIComponent(TIMEZONE)}`);
-    if (response.status === 404) return $("#points-card").remove(); // 登录未开启（本地预览）
-    if (!response.ok) throw new Error(payload.error);
+    if (!response.ok) return;
     balance = payload.balance;
-    updateNavPoints(payload);
     unlimited = Boolean(payload.unlimited);
-    invitePending = Boolean(payload.invitePending) && !payload.signedToday;
-    renderPoints(payload.signedToday);
-    $("#invite-pending").hidden = !invitePending; // 受邀的新用户：第一次签到双方各 +50
-    const showEntry = Boolean(payload.inviteEligible) && !payload.signedToday;
-    inviteEntry.show(showEntry);
-    signinButton.hidden = showEntry;
-  } catch {
-    $("#points-balance").textContent = "—";
-  }
+    updateNavPoints(payload);
+  } catch {}
 }
-
-// All sign-in actions share the dedicated page. No credit is awarded on navigation.
-signinButton.addEventListener("click", () => { location.assign("/account/signin"); });
 
 // ── 2. 个股技术分析 ──
 const form = $("#ta-form");

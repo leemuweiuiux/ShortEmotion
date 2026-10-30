@@ -25,11 +25,7 @@
 .home-time { min-width: 0; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 
 /* 积分与签到 */
-.home-points-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.home-invite-pending { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
-.home-invite-pending em { color: #ff4015; font-style: normal; font-weight: 700; }
 
-.home-points #points-balance { font-family: "Manrope", sans-serif; font-size: 26px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
 /* 市场概况（情绪卡内） */
 .home-market { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .home-market div { min-width: 0; padding: 10px; background: var(--panel); }
@@ -60,7 +56,6 @@
 .home-limitup-ladder p em { color: var(--muted); font-size: 12px; font-style: normal; }
 
 /* 积分卡里的「填写邀请码」（/shared/invite-entry.js）：盖住签到按钮，整行显示 */
-.home-points .invite-entry { flex-basis: 100%; }
 .invite-entry { display: grid; gap: 8px; }
 .invite-entry[hidden] { display: none; }
 .invite-entry-title { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
@@ -70,7 +65,6 @@
 .invite-entry-error[hidden] { display: none; }
 .invite-entry-skip { justify-self: start; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
 .invite-entry-skip:hover { color: var(--ink); }
-.home-points #signin[hidden] { display: none; }
 
 /* 资金曲线样式由 shared/fund-flow.css 统一提供。 */
 

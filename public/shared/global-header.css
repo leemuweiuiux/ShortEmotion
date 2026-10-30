@@ -5,7 +5,7 @@ nav.global-header .nav-logo img, nav.global-header .brand .brand-logo {width:28p
 nav.global-header .brand-text {display:none;}
 nav.global-header .global-header-title {margin:0!important;min-width:0;font-size:20px;font-weight:500;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 nav.global-header .global-header-space {flex:1;min-width:4px;}
-nav.global-header .global-header-signin {flex:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:5px 7px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--ink);font:inherit;font-size:12px;white-space:nowrap;cursor:pointer;}
+nav.global-header .global-header-signin {flex:none;display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:34px;box-sizing:border-box;padding:6px 12px;border:1px solid var(--ink);border-radius:999px;background:var(--ink);color:var(--surface);font:inherit;font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;cursor:pointer;}
 nav.global-header .global-header-signin svg {width:16px;height:16px;}
 nav.global-header .global-header-signin:disabled {opacity:.56;cursor:default;}
 nav.global-header .global-header-points {display:inline-flex;flex:none;align-items:center;gap:4px;color:var(--ink);text-decoration:none;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap;}
@@ -21,7 +21,7 @@ nav.global-header .global-header-lang {margin:0 3px 0 0;font-size:11px;}
 .global-header-menu a,.global-header-menu button {display:block;padding:12px 15px;background:transparent;border:0;text-align:left;color:var(--ink);font:inherit;font-size:13px;text-decoration:none;cursor:pointer;}
 .global-header-menu a:hover,.global-header-menu button:hover{background:var(--panel);}
 .global-header-tip{position:fixed;z-index:1000;bottom:24px;left:50%;transform:translateX(-50%);padding:10px 18px;background:var(--ink);color:var(--surface);font-size:13px;box-shadow:0 4px 16px #0002;}
-@media(max-width:480px){nav.global-header {gap:8px!important;padding-left:12px;padding-right:12px;}nav.global-header .global-header-title{font-size:18px;}nav.global-header .global-header-signin{border:0;padding:4px;}nav.global-header .global-header-signin span{display:none;}nav.global-header .global-header-points{gap:2px;font-size:12px;}nav.global-header .global-header-points svg{width:16px;height:16px;}nav.global-header .global-header-lang {font-size:10px;}}
+@media(max-width:480px){nav.global-header {gap:8px!important;padding-left:12px;padding-right:12px;}nav.global-header .global-header-title{font-size:18px;}nav.global-header .global-header-signin{padding:6px 10px;font-size:12px;}nav.global-header .global-header-signin svg{display:none;}nav.global-header .global-header-points{gap:2px;font-size:12px;}nav.global-header .global-header-points svg{width:16px;height:16px;}nav.global-header .global-header-lang {font-size:10px;}}
 
 /* On secondary and tertiary routes, retain the existing back arrow inside the top bar. */
 nav.global-header .global-header-back {display:inline-flex;align-items:center;justify-content:center;flex:0 0 32px;width:32px;height:32px;margin:0!important;padding:0;color:var(--ink);text-decoration:none;}
@@ -32,4 +32,5 @@ nav.global-header.global-header-secondary .global-header-title {font-size:20px;}
 /* Preserve each page family's original header behavior: board sticky, account fixed. */
 nav.global-header.nav {position:sticky;top:0;z-index:10;}
 nav.global-header.subnav {position:fixed;inset:0 0 auto;z-index:10;height:calc(64px + env(safe-area-inset-top, 0px));padding-top:env(safe-area-inset-top, 0px);}
-nav.global-header .global-header-signin.is-signed {color:var(--muted);}
+nav.global-header .global-header-signin.is-signed {border-color:var(--border);background:var(--panel);color:var(--muted);}
+nav.global-header .global-header-signin:focus-visible {outline:2px solid var(--ink);outline-offset:3px;}
