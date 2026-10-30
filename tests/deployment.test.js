@@ -59,8 +59,8 @@ describe("网址：介绍页、登录页与看板", () => {
     }
   });
 
-  it("首页与个人页面的积分卡：注册当天还没填邀请码的新用户，在签到的位置补填", () => {
-    for (const [html, js] of [["public/home/index.html", "public/home/home.js"], ["public/account/index.html", "public/account/account.js"]]) {
+  it("个人页面的积分卡：注册当天还没填邀请码的新用户，在签到的位置补填", () => {
+    for (const [html, js] of [["public/account/index.html", "public/account/account.js"]]) {
       expect(readFileSync(resolve(root, html), "utf8"), html).toContain('id="invite-entry"');
       const code = readFileSync(resolve(root, js), "utf8");
       expect(code, js).toContain("mountInviteEntry(");

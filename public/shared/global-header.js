@@ -77,7 +77,7 @@ if (nav) {
   function renderSignin(){
     signin.hidden=secondary||path==='/login'||!state.authenticated||state.unlimited;
     signin.classList.toggle('is-signed',Boolean(state.signedToday));
-    signin.querySelector('span').textContent=state.signedToday?'已签到':'签到 +5';
+    signin.querySelector('span').textContent=state.signedToday?'已签到':'签到';
     signin.setAttribute('aria-label',state.signedToday?'查看每日签到（今日已签到）':'进入每日签到页面');
     points.hidden=secondary||path==='/login'||!state.authenticated;
     account.setAttribute('aria-label',state.authenticated?'个人中心':'登录');
