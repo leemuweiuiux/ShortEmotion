@@ -39,8 +39,8 @@ a { color: inherit; }
 
 /* ── 顶栏（同 TWSVP 首页：Logo + 名称 + 标语，右侧简繁切换） ── */
 .nav {
-  position: fixed;
-  inset: 0 0 auto;
+  position: sticky; /* 与共用顶栏一致：顶栏占位，页面不再预留顶栏高度（否则卡片上方多出一段空白） */
+  top: 0;
   z-index: 10;
   display: flex;
   align-items: center;
@@ -73,7 +73,7 @@ a { color: inherit; }
 .page {
   max-width: 600px;
   margin: 0 auto;
-  padding: calc(var(--nav-height) + env(safe-area-inset-top, 0px) + 16px) 16px calc(var(--drawer-height) + 40px + env(safe-area-inset-bottom, 0px));
+  padding: 16px 16px calc(var(--drawer-height) + 40px + env(safe-area-inset-bottom, 0px));
   display: grid;
   gap: 16px;
 }
