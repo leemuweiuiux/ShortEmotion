@@ -12,7 +12,7 @@
     }
   },
   "redirects": [
-    {"source": "/", "destination": "/about", "permanent": false},
+    {"source": "/", "missing": [{"type": "host", "value": "demo.lfjmwl.com"}], "destination": "/about", "permanent": false},
     {"source": "/shortemotion", "destination": "/shortemotion/cn", "permanent": false},
     {"source": "/shortemotion/", "destination": "/shortemotion/cn", "permanent": false},
     {"source": "/cn", "destination": "/shortemotion/cn", "permanent": false},
@@ -31,6 +31,8 @@
     {"source": "/shortemotion/hk/", "destination": "/shortemotion/cn", "permanent": false}
   ],
   "rewrites": [
+    {"source": "/:name", "has": [{"type": "host", "value": "demo.lfjmwl.com"}], "destination": "/demo/:name/index.html"},
+    {"source": "/:name/", "has": [{"type": "host", "value": "demo.lfjmwl.com"}], "destination": "/demo/:name/index.html"},
     {"source": "/kandian/article", "destination": "/kandian/article.html"},
     {"source": "/about", "destination": "/about/index.html"},
     {"source": "/terms", "destination": "/terms/index.html"},
