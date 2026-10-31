@@ -248,10 +248,11 @@ describe("设计 Demo 子网域 demo.lfjmwl.com", () => {
     expect(vercel.rewrites.slice(0, demo.length)).toEqual(demo);
   });
 
-  it("点赞反馈 Demo（手机版）是完整的独立页面", () => {
+  it("点赞反馈 Demo（手机版，简体）是完整的独立页面", () => {
     const html = readFileSync(resolve(root, "public/demo/like/index.html"), "utf8");
     expect(html.startsWith("<!doctype html>")).toBe(true);
-    expect(html).toContain("<title>點讚反饋 Demo</title>");
+    expect(html).toContain("<html lang=\"zh-Hans\">");
+    expect(html).toContain("<title>点赞反馈 Demo</title>");
     expect(html).toContain('<meta name="robots" content="noindex">');
   });
 });
