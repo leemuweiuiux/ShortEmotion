@@ -1,21 +1,21 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="zh-Hans">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>點讚反饋 Demo</title>
+<title>点赞反馈 Demo</title>
 <link rel="icon" href="/favicon.ico">
 <style>
-/* 基本重置（獨立部署用）：與 Claude Artifact 的外殼一致 */
+/* 基本重置（独立部署用）：与 Claude Artifact 的外壳一致 */
 html { box-sizing: border-box; color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 body { margin: 0; font-size: 14px; }
 img { max-width: 100%; }
 [hidden] { display: none !important; }
 </style>
 <style>
-/* Layout: 手機全螢幕只放一張點讚卡片；底部一顆很淺的按鈕打開條件選單（9 種條件 + 重置）。
-   這頁是測試刺激，固定淺色，不隨系統深色模式改變；唯一的顏色是「讚」 */
+/* Layout: 手机全屏幕只放一张点赞卡片；底部一颗很浅的按钮打开条件菜单（9 种条件 + 重置）。
+   这页是测试刺激，固定浅色，不随系统深色模式改变；唯一的颜色是「赞」 */
 :root {
   --bg: #FAFAFA;
   --card: #ECECEC;
@@ -62,7 +62,7 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
   padding-block: 24px 72px;
 }
 
-/* 卡片：全部是灰色佔位 */
+/* 卡片：全部是灰色占位 */
 .card {
   width: 100%;
   max-width: 400px;
@@ -83,7 +83,7 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
 .ico { width: 26px; height: 26px; display: block; }
 .ico path { fill: none; stroke: var(--icon); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
-/* 讚按鈕：預設線性，點讚後面形 */
+/* 赞按钮：缺省线性，点赞后面形 */
 .like-wrap { position: relative; width: 44px; height: 44px; }
 .like {
   width: 44px; height: 44px; padding: 0; border: 0; border-radius: 12px; background: var(--btn);
@@ -97,7 +97,7 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
 .fb-color .heart { transition: color .12s ease; }
 .fb-color .heart path { transition: fill-opacity .12s ease; }
 
-/* 反饋：動畫 */
+/* 反馈：动画 */
 .heart.pop { animation: pop 1.2s cubic-bezier(.2, .8, .3, 1.2); }
 .heart.pop path { animation: popFill 1.2s ease; }
 @keyframes pop {
@@ -116,7 +116,7 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
   100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1); }
 }
 
-/* 反饋：文字 */
+/* 反馈：文字 */
 .plus {
   position: absolute; left: 50%; bottom: 100%; margin-bottom: 8px;
   color: var(--like); font-size: 38px; font-weight: 800; line-height: 1; white-space: nowrap;
@@ -130,7 +130,7 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
   100% { opacity: 0; transform: translate(-50%, -10px) scale(1); }
 }
 
-/* 底部很淺的選單按鈕 */
+/* 底部很浅的菜单按钮 */
 .menu-btn {
   position: fixed; left: 50%; bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   width: 64px; height: 40px; margin-left: -32px; padding: 0; border: 0; border-radius: 20px;
@@ -141,7 +141,7 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
 .menu-btn:active { background: rgba(0, 0, 0, .04); }
 .menu-btn:focus-visible { outline: 2px solid var(--faint); outline-offset: -2px; }
 
-/* 條件選單（底部抽屜） */
+/* 条件菜单（底部抽屉） */
 .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, .28); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
 .sheet {
   position: fixed; left: 0; right: 0; bottom: 0; margin: 0 auto; max-width: 520px; box-sizing: border-box;
@@ -191,7 +191,7 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
     <div class="media" aria-hidden="true"></div>
     <div class="acts">
       <div class="like-wrap">
-        <button type="button" class="like" id="like" aria-pressed="false" aria-label="讚">
+        <button type="button" class="like" id="like" aria-pressed="false" aria-label="赞">
           <svg class="heart" id="heart" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.6c-.3 0-.6-.1-.8-.3C8.4 18 3 13.6 3 8.9 3 6.2 5.1 4 7.7 4c1.7 0 3.3.9 4.3 2.3C13 4.9 14.6 4 16.3 4 18.9 4 21 6.2 21 8.9c0 4.7-5.4 9.1-8.2 11.4-.2.2-.5.3-.8.3z"></path></svg>
         </button>
         <div class="fx" id="fx" aria-hidden="true"></div>
@@ -206,7 +206,7 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
   </article>
 </main>
 
-<button type="button" class="menu-btn" id="menuBtn" aria-label="切換條件" aria-expanded="false" aria-controls="sheet">
+<button type="button" class="menu-btn" id="menuBtn" aria-label="切换条件" aria-expanded="false" aria-controls="sheet">
   <svg viewBox="0 0 18 18" aria-hidden="true">
     <rect x="1" y="1" width="4" height="4" rx="1"></rect><rect x="7" y="1" width="4" height="4" rx="1"></rect><rect x="13" y="1" width="4" height="4" rx="1"></rect>
     <rect x="1" y="7" width="4" height="4" rx="1"></rect><rect x="7" y="7" width="4" height="4" rx="1"></rect><rect x="13" y="7" width="4" height="4" rx="1"></rect>
@@ -218,23 +218,23 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
 <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
   <div class="grabber" aria-hidden="true"></div>
   <div class="sheet-head">
-    <h2 id="sheetTitle">點讚反饋原型</h2>
-    <span class="cur" id="cur">1 · 單擊 × 顏色</span>
+    <h2 id="sheetTitle">点赞反馈原型</h2>
+    <span class="cur" id="cur">1 · 单击 × 颜色</span>
   </div>
   <div class="matrix">
-    <span></span><span class="ch">顏色</span><span class="ch">動畫</span><span class="ch">文字</span>
-    <span class="rh">單擊</span>
-    <button type="button" class="cell" data-id="single-color" aria-label="1 單擊 × 顏色" aria-pressed="true"><b>1</b><span>顏色</span></button>
-    <button type="button" class="cell" data-id="single-anim" aria-label="2 單擊 × 動畫" aria-pressed="false"><b>2</b><span>動畫</span></button>
-    <button type="button" class="cell" data-id="single-text" aria-label="3 單擊 × 文字" aria-pressed="false"><b>3</b><span>文字</span></button>
-    <span class="rh">雙擊</span>
-    <button type="button" class="cell" data-id="double-color" aria-label="4 雙擊 × 顏色" aria-pressed="false"><b>4</b><span>顏色</span></button>
-    <button type="button" class="cell" data-id="double-anim" aria-label="5 雙擊 × 動畫" aria-pressed="false"><b>5</b><span>動畫</span></button>
-    <button type="button" class="cell" data-id="double-text" aria-label="6 雙擊 × 文字" aria-pressed="false"><b>6</b><span>文字</span></button>
-    <span class="rh">連擊</span>
-    <button type="button" class="cell" data-id="triple-color" aria-label="7 連擊 × 顏色" aria-pressed="false"><b>7</b><span>顏色</span></button>
-    <button type="button" class="cell" data-id="triple-anim" aria-label="8 連擊 × 動畫" aria-pressed="false"><b>8</b><span>動畫</span></button>
-    <button type="button" class="cell" data-id="triple-text" aria-label="9 連擊 × 文字" aria-pressed="false"><b>9</b><span>文字</span></button>
+    <span></span><span class="ch">颜色</span><span class="ch">动画</span><span class="ch">文字</span>
+    <span class="rh">单击</span>
+    <button type="button" class="cell" data-id="single-color" aria-label="1 单击 × 颜色" aria-pressed="true"><b>1</b><span>颜色</span></button>
+    <button type="button" class="cell" data-id="single-anim" aria-label="2 单击 × 动画" aria-pressed="false"><b>2</b><span>动画</span></button>
+    <button type="button" class="cell" data-id="single-text" aria-label="3 单击 × 文字" aria-pressed="false"><b>3</b><span>文字</span></button>
+    <span class="rh">双击</span>
+    <button type="button" class="cell" data-id="double-color" aria-label="4 双击 × 颜色" aria-pressed="false"><b>4</b><span>颜色</span></button>
+    <button type="button" class="cell" data-id="double-anim" aria-label="5 双击 × 动画" aria-pressed="false"><b>5</b><span>动画</span></button>
+    <button type="button" class="cell" data-id="double-text" aria-label="6 双击 × 文字" aria-pressed="false"><b>6</b><span>文字</span></button>
+    <span class="rh">连击</span>
+    <button type="button" class="cell" data-id="triple-color" aria-label="7 连击 × 颜色" aria-pressed="false"><b>7</b><span>颜色</span></button>
+    <button type="button" class="cell" data-id="triple-anim" aria-label="8 连击 × 动画" aria-pressed="false"><b>8</b><span>动画</span></button>
+    <button type="button" class="cell" data-id="triple-text" aria-label="9 连击 × 文字" aria-pressed="false"><b>9</b><span>文字</span></button>
   </div>
   <button type="button" class="reset" id="reset"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8a5 5 0 1 0 1.6-3.7M3 2.5v2.8h2.8"></path></svg>重置</button>
 </section>
@@ -242,14 +242,14 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
 <script>
 (function () {
   var TAPS = { single: 1, double: 2, triple: 3 };
-  var TRIG_ZH = { single: '單擊', double: '雙擊', triple: '連擊' };
-  var FEED_ZH = { color: '顏色', anim: '動畫', text: '文字' };
+  var TRIG_ZH = { single: '单击', double: '双击', triple: '连击' };
+  var FEED_ZH = { color: '颜色', anim: '动画', text: '文字' };
   var ORDER = [
     'single-color', 'single-anim', 'single-text',
     'double-color', 'double-anim', 'double-text',
     'triple-color', 'triple-anim', 'triple-text'
   ];
-  var WIN = 350; // 雙擊、連擊：兩下之間超過這個間隔（ms）就重新計數
+  var WIN = 350; // 双击、连击：两下之间超过这个间隔（ms）就重新计数
   var DOT_COLORS = ['#F0182A', '#F45B7A', '#D9469B', '#C08AE8', '#F5A04A', '#F7B5C5', '#E8323C'];
 
   var $ = function (id) { return document.getElementById(id); };
@@ -260,10 +260,10 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
   var cur = null, need = 1, feed = 'color';
   var liked = false, taps = 0, timer = null;
 
-  // iOS Safari 需要有 touchstart 監聽，:active 樣式才會生效
+  // iOS Safari 需要有 touchstart 监听，:active 样式才会生效
   document.addEventListener('touchstart', function () {}, { passive: true });
 
-  /* ── 條件 ── */
+  /* ── 条件 ── */
   function select(id) {
     if (ORDER.indexOf(id) < 0) id = ORDER[0];
     cur = id;
@@ -292,7 +292,7 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
     fx.innerHTML = '';
   }
 
-  /* ── 反饋 ── */
+  /* ── 反馈 ── */
   function restart(el, cls) {
     el.classList.remove(cls);
     el.getBoundingClientRect();
@@ -328,7 +328,7 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
     fx.appendChild(p);
   }
 
-  // 只點讚、不取消：已讚之後再做手勢不改變狀態（用「重置」回到未讚）
+  // 只点赞、不取消：已赞之后再做手势不改变状态（用「重置」回到未赞）
   function doLike() {
     if (liked) return;
     liked = true;
@@ -338,7 +338,7 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
     else if (feed === 'text') { plusOne(); }
   }
 
-  /* ── 手勢判定：連點次數達到該條件所需次數時立即觸發 ── */
+  /* ── 手势判定：连点次数达到该条件所需次数时立即触发 ── */
   like.addEventListener('click', function () {
     taps += 1;
     clearTimeout(timer);
@@ -350,7 +350,7 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
     }
   });
 
-  /* ── 條件選單 ── */
+  /* ── 条件菜单 ── */
   function openSheet() {
     document.body.classList.add('open');
     menuBtn.setAttribute('aria-expanded', 'true');
