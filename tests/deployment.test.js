@@ -231,14 +231,14 @@ describe("设计 Demo 子网域 demo.lfjmwl.com", () => {
   const DEMO_HOST = { type: "host", value: "demo.lfjmwl.com" };
   const onDemo = (rule) => (rule.has || []).some((h) => h.type === DEMO_HOST.type && h.value === DEMO_HOST.value);
 
-  it("主站的 / → /about 不作用在 demo 网域；demo 网域的 / 由 middleware 送到 /like", async () => {
+  it("主站的 / → /about 不作用在 demo 网域；demo 网域的 / 由 middleware 送到 /study1", async () => {
     const home = vercel.redirects.find((r) => r.source === "/");
     expect(home.destination).toBe("/about");
     expect(home.missing).toEqual([DEMO_HOST]);
     const { default: middleware } = await import("../middleware.js");
     const res = await middleware(new Request("https://demo.lfjmwl.com/"));
     expect(res.status).toBe(307);
-    expect(res.headers.get("location")).toBe("/like");
+    expect(res.headers.get("location")).toBe("/study1");
   });
 
   it("demo 网域的一层路径改写到 public/demo/<名称>/index.html，且排在主站改写之前", () => {
@@ -248,11 +248,32 @@ describe("设计 Demo 子网域 demo.lfjmwl.com", () => {
     expect(vercel.rewrites.slice(0, demo.length)).toEqual(demo);
   });
 
-  it("点赞反馈 Demo（手机版，简体）是完整的独立页面", () => {
-    const html = readFileSync(resolve(root, "public/demo/like/index.html"), "utf8");
+  it("旧网址 /like 在 demo 网域上转到 /study1", () => {
+    const moved = vercel.redirects.filter(onDemo);
+    expect(moved.map((r) => r.source)).toEqual(["/like", "/like/"]);
+    for (const rule of moved) expect(rule.destination).toBe("/study1");
+  });
+
+  it("点赞反馈 Demo（study1，手机版，简体）是完整的独立页面", () => {
+    const html = readFileSync(resolve(root, "public/demo/study1/index.html"), "utf8");
     expect(html.startsWith("<!doctype html>")).toBe(true);
     expect(html).toContain("<html lang=\"zh-Hans\">");
     expect(html).toContain("<title>点赞反馈 Demo</title>");
     expect(html).toContain('<meta name="robots" content="noindex">');
+  });
+
+  it("Study 2 实验页：编号首位决定组别，卡片与反馈沿用 study1，基线组点赞后不变", () => {
+    const html = readFileSync(resolve(root, "public/demo/study2/index.html"), "utf8");
+    const study1 = readFileSync(resolve(root, "public/demo/study1/index.html"), "utf8");
+    expect(html.startsWith("<!doctype html>")).toBe(true);
+    expect(html).toContain('<meta name="robots" content="noindex">');
+    expect(html).toContain("var GROUPS = { '1': 'base', '2': 'color', '3': 'anim', '4': 'text' };");
+    expect(html).toContain("if (feed !== 'base') heart.classList.add('red');");
+    expect(html).toContain("var HOLD_MS = 4000;");
+    // 刺激的关键样式与 study1 逐字相同
+    for (const rule of [".heart.red path { fill-opacity: 1; }", "@keyframes pop {", "animation: plus 2.4s ease forwards;", "var WIN = 350;"]) {
+      expect(study1).toContain(rule);
+      expect(html).toContain(rule);
+    }
   });
 });

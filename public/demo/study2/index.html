@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>点赞研究 Study 2</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+/* 基本重置（独立部署用）：与 study1 一致 */
+html { box-sizing: border-box; color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; font-size: 14px; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<style>
+/* Layout: Study 2 实验流程（方案 A）。受测编号决定组别：1xx 基线、2xx 颜色、3xx 动画、4xx 文字。
+   每人三轮（单击／双击／连击，顺序随机），每轮点赞 1 次；点赞卡片与反馈和 study1 完全相同，
+   基线组点赞后图标不变。固定浅色，不随系统深色模式改变。 */
+:root {
+  --bg: #FAFAFA;
+  --card: #ECECEC;
+  --block: #D6D6D6;
+  --btn: #DCDCDC;
+  --icon: #6E6E6E;
+  --ink: #2A2A2A;
+  --mute: #767676;
+  --like: #F0182A;
+  --line: #E6E6E6;
+  --next: #2A2A2A;
+  --next-fg: #FFFFFF;
+  --err: #B3261E;
+  --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "PingFang TC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  color-scheme: light;
+}
+
+html, body { height: 100%; }
+html { overscroll-behavior: none; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  overflow: hidden;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+
+.view {
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding-left: max(24px, env(safe-area-inset-left, 0px));
+  padding-right: max(24px, env(safe-area-inset-right, 0px));
+  padding-block: 24px 72px;
+  text-align: center;
+}
+.view h1 { margin: 0; font-size: 22px; font-weight: 600; }
+.view p { margin: 0; max-width: 30em; font-size: 17px; line-height: 1.7; }
+.view .small { font-size: 14px; color: var(--mute); }
+.view .left { text-align: left; }
+.round-no { font-size: 14px; color: var(--mute); letter-spacing: .06em; }
+.how { font-size: 24px; font-weight: 600; }
+
+/* 「下一个」：四组完全相同 */
+.next {
+  min-width: 168px; height: 52px; padding: 0 28px; border: 0; border-radius: 26px;
+  background: var(--next); color: var(--next-fg); font-size: 17px; font-weight: 600; cursor: pointer;
+}
+.next:active { transform: scale(.97); }
+.next:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.ghost {
+  height: 44px; padding: 0 20px; border: 1px solid var(--line); border-radius: 22px;
+  background: #FFFFFF; font-size: 15px; cursor: pointer;
+}
+
+/* 编号输入 */
+.id-input {
+  width: 180px; height: 56px; box-sizing: border-box; border: 1px solid var(--block); border-radius: 14px;
+  background: #FFFFFF; text-align: center; font-size: 28px; font-variant-numeric: tabular-nums; letter-spacing: .12em;
+  -webkit-user-select: text; user-select: text;
+}
+.id-input:focus { outline: 2px solid var(--ink); outline-offset: 2px; }
+.err { min-height: 1.5em; font-size: 14px; color: var(--err); }
+.big-id { font-size: 40px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: .08em; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+/* 倒数 */
+.count { font-size: 96px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
+
+/* ── 点赞卡片：与 study1 完全相同 ── */
+.stage {
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px 72px;
+}
+.card {
+  width: 100%;
+  max-width: 400px;
+  box-sizing: border-box;
+  background: var(--card);
+  border-radius: 22px;
+  padding: 16px 16px 84px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.p-head { display: flex; align-items: center; gap: 10px; }
+.avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--block); }
+.name { width: 56px; height: 12px; border-radius: 6px; background: var(--block); }
+.media { aspect-ratio: 258 / 196; max-width: 100%; border-radius: 14px; background: var(--block); }
+.acts { display: flex; justify-content: flex-end; gap: 8px; padding: 6px 2px 0 0; }
+.slot { width: 44px; height: 44px; border-radius: 12px; background: var(--btn); display: grid; place-items: center; }
+.ico { width: 26px; height: 26px; display: block; }
+.ico path { fill: none; stroke: var(--icon); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.like-wrap { position: relative; width: 44px; height: 44px; }
+.like {
+  width: 44px; height: 44px; padding: 0; border: 0; border-radius: 12px; background: var(--btn);
+  display: grid; place-items: center; cursor: pointer; overflow: visible;
+}
+.like:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.heart { width: 26px; height: 26px; display: block; color: var(--icon); overflow: visible; }
+.heart path { fill: currentColor; fill-opacity: 0; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.heart.red { color: var(--like); }
+.heart.red path { fill-opacity: 1; }
+.fb-color .heart { transition: color .12s ease; }
+.fb-color .heart path { transition: fill-opacity .12s ease; }
+
+.heart.pop { animation: pop 1.2s cubic-bezier(.2, .8, .3, 1.2); }
+.heart.pop path { animation: popFill 1.2s ease; }
+@keyframes pop {
+  0%   { transform: scale(1);    color: var(--icon); }
+  22%  { transform: scale(.55);  color: var(--icon); }
+  52%  { transform: scale(1.6);  color: var(--like); }
+  74%  { transform: scale(.9);   color: var(--like); }
+  100% { transform: scale(1);    color: var(--like); }
+}
+@keyframes popFill { 0% { fill-opacity: 0; } 22% { fill-opacity: 0; } 52% { fill-opacity: 1; } 100% { fill-opacity: 1; } }
+.fx { position: absolute; inset: 0; pointer-events: none; }
+.dot { position: absolute; left: 50%; top: 50%; border-radius: 50%; opacity: 0; animation: dot var(--d, 1400ms) cubic-bezier(.15, .7, .3, 1) forwards; }
+@keyframes dot {
+  0%   { opacity: 0; transform: translate(0, 0) scale(.3); }
+  18%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1); }
+}
+.plus {
+  position: absolute; left: 50%; bottom: 100%; margin-bottom: 8px;
+  color: var(--like); font-size: 38px; font-weight: 800; line-height: 1; white-space: nowrap;
+  animation: plus 2.4s ease forwards;
+}
+@keyframes plus {
+  0%   { opacity: 0; transform: translate(-50%, 12px) scale(.6); }
+  12%  { opacity: 1; transform: translate(-50%, -2px) scale(1.15); }
+  22%  { transform: translate(-50%, 0) scale(1); }
+  78%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -10px) scale(1); }
+}
+
+/* 研究者：左上角隐藏区，长按 2 秒跳过本次点赞（手势一直不成功时用） */
+.esc { position: fixed; top: env(safe-area-inset-top, 0px); left: 0; width: 56px; height: 56px; z-index: 5; }
+
+/* 研究者面板 */
+.admin { justify-content: flex-start; overflow-y: auto; -webkit-overflow-scrolling: touch; user-select: text; -webkit-user-select: text; }
+.admin table { border-collapse: collapse; width: 100%; max-width: 560px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.admin th, .admin td { border-bottom: 1px solid var(--line); padding: 6px 4px; text-align: left; }
+.admin th { color: var(--mute); font-weight: 500; }
+.admin th, .admin td { white-space: nowrap; }
+.admin .tbl { width: 100%; max-width: 560px; overflow-x: auto; }
+.admin textarea { width: 100%; max-width: 560px; height: 120px; box-sizing: border-box; font: 11px/1.4 ui-monospace, Menlo, monospace; }
+</style>
+</head>
+<body>
+
+<!-- 1. 输入受测编号 -->
+<section class="view" id="vId">
+  <h1>点赞研究</h1>
+  <p class="small">请输入受测编号</p>
+  <input class="id-input" id="idInput" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" aria-label="受测编号">
+  <div class="err" id="idErr" role="alert"></div>
+  <button type="button" class="next" id="idGo">开始</button>
+</section>
+
+<!-- 2. 确认编号（不显示组别） -->
+<section class="view" id="vConfirm" hidden>
+  <p class="small">受测编号</p>
+  <div class="big-id" id="confirmId"></div>
+  <div class="row">
+    <button type="button" class="ghost" id="confirmBack">返回修改</button>
+    <button type="button" class="next" id="confirmGo">确认开始</button>
+  </div>
+</section>
+
+<!-- 3. 开场 -->
+<section class="view" id="vIntro" hidden>
+  <p class="left" id="introText"></p>
+  <button type="button" class="next" data-next>下一个</button>
+</section>
+
+<!-- 4. 本轮说明 -->
+<section class="view" id="vRound" hidden>
+  <div class="round-no" id="roundNo"></div>
+  <div class="how" id="roundHow"></div>
+  <p id="roundDef"></p>
+  <button type="button" class="next" data-next>下一个</button>
+</section>
+
+<!-- 5. 倒数 3 秒 -->
+<section class="view" id="vCount" hidden>
+  <div class="count" id="countNum" aria-live="assertive">3</div>
+</section>
+
+<!-- 6. 点赞卡片（与 study1 相同） -->
+<main class="stage" id="vCard" hidden>
+  <article class="card" id="card">
+    <div class="p-head" aria-hidden="true"><div class="avatar"></div><div class="name"></div></div>
+    <div class="media" aria-hidden="true"></div>
+    <div class="acts">
+      <div class="like-wrap" id="likeWrap">
+        <button type="button" class="like" id="like" aria-pressed="false" aria-label="赞">
+          <svg class="heart" id="heart" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.6c-.3 0-.6-.1-.8-.3C8.4 18 3 13.6 3 8.9 3 6.2 5.1 4 7.7 4c1.7 0 3.3.9 4.3 2.3C13 4.9 14.6 4 16.3 4 18.9 4 21 6.2 21 8.9c0 4.7-5.4 9.1-8.2 11.4-.2.2-.5.3-.8.3z"></path></svg>
+        </button>
+        <div class="fx" id="fx" aria-hidden="true"></div>
+      </div>
+      <div class="slot" aria-hidden="true">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M20 11.5c0 4.1-3.6 7.5-8 7.5-1.2 0-2.4-.3-3.4-.7L4 19.5l1.2-3.6C4.4 14.7 4 13.2 4 11.5 4 7.4 7.6 4 12 4s8 3.4 8 7.5z"></path></svg>
+      </div>
+      <div class="slot" aria-hidden="true">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M12 3.5v11M8 7.5l4-4 4 4M5.5 11.5v7a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-7"></path></svg>
+      </div>
+    </div>
+  </article>
+  <div class="esc" id="esc" aria-hidden="true"></div>
+</main>
+
+<!-- 7. 点赞成功 4 秒后：清空，只留「下一个」 -->
+<section class="view" id="vNext" hidden>
+  <button type="button" class="next" data-next>下一个</button>
+</section>
+
+<!-- 8. 填写问卷 -->
+<section class="view" id="vPad" hidden>
+  <div class="round-no" id="padNo"></div>
+  <p>请填写问卷，填好后点「下一个」</p>
+  <button type="button" class="next" data-next>下一个</button>
+</section>
+
+<!-- 9. 结束 -->
+<section class="view" id="vEnd" hidden>
+  <h1>实验结束</h1>
+  <p>感谢你的参与！</p>
+  <button type="button" class="ghost" id="endHome">下一位受测者</button>
+</section>
+
+<!-- 研究者面板：在编号页输入 000 -->
+<section class="view admin" id="vAdmin" hidden>
+  <h1>研究者面板</h1>
+  <p class="small" id="adminSum"></p>
+  <div class="tbl"><table>
+    <thead><tr><th>编号</th><th>组别</th><th>顺序</th><th>完成</th><th>开始时间</th></tr></thead>
+    <tbody id="adminRows"></tbody>
+  </table></div>
+  <div class="row">
+    <button type="button" class="ghost" id="dlCsv">下载 CSV</button>
+    <button type="button" class="ghost" id="dlJson">下载 JSON</button>
+    <button type="button" class="ghost" id="copyJson">复制 JSON</button>
+  </div>
+  <textarea id="adminText" readonly hidden aria-label="JSON"></textarea>
+  <div class="err" id="adminMsg" role="status"></div>
+  <div class="row">
+    <button type="button" class="ghost" id="clearAll">清除本机全部记录</button>
+    <button type="button" class="next" id="adminBack">返回</button>
+  </div>
+</section>
+
+<script>
+(function () {
+  /* ── 设定 ── */
+  var GROUPS = { '1': 'base', '2': 'color', '3': 'anim', '4': 'text' };
+  var GROUP_ZH = { base: '基线', color: '颜色', anim: '动画', text: '文字' };
+  var TAPS = { single: 1, double: 2, triple: 3 };
+  var TRIG_ZH = { single: '单击', double: '双击', triple: '连击' };
+  var TRIG_DEF = {
+    single: '单击点赞，是在点赞按钮上点一下。',
+    double: '双击点赞，是在点赞按钮上连续点两下。',
+    triple: '连击点赞，是在点赞按钮上点三下以上。'
+  };
+  var INTRO = '感谢参加本次研究。此研究想了解大家使用手机社交媒体时的感受，接下来你会用手机做三轮简单操作，每轮结束后填写一份简短问卷。所选结果没有对错之分，也不用揣测研究意图，按当下真实感受填写就可以。';
+  var WIN = 350;          // 与 study1 相同：两下之间超过这个间隔（ms）就重新计数
+  var HOLD_MS = 4000;     // 点赞成功后固定 4 秒再清空页面
+  var COUNT_FROM = 3;     // 倒数 3 秒
+  var ESC_MS = 2000;      // 研究者长按左上角跳过
+  var ADMIN_ID = '000';
+  var STORE = 'study2.sessions.v1';
+  var DOT_COLORS = ['#F0182A', '#F45B7A', '#D9469B', '#C08AE8', '#F5A04A', '#F7B5C5', '#E8323C'];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var views = ['vId', 'vConfirm', 'vIntro', 'vRound', 'vCount', 'vCard', 'vNext', 'vPad', 'vEnd', 'vAdmin'];
+  var card = $('card'), like = $('like'), heart = $('heart'), fx = $('fx'), likeWrap = $('likeWrap');
+
+  document.addEventListener('touchstart', function () {}, { passive: true });
+
+  function show(id) {
+    views.forEach(function (v) { $(v).hidden = v !== id; });
+    step = id;
+  }
+  var step = 'vId';
+
+  /* ── 时间：相对本次会话开始（ms，保留 1 位小数） ── */
+  var t0 = 0;
+  function now() { return Math.round((performance.now() - t0) * 10) / 10; }
+
+  /* ── 储存（本机浏览器；失败不影响实验进行） ── */
+  function loadAll() {
+    try { return JSON.parse(localStorage.getItem(STORE) || '[]') || []; } catch (e) { return []; }
+  }
+  function saveSession() {
+    if (!S) return;
+    try {
+      var all = loadAll();
+      var i = all.findIndex(function (x) { return x.key === S.key; });
+      if (i >= 0) all[i] = S; else all.push(S);
+      localStorage.setItem(STORE, JSON.stringify(all));
+    } catch (e) {}
+  }
+
+  /* ── 随机顺序 ── */
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var r;
+      if (window.crypto && crypto.getRandomValues) { var u = new Uint32Array(1); crypto.getRandomValues(u); r = u[0] / 4294967296; }
+      else r = Math.random();
+      var j = Math.floor(r * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  /* ── 会话状态 ── */
+  var S = null;        // 本次会话记录
+  var R = null;        // 当前这一轮
+  var ri = -1;         // 当前第几轮（0 起）
+  var feed = 'base', need = 1;
+  var liked = false, taps = 0, tapTimer = null, holdTimer = null, countTimer = null;
+
+  /* ── 1. 编号 ── */
+  var idInput = $('idInput'), idErr = $('idErr');
+  var pendingId = null, dupWarned = null;
+  idInput.addEventListener('input', function () { idErr.textContent = ''; dupWarned = null; });
+  idInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') $('idGo').click(); });
+  $('idGo').addEventListener('click', function () {
+    var v = (idInput.value || '').trim();
+    if (v === ADMIN_ID) { openAdmin(); return; }
+    if (!/^[1-4][0-9]{2}$/.test(v)) { idErr.textContent = '编号应为三位数字，首位是 1、2、3 或 4，例如 101'; return; }
+    var exists = loadAll().some(function (x) { return x.id === v; });
+    if (exists && dupWarned !== v) {
+      dupWarned = v;
+      idErr.textContent = '这个编号已有记录。再按一次「开始」会重新开始，原记录保留。';
+      return;
+    }
+    pendingId = v;
+    $('confirmId').textContent = v;
+    show('vConfirm');
+  });
+  $('confirmBack').addEventListener('click', function () { show('vId'); idInput.focus(); });
+  $('confirmGo').addEventListener('click', function () { startSession(pendingId); });
+
+  function startSession(id) {
+    t0 = performance.now();
+    feed = GROUPS[id.charAt(0)];
+    var order = shuffle(['single', 'double', 'triple']);
+    S = {
+      key: id + '-' + Date.now(),
+      id: id,
+      group: feed,
+      group_zh: GROUP_ZH[feed],
+      order: order,
+      started_at: new Date().toISOString(),
+      ended_at: null,
+      completed: false,
+      user_agent: navigator.userAgent,
+      screen: { w: screen.width, h: screen.height, dpr: window.devicePixelRatio || 1 },
+      settings: { win_ms: WIN, hold_ms: HOLD_MS, countdown_s: COUNT_FROM },
+      events: [{ t: 0, type: 'session_start' }],
+      rounds: []
+    };
+    card.className = 'card fb-' + feed;
+    ri = -1;
+    saveSession();
+    $('introText').textContent = INTRO;
+    show('vIntro');
+  }
+
+  /* ── 「下一个」按钮的流转 ── */
+  document.querySelectorAll('[data-next]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var t = now();
+      if (step === 'vIntro') { S.events.push({ t: t, type: 'intro_next' }); nextRound(); }
+      else if (step === 'vRound') { R.round_next_at = t; startCountdown(); }
+      else if (step === 'vNext') { R.next_pressed_at = t; R.pad_shown_at = t; $('padNo').textContent = '第 ' + (ri + 1) + ' 轮结束'; show('vPad'); saveSession(); }
+      else if (step === 'vPad') { R.pad_done_at = t; saveSession(); nextRound(); }
+    });
+  });
+
+  function nextRound() {
+    ri += 1;
+    if (ri >= S.order.length) { finish(); return; }
+    var trig = S.order[ri];
+    need = TAPS[trig];
+    R = {
+      index: ri + 1, trigger: trig, need: need,
+      round_shown_at: now(), round_next_at: null, countdown_start_at: null, card_on_at: null,
+      like_at: null, next_shown_at: null, next_pressed_at: null, pad_shown_at: null, pad_done_at: null,
+      skipped: false, gesture_fails: [], extra_taps: 0,
+      touches: []     // 卡片出现后的每次触碰：down/up 时间、坐标、是否在赞按钮上
+    };
+    S.rounds.push(R);
+    $('roundNo').textContent = '第 ' + (ri + 1) + ' 轮（共 ' + S.order.length + ' 轮）';
+    $('roundHow').textContent = '这一轮请用【' + TRIG_ZH[trig] + '】点赞';
+    $('roundDef').textContent = TRIG_DEF[trig];
+    show('vRound');
+    saveSession();
+  }
+
+  /* ── 倒数 3 秒 ── */
+  function startCountdown() {
+    R.countdown_start_at = now();
+    var n = COUNT_FROM;
+    $('countNum').textContent = n;
+    show('vCount');
+    clearInterval(countTimer);
+    countTimer = setInterval(function () {
+      n -= 1;
+      if (n > 0) { $('countNum').textContent = n; return; }
+      clearInterval(countTimer);
+      showCard();
+    }, 1000);
+  }
+
+  /* ── 点赞卡片 ── */
+  function resetCard() {
+    clearTimeout(tapTimer); clearTimeout(holdTimer);
+    taps = 0; liked = false;
+    like.setAttribute('aria-pressed', 'false');
+    heart.classList.remove('red', 'pop');
+    fx.innerHTML = '';
+  }
+  function showCard() {
+    resetCard();
+    show('vCard');
+    R.card_on_at = now();
+    saveSession();
+  }
+
+  function restart(el, cls) { el.classList.remove(cls); el.getBoundingClientRect(); el.classList.add(cls); }
+  function burst() {
+    var n = 22;
+    for (var i = 0; i < n; i++) {
+      var a = (i / n) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+      var r = 40 + Math.random() * 40;
+      var s = 5 + Math.round(Math.random() * 8);
+      var d = document.createElement('span');
+      d.className = 'dot';
+      d.style.width = s + 'px'; d.style.height = s + 'px';
+      d.style.marginLeft = (-s / 2) + 'px'; d.style.marginTop = (-s / 2) + 'px';
+      d.style.background = DOT_COLORS[Math.floor(Math.random() * DOT_COLORS.length)];
+      d.style.setProperty('--dx', Math.round(Math.cos(a) * r) + 'px');
+      d.style.setProperty('--dy', Math.round(Math.sin(a) * r) + 'px');
+      d.style.setProperty('--d', (1200 + Math.round(Math.random() * 600)) + 'ms');
+      d.addEventListener('animationend', function () { this.remove(); });
+      fx.appendChild(d);
+    }
+  }
+  function plusOne() {
+    var p = document.createElement('span');
+    p.className = 'plus'; p.textContent = '+1';
+    p.addEventListener('animationend', function () { p.remove(); });
+    fx.appendChild(p);
+  }
+
+  // 反馈：颜色、动画、文字与 study1 相同；基线组点赞后图标不变
+  function doLike() {
+    if (liked) return;
+    liked = true;
+    R.like_at = now();
+    like.setAttribute('aria-pressed', 'true');
+    if (feed !== 'base') heart.classList.add('red');
+    if (feed === 'anim') { restart(heart, 'pop'); burst(); }
+    else if (feed === 'text') { plusOne(); }
+    saveSession();
+    holdTimer = setTimeout(function () {
+      R.next_shown_at = now();
+      show('vNext');
+      resetCard();
+      saveSession();
+    }, HOLD_MS);
+  }
+
+  // 手势判定与 study1 相同：连点次数达到所需次数时立即触发
+  like.addEventListener('click', function () {
+    if (step !== 'vCard') return;
+    if (liked) { R.extra_taps += 1; return; }
+    taps += 1;
+    clearTimeout(tapTimer);
+    if (taps >= need) { taps = 0; doLike(); }
+    else {
+      var got = taps;
+      tapTimer = setTimeout(function () {
+        if (!liked && taps > 0) R.gesture_fails.push({ t: now(), taps: got });
+        taps = 0;
+      }, WIN);
+    }
+  });
+
+  // 记录卡片上的每次触碰
+  var downs = {};
+  document.addEventListener('pointerdown', function (e) {
+    if (step !== 'vCard' || !R) return;
+    downs[e.pointerId] = R.touches.length;
+    R.touches.push({
+      down: now(), up: null,
+      x: Math.round(e.clientX), y: Math.round(e.clientY),
+      on_like: likeWrap.contains(e.target),
+      after_like: liked
+    });
+  }, true);
+  document.addEventListener('pointerup', function (e) {
+    if (!R || downs[e.pointerId] == null) return;
+    var tc = R.touches[downs[e.pointerId]];
+    if (tc) tc.up = now();
+    delete downs[e.pointerId];
+  }, true);
+
+  // 研究者：长按左上角 2 秒，跳过本次点赞（记为 skipped）
+  var escTimer = null;
+  $('esc').addEventListener('pointerdown', function (e) {
+    e.stopPropagation();
+    clearTimeout(escTimer);
+    escTimer = setTimeout(function () {
+      if (step !== 'vCard' || liked) return;
+      R.skipped = true;
+      R.next_shown_at = now();
+      show('vNext');
+      resetCard();
+      saveSession();
+    }, ESC_MS);
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) {
+    $('esc').addEventListener(ev, function () { clearTimeout(escTimer); });
+  });
+
+  /* ── 结束 ── */
+  function finish() {
+    S.ended_at = new Date().toISOString();
+    S.completed = S.rounds.every(function (r) { return r.like_at != null && r.pad_done_at != null; });
+    S.events.push({ t: now(), type: 'session_end' });
+    saveSession();
+    show('vEnd');
+  }
+  $('endHome').addEventListener('click', function () {
+    S = null; R = null; idInput.value = ''; idErr.textContent = ''; dupWarned = null;
+    show('vId');
+  });
+
+  window.addEventListener('beforeunload', function (e) {
+    if (S && !S.ended_at) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  /* ── 研究者面板与导出 ── */
+  function openAdmin() {
+    var all = loadAll();
+    var done = all.filter(function (x) { return x.completed; }).length;
+    var by = { base: 0, color: 0, anim: 0, text: 0 };
+    all.forEach(function (x) { if (x.completed && by[x.group] != null) by[x.group] += 1; });
+    $('adminSum').textContent = '本机共 ' + all.length + ' 笔记录，完成 ' + done + ' 笔（基线 ' + by.base + '、颜色 ' + by.color + '、动画 ' + by.anim + '、文字 ' + by.text + '）';
+    var rows = $('adminRows');
+    rows.innerHTML = '';
+    all.slice().reverse().forEach(function (x) {
+      var tr = document.createElement('tr');
+      [x.id, x.group_zh, x.order.map(function (o) { return TRIG_ZH[o]; }).join('→'), x.completed ? '是' : '否', (x.started_at || '').replace('T', ' ').slice(0, 16)]
+        .forEach(function (c) { var td = document.createElement('td'); td.textContent = c; tr.appendChild(td); });
+      rows.appendChild(tr);
+    });
+    $('adminMsg').textContent = '';
+    $('adminText').hidden = true;
+    clearArmed = false; $('clearAll').textContent = '清除本机全部记录';
+    show('vAdmin');
+  }
+  $('adminBack').addEventListener('click', function () { idInput.value = ''; show('vId'); });
+
+  function stamp() { var d = new Date(); var p = function (n) { return String(n).padStart(2, '0'); }; return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()); }
+  function download(name, text, type) {
+    try {
+      var blob = new Blob([text], { type: type });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+      $('adminMsg').textContent = '已下载 ' + name;
+    } catch (e) {
+      $('adminMsg').textContent = '下载失败，请改用「复制 JSON」';
+    }
+  }
+
+  function median(a) { if (!a.length) return ''; var s = a.slice().sort(function (x, y) { return x - y; }); var m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
+  function r1(x) { return x == null || x === '' ? '' : Math.round(x * 10) / 10; }
+
+  // 每轮一行。时间单位 ms；*_at 相对会话开始，其余相对卡片出现
+  function toCsv(all) {
+    var head = ['id', 'group', 'order', 'round', 'trigger', 'need_taps', 'completed_session', 'skipped',
+      'card_on_at', 'first_tap_latency', 'like_latency', 'like_press_mean', 'like_press_list', 'like_ioi_list',
+      'taps_before_like', 'gesture_fails', 'extra_taps', 'next_shown_after_like', 'next_press_latency',
+      'pad_duration', 'started_at'];
+    var lines = [head.join(',')];
+    all.forEach(function (s) {
+      s.rounds.forEach(function (r) {
+        var on = (r.touches || []).filter(function (t) { return t.on_like && !t.after_like && r.card_on_at != null && (r.like_at == null || t.down <= r.like_at); });
+        var first = (r.touches || []).filter(function (t) { return t.on_like; })[0];
+        var last = on.slice(-r.need);
+        var press = last.filter(function (t) { return t.up != null; }).map(function (t) { return t.up - t.down; });
+        var ioi = []; for (var i = 1; i < last.length; i++) ioi.push(last[i].down - last[i - 1].down);
+        var mean = press.length ? press.reduce(function (a, b) { return a + b; }, 0) / press.length : '';
+        var row = [
+          s.id, s.group, s.order.join('>'), r.index, r.trigger, r.need, s.completed ? 1 : 0, r.skipped ? 1 : 0,
+          r1(r.card_on_at),
+          first && r.card_on_at != null ? r1(first.down - r.card_on_at) : '',
+          r.like_at != null && r.card_on_at != null ? r1(r.like_at - r.card_on_at) : '',
+          r1(mean), press.map(r1).join(';'), ioi.map(r1).join(';'),
+          on.length, (r.gesture_fails || []).length, r.extra_taps || 0,
+          r.next_shown_at != null && r.like_at != null ? r1(r.next_shown_at - r.like_at) : '',
+          r.next_pressed_at != null && r.next_shown_at != null ? r1(r.next_pressed_at - r.next_shown_at) : '',
+          r.pad_done_at != null && r.pad_shown_at != null ? r1(r.pad_done_at - r.pad_shown_at) : '',
+          s.started_at
+        ];
+        lines.push(row.map(function (c) { c = String(c); return /[",\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c; }).join(','));
+      });
+    });
+    return '﻿' + lines.join('\n');
+  }
+  $('dlCsv').addEventListener('click', function () { download('study2-' + stamp() + '.csv', toCsv(loadAll()), 'text/csv;charset=utf-8'); });
+  $('dlJson').addEventListener('click', function () { download('study2-' + stamp() + '.json', JSON.stringify(loadAll(), null, 1), 'application/json'); });
+  $('copyJson').addEventListener('click', function () {
+    var text = JSON.stringify(loadAll());
+    var ta = $('adminText');
+    ta.value = text; ta.hidden = false;
+    var done = function () { $('adminMsg').textContent = '已复制，可贴到备忘录或微信发给自己'; };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { ta.select(); $('adminMsg').textContent = '请长按下方文字全选后复制'; });
+    } else { ta.select(); $('adminMsg').textContent = '请长按下方文字全选后复制'; }
+  });
+  var clearArmed = false;
+  $('clearAll').addEventListener('click', function () {
+    if (!clearArmed) { clearArmed = true; this.textContent = '再按一次确认清除（无法恢复）'; return; }
+    try { localStorage.removeItem(STORE); } catch (e) {}
+    clearArmed = false;
+    openAdmin();
+    $('adminMsg').textContent = '已清除本机记录';
+  });
+
+  show('vId');
+})();
+</script>
+</body>
+</html>

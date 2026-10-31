@@ -13,6 +13,8 @@
   },
   "redirects": [
     {"source": "/", "missing": [{"type": "host", "value": "demo.lfjmwl.com"}], "destination": "/about", "permanent": false},
+    {"source": "/like", "has": [{"type": "host", "value": "demo.lfjmwl.com"}], "destination": "/study1", "permanent": false},
+    {"source": "/like/", "has": [{"type": "host", "value": "demo.lfjmwl.com"}], "destination": "/study1", "permanent": false},
     {"source": "/shortemotion", "destination": "/shortemotion/cn", "permanent": false},
     {"source": "/shortemotion/", "destination": "/shortemotion/cn", "permanent": false},
     {"source": "/cn", "destination": "/shortemotion/cn", "permanent": false},
