@@ -89,6 +89,9 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
   -webkit-user-select: text; user-select: text;
 }
 .id-input:focus { outline: 2px solid var(--ink); outline-offset: 2px; }
+/* 结束页：「再次测试」固定在底部 */
+.end-btn { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(32px + env(safe-area-inset-bottom, 0px)); }
+.end-btn:active { transform: translateX(-50%) scale(.97); }
 .err { min-height: 1.5em; font-size: 14px; color: var(--err); }
 .big-id { font-size: 40px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: .08em; }
 .row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
@@ -253,10 +256,10 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
 </section>
 
 <!-- 8. 结束 -->
-<section class="view" id="vEnd" hidden>
+<section class="view end" id="vEnd" hidden>
   <h1>实验结束</h1>
   <p>感谢你的参与！</p>
-  <button type="button" class="ghost" id="endHome">下一位受测者</button>
+  <button type="button" class="next end-btn" id="endHome">再次测试</button>
 </section>
 
 <!-- 研究者面板：在编号页输入 000 -->
