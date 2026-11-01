@@ -262,6 +262,18 @@ describe("设计 Demo 子网域 demo.lfjmwl.com", () => {
     expect(html).toContain('<meta name="robots" content="noindex">');
   });
 
+  it("Study 3 实验页：流程同 study2，点赞后在页面内填 PAD 12 题（1–5 分），全部作答才能继续", () => {
+    const html = readFileSync(resolve(root, "public/demo/study3/index.html"), "utf8");
+    expect(html.startsWith("<!doctype html>")).toBe(true);
+    expect(html).toContain("<title>点赞研究 Study 3</title>");
+    expect(html).toContain("var STORE = 'study3.sessions.v1';");
+    expect(html).toContain("['愤怒的', '有活力的']");
+    expect(html).toContain("['有影响力的', '被影响的']");
+    expect(html).toContain("for (var v = 1; v <= 5; v++)");
+    expect(html).toContain("还有第 ");
+    expect(html).toContain("if (feed !== 'base') heart.classList.add('red');");
+  });
+
   it("Study 2 实验页：编号首位决定组别，卡片与反馈沿用 study1，基线组点赞后不变", () => {
     const html = readFileSync(resolve(root, "public/demo/study2/index.html"), "utf8");
     const study1 = readFileSync(resolve(root, "public/demo/study1/index.html"), "utf8");
