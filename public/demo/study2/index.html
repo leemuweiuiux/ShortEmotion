@@ -15,7 +15,7 @@ img { max-width: 100%; }
 </style>
 <style>
 /* Layout: Study 2 实验流程（方案 A）。受测编号决定组别：1xx 基线、2xx 颜色、3xx 动画、4xx 文字。
-   每人三轮（单击／双击／连击，顺序随机），每轮点赞 1 次；点赞卡片与反馈和 study1 完全相同，
+   每人三轮（单击／双击／连击，顺序随机），每轮点赞 1 次，点赞成功 4 秒后提示填写问卷；点赞卡片与反馈和 study1 完全相同，
    基线组点赞后图标不变。固定浅色，不随系统深色模式改变。 */
 :root {
   --bg: #FAFAFA;
@@ -246,19 +246,13 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
   <div class="esc" id="esc" aria-hidden="true"></div>
 </main>
 
-<!-- 7. 点赞成功 4 秒后：清空，只留「下一个」 -->
+<!-- 7. 点赞成功 4 秒后：清空页面，只留填问卷提示与「下一个」 -->
 <section class="view" id="vNext" hidden>
+  <p>请填写问卷</p>
   <button type="button" class="next" data-next>下一个</button>
 </section>
 
-<!-- 8. 填写问卷 -->
-<section class="view" id="vPad" hidden>
-  <div class="round-no" id="padNo"></div>
-  <p>请填写问卷，填好后点「下一个」</p>
-  <button type="button" class="next" data-next>下一个</button>
-</section>
-
-<!-- 9. 结束 -->
+<!-- 8. 结束 -->
 <section class="view" id="vEnd" hidden>
   <h1>实验结束</h1>
   <p>感谢你的参与！</p>
@@ -308,7 +302,7 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
   var DOT_COLORS = ['#F0182A', '#F45B7A', '#D9469B', '#C08AE8', '#F5A04A', '#F7B5C5', '#E8323C'];
 
   var $ = function (id) { return document.getElementById(id); };
-  var views = ['vId', 'vConfirm', 'vIntro', 'vRound', 'vCount', 'vCard', 'vNext', 'vPad', 'vEnd', 'vAdmin'];
+  var views = ['vId', 'vConfirm', 'vIntro', 'vRound', 'vCount', 'vCard', 'vNext', 'vEnd', 'vAdmin'];
   var card = $('card'), like = $('like'), heart = $('heart'), fx = $('fx'), likeWrap = $('likeWrap');
 
   document.addEventListener('touchstart', function () {}, { passive: true });
@@ -411,8 +405,7 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
       var t = now();
       if (step === 'vIntro') { S.events.push({ t: t, type: 'intro_next' }); nextRound(); }
       else if (step === 'vRound') { R.round_next_at = t; startCountdown(); }
-      else if (step === 'vNext') { R.next_pressed_at = t; R.pad_shown_at = t; $('padNo').textContent = '第 ' + (ri + 1) + ' 轮结束'; show('vPad'); saveSession(); }
-      else if (step === 'vPad') { R.pad_done_at = t; saveSession(); nextRound(); }
+      else if (step === 'vNext') { R.next_pressed_at = t; R.pad_done_at = t; saveSession(); nextRound(); }
     });
   });
 
@@ -503,7 +496,7 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
     else if (feed === 'text') { plusOne(); }
     saveSession();
     holdTimer = setTimeout(function () {
-      R.next_shown_at = now();
+      R.next_shown_at = R.pad_shown_at = now();
       show('vNext');
       resetCard();
       saveSession();
@@ -553,7 +546,7 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
     escTimer = setTimeout(function () {
       if (step !== 'vCard' || liked) return;
       R.skipped = true;
-      R.next_shown_at = now();
+      R.next_shown_at = R.pad_shown_at = now();
       show('vNext');
       resetCard();
       saveSession();
@@ -624,8 +617,7 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
   function toCsv(all) {
     var head = ['id', 'group', 'order', 'round', 'trigger', 'need_taps', 'completed_session', 'skipped',
       'card_on_at', 'first_tap_latency', 'like_latency', 'like_press_mean', 'like_press_list', 'like_ioi_list',
-      'taps_before_like', 'gesture_fails', 'extra_taps', 'next_shown_after_like', 'next_press_latency',
-      'pad_duration', 'started_at'];
+      'taps_before_like', 'gesture_fails', 'extra_taps', 'pad_prompt_after_like', 'pad_time', 'started_at'];
     var lines = [head.join(',')];
     all.forEach(function (s) {
       s.rounds.forEach(function (r) {
@@ -643,7 +635,6 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
           r1(mean), press.map(r1).join(';'), ioi.map(r1).join(';'),
           on.length, (r.gesture_fails || []).length, r.extra_taps || 0,
           r.next_shown_at != null && r.like_at != null ? r1(r.next_shown_at - r.like_at) : '',
-          r.next_pressed_at != null && r.next_shown_at != null ? r1(r.next_pressed_at - r.next_shown_at) : '',
           r.pad_done_at != null && r.pad_shown_at != null ? r1(r.pad_done_at - r.pad_shown_at) : '',
           s.started_at
         ];
