@@ -269,7 +269,7 @@ describe("设计 Demo 子网域 demo.lfjmwl.com", () => {
     expect(html).toContain("var STORE = 'study3.sessions.v1';");
     expect(html).toContain("['愤怒的', '有活力的']");
     expect(html).toContain("['有影响力的', '被影响的']");
-    expect(html).toContain("for (var v = 1; v <= 5; v++)");
+    expect(html).toContain("type: 'scale', n: 5, left: pair[0], right: pair[1]");
     expect(html).toContain("还有第 ");
     expect(html).toContain("if (feed !== 'base') heart.classList.add('red');");
     // 每轮问卷提交后上传 Supabase（只写不读），失败排队重试
@@ -278,6 +278,23 @@ describe("设计 Demo 子网域 demo.lfjmwl.com", () => {
     expect(sql).toContain("create function public.study3_submit(");
     expect(sql).toContain("revoke all on study_private.sessions, study_private.rounds from public, anon, authenticated;");
     expect(sql).toContain("q <@ array[1, 2, 3, 4, 5]::smallint[]");
+  });
+
+  it("study3 runs consent, the baseline survey and a per-round trigger check before PAD", () => {
+    const html = readFileSync(resolve(root, "public/demo/study3/index.html"), "utf8");
+    expect(html).toContain('id="vConsent"');
+    expect(html).toContain('id="vDecline"');
+    expect(html).toContain('id="vSurvey"');
+    expect(html).toContain("title: '是否同意参与本次调研'");
+    expect(html).toContain("title: '当我有正面情绪时，别人很容易就能看出我的感受'");
+    expect(html).toContain("em: '还没意识到就已经开始做的'");
+    expect(html).toContain("title: '当前体验的触发形式是？', type: 'single', opts: ['单击', '双击', '连击']");
+    expect(html).toContain("survey: s.survey");
+    const sql = readFileSync(resolve(root, "supabase/migrations/20261101160000_study3_survey.sql"), "utf8");
+    expect(sql).toContain("add column if not exists survey jsonb");
+    expect(sql).toContain("add column if not exists trigger_answer text");
+    expect(sql).toContain("as trigger_check");
+    expect(sql).toContain("revoke all on study_private.study3_export from public, anon, authenticated;");
   });
 
   it("Study 2 实验页：编号首位决定组别，卡片与反馈沿用 study1，基线组点赞后不变", () => {
