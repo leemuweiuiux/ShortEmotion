@@ -22,8 +22,25 @@ const API_ROUTES = {
   admin: () => import("../api/admin.js"),
   "morning-report": () => import("../api/morning-report.js"),
   sectorflow: () => import("../api/sectorflow.js"),
-  limitup: () => import("../api/limitup.js")
+  limitup: () => import("../api/limitup.js"),
+  news: () => import("../api/news.js")
 };
+
+/** vercel.json 改写：完整路径，或带「:参数」的路径（例如 /news/:id → /api/news?id=:id）。 */
+function matchRewrite(pathname, host = "localhost") {
+  const hostIs = (condition) => condition.type === "host" && condition.value === host.split(":")[0];
+  for (const rule of vercel.rewrites || []) {
+    if ((rule.has || []).some((c) => !hostIs(c)) || (rule.missing || []).some(hostIs)) continue; // 只给某个网域的改写（例如 demo 子网域）
+    const names = [];
+    const pattern = new RegExp(`^${rule.source.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/:(\w+)/g, (_, name) => { names.push(name); return "([^/]+)"; })}$`);
+    const match = pathname.match(pattern);
+    if (!match) continue;
+    let destination = rule.destination;
+    names.forEach((name, i) => { destination = destination.replaceAll(`:${name}`, encodeURIComponent(decodeURIComponent(match[i + 1]))); });
+    return destination;
+  }
+  return null;
+}
 const { default: middleware, config: middlewareConfig } = await import("../middleware.js");
 
 /** 只支持本项目用到的两种写法：完整路径，以及「/前缀/:path*」。 */
@@ -55,7 +72,7 @@ async function runMiddleware(req, res, url) {
   return null;
 }
 
-const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".json": "application/json", ".png": "image/png", ".webp": "image/webp" };
+const TYPES = { ".txt": "text/plain; charset=utf-8", ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".json": "application/json", ".png": "image/png", ".webp": "image/webp" };
 const port = Number(process.env.PORT || 3000);
 
 function vercelResponse(res) {
@@ -85,6 +102,13 @@ createServer(async (req, res) => {
       res.writeHead(307, { Location: redirect.destination + url.search }).end();
       return;
     }
+    const rewritten = matchRewrite(url.pathname, req.headers.host || "localhost");
+    if (rewritten?.startsWith("/api/")) { // 改写到接口：带上改写里的查询参数
+      const target = new URL(rewritten, url);
+      for (const [key, value] of url.searchParams) if (!target.searchParams.has(key)) target.searchParams.set(key, value);
+      url.pathname = target.pathname;
+      url.search = target.search;
+    }
     const apiName = url.pathname.match(/^\/api\/([\w-]+)\/?$/)?.[1];
     if (apiName && API_ROUTES[apiName]) {
       const { default: api } = await API_ROUTES[apiName]();
@@ -93,8 +117,7 @@ createServer(async (req, res) => {
       await api(req, vercelResponse(res));
       return;
     }
-    const rewrite = (vercel.rewrites || []).find((r) => r.source === url.pathname);
-    const file = path.normalize(path.join(publicDir, decodeURIComponent(rewrite ? rewrite.destination : url.pathname)));
+    const file = path.normalize(path.join(publicDir, decodeURIComponent(rewritten || url.pathname)));
     if (!file.startsWith(publicDir + path.sep)) throw Object.assign(new Error("forbidden"), { code: "ENOENT" });
     const body = await readFile(file);
     res.writeHead(200, { "Content-Type": TYPES[path.extname(file)] || "application/octet-stream" }).end(body);

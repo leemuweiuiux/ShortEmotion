@@ -61,9 +61,13 @@ describe("页面接线", () => {
   });
 
   it("要闻卡片：点赞按钮在文章链接外面（按钮不能放进链接）；详情页文末有点赞", () => {
+    // 卡片与正文的 HTML 在 /kandian/article-view.js（公开页 /news 共用），reports.js 把点赞按钮传进去
+    const view = read("public/kandian/article-view.js");
+    expect(view).toContain('<span class="mr-read">阅读全文 →</span></a>${extra ? `<div class="mr-item-actions">${extra}</div>` : ""}</article>');
+    expect(view).toContain('${like ? `<div class="mr-like">${like}</div>` : ""}');
     const code = read("public/kandian/reports.js");
-    expect(code).toContain('<span class="mr-read">阅读全文 →</span></a>${like ? `<div class="mr-item-actions">${like}</div>` : \'\'}</article>');
-    expect(code).toContain("<div class=\"mr-like\">${likeHtml('report', a.id, a.like, { large: true })}</div>");
+    expect(code).toContain("cardHtml(a, `/kandian/article?id=${encodeURIComponent(a.id)}`, likeHtml('report', a.id, a.like))");
+    expect(code).toContain("articleHtml(a,{like:a.like?likeHtml('report', a.id, a.like, { large: true }):''})");
   });
 });
 

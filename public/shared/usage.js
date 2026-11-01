@@ -2,7 +2,8 @@
 (() => {
   const routes = {'/':'about','/home':'home','/about':'about','/login':'login','/shortemotion/cn':'shortemotion','/short-emotion':'shortemotion','/technicalanalysis':'technicalanalysis','/technical-analysis':'technicalanalysis','/sectorflow':'sectorflow','/limitup':'limitup','/kandian':'kandian','/kandian/article':'article','/account':'account','/account/signin':'signin','/account/points':'points','/account/settings':'settings','/account/edit':'profile','/account/invite':'invite','/terms':'legal','/privacy':'legal'};
   const path = location.pathname.replace(/\/index\.html$/, '').replace(/\.html$/, '').replace(/\/$/, '') || '/';
-  const feature = routes[path];
+  // 公开的每日看点：列表算「看点」，文章算「文章」（简繁同一类）
+  const feature = routes[path] || (/^(?:\/zh-hant)?\/news$/.test(path) ? 'kandian' : /^(?:\/zh-hant)?\/news\/[\w-]+$/.test(path) ? 'article' : undefined);
   if (!feature || !crypto.randomUUID) return; // 管理员自身操作不混入产品使用量。
   if (!document.cookie.split(';').some(c => c.trim().startsWith('se_usage_visit='))) {
     document.cookie = `se_usage_visit=${crypto.randomUUID()}; Path=/; Max-Age=2592000; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`;

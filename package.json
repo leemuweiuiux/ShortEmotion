@@ -13,10 +13,10 @@
     "build:hant-map": "node scripts/short-emotion/build-hant-map.mjs"
   },
   "devDependencies": {
-    "opencc-js": "1.0.5",
     "vitest": "4.0.17"
   },
   "dependencies": {
-    "@vercel/functions": "3.9.9"
+    "@vercel/functions": "3.9.9",
+    "opencc-js": "1.0.5"
   }
 }

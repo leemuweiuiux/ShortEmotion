@@ -39,15 +39,21 @@ export function validateArticle(article, evidence, limits = LIMITS.morning) {
   checkViewCard(card);
   return card;
 }
+export const isReportId = (id) => ID_PATTERN.test(String(id || ''));
+const visibleAt = (now) => a => a && Date.parse(a.publishedAt) <= now.getTime();
+/** 已发布的全部文章摘要（列表索引），最新在前。公开页 /news 与站点地图也用它。 */
+export async function listReports(store, now = new Date()) {
+  return ((await store.kvGet(INDEX))?.value || []).filter(visibleAt(now)).map(normalizeReport).sort((a,b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt) || b.id.localeCompare(a.id));
+}
 export async function readReports(store, { id, offset = 0, limit = 20, now = new Date() } = {}) {
-  const visible = a => a && Date.parse(a.publishedAt) <= now.getTime();
+  const visible = visibleAt(now);
   if (id) {
     if (!ID_PATTERN.test(id)) throw Object.assign(new Error('文章不存在'), { statusCode: 404 });
     const a = (await store.kvGet(articleKey(id)))?.value;
     if (!visible(a)) throw Object.assign(new Error('文章不存在'), { statusCode: 404 });
     return { article: normalizeReport(a) };
   }
-  const all = ((await store.kvGet(INDEX))?.value || []).filter(visible).map(normalizeReport).sort((a,b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt) || b.id.localeCompare(a.id));
+  const all = await listReports(store, now);
   const start = Math.max(0, Number(offset) || 0), size = Math.max(1, Math.min(50, Number(limit) || 20));
   return { items: all.slice(start, start + size), nextOffset: start + size < all.length ? start + size : null };
 }

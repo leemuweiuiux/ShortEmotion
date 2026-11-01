@@ -9,6 +9,9 @@
 //                      未登录 → /login?next=原网址；凭证过期时顺手换新 cookie（滚动 90 天）；
 //                      已登录时记一笔当天的活跃（每人每天一次，只记「哪天来过」，见 session.js recordActivity）
 //
+//   /kandian/article?id=…  未登录 → 公开的同一篇 /news/<id>（每日看点公开，见 api/news.js）
+//   页面里的样式、脚本、图片不需要登录
+//
 // 登录判断见 api/_lib/session.js；数据接口 /api/short-emotion 另外在函数里检查，不经过这里。
 import { next, rewrite } from "@vercel/functions/middleware";
 import { isAdmin } from "./api/_lib/admin.js";
@@ -17,6 +20,9 @@ import { authConfig, resolveSession, safeNext, isSecureRequest, seenCookieFor, r
 export const config = {
   matcher: ["/", "/login", "/login/", "/home", "/home/", "/kandian", "/kandian/", "/kandian/:path*", "/technicalanalysis", "/technicalanalysis/", "/sectorflow", "/sectorflow/", "/limitup", "/limitup/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]
 };
+
+const STATIC_ASSET = /\.(?:css|js|mjs|svg|png|jpe?g|webp|gif|ico|woff2?)$/i;
+const REPORT_ID = /^\d{8}(?:-noon|-evening)?$/;
 
 /** 设计 Demo 子网域（静态页放在 public/demo/<名称>/index.html，由 vercel.json 改写）。 */
 const DEMO_HOST = "demo.lfjmwl.com";
@@ -61,6 +67,9 @@ export default async function middleware(request) {
 
   if (!settings) return path === "/" ? redirect("/about") : next(); // 登录关闭：看板公开
 
+  // 页面需登录，样式与脚本不用（公开的每日看点 /news 也用 /kandian/ 下的样式）
+  if (STATIC_ASSET.test(path)) return next();
+
   const secure = isSecureRequest(request.url, request.headers.get("x-forwarded-proto"));
   const session = await resolveSession(request.headers.get("cookie"), { config: settings, secure });
 
@@ -68,6 +77,12 @@ export default async function middleware(request) {
 
   if (path === "/login" || path === "/login/") {
     return session.user ? redirect(safeNext(url.searchParams.get("next")), session.setCookies) : proceed(session.setCookies);
+  }
+
+  // 看点文章（旧链接、分享出去的链接）：未登录时改看公开的同一篇 /news/<id>，不必先登录
+  if (!session.user && (path === "/kandian/article" || path === "/kandian/article.html")) {
+    const id = url.searchParams.get("id") || "";
+    if (REPORT_ID.test(id)) return redirect(`/news/${id}`, session.setCookies);
   }
 
   // /home、/technicalanalysis、/account、/shortemotion/...：需登录
