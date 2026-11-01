@@ -124,7 +124,7 @@ Supabase Auth                     寄送與驗證郵箱驗證碼（經 Resend �
 - 頁面放在 `public/demo/<名稱>/index.html`，網址是 `https://demo.lfjmwl.com/<名稱>`（`vercel.json` 開頭兩條帶 `has: host` 的改寫）。
 - `demo.lfjmwl.com/` 由 `middleware.js` 送到 `/study1`（點讚反饋 Demo，手機版：單擊／雙擊／連擊 × 顏色／動畫／文字共 9 種條件，底部淺色按鈕切換與重置；網址後加 `#double-anim` 等可直接打開某個條件）。舊網址 `/like` 轉到 `/study1`。
 - `/study2` 是 Study 2 正式實驗流程（方案 A）：受測編號首位決定組別（1xx 基線、2xx 顏色、3xx 動畫、4xx 文字）；每人三輪，單擊／雙擊／連擊順序每次隨機；每輪「說明 → 下一個 → 倒數 3 秒 → 點讚一次 → 成功後固定 4 秒清空頁面，只顯示「請填寫問卷」與『下一個』→ 填完紙本問卷後按下一個進入下一輪」。卡片與反饋和 study1 相同，基線組點讚後圖標不變。數據存在該手機瀏覽器的 localStorage；編號頁輸入 `000` 打開研究者面板，可下載 CSV（每輪一行）／JSON 或複製。左上角隱藏區長按 2 秒可跳過一直做不出手勢的那一輪（記為 skipped）。
-- `/study3` 與 `/study2` 流程相同，但每輪點讚成功 4 秒後改為在頁面內填 PAD 中文簡化版 12 題（兩端情緒詞，1–5 分；12 題全部作答才能按「下一个」）。CSV 每輪一行，含 q1–q12 原始分、P／A／D 維度分（反向題 = 6 − 原分，計分鍵見頁面中的 `PAD_KEY`）、改答次數與直線作答標記；數據與 study2 分開存放。
+- `/study3` 與 `/study2` 流程相同，但每輪點讚成功 4 秒後改為在頁面內填 PAD 中文簡化版 12 題（兩端情緒詞，1–5 分；12 題全部作答才能按「下一个」）。CSV 每輪一行，含 q1–q12 原始分、P／A／D 維度分（反向題 = 6 − 原分，計分鍵見頁面中的 `PAD_KEY`）、改答次數與直線作答標記；數據與 study2 分開存放。每輪問卷提交時與實驗結束時上傳 Supabase（`supabase/migrations/20261101090000_study3.sql`：私有 schema `study_private`，瀏覽器經 `study3_submit` 只寫不讀；P／A／D 與直線作答由資料庫計算）；上傳失敗自動排隊重試，研究者面板顯示待上傳筆數並可「重新上傳」。導出：SQL Editor 執行 `select * from study_private.study3_export order by participant, round_index;` 後下載 CSV。**上線前先在 SQL Editor 執行該遷移。**
 - 主站 `/ → /about` 的跳轉加了 `missing: host`，不作用在 demo 網域；demo 網域上看板相關網址照常需要登入。
 - 本地預覽：`npm run dev` 後打開 http://localhost:3000/demo/study1/index.html 或 http://localhost:3000/demo/study2/index.html 。
 - 一次性設定：Vercel 專案 → Settings → Domains 加入 `demo.lfjmwl.com`；若 lfjmwl.com 的 DNS 不在 Vercel，到 DNS 服務商加 `CNAME demo → cname.vercel-dns.com`。

@@ -272,6 +272,12 @@ describe("设计 Demo 子网域 demo.lfjmwl.com", () => {
     expect(html).toContain("for (var v = 1; v <= 5; v++)");
     expect(html).toContain("还有第 ");
     expect(html).toContain("if (feed !== 'base') heart.classList.add('red');");
+    // 每轮问卷提交后上传 Supabase（只写不读），失败排队重试
+    expect(html).toContain("/rest/v1/rpc/study3_submit");
+    const sql = readFileSync(resolve(root, "supabase/migrations/20261101090000_study3.sql"), "utf8");
+    expect(sql).toContain("create function public.study3_submit(");
+    expect(sql).toContain("revoke all on study_private.sessions, study_private.rounds from public, anon, authenticated;");
+    expect(sql).toContain("q <@ array[1, 2, 3, 4, 5]::smallint[]");
   });
 
   it("Study 2 实验页：编号首位决定组别，卡片与反馈沿用 study1，基线组点赞后不变", () => {
