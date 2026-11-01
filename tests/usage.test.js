@@ -52,9 +52,9 @@ describe('功能统计口径', () => {
   });
   it('所有产品页面均接入采集，后台不计入产品数据', () => {
     for (const page of ['home','about','login','short-emotion','technical-analysis','sectorflow','limitup','kandian','account','account/signin','account/invite','account/points','account/settings','account/edit','privacy','terms']) {
-      expect(readFileSync(`public/${page}/index.html`,'utf8')).toContain('/shared/usage.js?v=1');
+      expect(readFileSync(`public/${page}/index.html`,'utf8')).toContain('/shared/usage.js?v=2');
     }
-    expect(readFileSync('public/kandian/article.html','utf8')).toContain('/shared/usage.js?v=1');
+    expect(readFileSync('public/kandian/article.html','utf8')).toContain('/shared/usage.js?v=2');
     expect(readFileSync('public/admin/index.html','utf8')).not.toContain('/shared/usage.js');
   });
 });

@@ -77,6 +77,40 @@ async function loadLive(tile) {
 }
 $$(".live-tile").forEach(loadLive);
 
+// ── 每日看点：最新三篇（公开，不需要登录）；繁体时链接到 /zh-hant/news ──
+const isHant = () => document.documentElement.dataset.lang === "hant";
+function syncNewsLinks() {
+  $$("a[data-hant-href]").forEach((link) => { link.href = isHant() ? link.dataset.hantHref : link.dataset.hansHref; });
+}
+new MutationObserver(syncNewsLinks).observe(document.documentElement, { attributes: true, attributeFilter: ["data-lang"] });
+syncNewsLinks();
+async function loadNews(list) {
+  try {
+    const response = await fetch("/api/news?view=latest&limit=3", { headers: { Accept: "application/json" } });
+    if (!response.ok) return;
+    const { items = [] } = await response.json();
+    if (!items.length) return;
+    const date = (value) => new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", month: "2-digit", day: "2-digit" }).format(new Date(value));
+    list.replaceChildren(...items.map((item) => {
+      const li = document.createElement("li");
+      const link = document.createElement("a");
+      link.dataset.hansHref = item.url;
+      link.dataset.hantHref = item.hantUrl;
+      const meta = document.createElement("small");
+      const title = document.createElement("span");
+      link.append(meta, title);
+      li.append(link);
+      setText(meta, [date(item.publishedAt), item.sector].filter(Boolean).join(" · "));
+      setText(title, item.title);
+      return li;
+    }));
+    list.hidden = false;
+    syncNewsLinks();
+  } catch {}
+}
+const newsList = $(".news-latest");
+if (newsList) loadNews(newsList);
+
 // ── 邀请链接 /about?invite=SE…：记下邀请码（7 天，登录页自动填好），显示谁邀请你 ──
 const INVITE_PATTERN = /^SE[A-HJKMNP-Z2-9]{6}$/;
 const inviteCode = String(new URLSearchParams(location.search).get("invite") || "").replace(/\s+/g, "").toUpperCase();

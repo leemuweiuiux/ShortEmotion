@@ -6,9 +6,18 @@
   <meta name="theme-color" content="#ffffff">
   <title>ShortEmotion · 看懂A股情绪与走势</title>
   <meta name="description" content="一个情绪分，告诉你今天该进攻还是防守；输入一只股票，看懂趋势、胜率与赔率。">
+  <link rel="canonical" href="https://www.lfjmwl.com/about">
+  <link rel="alternate" type="application/rss+xml" title="ShortEmotion 每日看点" href="https://www.lfjmwl.com/news/feed.xml">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="ShortEmotion">
+  <meta property="og:url" content="https://www.lfjmwl.com/about">
   <meta property="og:title" content="ShortEmotion · 看懂A股情绪与走势">
   <meta property="og:description" content="一个分数看清短线情绪，一只股票看懂趋势结构、胜率与赔率。">
-  <meta property="og:image" content="/about/img/pulse-light.webp">
+  <meta property="og:image" content="https://www.lfjmwl.com/about/img/pulse-light.webp">
+  <meta property="og:locale" content="zh_CN">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://www.lfjmwl.com/about/img/pulse-light.webp">
+  <script type="application/ld+json">[{"@context": "https://schema.org", "@type": "Organization", "@id": "https://www.lfjmwl.com/#organization", "name": "ShortEmotion", "url": "https://www.lfjmwl.com/about", "logo": "https://www.lfjmwl.com/apple-touch-icon.png", "description": "A股短线情绪与个股技术分析：每天一个 0–100 的短线情绪分，并发布每日看点短线复盘。"}, {"@context": "https://schema.org", "@type": "WebSite", "@id": "https://www.lfjmwl.com/#website", "name": "ShortEmotion", "alternateName": "看懂A股情绪与走势", "url": "https://www.lfjmwl.com/about", "inLanguage": ["zh-Hans", "zh-Hant"], "publisher": {"@id": "https://www.lfjmwl.com/#organization"}}]</script>
   <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
   <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
@@ -29,13 +38,13 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/about/about.css?v=12">
+  <link rel="stylesheet" href="/about/about.css?v=13">
   <link rel="stylesheet" href="/shared/form.css?v=1">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
   <link rel="stylesheet" href="/shared/global-header.css?v=4">
-  <script defer src="/shared/usage.js?v=1"></script>
+  <script defer src="/shared/usage.js?v=2"></script>
 </head>
 <body>
   <nav class="nav">
@@ -99,7 +108,7 @@
       <p class="hero-note">情绪分 0–100，越高越热。</p>
     </header>
 
-    <section class="steps-intro">
+    <section class="steps-intro" id="steps">
       <h2>四步读懂今天的情绪</h2>
       <p>看板按这个顺序排列，从一个分数开始，逐层找到原因和方向。</p>
     </section>
@@ -207,6 +216,15 @@
     </section>
 
 
+    <section class="news-intro" id="news">
+      <h2>每日看点</h2>
+      <p>每个交易日三篇 A 股短线复盘：开盘前的看点早报、午间看点与收盘后的看点收评，附当日情绪分与可回看验证的观点卡。不用登录就能读。</p>
+      <ul class="news-latest" hidden></ul>
+      <div class="board-links">
+        <a class="board-link" href="/news" data-hans-href="/news" data-hant-href="/zh-hant/news">阅读每日看点</a>
+      </div>
+    </section>
+
     <section class="data-source">
       <h2>用 Wind MCP 数据搭建</h2>
       <p>ShortEmotion 的数据来自 Wind Alice Market 的 MCP 服务。行情、涨跌停与连板、概念板块和财经新闻都通过 MCP 接口按交易时段定时取得，再由我们的算法合成情绪分、整理成题材异动；个股技术分析则在你发起分析时，即时取得这只股票的行情与公告新闻。</p>
@@ -253,7 +271,7 @@
     </div>
   </div>
 
-  <script type="module" src="/about/about.js?v=25"></script>
+  <script type="module" src="/about/about.js?v=26"></script>
   <script type="module" src="/shared/global-header.js?v=4"></script>
 </body>
 </html>

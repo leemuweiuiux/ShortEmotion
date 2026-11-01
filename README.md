@@ -8,6 +8,8 @@ A股短線情緒看板與個股技術分析：**https://lfjmwl.com**（Vercel �
 | --- | --- |
 | `/about` | 介紹頁（公開）：產品介紹、今日情緒分數、底部「登录」按鈕 |
 | `/login` | 登入頁：輸入郵箱 → 同一頁填驗證碼，免費註冊 |
+| `/news`、`/news/<id>` | 每日看點（公開，不需登入）：服務端直接輸出全文；`/zh-hant/news/...` 為繁體版 |
+| `/sitemap.xml`、`/news/feed.xml`、`/robots.txt`、`/llms.txt` | 站點地圖、RSS（簡繁各一）、爬蟲規則、給 AI 的網站說明 |
 | `/home` | 首頁（**需登入**）：積分與簽到、個股技術分析輸入框、今日短線情緒（分數、階段、市場概況）、當日題材異動（可直接解鎖） |
 | `/technicalanalysis` | 個股技術分析（**需登入**，每次分析扣 10 積分） |
 | `/shortemotion/cn` | 短線情緒 · A股（**需登入**） |
@@ -116,6 +118,15 @@ Supabase Auth                     寄送與驗證郵箱驗證碼（經 Resend �
 - 餘額與流水存在 Supabase（`supabase/migrations/20261020_points.sql`，在 SQL Editor 執行一次），只能經由 `points_*` 函數用登入者自己的憑證存取；
   流水只記類型（註冊贈送／簽到／刷新／解鎖異動／退回），永久保留。營運概況：`select * from points_overview;`
 - 個人資料頁 `/account` 顯示餘額、簽到按鈕與積分記錄。
+
+## 每日看點公開與 SEO / GEO
+
+- `/news`（簡體）、`/zh-hant/news`（繁體，opencc cn→tw，與站內繁體切換同一套用語）：`api/news.js` 經 `vercel.json` 改寫，服務端直接輸出 HTML，ChatGPT / Claude / Perplexity 等不執行 JS 的爬蟲也讀得到全文；CDN 快取 5–10 分鐘。
+- 內容全部複用既有資料：文章來自看點（`api/_lib/morning-report`），文章頁導讀後的「當日短線情緒」取自盤中快照（數據分支 `history/`）；正文版式與登入後的 `/kandian/article` 共用 `public/kandian/article-view.js`（含「AI 生成」標識）。
+- 每頁有 canonical、簡繁 hreflang、Open Graph、`NewsArticle` / `CollectionPage` / `BreadcrumbList` 結構化數據；`/sitemap.xml` 列出介紹頁、列表與每篇文章的簡繁兩版。
+- 未登入打開舊的 `/kandian/article?id=…` 會轉到公開的 `/news/<id>`；需登入目錄下的樣式與腳本不再攔截。
+- `robots.txt` 對所有爬蟲（含 AI 訓練爬蟲）開放介紹頁與每日看點；看板、個人頁面、管理後台不收錄。
+- 上線後在 Google Search Console 與 Bing Webmaster Tools 驗證網域並提交 `https://www.lfjmwl.com/sitemap.xml`。
 
 ## 設計 Demo 子網域（demo.lfjmwl.com）
 

@@ -1,0 +1,55 @@
+/* 公开的每日看点 /news（服务端输出，见 api/_lib/news/render.js）：沿用 twsvp.css 与 reports.css 的站内样式，这里只补公开页独有的部分。 */
+.news-main { display: grid; gap: 12px; }
+.news-main > .legal { padding-top: 4px; }
+
+/* 顶栏右侧：简体 / 繁体（链接到对应网址，不在页面里转换） */
+.news-lang { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; color: var(--muted); font-size: 12px; }
+.news-lang a { padding: 2px 6px; border: 1px solid transparent; color: inherit; text-decoration: none; }
+.news-lang a[aria-current] { border-color: var(--border); background: var(--panel); color: var(--ink); }
+.news-lang a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.news-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.news-crumbs a { color: inherit; text-decoration: none; }
+.news-crumbs a:hover { color: var(--ink); }
+
+/* 列表页 */
+.news-head { display: grid; gap: 8px; padding: 18px 20px; background: var(--surface); border: 1px solid var(--border); }
+.news-head h1 { margin: 0; font-size: 22px; font-weight: 650; line-height: 1.4; }
+.news-head p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.75; }
+.news-head a { color: var(--ink); }
+.news-list { padding: 0 20px; background: var(--surface); border: 1px solid var(--border); }
+.news-list .mr-item:last-child .mr-card { border-bottom: 0; }
+
+/* 文章页：导读之后的当日短线情绪 */
+.news-data { margin: 18px 0 0; padding: 16px 18px; background: var(--panel); border: 1px solid var(--border); }
+.mr-article .news-data h2 { margin: 0 0 6px; font-size: 15px; }
+.news-data-lead { margin: 0 0 12px; font-size: 15px; line-height: 1.75; }
+.news-data dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 10px; margin: 0; }
+.news-data dl div { display: grid; gap: 2px; }
+.news-data dt { color: var(--muted); font-size: 12px; }
+.news-data dd { margin: 0; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.news-data-note { margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.news-data-note a { color: var(--ink); }
+
+/* 上一篇 / 下一篇、翻页 */
+.news-pager { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.news-pager a { display: grid; gap: 4px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); color: var(--ink); text-decoration: none; }
+.news-pager a[rel="next"] { text-align: right; }
+.news-pager small { color: var(--muted); font-size: 12px; }
+.news-pager span { font-size: 14px; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.news-pager a:hover { border-color: var(--ink); }
+
+/* 引导去看实时看板 */
+.news-cta { display: grid; gap: 14px; padding: 18px 20px; background: var(--surface); border: 1px solid var(--border); }
+.news-cta b { font-size: 16px; }
+.news-cta p { margin: 4px 0 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+.news-cta-links { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+.news-cta-links a { color: var(--ink); font-size: 14px; }
+.news-cta-btn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border: 1px solid var(--ink); background: var(--ink); color: var(--surface) !important; font-weight: 600; text-decoration: none; }
+
+@media (max-width: 480px) {
+  .news-head, .news-cta { padding: 16px; }
+  .news-list { padding: 0 16px; }
+  .news-pager { grid-template-columns: 1fr; }
+  .news-pager a[rel="next"] { text-align: left; }
+}
