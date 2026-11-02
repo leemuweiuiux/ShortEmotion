@@ -236,6 +236,10 @@ export function mockWindResult(serverType, toolName, params) {
   const now = beijingNow();
   const qt = quoteTime();
   const question = String(params.question || params.query || "");
+  if (serverType === "analytics_data" && toolName === "get_financial_data" && /(?:沪深京|全部)A股(?:涨停|跌停)家数/.test(question)) {
+    const direction = question.includes("涨停家数") ? "涨停" : "跌停";
+    return result({ data: [table([`${direction}家数`], [[direction === "涨停" ? LIMIT_EVENT.length : LIMIT_DOWN_EVENT.length]])] });
+  }
 
   const limitUp = mockLimitUp(serverType, toolName, question, now);
   if (limitUp) return limitUp;

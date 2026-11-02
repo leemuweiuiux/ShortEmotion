@@ -9,6 +9,7 @@
 //   * per-day caches (concept membership, limit-up history, previous trading date)
 //     can be exported/imported so cron runs on cold instances don't refetch them.
 import { callWindTool } from "./wind-client.js";
+import { loadMarketLimitCounts } from "./market-limit-counts.js";
 
 const cacheTtlMs = 60_000;
 let inflight = null;
@@ -1413,7 +1414,7 @@ function aggregateDailyHistory(history) {
 
 // Reference: MuWeiLee/lfjDashboard@d1637eb, ??????20261022.
 // Version metadata isolates existing v3 history; formulas and selection rules match the reference.
-export const SCORE_VERSION = 4;
+export const SCORE_VERSION = 5;
 
 async function loadEmotion(force = false, continuity = null) {
   if (inflight) return inflight;
@@ -1441,8 +1442,10 @@ async function loadEmotion(force = false, continuity = null) {
     const indexPayload = fulfilled(calls[0]);
     const indexRow = objects(tables(indexPayload)[0])[0] || {};
     const limitUpStocks = tables(fulfilled(calls[1])).flatMap(objects).filter((r) => r["Wind代码"]).map((r) => ({ code: r["Wind代码"], name: r["证券简称"] || "" }));
-    const limitUp = limitUpStocks.length || uniqueWindCodeCount(fulfilled(calls[1]));
-    const limitDown = uniqueWindCodeCount(fulfilled(calls[2]));
+    const quoteDay = String(indexRow["交易时间"] || "").replace(/\D/g, "").slice(0, 8) || day;
+    const marketCounts = await loadMarketLimitCounts(quoteDay);
+    const limitUp = marketCounts.limitUp;
+    const limitDown = marketCounts.limitDown;
     const bigUp = aggregatedStockCount(fulfilled(calls[3]), /涨幅大于5%.*家数$/);
     const bigDown = aggregatedStockCount(fulfilled(calls[4]), /跌幅大于5%.*家数$/);
     const premiumDetail = percentileColumn(fulfilled(calls[5]), /^(?:(?:最新|今日|当日).*|\d{8}|\d{4}年\d{1,2}月\d{1,2}日)涨跌幅$/);
@@ -1452,7 +1455,7 @@ async function loadEmotion(force = false, continuity = null) {
     const down = Number(indexRow["下跌家数"]);
     const flat = Number(indexRow["平盘家数"]);
     const upRatio = Number.isFinite(up + down) && up + down > 0 ? up / (up + down) * 100 : null;
-    const errors = calls.map(reason).filter(Boolean);
+    const errors = [...calls.map(reason).filter(Boolean), ...marketCounts.errors];
     let ladderScore = 50;
     try {
       const streakResult = await loadLimitHistory(day);
@@ -1503,6 +1506,7 @@ async function loadEmotion(force = false, continuity = null) {
       dimensions,
       market: { index: Number(indexRow["最新成交价"]), changePct: Number(indexRow["涨跌幅"]), amount: Number(indexRow["成交额"]), up: Number.isFinite(up) ? up : null, down: Number.isFinite(down) ? down : null, flat: Number.isFinite(flat) ? flat : null, upRatio },
       extremes: { limitUp, limitDown, bigUp, bigDown },
+      limitCountScope: marketCounts.scope,
       profit: { premium, sampleSize: premiumDetail.sampleSize, baseTradingDate: previousDay, currentTradingDate: day, method: "前一交易日涨停股票今日涨跌幅分位（中位数）" },
       themes,
       coverage: [
