@@ -41,6 +41,7 @@ if (nav) {
   title.classList.add('global-header-title');
   const path=location.pathname.replace(/\/$/,'')||'/';
   if(labels[path])title.textContent=labels[path];
+  const showAccountActions = !secondary && path !== '/login' && nav.dataset.accountActions !== 'hidden';
   // Keep article titles managed by the report detail page.
   const space=document.createElement('span');space.className='global-header-space';title.after(space);
   const extra=$('.subnav-save, .mr-share',nav);
@@ -58,8 +59,8 @@ if (nav) {
   account.setAttribute('aria-label','个人中心');account.title='个人中心';
   // Secondary pages retain only their own actions (settings, save, share).
   // In particular /account must finish with its existing settings button.
-  if (!secondary && path !== '/login') nav.append(signin,points,account);
-  if(ownsAccount && !secondary && path !== '/login'){
+  if (showAccountActions) nav.append(signin,points,account);
+  if(ownsAccount && showAccountActions){
     account.addEventListener('click',()=>{
       if(!state.authenticated){location.assign('/login');return;}
       const existing=$('.global-header-menu');if(existing){existing.remove();return;}
@@ -75,11 +76,11 @@ if (nav) {
     });
   }
   function renderSignin(){
-    signin.hidden=secondary||path==='/login'||!state.authenticated||state.unlimited;
+    signin.hidden=!showAccountActions||!state.authenticated||state.unlimited;
     signin.classList.toggle('is-signed',Boolean(state.signedToday));
     signin.querySelector('span').textContent=state.signedToday?'已签到':'签到';
     signin.setAttribute('aria-label',state.signedToday?'查看每日签到（今日已签到）':'进入每日签到页面');
-    points.hidden=secondary||path==='/login'||!state.authenticated;
+    points.hidden=!showAccountActions||!state.authenticated;
     account.setAttribute('aria-label',state.authenticated?'个人中心':'登录');
     if(ownsAccount)account.title=state.authenticated?'个人中心':'登录';
   }
@@ -91,6 +92,7 @@ if (nav) {
       state.enabled=a.enabled!==false;
       state.authenticated=Boolean(a.user) || !state.enabled;
       if(!state.authenticated){state.signedToday=null;renderSignin();return;}
+      if (!showAccountActions) { renderSignin(); return; }
       const res=await fetch('/api/auth?action=points&tz=Asia%2FShanghai',{credentials:'same-origin',headers:{Accept:'application/json'},cache:'no-store'});
       if(!res.ok){renderSignin();return;}
       const p=await res.json();
