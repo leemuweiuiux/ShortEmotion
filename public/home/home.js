@@ -31,7 +31,7 @@ async function loadPoints() {
   try {
     const { response, payload } = await request(`/api/auth?action=points&tz=${encodeURIComponent(TIMEZONE)}`);
     if (!response.ok) return;
-    balance = payload.balance;
+    balance = payload.balance ?? null;
     unlimited = Boolean(payload.unlimited);
     updateNavPoints(payload);
   } catch {}
@@ -75,7 +75,7 @@ form.addEventListener("submit", (event) => {
     input.focus();
     return;
   }
-  if (!unlimited && Number.isFinite(Number(balance)) && balance < analysis.cost) {
+  if (!unlimited && balance != null && Number.isFinite(Number(balance)) && balance < analysis.cost) {
     toast(POINTS_TEXT, true);
     return;
   }
@@ -163,10 +163,10 @@ function renderLocked() {
   const hours = anomalyData.hours || 12;
   $("#anomaly-pill").textContent = `今日 ${total} 个题材`;
   body.classList.add("locked");
-  const short = !unlimited && Number.isFinite(Number(balance)) && balance < cost;
+  const short = !unlimited && balance != null && Number.isFinite(Number(balance)) && balance < cost;
   const action = anomalyData.unavailable
     ? "<p>积分服务暂时不可用，请稍后再试</p>"
-    : `<button id="unlock" class="pill-btn" type="button">解锁 · ${cost} 积分</button>${Number.isFinite(Number(balance)) ? `<small>积分 ${esc(balance)}</small>` : ""}${short ? '<a class="lock-link" href="/account/signin">去签到</a>' : ""}`;
+    : `<button id="unlock" class="pill-btn" type="button">解锁 · ${cost} 积分</button>${balance != null && Number.isFinite(Number(balance)) ? `<small>积分 ${esc(balance)}</small>` : ""}${short ? '<a class="lock-link" href="/account/signin">去签到</a>' : ""}`;
   body.innerHTML = `<div class="lock-skeleton" aria-hidden="true">${"<i></i>".repeat(3)}</div>
     <div class="anomaly-lock" role="group" aria-label="题材异动已锁定">${lockIcon}<b>今日识别到 ${total} 个题材异动</b><p>解锁后 ${hours} 小时内，首页与看板都能查看</p>${action}</div>`;
   $("#unlock")?.addEventListener("click", unlock);
@@ -196,10 +196,9 @@ async function loadAnomalies() {
     const { response, payload } = await request(`/api/short-emotion?market=cn&resource=anomalies&t=${Date.now()}`);
     if (!response.ok) throw new Error(payload.error || "暂时无法读取");
     anomalyData = payload;
-    if (Number.isFinite(Number(payload.balance)) && !unlimited) {
+    if (payload.balance != null && Number.isFinite(Number(payload.balance)) && !unlimited) {
       balance = payload.balance;
       updateNavPoints(payload);
-      renderPoints(null);
     }
     if (payload.locked) renderLocked();
     else renderUnlocked();
@@ -215,10 +214,9 @@ async function unlock(event) {
   button.textContent = "解锁中…";
   try {
     const { response, payload } = await request("/api/short-emotion?market=cn&action=unlock-anomalies", { method: "POST" });
-    if (Number.isFinite(Number(payload.balance))) {
+    if (payload.balance != null && Number.isFinite(Number(payload.balance))) {
       balance = payload.balance;
       updateNavPoints(payload);
-      renderPoints(null);
     }
     if (response.status === 402) {
       toast(POINTS_TEXT, true);
@@ -226,7 +224,7 @@ async function unlock(event) {
       return;
     }
     if (!response.ok) throw new Error(payload.error || "解锁失败，请稍后再试");
-    if (payload.charged) toast(Number.isFinite(Number(payload.balance)) ? `已解锁，剩余 ${payload.balance} 积分` : "已解锁");
+    if (payload.charged) toast(payload.balance != null && Number.isFinite(Number(payload.balance)) ? `已解锁，剩余 ${payload.balance} 积分` : "已解锁");
     if (limitupData?.locked) renderLimitUpLocked(); // 余额变了，涨停天梯的「去签到」提示跟着更新
     await loadAnomalies();
   } catch (error) {
@@ -282,7 +280,7 @@ function renderLimitUpLocked() {
   const tiers = Number(limitupData.ladderTiers) || 0;
   $("#limitup-pill").textContent = tiers ? `今日天梯 ${tiers} 档` : "涨停天梯";
   limitupBody.classList.add("locked");
-  // 余额以积分卡为准，积分卡还没读到时用接口返回的余额
+  // 优先使用已读取的余额，尚未读取时使用接口返回的余额
   const shown = balance ?? limitupData.balance ?? null;
   const known = shown != null && Number.isFinite(Number(shown));
   const short = !unlimited && known && Number(shown) < cost;
@@ -334,10 +332,9 @@ async function unlockLimitUp(event) {
   button.textContent = "解锁中…";
   try {
     const { response, payload } = await request("/api/limitup?action=unlock", { method: "POST" });
-    if (Number.isFinite(Number(payload.balance))) {
+    if (payload.balance != null && Number.isFinite(Number(payload.balance))) {
       balance = payload.balance;
       updateNavPoints(payload);
-      renderPoints(null);
     }
     if (response.status === 402) {
       toast(POINTS_TEXT, true);
@@ -345,7 +342,7 @@ async function unlockLimitUp(event) {
       return;
     }
     if (!response.ok) throw new Error(payload.error || "解锁失败，请稍后再试");
-    if (payload.charged) toast(Number.isFinite(Number(payload.balance)) ? `已解锁，剩余 ${payload.balance} 积分` : "已解锁");
+    if (payload.charged) toast(payload.balance != null && Number.isFinite(Number(payload.balance)) ? `已解锁，剩余 ${payload.balance} 积分` : "已解锁");
     if (anomalyData?.locked) renderLocked(); // 余额变了，题材异动的「去签到」提示跟着更新
     await loadLimitUp();
   } catch (error) {
