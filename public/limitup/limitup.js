@@ -79,10 +79,10 @@ function renderSummary(data) {
   if (previous && Number.isFinite(previous.limitUpCount) && Number.isFinite(summary.limitUpCount)) {
     const delta = summary.limitUpCount - previous.limitUpCount;
     const note = $("#m-limitup-note");
-    note.textContent = `较上日 ${signed(delta)} 家（${previous.limitUpCount} → ${summary.limitUpCount}）`;
+    note.textContent = `较昨日 ${signed(delta)} 家（${previous.limitUpCount} → ${summary.limitUpCount}）`;
     note.className = `lu-delta ${delta > 0 ? "up" : delta < 0 ? "down" : ""}`;
   } else {
-    setText("#m-limitup-note", "全市场 · 含 ST");
+    setText("#m-limitup-note", "较昨日 —（上个交易日数据待补齐）");
   }
 
   // 最高板：加环比箭头，板高下移意味着空间收缩
@@ -101,7 +101,7 @@ function renderSummary(data) {
     ? `${firstSeal}${arrowOf(previousFirstSeal, firstSeal)}`
     : "—";
   if (Number.isFinite(previousFirstSeal) && Number.isFinite(firstSeal)) {
-    setText("#m-firstseal-note", `较上日 ${signed(firstSeal - previousFirstSeal)} 家（${previousFirstSeal} → ${firstSeal}）`);
+    setText("#m-firstseal-note", `较昨日 ${signed(firstSeal - previousFirstSeal)} 家（${previousFirstSeal} → ${firstSeal}）`);
   } else {
     setText("#m-firstseal-note", "环比待累积 · 历史日无封板时间");
   }
@@ -113,16 +113,16 @@ function renderSummary(data) {
 
   // 跌停家数：上升代表恐慌扩散，用绿跌色提示；环比方向沿用红涨绿跌
   const limitDown = summary.limitDownCount;
-  const previousDown = summary.previousLimitDownCount;
+  const previousDown = previous?.limitDownCount ?? summary.previousLimitDownCount;
   setText("#m-limitdown", Number.isFinite(limitDown) ? limitDown : "—");
   const downNote = $("#m-limitdown-note");
   downNote.title = "全市场 A 股（沪深京，含 ST），仅与相同口径的上日汇总比较";
   if (Number.isFinite(previousDown) && Number.isFinite(limitDown)) {
     const delta = limitDown - previousDown;
-    downNote.textContent = `较上日 ${signed(delta)} 家（${previousDown} → ${limitDown}）`;
+    downNote.textContent = `较昨日 ${signed(delta)} 家（${previousDown} → ${limitDown}）`;
     downNote.className = `lu-delta ${delta > 0 ? "down" : delta < 0 ? "up" : ""}`;
   } else {
-    downNote.textContent = "全市场 · 含 ST";
+    downNote.textContent = "较昨日 —（上个交易日数据待补齐）";
     downNote.className = "lu-delta";
   }
 
@@ -341,7 +341,7 @@ function renderConcepts(data) {
       concept.downOnly ? null : `首封 ${esc(shortClock(concept.firstSealTime))}`,
       concept.downCount ? `<span class="is-down">跌停 ${concept.downCount}</span>` : null,
       concept.brokenCount ? `<span class="is-broken">断板/未晋级 ${concept.brokenCount}</span>` : null,
-      delta != null ? `较上日 ${signed(delta)}` : null,
+      delta != null ? `较昨日 ${signed(delta)}` : null,
       ...(concept.reviewReasons || []).map(reason => esc(`待核实：${reason}`))
     ].filter(Boolean).join(" · ");
     // 右侧主数字：有涨停就报涨停家数；没有涨停的弱方向改报跌停/断板，避免出现「0 涨停」
@@ -433,17 +433,19 @@ function renderFreeMetrics(data) {
   const metrics = data.metrics || {};
   const previous = data.previous || null;
   setText("#f-limitup", metrics.limitUpCount ?? "—");
+  setText("#f-limitup-note", "较昨日 —（上个交易日数据待补齐）");
+  setText("#f-limitdown-note", "较昨日 —（上个交易日数据待补齐）");
   if (previous && Number.isFinite(previous.limitUpCount) && Number.isFinite(metrics.limitUpCount)) {
     const delta = metrics.limitUpCount - previous.limitUpCount;
     const note = $("#f-limitup-note");
-    note.textContent = `较上日 ${signed(delta)} 家（${previous.limitUpCount} → ${metrics.limitUpCount}）`;
+    note.textContent = `较昨日 ${signed(delta)} 家（${previous.limitUpCount} → ${metrics.limitUpCount}）`;
     note.className = `lu-delta ${delta > 0 ? "up" : delta < 0 ? "down" : ""}`;
   }
   setText("#f-limitdown", Number.isFinite(metrics.limitDownCount) ? metrics.limitDownCount : "—");
   if (previous && Number.isFinite(previous.limitDownCount) && Number.isFinite(metrics.limitDownCount)) {
     const delta = metrics.limitDownCount - previous.limitDownCount;
     const note = $("#f-limitdown-note");
-    note.textContent = `较上日 ${signed(delta)} 家（${previous.limitDownCount} → ${metrics.limitDownCount}）`;
+    note.textContent = `较昨日 ${signed(delta)} 家（${previous.limitDownCount} → ${metrics.limitDownCount}）`;
     note.className = `lu-delta ${delta > 0 ? "down" : delta < 0 ? "up" : ""}`;
   }
   const maxStreak = metrics.maxStreak || 0;

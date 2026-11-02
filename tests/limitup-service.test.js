@@ -114,3 +114,31 @@ describe("涨停情绪取数与落库", () => {
     expect(summarizeLimitUp(board, null, { unlocked: false })).toMatchObject({ ladder: null, ladderTiers: 1, metrics: { promotionRate: null, promotedCount: null } });
   });
 });
+
+describe("全市场涨跌停较昨日变化", () => {
+  it("uses same-scope historical totals instead of the old incomplete daily list", async () => {
+    const { readLimitUp } = await import("../api/_lib/limitup/service.js");
+    const board = {
+      summary: { limitUpCount: 132, limitDownCount: 11, limitCountScope: "all-a-including-st-v1" },
+      promotion: { baseTradingDate: "20261030" },
+      previous: { tradingDate: "20261030", limitCountScope: "all-a-including-st-v1", limitUpCount: 50, limitDownCount: 60 }
+    };
+    const store = { kvGet: async key => ({ value: key === "limitup:latest" ? board : {
+      tradingDate: "20261030", summary: { limitUpCount: 48, limitDownCount: 58 }
+    } }) };
+    const full = await readLimitUp(store, "full");
+    expect(full.previous).toMatchObject({ limitUpCount: 50, limitDownCount: 60 });
+    const free = await readLimitUp(store, "summary");
+    expect(free.previous).toMatchObject({ limitUpCount: 50, limitDownCount: 60 });
+    expect(free.metrics.limitUpCount - free.previous.limitUpCount).toBe(82);
+    expect(free.metrics.limitDownCount - free.previous.limitDownCount).toBe(-49);
+  });
+  it("preserves zero as a valid previous total when no daily snapshot exists", async () => {
+    const { readLimitUp } = await import("../api/_lib/limitup/service.js");
+    const board = { summary: { limitCountScope: "all-a-including-st-v1" },
+      promotion: { baseTradingDate: "20261030" },
+      previous: { limitCountScope: "all-a-including-st-v1", limitUpCount: 0, limitDownCount: 0 } };
+    const full = await readLimitUp({ kvGet: async key => key === "limitup:latest" ? { value: board } : null }, "full");
+    expect(full.previous).toMatchObject({ limitUpCount: 0, limitDownCount: 0 });
+  });
+});
