@@ -1,3 +1,4 @@
+import { loadMarketLimitCounts } from "../short-emotion/market-limit-counts.js";
 // 涨停情绪 · 计算层（/limitup）
 //
 // 原样移植自 lfjDashboard「涨停事件工作台20261027」的 api/_lib/short-emotion/limit-engine.js，
@@ -1229,6 +1230,8 @@ export async function loadLimitUpBoard(day = localDate()) {
   // 资讯检索、断板解释、跌停取数都必须用「行情日期」，否则当天数据一条都取不到。
   const quoteTime = eventResult.rows.map((row) => row["交易时间"]).filter(Boolean).sort().at(-1) || null;
   const dataDay = quoteDayOf(quoteTime) || day;
+  const marketCounts = await loadMarketLimitCounts(dataDay);
+  errors.push(...marketCounts.errors);
 
   // 跌停取数：按行情日期查当日跌停（历史日同样支持「跌停」措辞），
   // 同时补一次上一交易日的跌停家数，给「跌停扩散 / 收敛」提供环比。
@@ -1407,10 +1410,17 @@ export async function loadLimitUpBoard(day = localDate()) {
 
   const firstSealCount = stocks.filter((stock) => clockMinutes(stock.sealTime) != null && clockMinutes(stock.sealTime) < 600).length;
 
+  if (marketCounts.limitUp != null && marketCounts.limitUp !== allStocks.length) {
+    errors.push(`涨停明细仅返回 ${allStocks.length} 家，全市场共 ${marketCounts.limitUp} 家；明细与连板数据待补齐`);
+  }
+  if (marketCounts.limitDown != null && marketCounts.limitDown !== rawDownStocks.length) {
+    errors.push(`跌停明细仅返回 ${rawDownStocks.length} 家，全市场共 ${marketCounts.limitDown} 家；明细待补齐`);
+  }
   const summary = {
-    limitUpCount: stocks.length,
-    limitDownCount: downStocks.length,
-    upDownNet: stocks.length - downStocks.length,
+    limitUpCount: marketCounts.limitUp,
+    limitDownCount: marketCounts.limitDown,
+    upDownNet: marketCounts.limitUp != null && marketCounts.limitDown != null ? marketCounts.limitUp - marketCounts.limitDown : null,
+    limitCountScope: marketCounts.scope,
     maxStreak: ladder[0]?.streak || 0,
     ladderDepth,
     firstSealCount,
@@ -1424,7 +1434,7 @@ export async function loadLimitUpBoard(day = localDate()) {
     brandConceptSkipped: Boolean(brandReview.skipped),
     promotionRate: promotion.overallRate,
     yesterdayLimitUpCount: promotion.baseLimitUpCount,
-    previousLimitDownCount: previousDownCount,
+    previousLimitDownCount: null, // 旧事件表家数与全市场汇总不可混算环比。
     negativeFeedbackThemes: themeStrength.filter((theme) => theme.negativeFeedback).length,
     // 一字板=集合竞价直接封板，是竞价强度最硬的证据（今日涨停股口径，零额外取数）
     auctionSealCount: stocks.filter((stock) => stock.isAuctionSeal).length,

@@ -88,12 +88,12 @@ export async function refreshLimitUp(store, { day } = {}) {
 async function resolvePrevious(store, board) {
   const baseDay = board?.promotion?.baseTradingDate || null;
   const baseEntry = baseDay ? await store.kvGet(LIMITUP_KEYS.day(baseDay)).catch(() => null) : null;
-  if (!baseEntry?.value) return board?.previous || null;
+  if (!baseEntry?.value) return board?.summary?.limitCountScope ? { ...board.previous, limitUpCount: null, limitDownCount: null } : board?.previous || null;
   const base = baseEntry.value;
   return {
     tradingDate: base.tradingDate,
-    limitUpCount: base.summary?.limitUpCount ?? null,
-    limitDownCount: base.summary?.limitDownCount ?? board?.previous?.limitDownCount ?? null,
+    limitUpCount: base.summary?.limitCountScope === board.summary?.limitCountScope ? base.summary?.limitUpCount ?? null : null,
+    limitDownCount: base.summary?.limitCountScope === board.summary?.limitCountScope ? base.summary?.limitDownCount ?? null : null,
     maxStreak: base.summary?.maxStreak ?? null,
     firstSealCount: base.summary?.firstSealCount ?? null,
     // 新旧归类口径不同，不混用已存快照做题材环比；优先本次同口径计算的昨日数据。

@@ -95,7 +95,7 @@ describe("runScheduledRefresh (mock Wind, memory store)", () => {
     expect(roles.length).toBeGreaterThan(0);
     expect(roles.every((stock) => stock.themeEvidence && stock.attributionEvidence)).toBe(true);
     expect(anomalies.items.some((item) => item.lead.length > 0)).toBe(true);
-    expect(emotion.scoreVersion).toBe(4);
+    expect(emotion.scoreVersion).toBe(5);
     expect(anomalies.summary.rejectedCandidates).toBeGreaterThan(0);
     expect(anomalies.items.flatMap((item) => [...item.followers, ...item.rideable])
       .every((stock) => stock.themeEvidence && stock.attributionEvidence)).toBe(true);
@@ -186,7 +186,7 @@ describe("收盘后收缩", () => {
       expect(result.ran).toContain("emotion");
       expect(result.ran).toContain("anomalies");
       const refreshed = await readResource("emotion");
-      expect(refreshed.scoreVersion).toBe(4);
+      expect(refreshed.scoreVersion).toBe(5);
     } finally {
       vi.useRealTimers();
     }

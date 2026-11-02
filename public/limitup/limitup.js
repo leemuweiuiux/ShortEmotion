@@ -82,7 +82,7 @@ function renderSummary(data) {
     note.textContent = `较上日 ${signed(delta)} 家（${previous.limitUpCount} → ${summary.limitUpCount}）`;
     note.className = `lu-delta ${delta > 0 ? "up" : delta < 0 ? "down" : ""}`;
   } else {
-    setText("#m-limitup-note", "今日涨停");
+    setText("#m-limitup-note", "全市场 · 含 ST");
   }
 
   // 最高板：加环比箭头，板高下移意味着空间收缩
@@ -116,13 +116,13 @@ function renderSummary(data) {
   const previousDown = summary.previousLimitDownCount;
   setText("#m-limitdown", Number.isFinite(limitDown) ? limitDown : "—");
   const downNote = $("#m-limitdown-note");
-  downNote.title = "跌停家数与上日均为结构化事件表口径（剔除 ST）；历史日受口径影响可能存在偏差";
+  downNote.title = "全市场 A 股（沪深京，含 ST），仅与相同口径的上日汇总比较";
   if (Number.isFinite(previousDown) && Number.isFinite(limitDown)) {
     const delta = limitDown - previousDown;
     downNote.textContent = `较上日 ${signed(delta)} 家（${previousDown} → ${limitDown}）`;
     downNote.className = `lu-delta ${delta > 0 ? "down" : delta < 0 ? "up" : ""}`;
   } else {
-    downNote.textContent = `已剔除 ST ${summary.limitDownStCount ?? 0} 家`;
+    downNote.textContent = "全市场 · 含 ST";
     downNote.className = "lu-delta";
   }
 
