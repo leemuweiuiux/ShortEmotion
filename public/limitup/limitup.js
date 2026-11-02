@@ -79,8 +79,8 @@ function renderSummary(data) {
   if (previous && Number.isFinite(previous.limitUpCount) && Number.isFinite(summary.limitUpCount)) {
     const delta = summary.limitUpCount - previous.limitUpCount;
     const note = $("#m-limitup-note");
-    note.textContent = `较昨日 ${signed(delta)} 家（${previous.limitUpCount} → ${summary.limitUpCount}）`;
-    note.className = `lu-delta ${delta > 0 ? "up" : delta < 0 ? "down" : ""}`;
+    note.innerHTML = `较昨日 <span class="lu-delta ${delta > 0 ? "up" : delta < 0 ? "down" : ""}">${signed(delta)}</span> 家（${previous.limitUpCount} → ${summary.limitUpCount}）`;
+    note.className = "lu-delta";
   } else {
     setText("#m-limitup-note", "较昨日 —（上个交易日数据待补齐）");
   }
@@ -119,8 +119,8 @@ function renderSummary(data) {
   downNote.title = "全市场 A 股（沪深京，含 ST），仅与相同口径的上日汇总比较";
   if (Number.isFinite(previousDown) && Number.isFinite(limitDown)) {
     const delta = limitDown - previousDown;
-    downNote.textContent = `较昨日 ${signed(delta)} 家（${previousDown} → ${limitDown}）`;
-    downNote.className = `lu-delta ${delta > 0 ? "down" : delta < 0 ? "up" : ""}`;
+    downNote.innerHTML = `较昨日 <span class="lu-delta ${delta > 0 ? "down" : delta < 0 ? "up" : ""}">${signed(delta)}</span> 家（${previousDown} → ${limitDown}）`;
+    downNote.className = "lu-delta";
   } else {
     downNote.textContent = "较昨日 —（上个交易日数据待补齐）";
     downNote.className = "lu-delta";
@@ -438,15 +438,15 @@ function renderFreeMetrics(data) {
   if (previous && Number.isFinite(previous.limitUpCount) && Number.isFinite(metrics.limitUpCount)) {
     const delta = metrics.limitUpCount - previous.limitUpCount;
     const note = $("#f-limitup-note");
-    note.textContent = `较昨日 ${signed(delta)} 家（${previous.limitUpCount} → ${metrics.limitUpCount}）`;
-    note.className = `lu-delta ${delta > 0 ? "up" : delta < 0 ? "down" : ""}`;
+    note.innerHTML = `较昨日 <span class="lu-delta ${delta > 0 ? "up" : delta < 0 ? "down" : ""}">${signed(delta)}</span> 家（${previous.limitUpCount} → ${metrics.limitUpCount}）`;
+    note.className = "lu-delta";
   }
   setText("#f-limitdown", Number.isFinite(metrics.limitDownCount) ? metrics.limitDownCount : "—");
   if (previous && Number.isFinite(previous.limitDownCount) && Number.isFinite(metrics.limitDownCount)) {
     const delta = metrics.limitDownCount - previous.limitDownCount;
     const note = $("#f-limitdown-note");
-    note.textContent = `较昨日 ${signed(delta)} 家（${previous.limitDownCount} → ${metrics.limitDownCount}）`;
-    note.className = `lu-delta ${delta > 0 ? "down" : delta < 0 ? "up" : ""}`;
+    note.innerHTML = `较昨日 <span class="lu-delta ${delta > 0 ? "down" : delta < 0 ? "up" : ""}">${signed(delta)}</span> 家（${previous.limitDownCount} → ${metrics.limitDownCount}）`;
+    note.className = "lu-delta";
   }
   const maxStreak = metrics.maxStreak || 0;
   $("#f-maxstreak").innerHTML = maxStreak ? `${streakText(maxStreak)}${arrowOf(previous?.maxStreak, maxStreak)}` : "—";
