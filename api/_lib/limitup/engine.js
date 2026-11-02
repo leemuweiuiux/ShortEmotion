@@ -1230,7 +1230,10 @@ export async function loadLimitUpBoard(day = localDate()) {
   // 资讯检索、断板解释、跌停取数都必须用「行情日期」，否则当天数据一条都取不到。
   const quoteTime = eventResult.rows.map((row) => row["交易时间"]).filter(Boolean).sort().at(-1) || null;
   const dataDay = quoteDayOf(quoteTime) || day;
-  const marketCounts = await loadMarketLimitCounts(dataDay);
+  const [marketCounts, previousMarketCounts] = await Promise.all([
+    loadMarketLimitCounts(dataDay),
+    baseTradingDate ? loadMarketLimitCounts(baseTradingDate) : null
+  ]);
   errors.push(...marketCounts.errors);
 
   // 跌停取数：按行情日期查当日跌停（历史日同样支持「跌停」措辞），
@@ -1434,7 +1437,7 @@ export async function loadLimitUpBoard(day = localDate()) {
     brandConceptSkipped: Boolean(brandReview.skipped),
     promotionRate: promotion.overallRate,
     yesterdayLimitUpCount: promotion.baseLimitUpCount,
-    previousLimitDownCount: null, // 旧事件表家数与全市场汇总不可混算环比。
+    previousLimitDownCount: previousMarketCounts?.limitDown ?? null,
     negativeFeedbackThemes: themeStrength.filter((theme) => theme.negativeFeedback).length,
     // 一字板=集合竞价直接封板，是竞价强度最硬的证据（今日涨停股口径，零额外取数）
     auctionSealCount: stocks.filter((stock) => stock.isAuctionSeal).length,
@@ -1477,7 +1480,13 @@ export async function loadLimitUpBoard(day = localDate()) {
     ladder, stocks, sealTimeBuckets,
     concepts: conceptBoard,
     promotion,
-    previous: previousDay,
+    previous: previousMarketCounts ? {
+      ...previousDay,
+      tradingDate: baseTradingDate,
+      limitCountScope: previousMarketCounts.scope,
+      limitUpCount: previousMarketCounts.limitUp,
+      limitDownCount: previousMarketCounts.limitDown
+    } : previousDay,
     brokenStreaks,
     // 触顶板块家数会被截断，页面需要据此标注"可能不全"
     dataQuality: {
