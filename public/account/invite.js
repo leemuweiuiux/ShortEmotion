@@ -63,12 +63,14 @@ function render(data) {
   $("#ic-qr").innerHTML = window.qrcode ? qrSvg(link) : "";
   $("#invite-link").textContent = link;
 
-  setText($("#stat-invited"), `${data.invited}/${data.limit}`);
+  const unlimited = data.limit === null;
+  setText($("#stat-invited"), unlimited ? `${data.invited} / 不限人数` : `${data.invited}/${data.limit}`);
+  setText($("#invite-limit-rule"), unlimited ? "你的邀请码不限邀请人数；邀请码只限新注册的账号使用。" : `每人最多邀请 ${data.limit} 位好友；邀请码只限新注册的账号使用。`);
   setText($("#stat-rewarded"), String(data.rewarded));
   setText($("#stat-earned"), String(data.earned));
   renderFriends(data.friends || []);
 
-  const full = data.invited >= data.limit;
+  const full = !unlimited && data.invited >= data.limit;
   shareButton.disabled = full;
   copyButton.disabled = full;
   if (full) setText($("#invite-link"), `已邀请满 ${data.limit} 位好友，邀请码不能再使用。`);
