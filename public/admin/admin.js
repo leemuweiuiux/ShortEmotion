@@ -1,3 +1,4 @@
+import { buildUsageTree, usageRowsHtml } from "/admin/usage-tree.js?v=1";
 // 管理后台 /admin（只给管理员；middleware 已挡掉其他人）：总览、积分列表、积分发放。
 // 功能菜单收在导航栏左侧；只显示统计与流水（匿名用户代号），不显示邮箱、余额、备注。接口见 api/admin.js。
 import { openDateRange, rangeLabel } from "/shared/date-range.js?v=1";
@@ -171,20 +172,32 @@ function renderOverview(data) {
   if (select.options.length <= 1) for (const kind of sortKinds(Object.keys(kinds))) select.append(new Option(kinds[kind], kind));
 }
 
-const USAGE_FEATURES = { home:"首页",about:"介绍页",login:"登录",shortemotion:"短线情绪",anomalies:"题材异动",technicalanalysis:"个股分析",sectorflow:"资金流向",limitup:"涨停情绪",kandian:"看点",article:"文章",account:"个人中心",signin:"签到",points:"积分流水",settings:"设置",profile:"资料修改",invite:"邀请",legal:"条款与隐私" };
-const USAGE_ACTIONS = {page_view:"页面访问",click:"点击",submit:"提交表单",change:"切换选项",report_view:"免费查看报告",analysis_run:"生成分析",analysis_update:"更新分析",refresh:"刷新行情",unlock:"解锁",publish:"发布观点",close:"结束观点",stock_lookup:"查询股票",like:"点赞",unlike:"取消赞",send_code:"获取验证码",login:"登录",logout:"退出",signin:"签到",redeem:"绑定邀请码",save:"保存资料",nickname:"修改昵称",nickname_candidate:"生成候选昵称"};
+let usageTree = [];
+const usageExpanded = new Set(["home", "boards"]);
+function drawUsage() { $("#usage-rows").innerHTML = usageRowsHtml(usageTree, usageExpanded); }
 function renderUsage(usage) {
   $("#usage-start").textContent = usage?.startedAt ? `采集开始 ${timeLabel(usage.startedAt)}；以下为采集开始后的数据。` : "功能使用数据暂不可用";
-  const rows = usage?.rows || [];
-  const present = new Set(rows.map(row => row.feature));
-  const empty = Object.keys(USAGE_FEATURES).filter(feature => !present.has(feature));
-  $("#usage-rows").innerHTML = rows.map(row => {
-    const [action,control] = row.action.split(":");
-    const label = `${USAGE_ACTIONS[action] || action}${control ? ` · ${control}` : ""}`;
-    const result = row.source === "api" ? `成功 ${number(row.success)} / 失败 ${number(row.failure)} / 日线参考 ${number(row.partial)} / 未执行 ${number(row.skipped)} / 已受理 ${number(row.accepted)}` : "浏览器观察（不代表完成）";
-    return `<tr><th>${esc(USAGE_FEATURES[row.feature] || row.feature)}<small>${esc(label)}</small></th><td>${number(row.today)} / ${number(row.usersToday)}</td><td>${number(row.week)} / ${number(row.users7d)} / ${number(row.anonymous7d)}</td><td>${esc(result)}</td></tr>`;
-  }).join("") + empty.map(feature => `<tr><th>${esc(USAGE_FEATURES[feature])}</th><td>0 / 0</td><td>0 / 0 / 0</td><td>采集后暂无事件</td></tr>`).join("");
+  if (!usage || !Array.isArray(usage.rows)) {
+    $("#usage-rows").innerHTML = '<tr><td colspan="4">功能使用数据暂不可用，请稍后刷新。</td></tr>';
+    usageTree = []; return;
+  }
+  usageTree = buildUsageTree(usage.rows);
+  drawUsage();
 }
+$("#usage-rows").addEventListener("click", event => {
+  const button = event.target.closest("button[data-usage-node]");
+  if (!button) return;
+  const id = button.dataset.usageNode;
+  usageExpanded.has(id) ? usageExpanded.delete(id) : usageExpanded.add(id);
+  drawUsage();
+  // Keep keyboard focus when a row is rebuilt after expanding/collapsing.
+  [...$("#usage-rows").querySelectorAll("button[data-usage-node]")].find(node => node.dataset.usageNode === id)?.focus();
+});
+$("#usage-expand").addEventListener("click", () => {
+  function expand(nodes) { for (const node of nodes) { if (node.children.length) usageExpanded.add(node.id); expand(node.children); } }
+  expand(usageTree); drawUsage();
+});
+$("#usage-collapse").addEventListener("click", () => { usageExpanded.clear(); drawUsage(); });
 
 async function loadOverview() {
   const button = $("#overview-refresh");

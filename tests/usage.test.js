@@ -52,9 +52,9 @@ describe('功能统计口径', () => {
   });
   it('所有产品页面均接入采集，后台不计入产品数据', () => {
     for (const page of ['home','about','login','short-emotion','technical-analysis','sectorflow','limitup','kandian','account','account/signin','account/invite','account/points','account/settings','account/edit','privacy','terms']) {
-      expect(readFileSync(`public/${page}/index.html`,'utf8')).toContain('/shared/usage.js?v=2');
+      expect(readFileSync(`public/${page}/index.html`,'utf8')).toContain('/shared/usage.js?v=3');
     }
-    expect(readFileSync('public/kandian/article.html','utf8')).toContain('/shared/usage.js?v=2');
+    expect(readFileSync('public/kandian/article.html','utf8')).toContain('/shared/usage.js?v=3');
     expect(readFileSync('public/admin/index.html','utf8')).not.toContain('/shared/usage.js');
   });
 });
@@ -78,6 +78,14 @@ describe('浏览器采集', () => {
     listeners.click({target:{closest:()=>el}});
     expect(requests.at(-1).action).toBe('click:ta-run');
     expect(JSON.stringify(requests)).not.toContain('private-stock');
+    const anchor={...el,id:'',tagName:'A',getAttribute:key=>key==='href'?'/limitup?private=secret-stock':null};
+    listeners.click({target:{closest:()=>anchor}});
+    expect(requests.at(-1).action).toBe('click:to-limitup');
+    expect(JSON.stringify(requests)).not.toContain('secret-stock');
+    listeners.click({target:{closest:()=>({...el,id:'',dataset:{target:'lu-ladder-section'}})}});
+    expect(requests.at(-1).action).toBe('click:section-lu-ladder-section');
+    listeners.click({target:{closest:()=>({...anchor,getAttribute:key=>key==='href'?'https://external.example/private':null})}});
+    expect(requests.at(-1).action).toBe('click:navigation');
     expect(doc.cookie).toContain('SameSite=Lax');
   });
   it('登录成功按新登录凭证记到用户，退出使用原用户凭证', async () => {
