@@ -15,8 +15,25 @@ const now = new Date(), day = beijingDay(now), id = noonId(day), store = getStor
 const index = ((await store.kvGet(INDEX))?.value || []).filter((a) => !(dryRun && a.id === id));
 if (index.some(a => a.id === id)) { console.log('本期午间看点已生成，保留原文'); process.exit(0); }
 
-const emotion = (await store.kvGet('emotion:latest'))?.value;
-const ready = dryRun ? { ok: Boolean(emotion) } : noonReadiness({ day, nowMinute: beijingMinute(now), emotion });
+let emotion = (await store.kvGet('emotion:latest'))?.value;
+// The report and snapshot workflow share a concurrency group. Refresh locally:
+// waiting for another workflow here would block it from acquiring that group.
+if (!dryRun && beijingMinute(now) >= 11 * 60 + 30 && beijingMinute(now) < 13 * 60
+    && !noonReadiness({ day, nowMinute: beijingMinute(now), emotion }).skip
+    && !noonReadiness({ day, nowMinute: beijingMinute(now), emotion }).ok) {
+  const { runScheduledRefresh } = await import('../../api/_lib/short-emotion/service.js');
+  console.log('午盘快照未就绪，先尝试补抓数据');
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt) await new Promise(resolve => setTimeout(resolve, 15000));
+    if (beijingMinute(new Date()) >= 13 * 60) break;
+    // The failed 11:32 run already claimed its slot; explicitly recover it.
+    const result = await runScheduledRefresh({ market: 'cn', force: true });
+    console.log(JSON.stringify(result));
+    emotion = (await store.kvGet('emotion:latest'))?.value;
+    if (noonReadiness({ day, nowMinute: beijingMinute(new Date()), emotion }).ok) break;
+  }
+}
+const ready = dryRun ? { ok: Boolean(emotion) } : noonReadiness({ day, nowMinute: beijingMinute(new Date()), emotion });
 if (!ready.ok) {
   if (ready.skip) { console.log(ready.reason); process.exit(0); }
   throw new Error(ready.reason || '缺少短线情绪快照');
