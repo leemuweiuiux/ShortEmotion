@@ -18,6 +18,13 @@
     if (!el || el.disabled || el.getAttribute('aria-busy') === 'true') return;
     // 只使用静态控件 ID，动态内容统一归类，避免记录用户数据。
     let name = el.dataset.export ? 'export' : el.dataset.share ? 'export' : el.classList.contains('like-btn') ? 'like' : el.classList.contains('ta-stock-pill') ? 'stock_pill' : el.classList.contains('timeline-toggle') ? 'chart_switch' : el.id || (el.tagName === 'A' ? 'navigation' : 'button');
+    // Destination comes only from the static route whitelist; never transmit URLs, query values or IDs.
+    const href = el.tagName === 'A' ? el.getAttribute('href') || '' : '';
+    const targetPath = href.startsWith('/') && !href.startsWith('//') ? (href.split(/[?#]/)[0].replace(/\/$/, '') || '/') : '';
+    const destination = routes[targetPath] || (/^(?:\/zh-hant)?\/news$/.test(targetPath) ? 'kandian' : /^(?:\/zh-hant)?\/news\/[\w-]+$/.test(targetPath) ? 'article' : null);
+    if (destination) name = `to-${destination}`;
+    const sections = ['overview','breadth','themes','timeline','lu-overview','lu-highlights-section','lu-ladder-section','lu-down-section','lu-promo-section','lu-concepts-section'];
+    if (sections.includes(el.dataset.target)) name = `section-${el.dataset.target}`;
     name = name.toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,48);
     track(`click:${name || 'button'}`);
   }, true);
