@@ -63,6 +63,7 @@ function isQuotaExhaustedMessage(message) {
 }
 
 const ERROR_PATTERNS = [
+  ["RATE_LIMIT", /QPS|每秒请求频率|请求过于频繁|too.*frequent|rate.?limit/i],
   ["TEMPORARILY_UNAVAILABLE", /temporarily_unavailable/i],
   ["INVALID_PARAM_VALUE", /invalid_param_value/i],
   ["INVALID_PARAM_NAME", /invalid_param_name/i],
@@ -79,7 +80,7 @@ function inferErrorCode(message) {
   return "UNKNOWN";
 }
 
-const HTTP_ERROR_MAP = { 401: "AUTH_ERROR", 429: "QUOTA_ERROR", 500: "NETWORK_ERROR", 502: "NETWORK_ERROR", 503: "NETWORK_ERROR", 504: "NETWORK_ERROR" };
+const HTTP_ERROR_MAP = { 401: "AUTH_ERROR", 429: "RATE_LIMIT", 500: "NETWORK_ERROR", 502: "NETWORK_ERROR", 503: "NETWORK_ERROR", 504: "NETWORK_ERROR" };
 
 function fail(message, serverType) {
   const detail = `${message} (server=${serverType})`;
@@ -128,7 +129,25 @@ function parseSSE(text) {
   throw new Error(`响应格式无法识别：${text.slice(0, 200)}`);
 }
 
-async function mcpRequest(serverType, method, params, { apiKey, timeoutMs }) {
+// Pace initialize and tools/call together across all servers sharing a key.
+const requestSlots = new Map();
+const pause = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+async function mcpRequest(serverType, method, params, options) {
+  for (let attempt = 0; ; attempt++) {
+    const slot = Math.max(Date.now(), requestSlots.get(options.apiKey) || 0);
+    requestSlots.set(options.apiKey, slot + 1100);
+    await pause(Math.max(0, slot - Date.now()));
+    try {
+      return await mcpRequestOnce(serverType, method, params, options);
+    } catch (error) {
+      if (error.code !== "RATE_LIMIT" || attempt >= 3) throw error;
+      // Retry the same account; QPS throttling does not mean its credits ran out.
+      await pause(2000 * 2 ** attempt + Math.floor(Math.random() * 500));
+    }
+  }
+}
+
+async function mcpRequestOnce(serverType, method, params, { apiKey, timeoutMs }) {
   let response;
   try {
     response = await fetch(SERVERS[serverType], {
