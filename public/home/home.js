@@ -1,3 +1,4 @@
+import { emotionTimeLabel } from "/shared/local-time.js?v=1";
 import { startAnalysisRefresh } from "./analysis-refresh.js?v=1";
 import { updateNavPoints } from "/shared/nav-points.js?v=2";
 // 首页 /home（登录后打开 / 会到这里），都只读现有数据，不调用 Wind：
@@ -100,16 +101,6 @@ function pair(selector, left, right) {
   b.textContent = show(right);
 }
 
-/** 行情时间「20261021 11:26:00」→「行情时间 10-21 11:26」；不是今天（北京时间）的数据加注「最近交易日」。 */
-function quoteTimeLabel(value) {
-  const match = String(value || "").match(/^(\d{4})(\d{2})(\d{2})\s*(\d{2}):(\d{2})/);
-  if (!match) return "";
-  const [, year, month, day, hour, minute] = match;
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-  const stale = `${year}-${month}-${day}` !== today;
-  return `行情时间 ${month}-${day} ${hour}:${minute}${stale ? " · 最近交易日" : ""}`;
-}
-
 // 六个维度：名称与顺序同看板（public/short-emotion/app.js dimensionNames）
 const DIMENSIONS = [["breadth", "市场广度"], ["limits", "极端反馈"], ["ladder", "连板梯队"], ["profit", "赚钱效应"], ["themes", "题材聚焦"], ["liquidity", "成交环境"]];
 function renderDimensions(dimensions = {}) {
@@ -131,7 +122,7 @@ async function loadEmotion() {
     $("#emotion-phase").textContent = payload.regime?.phase || "—";
     $("#emotion-posture").textContent = payload.regime?.posture ? `姿态 · ${payload.regime.posture}` : "—";
     $("#emotion-copy").textContent = payload.regime?.summary || "";
-    $("#emotion-time").textContent = quoteTimeLabel(payload.quoteTime);
+    $("#emotion-time").textContent = emotionTimeLabel(payload);
     renderDimensions(payload.dimensions);
     const market = payload.market || {};
     const change = $("#market-change");
