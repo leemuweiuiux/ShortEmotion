@@ -19,5 +19,5 @@ export default async function handler(req,res) {
   await requireSession(req,res);
   const data=buildDashboard(await readSnapshot());
   res.setHeader('Cache-Control','private, no-cache');return res.status(200).json(data);
- }catch(e){res.setHeader('Cache-Control','no-store');return res.status(e.statusCode||503).json({error:e.message,code:e.code||'unavailable'});}
+ }catch(e){res.setHeader('Cache-Control','no-store');return res.status(e.statusCode||503).json({error:e.statusCode?e.message:'暂时无法读取ETF资金，请稍后重试',code:e.code||'unavailable'});}
 }

@@ -2,7 +2,7 @@ import { goLogin, initAccountMenu } from '/shared/nav-account.js?v=4';
 initAccountMenu();
 const $=s=>document.querySelector(s), valid=v=>v!==null&&v!==undefined&&Number.isFinite(Number(v));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const num=(n,d=2)=>valid(n)?`${n>0?'+':''}${Number(n).toLocaleString('zh-CN',{minimumFractionDigits:d,maximumFractionDigits:d})}`:'—';
+const num=(n,d=2)=>{if(!valid(n))return '—';const value=Math.round(Number(n)*10**d)/10**d;return `${value>0?'+':''}${(Object.is(value,-0)?0:value).toLocaleString('zh-CN',{minimumFractionDigits:d,maximumFractionDigits:d})}`;};
 const color=n=>!valid(n)?'':n>0?'ef-up':n<0?'ef-down':'';
 const date=d=>d?`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`:'—';
 const labels={day:'较昨日',week:'较近一周',month:'较近一月'};
@@ -46,3 +46,4 @@ async function load(){try{
  $('#ef-metric').disabled=false;$('#ef-filter').disabled=false;overview();groups();heatmap();select(selected);
  }catch(e){$('#ef-date').textContent=e.message;if(!dashboard)$('#ef-overview').innerHTML='<p class="ef-empty">当前数据缺失</p>';}}
 load();
+setInterval(()=>{if(!document.hidden)load();},5*60_000);
