@@ -2,7 +2,7 @@ name: ETF flow data
 on:
   push:
     branches: [develop]
-    paths: [api/_lib/etf-flow/source.js, scripts/etf-flow/refresh.mjs]
+    paths: [api/_lib/etf-flow/source.js, scripts/etf-flow/refresh.mjs, scripts/etf-flow/repair.mjs]
   workflow_dispatch:
   schedule:
     - cron: '35 12 * * 1-5'
@@ -33,7 +33,7 @@ jobs:
             git rev-parse FETCH_HEAD > "$RUNNER_TEMP/etf-parent"
           fi
       - name: Refresh verified ETF flows
-        run: node scripts/etf-flow/refresh.mjs ${{ github.event_name == 'push' && '--repair' || '' }}
+        run: node scripts/etf-flow/${{ github.event_name == 'push' && 'repair' || 'refresh' }}.mjs
         env:
           WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
       - name: Publish ETF data
