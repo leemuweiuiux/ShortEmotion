@@ -43,6 +43,6 @@ async function load(){try{
  const updated=data.updatedAt?new Intl.DateTimeFormat(undefined,{dateStyle:'short',timeStyle:'short'}).format(new Date(data.updatedAt)):'';
  $('#ef-date').textContent=`数据日期 ${date(data.date)}${updated?` · 更新于 ${updated}`:''}`;
  $('#ef-filter').innerHTML=data.series.map(g=>`<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('');
- overview();groups();heatmap();select(selected);
+ $('#ef-metric').disabled=false;$('#ef-filter').disabled=false;overview();groups();heatmap();select(selected);
  }catch(e){$('#ef-date').textContent=e.message;if(!dashboard)$('#ef-overview').innerHTML='<p class="ef-empty">当前数据缺失</p>';}}
 load();

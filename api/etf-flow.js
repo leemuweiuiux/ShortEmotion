@@ -1,8 +1,11 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { requireSession } from './_lib/session.js';
 import { buildDashboard } from './_lib/etf-flow/metrics.js';
 const DATA_URL='https://raw.githubusercontent.com/leemuweiuiux/ShortEmotion/etf-flow-data/snapshot.json';
 let cached=null;
 export async function readSnapshot() {
+ if(!process.env.VERCEL && process.env.ETF_FLOW_DATA_DIR) return JSON.parse(await readFile(join(process.env.ETF_FLOW_DATA_DIR,'snapshot.json'),'utf8'));
  if(cached && Date.now()-cached.at<60_000) return cached.value;
  const response=await fetch(DATA_URL,{signal:AbortSignal.timeout(15000),cache:'no-store'});
  if(response.status===404) return null;

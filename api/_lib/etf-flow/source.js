@@ -62,7 +62,7 @@ export function tradingDates(payload) {
 }
 export async function collectSnapshot(call, previous=null, now=new Date()) {
  const end=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(now).replace(/-/g,'');
- const start=new Date(now);start.setUTCDate(start.getUTCDate()-100);const begin=start.toISOString().slice(0,10).replace(/-/g,'');
+ const start=new Date(now);start.setUTCDate(start.getUTCDate()-60);const begin=start.toISOString().slice(0,10).replace(/-/g,'');
  const calendar=tradingDates(await call('index_data','get_index_kline',{windcode:'000300.SH',begin_date:begin,end_date:end})).filter(d=>d<=end);
  if(calendar.length<23)throw new Error('ETF交易日历不足，保留上一版');
  const issues=[],funds=[];const groups=GROUPS.filter(g=>g.index);
@@ -78,9 +78,13 @@ export async function collectSnapshot(call, previous=null, now=new Date()) {
  async function worker(){
   while(next<unique.length){const f=unique[next++],old=previous?.funds?.find(x=>x.code===f.code);
    try{
-    const from=old?.quotes?.length?old.quotes.at(-Math.min(7,old.quotes.length)).date:begin;
-    const payload=await call('fund_data','get_fund_financials',{question:`${f.code}从${from}至${end}每日的基金份额、单位净值、基金资产净值，使用各指标原始单位并返回单位`});
-    const quotes=parseHistory(payload,f.code);if(!quotes.length)throw new Error('份额、净值或资产净值校验未通过');
+    const required=calendar.slice(-25,-1).filter(d=>!f.listed||f.listed<=d);
+    const hasGaps=required.some(d=>!old?.quotes?.some(q=>q.date===d));
+    const from=hasGaps ? (required[0]||begin) : old?.quotes?.length?old.quotes.at(-Math.min(7,old.quotes.length)).date:begin;
+    let payload=await call('fund_data','get_fund_financials',{question:`${f.code}从${from}至${end}每日的基金份额、单位净值、基金资产净值，使用各指标原始单位并返回单位`});
+    let quotes=parseHistory(payload,f.code);
+    if(!quotes.length){payload=await call('analytics_data','get_financial_data',{question:`${f.code}从${from}至${end}每日的基金份额、单位净值、基金资产净值，使用各指标原始单位并返回单位`});quotes=parseHistory(payload,f.code);}
+    if(!quotes.length){console.log(JSON.stringify({unverified:f.code,tables:tableList(payload).map(t=>({columns:t.columns,sample:t.rows.slice(0,2)}))}));throw new Error('份额、净值或资产净值校验未通过');}
     f.quotes=[...new Map([...(old?.quotes||[]),...quotes].map(q=>[q.date,q])).values()].filter(q=>q.date>=begin).sort((a,b)=>a.date.localeCompare(b.date));
    }catch(e){f.quotes=old?.quotes||[];issues.push({code:f.code,group:f.group,reason:e.message});}
    f.points=fundPoints(f.quotes,calendar);console.log(`${f.code}: ${f.quotes.length} verified observations`);

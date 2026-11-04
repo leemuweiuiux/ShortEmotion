@@ -48,9 +48,9 @@
     <main>
       <div class="ef-heading"><div><h1>宽基 ETF 资金</h1><p id="ef-date">正在读取数据…</p></div><a href="/sectorflow" class="ef-link">板块资金 →</a></div>
       <section class="card ef-overview" aria-labelledby="overview-title"><div class="card-head"><h2 id="overview-title" class="card-title">资金概览</h2><span>单位：亿元</span></div><div id="ef-overview" aria-live="polite"></div></section>
-      <section class="card"><div class="card-head"><h2 class="card-title">各类宽基</h2><label class="ef-label">查看指标 <select id="ef-metric"><option value="amount">当日净流入</option><option value="day">较昨日</option><option value="week">较近一周</option><option value="month">较近一月</option></select></label></div><div id="ef-groups" class="ef-groups" aria-live="polite"></div></section>
+      <section class="card"><div class="card-head"><h2 class="card-title">各类宽基</h2><label class="ef-label">查看指标 <select id="ef-metric" disabled><option value="amount">当日净流入</option><option value="day">较昨日</option><option value="week">较近一周</option><option value="month">较近一月</option></select></label></div><div id="ef-groups" class="ef-groups" aria-live="polite"></div></section>
       <section class="card"><div class="card-head"><h2 class="card-title">近一月每日净流入</h2><span class="ef-legend">红：净申购　绿：净赎回</span></div><div class="ef-scroll" tabindex="0" role="region" aria-label="ETF每日净流入热力表，可横向滚动"><table id="ef-table"><caption>最近22个交易日，颜色深浅按各列相对大小</caption></table></div><p id="ef-missing" class="ef-note" hidden>当前数据缺失</p></section>
-      <section class="card"><div class="card-head"><h2 id="ef-detail-title" class="card-title">ETF 明细</h2><select id="ef-filter" aria-label="选择宽基类别"></select></div><div class="ef-scroll"><table id="ef-detail"></table></div><p id="ef-detail-missing" class="ef-note" hidden>当前数据缺失</p></section>
+      <section class="card"><div class="card-head"><h2 id="ef-detail-title" class="card-title">ETF 明细</h2><select id="ef-filter" disabled aria-label="选择宽基类别"></select></div><div class="ef-scroll"><table id="ef-detail"></table></div><p id="ef-detail-missing" class="ef-note" hidden>当前数据缺失</p></section>
       <footer class="legal"><p>净流入估算＝份额变动 × 当日单位净值。较近一周、近一月分别比较此前5、20个交易日的日均净流入；增减比例以基准绝对值为分母，基准为零时显示增减金额。</p></footer>
     </main>
   </div>
