@@ -149,7 +149,7 @@ async function runAnalysis(req, { session, config, needsPoints }) {
       fallback = shared?.result ? { data: shared.result, analyzedAt: shared.updatedAt } : null;
       if (!isRefresh(req) && shared?.result && isAnalysisCurrent(shared)) {
         const status = await pointsStatus(config, session.accessToken);
-        return result(200, { ok: true, viewed: true, data: shared.result, analyzedAt: shared.updatedAt,
+        return result(200, { ok: true, viewed: true, data: shared.result, partial: Boolean(shared.result.partial), analyzedAt: shared.updatedAt,
           charged: 0, balance: status.balance, unlimited: Boolean(status.unlimited),
           recent: await historyRecent(config, session.accessToken).catch(() => null) });
       }
@@ -170,12 +170,10 @@ async function runAnalysis(req, { session, config, needsPoints }) {
     ensureBudget();
     const analysisMs = Math.min(ANALYSIS_TIMEOUT_MS, available());
     const data = await withTimeout(signal => analyzeStock(stock, { signal, timeoutMs: Math.max(1, analysisMs - 500) }), analysisMs);
-    // Incomplete market data is free and never overwrites a published report.
-    if (data?.partial) {
-      return result(200, {
-        ok: true, partial: true, data, charged: 0, refunded: false,
-        balance: knownBalance, unlimited: knownUnlimited, analyzedAt: new Date().toISOString()
-      });
+    // Any successfully generated report follows the same billing/publishing path.
+    // A total data failure must still exit before charging.
+    if (!(Number(data?.price) > 0) && !data?.daily?.length && !data?.intraday?.length) {
+      throw Object.assign(new Error("行情数据暂不可用，请稍后再试"), { code: "data_unavailable", statusCode: 503 });
     }
     ensureBudget(0);
     if (needsPoints) {
@@ -205,6 +203,7 @@ async function runAnalysis(req, { session, config, needsPoints }) {
     return result(200, {
       ok: true,
       data,
+      partial: Boolean(data.partial),
       charged: charged ? charged.charged : 0,
       balance: charged ? charged.balance : null,
       unlimited: Boolean(charged?.unlimited),

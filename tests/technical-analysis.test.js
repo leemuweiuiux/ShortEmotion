@@ -82,7 +82,7 @@ describe("个股技术分析算法（离线样本）", () => {
 
 describe("盘前数据容错", () => {
   afterEach(() => { delete process.env.WIND_MOCK_EMPTY_QUOTE; engine.clearAnalysisCache(); });
-  it("分时为空时仅给出真实日 K 参考，不伪造盘中行情或胜率", async () => {
+  it("分时为空时仍计算日线赔率与相对强弱，不伪造分时或综合胜率", async () => {
     process.env.WIND_MOCK_EMPTY_QUOTE = "1";
     engine.clearAnalysisCache();
     const result = await engine.analyze("603936");
@@ -92,8 +92,9 @@ describe("盘前数据容错", () => {
     expect(result.daily.length).toBeGreaterThanOrEqual(20);
     expect(result.score).toBeNull();
     expect(result.opportunityScore).toBeNull();
-    expect(result.rr).toBe("—");
-    expect(result.dataWarnings.join(" ")).toContain("胜率");
+    expect(result.availability.odds).toBe(true);
+    expect(Number(result.rr)).toBeGreaterThan(0);
+    expect(result.dataWarnings).toEqual([]);
     expect(result.referenceDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
@@ -111,20 +112,21 @@ describe("关键价位：来源标注与补充参考（原算法数值不变）"
     expect(sources["当前价"]).toBe("");
   });
 
-  it("创新高：赔率照原算法（0%、极低），另给历史前高", async () => {
+  it("创新高：赔率照原算法，补充压力限定在实际返回区间", async () => {
     engine.clearAnalysisCache();
     const result = await engine.analyze("样本新材"); // 离线样本：近 3 日连续大涨、收在最高价
     expect(result.buyValue.upsidePct).toBe(0);
     expect(result.buyValue.noRecentPressure).toBe(true);
     expect(result.buyValue.pressureNote).toBe("上方无近120日压力");
-    expect(result.supplements[0]).toMatchObject({ label: "历史前高", note: expect.stringMatching(/^\d{4}-\d{2}-\d{2}（近6年）$/) });
+    expect(result.supplements[0].note).toContain("可用历史");
+    expect(result.supplements[0].note).not.toContain("近6年");
     expect(Number(result.supplements[0].value)).toBeGreaterThan(result.price);
   });
 
-  it("近 6 年都在新高：按 现价 + 2 倍 14 日平均波幅 推算", async () => {
+  it("可用区间都在新高：按 现价 + 2 倍 14 日平均波幅 推算", async () => {
     engine.clearAnalysisCache();
     const result = await engine.analyze("样本新高");
-    expect(result.supplements[0]).toMatchObject({ label: "波动推算", note: expect.stringContaining("近6年无更高价位") });
+    expect(result.supplements[0]).toMatchObject({ label: "波动推算", note: expect.stringContaining("可用历史无更高价位") });
     expect(Number(result.supplements[0].value)).toBeGreaterThan(result.price);
   });
 
@@ -256,18 +258,22 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     globalThis.fetch = realFetch;
   });
 
-  it("盘前分时缺失时生成免费日 K 参考，不扣积分也不发布报告", async () => {
+  it("分时缺失仍按10积分生成并保存报告，当日查看不重复扣分", async () => {
     process.env.WIND_MOCK_EMPTY_QUOTE = "1";
     const res = await call({body:{q:"603936"}});
     expect(res.statusCode).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.partial).toBe(true);
-    expect(res.body.refunded).toBe(false);
-    expect(res.body.charged).toBe(0);
-    expect(res.body.balance).toBe(50);
+    expect(res.body.charged).toBe(10);
+    expect(res.body.balance).toBe(40);
     expect(res.body.data.dataMode).toBe("daily_only");
-    expect(history).toHaveLength(0);
-    expect(ledger.filter(item=>item.kind==="analysis")).toHaveLength(0);
+    expect(history).toHaveLength(1);
+    expect(ledger.filter(item=>item.kind==="analysis")).toHaveLength(1);
+    const viewed = await call({body:{q:"603936"}});
+    expect(viewed.body).toMatchObject({viewed:true,partial:true,charged:0,balance:40});
+    const refreshed = await call({body:{q:"603936",refresh:true}});
+    expect(refreshed.body).toMatchObject({partial:true,charged:10,balance:30});
+    expect(history).toHaveLength(2);
     expect(ledger.filter(item=>item.kind==="analysis_refund")).toHaveLength(0);
   });
 
@@ -310,11 +316,15 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     expect(wind.windCallStats().total).toBe(0);
   });
 
-  it("取数分析失败：不发起扣分", async () => {
+  it("日 K 失败仍返回行情和分时，并按10积分保存报告", async () => {
     const res = await call({ body: { q: "样本故障" } }); // 离线样本：认得出，但取日 K 失败
-    expect(res.statusCode).toBe(502);
-    expect(res.body).toMatchObject({ refunded: false, charged: false, balance: 50, stage: "market_analysis" });
-    expect(ledger.map((row) => row.kind)).toEqual(["signup"]);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({ partial: true, charged: 10, balance: 40 });
+    expect(res.body.data.intraday.length).toBeGreaterThan(0);
+    expect(res.body.data.daily).toEqual([]);
+    expect(res.body.data.score).toBeNull();
+    expect(history).toHaveLength(1);
+    expect(ledger.map((row) => row.kind)).toEqual(["signup", "analysis"]);
   });
 
   it("分析成功后存进分析记录；最近分析同一支股票只留最新一次；按记录打开不扣分", async () => {
@@ -458,6 +468,19 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     expect(response.body).toMatchObject({ refunded: true, balance: 50 });
     expect(access.size).toBe(0);
     expect(sharedResults.size).toBe(0);
+  });
+
+  it("部分数据报告保存失败也退回10积分，不发放查看权", async () => {
+    process.env.WIND_MOCK_EMPTY_QUOTE = "1";
+    const fetchRpc = globalThis.fetch;
+    globalThis.fetch = vi.fn((url, options) => String(url).endsWith("/analysis_publish")
+      ? Promise.resolve(Response.json({message:"publish failed"},{status:503})) : fetchRpc(url,options));
+    const response = await call({body:{q:"603936"}});
+    expect(response.body).toMatchObject({refunded:true,charged:false,balance:50,stage:"save_report"});
+    expect(ledger.filter(row=>row.kind==='analysis')).toHaveLength(1);
+    expect(ledger.filter(row=>row.kind==='analysis_refund')).toHaveLength(1);
+    expect(access.size).toBe(0);
+    expect(history).toHaveLength(0);
   });
 
   it("不限额账号不扣分", async () => {

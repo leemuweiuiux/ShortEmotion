@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=17">
-  <link rel="stylesheet" href="/technical-analysis/ta.css?v=14">
+  <link rel="stylesheet" href="/technical-analysis/ta.css?v=15">
   <link rel="stylesheet" href="/shared/form.css?v=1">
   <link rel="stylesheet" href="/kandian/kandian.css?v=5">
   <link rel="stylesheet" href="/technical-analysis/view-drawer.css?v=2">
@@ -144,6 +144,7 @@
             </div>
           </div>
           <div id="ta-legend" class="ta-legend"></div>
+          <p id="ta-chart-empty" class="ta-note" hidden>分时与日 K 暂未获取到，暂无可展示的走势图。</p>
           <div class="ta-chart"><canvas id="ta-canvas"></canvas></div>
           <div class="ta-ohlc">
             <div><span>开盘</span><b id="ta-open">—</b></div>
@@ -206,7 +207,7 @@
   <div id="ta-view-status" class="ta-view-status" role="status" hidden>看法已发布到看点 · 观点 <a href="/kandian?tab=views&filter=mine">查看观点 →</a></div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="/short-emotion/vendor/html-to-image.js" defer></script>
-  <script type="module" src="/technical-analysis/ta.js?v=16"></script>
+  <script type="module" src="/technical-analysis/ta.js?v=20"></script>
 
 
   <script type="module" src="/shared/nav-points.js?v=2"></script>

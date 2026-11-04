@@ -21,8 +21,9 @@ let config = { configured: true, cost: 10, balance: null, unlimited: false };
 let busy = false;
 
 const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
-const fmt = (value) => (Number.isFinite(Number(value)) ? Number(value).toFixed(2) : "—");
-const signed = (value, suffix = "") => (Number.isFinite(Number(value)) ? `${Number(value) > 0 ? "+" : ""}${Number(value).toFixed(2)}${suffix}` : "—");
+const numeric = value => value != null && value !== "" && Number.isFinite(Number(value));
+const fmt = (value) => (numeric(value) ? Number(value).toFixed(2) : "—");
+const signed = (value, suffix = "") => (numeric(value) ? `${Number(value) > 0 ? "+" : ""}${Number(value).toFixed(2)}${suffix}` : "—");
 const signClass = (value) => (Number(value) > 0 ? "up-text" : Number(value) < 0 ? "down-text" : "");
 const setText = (selector, value) => { const element = $(selector); if (element) element.textContent = value ?? "—"; };
 
@@ -124,12 +125,12 @@ async function analyze(query, refresh = false) {
       throw new Error(`${payload.error || "分析失败，请稍后再试"}${note}`);
     }
     current = payload.data;
-    $("#ta-history-bar").hidden = Boolean(payload.partial);
-    $("#ta-history-time").textContent = payload.partial ? "免费日线参考 · 未保存完整报告" : `最新结果 · 更新于 ${shortTime(payload.analyzedAt)}`;
+    $("#ta-history-bar").hidden = false;
+    $("#ta-history-time").textContent = `最新结果 · 更新于 ${shortTime(payload.analyzedAt)}`;
     render();
     setUrl({ q: current.code || q });
     if (payload.recent) renderRecent($("#ta-recent"), payload.recent, (row) => openHistory(row.code, true));
-    toast(payload.partial ? (payload.refunded ? "日线参考已生成，积分已退回" : "日线参考已生成，本次免费") : payload.charged > 0 && Number.isFinite(Number(payload.balance)) ? `已完成分析，剩余 ${payload.balance} 积分` : payload.viewed ? "已显示最新结果" : "分析完成");
+    toast(payload.charged > 0 && Number.isFinite(Number(payload.balance)) ? `已完成分析，剩余 ${payload.balance} 积分` : payload.viewed ? "已显示最新结果" : "分析完成");
   } catch (error) {
     toast(error.message, true);
   } finally {
@@ -152,7 +153,7 @@ function levelClass(level) {
 }
 function setLevel(selector, level) {
   const element = $(selector);
-  element.textContent = level || "—";
+  element.textContent = /待补|数据不足|未分析/.test(level || "") ? "—" : level || "—";
   element.className = `pill ${levelClass(level || "")}`;
 }
 
@@ -171,21 +172,27 @@ function render() {
   change.textContent = `${signed(data.delta)} · ${signed(data.pct, "%")}`;
   change.className = signClass(data.pct);
   setText("#ta-time", data.date);
-  const partial = data.dataMode === "daily_only";
+  const partial = Boolean(data.partial);
   $("#ta-session").hidden = partial || !data.intradaySnapshot;
-  $("#ta-intraday-note").hidden = partial || !data.intradaySnapshot;
-  if (partial) chartMode = "daily";
+  $("#ta-intraday-note").hidden = true;
+  const chartAvailable = mode => (data[mode === "intraday" ? "intraday" : "daily"] || []).length > 0;
+  if (!chartAvailable(chartMode)) chartMode = chartAvailable("daily") ? "daily" : "intraday";
   $$(".ta-tabs .timeline-toggle").forEach(item => {
-    item.disabled = partial && item.dataset.chart === "intraday";
+    item.disabled = !chartAvailable(item.dataset.chart);
     item.classList.toggle("active", item.dataset.chart === chartMode);
     item.setAttribute("aria-pressed", String(item.dataset.chart === chartMode));
   });
-  setText("#ta-opportunity", partial ? "综合评分 待补全" : `综合评分 ${data.opportunityScore ?? decision.opportunityScore ?? data.score}`);
+  setText("#ta-opportunity", partial ? "综合评分 —" : `综合评分 ${data.opportunityScore ?? decision.opportunityScore ?? data.score}`);
   setText("#ta-winodds", decision.winOdds || "—");
   setText("#ta-structure", decision.grade || data.phase || "—");
+  const summaryText = String(data.summary || "").split(/(?<=。)/).filter(sentence =>
+    !/仅展示|历史日 K 不足|分时截至|价格摘要来自|未满足完整分析|分时数据尚未完整|指数基准数据暂不可用/.test(sentence)).join("");
+  const showSummary = Boolean(summaryText) && (!partial || Boolean(data.availability?.summary ?? data.availability?.trend));
+  $("#ta-headline").hidden = !showSummary;
+  $("#ta-summary").hidden = !showSummary;
   setText("#ta-headline", data.headline);
-  setText("#ta-summary", data.summary);
-  const primary = (data.market || [])[3] ? data.market[3][0] : (/\.SH$/.test(data.code) ? "上证" : "深证");
+  setText("#ta-summary", summaryText);
+  const primary = data.relativeLabel || ((data.market || [])[3] ? data.market[3][0] : (/\.SH$/.test(data.code) ? "上证" : "深证"));
   setText("#ta-relative-label", `相对${String(primary).replace(/指数|成指$/, "")}强弱`);
   setText("#ta-relative", data.relative);
   setText("#ta-amplitude", data.amp);
@@ -198,24 +205,25 @@ function render() {
   $("#ta-score-ring").style.setProperty("--score", partial ? 0 : Number(data.score) || 0);
   $("#ta-dims").innerHTML = (data.dims || []).map(([label, value, max]) => `
     <div class="ta-dim"><span>${esc(label)}</span><div class="dimension-track"><i style="width:${Math.max(0, Math.min(100, (Number(value) / Number(max)) * 100))}%"></i></div><b>${esc(value)}</b></div>`).join("");
-  setText("#ta-win-verdict", decision.winVerdict || "");
+  $("#ta-win-verdict").hidden = true;
 
   // 赔率
   const buy = data.buyValue || {};
   setLevel("#ta-odds-level", buy.oddsLevel || decision.oddsLevel);
   if (buy.noRecentPressure) $("#ta-odds-level").textContent = `${buy.oddsLevel || decision.oddsLevel}（${buy.pressureNote || "上方无近120日压力"}）`;
-  setText("#ta-upside", Number.isFinite(Number(buy.upsidePct)) ? signed(buy.upsidePct, "%") : "—");
-  setText("#ta-downside", Number.isFinite(Number(buy.downsidePct)) ? `-${Number(buy.downsidePct).toFixed(2)}%` : "—");
-  setText("#ta-odds-rr", Number.isFinite(Number(buy.rr)) ? `${Number(buy.rr).toFixed(2)}×` : "—");
+  setText("#ta-upside", numeric(buy.upsidePct) ? signed(buy.upsidePct, "%") : "—");
+  setText("#ta-downside", numeric(buy.downsidePct) ? `-${Number(buy.downsidePct).toFixed(2)}%` : "—");
+  setText("#ta-odds-rr", numeric(buy.rr) ? `${Number(buy.rr).toFixed(2)}×` : "—");
   setText("#ta-max-price", fmt(buy.maxValuePrice));
-  setText("#ta-odds-verdict", buy.verdict || "");
+  $("#ta-odds-verdict").hidden = true;
 
   // 历史同类结构
   const history = data.history || {};
   setText("#ta-history-scope", history.scope || "该股自身历史");
   setText("#ta-history-sample", `样本 ${history.sampleSize ?? "—"}`);
   setText("#ta-history-confidence", `置信度 ${history.confidence || "—"}`);
-  setText("#ta-history-method", history.method || "");
+  setText("#ta-history-method", "");
+  $("#ta-history-method").hidden = true;
   $("#ta-history").innerHTML = history.horizons?.length
     ? history.horizons.map((item) => `
       <div>
@@ -228,20 +236,20 @@ function render() {
           <div><dt>25%–75%</dt><dd>${esc(item.q25)}%～${esc(item.q75)}%</dd></div>
         </dl>
       </div>`).join("")
-    : `<p class="ta-note ta-empty">样本不足，暂不输出统计。</p>`;
+    : "";
 
   // 事件驱动
   const surge = data.surge || {};
   setLevel("#ta-event-level", surge.conclusionLevel || "—");
-  $("#ta-events").innerHTML = (surge.eventSummaryItems || []).map((item) => `<div class="ta-event"><b>${esc(item.type)}</b><span>${esc(item.text)}</span></div>`).join("") || `<p class="ta-note">暂无可总结事件。</p>`;
-  $("#ta-event-reason").hidden = !surge.supportReason;
+  $("#ta-events").innerHTML = (surge.eventSummaryItems || []).map((item) => `<div class="ta-event"><b>${esc(item.type)}</b><span>${esc(item.text)}</span></div>`).join("") || "";
+  $("#ta-event-reason").hidden = true;
   setText("#ta-event-reason", surge.supportReason || "");
 
   // 相关新闻与公告
   const links = (surge.drivers || []).filter((item) => /^https?:\/\//i.test(item.url || ""));
   $("#ta-links").innerHTML = links.length
     ? links.map((item) => `<a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer"><b>${esc(item.title)}</b><small>${esc([item.source, item.date].filter(Boolean).join(" · "))}</small></a>`).join("")
-    : `<p>${surge.trigger ? "近 3 日没有可直接打开的公告或新闻。" : "近期未出现连续大涨或涨停，未检索事件。"}</p>`;
+    : "";
 
   // 走势
   setText("#ta-open", fmt(data.open));
@@ -257,11 +265,11 @@ function render() {
       <div><b>${esc(name)}</b><small>${index ? `个股相对 ${signed(relative, "%")}` : `相对主基准 ${signed(relative, "%")}`}</small></div>
       ${spark(series, pct)}
       <strong class="${signClass(pct)}">${signed(pct, "%")}</strong>
-    </div>`).join("");
+    </div>`).join("") || "";
 
   // 关键价位
   // 关键价位：名称、来源（取自哪个价位、哪段时间）、价位；补充参考另列，不进赔率计算
-  $("#ta-levels").innerHTML = (data.levels || []).map(([label, value, cls, source]) => `<li class="${cls === "current" ? "current" : ""}"><span>${esc(label)}</span><small>${esc(source || "")}</small><b>${esc(value)}</b></li>`).join("");
+  $("#ta-levels").innerHTML = (data.levels || []).map(([label, value, cls, source]) => `<li class="${cls === "current" ? "current" : ""}"><span>${esc(label)}</span><small>${esc(source || "")}</small><b>${esc(value)}</b></li>`).join("") || "";
   const supplements = data.supplements || [];
   $("#ta-supplements").hidden = !supplements.length;
   $("#ta-supplements").innerHTML = supplements.length
@@ -272,8 +280,36 @@ function render() {
   const stop = (data.levels || []).find((item) => item[0] === "结构失效");
   $("#ta-stop").value = stop ? stop[1] : "";
   calcRisk();
+  renderModuleStatuses(data);
 
   window.scrollTo({ top: $("#ta-result").offsetTop - 80, behavior: "smooth" });
+}
+
+function renderModuleStatuses(data) {
+  const missing = [
+    ["#ta-name", Boolean(data.partial)],
+    ["#ta-score", !numeric(data.score)],
+    ["#ta-odds-rr", !numeric(data.buyValue?.rr)],
+    ["#ta-history", !data.history?.horizons?.length],
+    ["#ta-events", Boolean(data.partial) && !data.availability?.events],
+    ["#ta-canvas", !data.intraday?.length || !data.daily?.length],
+    ["#ta-market", !data.market?.length],
+    ["#ta-levels", !data.levels?.length],
+    ["#ta-links", !(data.surge?.drivers || []).some(item => /^https?:\/\//i.test(item.url || ""))],
+    ["#ta-risk", !(data.levels || []).some(item => item[0] === "结构失效" && numeric(item[1]))]
+  ];
+  for (const [selector, unavailable] of missing) {
+    const card = $(selector)?.closest(".card");
+    if (!card) continue;
+    let footer = card.querySelector(".ta-module-status");
+    if (!footer) {
+      footer = document.createElement("p");
+      footer.className = "ta-note ta-module-status";
+      footer.textContent = "当前数据缺失";
+      card.append(footer);
+    }
+    footer.hidden = !unavailable;
+  }
 }
 
 function spark(series, pct) {
@@ -293,7 +329,7 @@ function calcRisk() {
   const rawStop = String($("#ta-stop").value || "").trim();
   const stop = Number(rawStop);
   const price = Number(current.price);
-  if (!rawStop || !Number.isFinite(stop) || !price || current.dataMode === "daily_only") return setText("#ta-risk", "—");
+  if (!rawStop || !Number.isFinite(stop) || !price || (current.partial && !current.availability?.odds)) return setText("#ta-risk", "—");
   const loss = Math.max(0, (price - stop) / price);
   setText("#ta-risk", `${(position * loss).toFixed(2)}%`);
 }
@@ -347,8 +383,9 @@ function drawIntraday(target) {
   if (!points.length) return;
   const prices = points.map((item) => item.p);
   const avgs = points.map((item) => item.a);
-  const min = Math.min(...prices, ...avgs);
-  const max = Math.max(...prices, ...avgs);
+  const known = [...prices, ...avgs].filter(numeric);
+  const min = Math.min(...known);
+  const max = Math.max(...known);
   const left = 44;
   const right = w - 6;
   const top = 10;
@@ -362,7 +399,12 @@ function drawIntraday(target) {
   yLabels(ctx, c, min, max, top, bottom);
   const line = (values, color, width) => {
     ctx.beginPath();
-    values.forEach((value, index) => (index ? ctx.lineTo(x(index), y(value)) : ctx.moveTo(x(index), y(value))));
+    let connected = false;
+    values.forEach((value, index) => {
+      if (!numeric(value)) { connected = false; return; }
+      if (connected) ctx.lineTo(x(index), y(value)); else ctx.moveTo(x(index), y(value));
+      connected = true;
+    });
     ctx.strokeStyle = color;
     ctx.lineWidth = width;
     ctx.stroke();
@@ -372,6 +414,7 @@ function drawIntraday(target) {
   const maxVol = Math.max(...points.map((item) => item.v), 1);
   const barWidth = Math.max(1, ((right - left) / slots) * 0.7);
   points.forEach((item, index) => {
+    if (!numeric(item.v)) return;
     const up = index === 0 || item.p >= points[index - 1].p;
     const height = Math.max(1, ((volBottom - volTop) * item.v) / maxVol);
     ctx.fillStyle = up ? c.up : c.down;
@@ -454,7 +497,10 @@ function legendHtml(mode) {
 
 function drawChart() {
   if (!current) return;
-  $("#ta-legend").innerHTML = legendHtml(chartMode);
+  const hasChart = (current[chartMode === "intraday" ? "intraday" : "daily"] || []).length > 0;
+  $("#ta-chart-empty").hidden = true;
+  $("#ta-canvas").hidden = !hasChart;
+  $("#ta-legend").innerHTML = hasChart ? legendHtml(chartMode) : "";
   if (chartMode === "intraday") drawIntraday();
   else drawDaily();
 }
@@ -569,7 +615,7 @@ function exportSources() {
     if (card.querySelector("#ta-events") && !current.surge?.trigger) continue; // 事件驱动没触发
     if (card.querySelector("#ta-links") && !card.querySelector("#ta-links a")) continue; // 没有新闻与公告
     if (card.querySelector("#ta-canvas")) {
-      for (const mode of (current?.dataMode === "daily_only" ? ["daily"] : Object.keys(CHART_MODES))) sources.push({ name: `走势 · ${CHART_MODES[mode]}`, node: chartCard(card, mode) });
+      for (const mode of Object.keys(CHART_MODES).filter(mode => (current[mode === "intraday" ? "intraday" : "daily"] || []).length)) sources.push({ name: `走势 · ${CHART_MODES[mode]}`, node: chartCard(card, mode) });
       continue;
     }
     const isHead = card.classList.contains("ta-head");
