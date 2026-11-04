@@ -258,18 +258,22 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     globalThis.fetch = realFetch;
   });
 
-  it("盘前分时缺失时生成免费日 K 参考，不扣积分也不发布报告", async () => {
+  it("分时缺失仍按10积分生成并保存报告，当日查看不重复扣分", async () => {
     process.env.WIND_MOCK_EMPTY_QUOTE = "1";
     const res = await call({body:{q:"603936"}});
     expect(res.statusCode).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.partial).toBe(true);
-    expect(res.body.refunded).toBe(false);
-    expect(res.body.charged).toBe(0);
-    expect(res.body.balance).toBe(50);
+    expect(res.body.charged).toBe(10);
+    expect(res.body.balance).toBe(40);
     expect(res.body.data.dataMode).toBe("daily_only");
-    expect(history).toHaveLength(0);
-    expect(ledger.filter(item=>item.kind==="analysis")).toHaveLength(0);
+    expect(history).toHaveLength(1);
+    expect(ledger.filter(item=>item.kind==="analysis")).toHaveLength(1);
+    const viewed = await call({body:{q:"603936"}});
+    expect(viewed.body).toMatchObject({viewed:true,partial:true,charged:0,balance:40});
+    const refreshed = await call({body:{q:"603936",refresh:true}});
+    expect(refreshed.body).toMatchObject({partial:true,charged:10,balance:30});
+    expect(history).toHaveLength(2);
     expect(ledger.filter(item=>item.kind==="analysis_refund")).toHaveLength(0);
   });
 
@@ -312,15 +316,15 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     expect(wind.windCallStats().total).toBe(0);
   });
 
-  it("日 K 失败仍返回免费行情和分时，且不发布完整报告", async () => {
+  it("日 K 失败仍返回行情和分时，并按10积分保存报告", async () => {
     const res = await call({ body: { q: "样本故障" } }); // 离线样本：认得出，但取日 K 失败
     expect(res.statusCode).toBe(200);
-    expect(res.body).toMatchObject({ partial: true, charged: 0, balance: 50 });
+    expect(res.body).toMatchObject({ partial: true, charged: 10, balance: 40 });
     expect(res.body.data.intraday.length).toBeGreaterThan(0);
     expect(res.body.data.daily).toEqual([]);
     expect(res.body.data.score).toBeNull();
-    expect(history).toHaveLength(0);
-    expect(ledger.map((row) => row.kind)).toEqual(["signup"]);
+    expect(history).toHaveLength(1);
+    expect(ledger.map((row) => row.kind)).toEqual(["signup", "analysis"]);
   });
 
   it("分析成功后存进分析记录；最近分析同一支股票只留最新一次；按记录打开不扣分", async () => {
@@ -464,6 +468,19 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     expect(response.body).toMatchObject({ refunded: true, balance: 50 });
     expect(access.size).toBe(0);
     expect(sharedResults.size).toBe(0);
+  });
+
+  it("部分数据报告保存失败也退回10积分，不发放查看权", async () => {
+    process.env.WIND_MOCK_EMPTY_QUOTE = "1";
+    const fetchRpc = globalThis.fetch;
+    globalThis.fetch = vi.fn((url, options) => String(url).endsWith("/analysis_publish")
+      ? Promise.resolve(Response.json({message:"publish failed"},{status:503})) : fetchRpc(url,options));
+    const response = await call({body:{q:"603936"}});
+    expect(response.body).toMatchObject({refunded:true,charged:false,balance:50,stage:"save_report"});
+    expect(ledger.filter(row=>row.kind==='analysis')).toHaveLength(1);
+    expect(ledger.filter(row=>row.kind==='analysis_refund')).toHaveLength(1);
+    expect(access.size).toBe(0);
+    expect(history).toHaveLength(0);
   });
 
   it("不限额账号不扣分", async () => {

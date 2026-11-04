@@ -62,9 +62,12 @@ it('实际页面渲染快照、分时及日线缺失组合：无异常、无空�
   expect(document.querySelector('#ta-change').textContent).toBe('— · —');
   expect(document.querySelector('#ta-upside').textContent).toBe('—');
   expect(document.querySelector('#ta-avg').textContent).toBe('—');
-  expect(document.querySelector('#ta-chart-empty').hidden).toBe(false);
+  expect(document.querySelector('#ta-chart-empty').hidden).toBe(true);
   for (const selector of ['#ta-market', '#ta-levels', '#ta-history', '#ta-events', '#ta-links']) {
-    expect(document.querySelector(selector).textContent.trim()).not.toBe('');
+    const card = document.querySelector(selector).closest('.card');
+    expect(card.lastElementChild.classList.contains('ta-module-status')).toBe(true);
+    expect(card.lastElementChild.textContent).toBe('当前数据缺失');
+    expect(card.lastElementChild.hidden).toBe(false);
   }
   expect(() => page.show(buildAvailableReport({ stock, minuteRows: [minute] }))).not.toThrow();
   expect(document.querySelector('#ta-canvas').hidden).toBe(false);
@@ -78,7 +81,11 @@ it('实际页面渲染快照、分时及日线缺失组合：无异常、无空�
   expect(document.querySelector('#ta-summary').textContent).toContain('MA20');
   expect(document.querySelector('#ta-summary').textContent).not.toMatch(/仅展示|未获取|本次/);
   expect(document.querySelector('#ta-history-method').textContent).toBe('');
-  expect(document.querySelector('#ta-history').textContent).toBe('样本不足');
+  expect(document.querySelector('#ta-history').textContent).toBe('');
+  expect(document.querySelector('#ta-history').closest('.card').lastElementChild.textContent).toBe('当前数据缺失');
+  expect(document.querySelector('#ta-odds-rr').closest('.card').lastElementChild.hidden).toBe(true);
+  const footers = [...document.querySelectorAll('.ta-module-status')];
+  expect(footers).toHaveLength(document.querySelectorAll('#ta-result > .card').length);
   expect(document.querySelector('#ta-odds-rr').textContent).not.toBe('—');
   window.happyDOM.abort();
 });
