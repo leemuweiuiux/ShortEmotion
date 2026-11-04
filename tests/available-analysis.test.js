@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { Window } from 'happy-dom';
+import { analyzeModules } from '../api/_lib/technical-analysis/modules.js';
 import { buildAvailableReport } from '../api/_lib/technical-analysis/available-data.js';
 
 const stock = { name: '有研新材', code: '600206.SH' };
@@ -70,5 +71,14 @@ it('实际页面渲染快照、分时及日线缺失组合：无异常、无空�
   expect(page.sources().filter(item => item.name === '走势 · 当日分时')).toHaveLength(1);
   expect(() => page.show(buildAvailableReport({ stock, dailyRows: daily }))).not.toThrow();
   expect(document.querySelector('[data-chart="intraday"]').disabled).toBe(true);
+  const independent = analyzeModules(buildAvailableReport({stock, dailyRows: daily, snapshot: {最新成交价: 29.5}}),
+    {dailyRows: daily, snapshot: {最新成交价: 29.5}});
+  page.show(independent);
+  expect(document.querySelector('#ta-headline').hidden).toBe(false);
+  expect(document.querySelector('#ta-summary').textContent).toContain('MA20');
+  expect(document.querySelector('#ta-summary').textContent).not.toMatch(/仅展示|未获取|本次/);
+  expect(document.querySelector('#ta-history-method').textContent).toBe('');
+  expect(document.querySelector('#ta-history').textContent).toBe('样本不足');
+  expect(document.querySelector('#ta-odds-rr').textContent).not.toBe('—');
   window.happyDOM.abort();
 });

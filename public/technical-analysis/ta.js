@@ -182,15 +182,15 @@ function render() {
     item.classList.toggle("active", item.dataset.chart === chartMode);
     item.setAttribute("aria-pressed", String(item.dataset.chart === chartMode));
   });
-  setText("#ta-opportunity", partial ? "综合评分 待补全" : `综合评分 ${data.opportunityScore ?? decision.opportunityScore ?? data.score}`);
+  setText("#ta-opportunity", partial ? "综合评分 —" : `综合评分 ${data.opportunityScore ?? decision.opportunityScore ?? data.score}`);
   setText("#ta-winodds", decision.winOdds || "—");
   setText("#ta-structure", decision.grade || data.phase || "—");
-  const showSummary = !partial || Boolean(data.availability?.trend);
+  const showSummary = !partial || Boolean(data.availability?.summary ?? data.availability?.trend);
   $("#ta-headline").hidden = !showSummary;
   $("#ta-summary").hidden = !showSummary;
-  setText("#ta-headline", partial ? "日线技术参考" : data.headline);
-  setText("#ta-summary", partial ? String(data.summary || "").replace(/^[^。]*。/, "") : data.summary);
-  const primary = (data.market || [])[3] ? data.market[3][0] : (/\.SH$/.test(data.code) ? "上证" : "深证");
+  setText("#ta-headline", data.headline);
+  setText("#ta-summary", data.summary);
+  const primary = data.relativeLabel || ((data.market || [])[3] ? data.market[3][0] : (/\.SH$/.test(data.code) ? "上证" : "深证"));
   setText("#ta-relative-label", `相对${String(primary).replace(/指数|成指$/, "")}强弱`);
   setText("#ta-relative", data.relative);
   setText("#ta-amplitude", data.amp);
@@ -220,7 +220,7 @@ function render() {
   setText("#ta-history-scope", history.scope || "该股自身历史");
   setText("#ta-history-sample", `样本 ${history.sampleSize ?? "—"}`);
   setText("#ta-history-confidence", `置信度 ${history.confidence || "—"}`);
-  setText("#ta-history-method", history.method || "");
+  setText("#ta-history-method", history.horizons?.length ? history.method || "" : "");
   $("#ta-history").innerHTML = history.horizons?.length
     ? history.horizons.map((item) => `
       <div>
@@ -233,12 +233,12 @@ function render() {
           <div><dt>25%–75%</dt><dd>${esc(item.q25)}%～${esc(item.q75)}%</dd></div>
         </dl>
       </div>`).join("")
-    : `<p class="ta-note ta-empty">${partial ? "历史数据不足，本次未执行相似结构统计。" : "样本不足，暂不输出统计。"}</p>`;
+    : `<p class="ta-note ta-empty">样本不足</p>`;
 
   // 事件驱动
   const surge = data.surge || {};
   setLevel("#ta-event-level", surge.conclusionLevel || "—");
-  $("#ta-events").innerHTML = (surge.eventSummaryItems || []).map((item) => `<div class="ta-event"><b>${esc(item.type)}</b><span>${esc(item.text)}</span></div>`).join("") || `<p class="ta-note">暂无可总结事件。</p>`;
+  $("#ta-events").innerHTML = (surge.eventSummaryItems || []).map((item) => `<div class="ta-event"><b>${esc(item.type)}</b><span>${esc(item.text)}</span></div>`).join("") || `<p class="ta-note">暂无事件</p>`;
   $("#ta-event-reason").hidden = !surge.supportReason;
   setText("#ta-event-reason", surge.supportReason || "");
 
@@ -246,7 +246,7 @@ function render() {
   const links = (surge.drivers || []).filter((item) => /^https?:\/\//i.test(item.url || ""));
   $("#ta-links").innerHTML = links.length
     ? links.map((item) => `<a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer"><b>${esc(item.title)}</b><small>${esc([item.source, item.date].filter(Boolean).join(" · "))}</small></a>`).join("")
-    : `<p>${partial ? "行情数据不完整，本次未执行事件检索与归因。" : surge.trigger ? "近 3 日没有可直接打开的公告或新闻。" : "近期未出现连续大涨或涨停，未检索事件。"}</p>`;
+    : `<p>${partial ? "暂无相关资讯" : surge.trigger ? "近 3 日没有可直接打开的公告或新闻。" : "近期未出现连续大涨或涨停，未检索事件。"}</p>`;
 
   // 走势
   setText("#ta-open", fmt(data.open));
@@ -262,11 +262,11 @@ function render() {
       <div><b>${esc(name)}</b><small>${index ? `个股相对 ${signed(relative, "%")}` : `相对主基准 ${signed(relative, "%")}`}</small></div>
       ${spark(series, pct)}
       <strong class="${signClass(pct)}">${signed(pct, "%")}</strong>
-    </div>`).join("") || `<p class="ta-note">市场基准不完整，暂不计算相对强弱。</p>`;
+    </div>`).join("") || `<p class="ta-note">暂无基准数据</p>`;
 
   // 关键价位
   // 关键价位：名称、来源（取自哪个价位、哪段时间）、价位；补充参考另列，不进赔率计算
-  $("#ta-levels").innerHTML = (data.levels || []).map(([label, value, cls, source]) => `<li class="${cls === "current" ? "current" : ""}"><span>${esc(label)}</span><small>${esc(source || "")}</small><b>${esc(value)}</b></li>`).join("") || `<li>历史日 K 不足，暂不计算关键价位。</li>`;
+  $("#ta-levels").innerHTML = (data.levels || []).map(([label, value, cls, source]) => `<li class="${cls === "current" ? "current" : ""}"><span>${esc(label)}</span><small>${esc(source || "")}</small><b>${esc(value)}</b></li>`).join("") || `<li>暂无关键价位</li>`;
   const supplements = data.supplements || [];
   $("#ta-supplements").hidden = !supplements.length;
   $("#ta-supplements").innerHTML = supplements.length
@@ -298,7 +298,7 @@ function calcRisk() {
   const rawStop = String($("#ta-stop").value || "").trim();
   const stop = Number(rawStop);
   const price = Number(current.price);
-  if (!rawStop || !Number.isFinite(stop) || !price || current.partial) return setText("#ta-risk", "—");
+  if (!rawStop || !Number.isFinite(stop) || !price || (current.partial && !current.availability?.odds)) return setText("#ta-risk", "—");
   const loss = Math.max(0, (price - stop) / price);
   setText("#ta-risk", `${(position * loss).toFixed(2)}%`);
 }
