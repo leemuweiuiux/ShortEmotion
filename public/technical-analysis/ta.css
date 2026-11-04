@@ -153,3 +153,5 @@ main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-co
 .ta-supplements-title { margin: 12px 0 0; padding-top: 10px; border-top: 1px dashed var(--border); color: var(--muted); font-size: 12px; }
 .ta-supplements .ta-levels { margin-top: 4px; }
 .ta-supplements .ta-levels li::before { background: transparent; border: 1px solid var(--muted); }
+
+.ta-module-status { margin: 16px 0 0; padding-top: 12px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
