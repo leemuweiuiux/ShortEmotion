@@ -7,8 +7,6 @@ export function initViewDrawer({ root = document, request = fetch, goLogin, onPu
   const form = dialog.querySelector('form');
   const error = dialog.querySelector('[role="alert"]');
   const submit = form.querySelector('[type="submit"]');
-  const logic = dialog.querySelector('details');
-  const summary = logic.querySelector('summary');
   const status = root.querySelector('#ta-view-status');
   let stock = null, direction = null, horizon = null, pending = false;
   let requestId = crypto.randomUUID();
@@ -28,7 +26,6 @@ export function initViewDrawer({ root = document, request = fetch, goLogin, onPu
     for (const button of form.querySelectorAll('[data-direction]')) button.setAttribute('aria-pressed', String(button.dataset.direction === direction));
     for (const button of form.querySelectorAll('[data-horizon]')) button.setAttribute('aria-pressed', String(Number(button.dataset.horizon) === horizon));
     for (const button of form.querySelectorAll('[data-tag]')) button.setAttribute('aria-pressed', String(tags.has(button.dataset.tag)));
-    summary.textContent = tags.size ? [...tags].join('、') : '选择逻辑…';
   }
   function reset() {
     direction = horizon = null;
@@ -36,7 +33,6 @@ export function initViewDrawer({ root = document, request = fetch, goLogin, onPu
     requestId = crypto.randomUUID();
     retryBody = null;
     error.textContent = '';
-    logic.open = false;
     renderChoices();
   }
   function close() { if (!pending) dialog.close(); }

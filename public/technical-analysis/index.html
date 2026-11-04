@@ -30,7 +30,7 @@
   <link rel="stylesheet" href="/technical-analysis/ta.css?v=14">
   <link rel="stylesheet" href="/shared/form.css?v=1">
   <link rel="stylesheet" href="/kandian/kandian.css?v=5">
-  <link rel="stylesheet" href="/technical-analysis/view-drawer.css?v=1">
+  <link rel="stylesheet" href="/technical-analysis/view-drawer.css?v=2">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -56,7 +56,7 @@
         </div>
         <p id="ta-recent" class="ta-recent" hidden></p>
         <p class="card-desc">生成趋势结构、胜率与赔率、历史同类量价结构和事件驱动分析。</p>
-        <p id="ta-hint" class="ta-hint">*首次查询或更新需要 10 积分，查看已查询股票的最新结果免费。</p>
+        <p id="ta-hint" class="ta-hint">*首次查询或跨日自动更新需要 10 积分，当日分析直接查看。</p>
       </form>
 
       <div id="ta-loading" class="card ta-loading" hidden>
@@ -197,7 +197,7 @@
         <section class="ta-view-stock"><span class="kd-label">我在看</span><strong id="ta-view-stock"></strong></section>
         <fieldset><legend>我的看法</legend><div class="kd-choice"><button type="button" data-direction="bullish" aria-pressed="false">看涨 <span aria-hidden="true">📈</span></button><button type="button" data-direction="neutral" aria-pressed="false">中性</button><button type="button" data-direction="bearish" aria-pressed="false">看跌 <span aria-hidden="true">📉</span></button></div></fieldset>
         <fieldset><legend>看多远</legend><div class="kd-choice"><button type="button" data-horizon="5" aria-pressed="false">5日</button><button type="button" data-horizon="10" aria-pressed="false">10日</button><button type="button" data-horizon="20" aria-pressed="false">20日</button><button type="button" data-horizon="60" aria-pressed="false">60日</button></div></fieldset>
-        <section><h3 class="kd-label">我的逻辑 <small>选择1—3项</small></h3><details class="ta-view-logic"><summary>选择逻辑…</summary><div id="ta-view-tags" class="kd-tag-options" role="group" aria-label="我的逻辑"></div></details></section>
+        <section><h3 class="kd-label">我的逻辑 <small>选择1—3项</small></h3><div id="ta-view-tags" class="kd-tag-options" role="group" aria-label="我的逻辑"></div></section>
         <p class="ta-view-note">发布时锁定最新参考价、发表时间和看法内容。</p>
       </div>
       <footer class="kd-form-footer"><p id="ta-view-error" role="alert"></p><button id="ta-view-publish" class="kd-publish" type="submit">发布看法</button></footer>
@@ -206,7 +206,7 @@
   <div id="ta-view-status" class="ta-view-status" role="status" hidden>看法已发布到看点 · 观点 <a href="/kandian?tab=views&filter=mine">查看观点 →</a></div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="/short-emotion/vendor/html-to-image.js" defer></script>
-  <script type="module" src="/technical-analysis/ta.js?v=15"></script>
+  <script type="module" src="/technical-analysis/ta.js?v=16"></script>
 
 
   <script type="module" src="/shared/nav-points.js?v=2"></script>

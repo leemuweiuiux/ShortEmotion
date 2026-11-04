@@ -6,7 +6,7 @@ process.env.WIND_MOCK = "1";
 const engine = await import("../api/_lib/technical-analysis/engine.js");
 const wind = await import("../api/_lib/short-emotion/wind-client.js");
 const session = await import("../api/_lib/session.js");
-const { default: api, analysisConfigured } = await import("../api/technical-analysis.js");
+const { default: api, analysisConfigured, isAnalysisCurrent } = await import("../api/technical-analysis.js");
 
 // 固定默认模拟时间在收盘后：避免 CI 在北京时间 09:30 刚开盘时分钟数据不足
 // 触发预期内的日线降级，导致原本验证完整分析的测试受运行时间影响。
@@ -192,7 +192,7 @@ function rpc(name, args, userId = "user-1") {
     }
     case "analysis_publish": {
       access.add(`${userId}:${args.p_code}`);
-      sharedResults.set(args.p_code, { code: args.p_code, result: args.p_result, updatedAt: "2026-10-21T02:39:00Z" });
+      sharedResults.set(args.p_code, { code: args.p_code, result: args.p_result, updatedAt: new Date().toISOString() });
       history.push({ user_id: userId, id: history.length + 1, code: args.p_code, name: args.p_name, result: args.p_result, created_at: "2026-10-21T02:39:00Z" });
       history = history.slice(-10);
       return history.at(-1).id;
@@ -256,19 +256,19 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     globalThis.fetch = realFetch;
   });
 
-  it("盘前分时缺失时生成免费日 K 参考并退回已扣积分，不发布报告", async () => {
+  it("盘前分时缺失时生成免费日 K 参考，不扣积分也不发布报告", async () => {
     process.env.WIND_MOCK_EMPTY_QUOTE = "1";
     const res = await call({body:{q:"603936"}});
     expect(res.statusCode).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.partial).toBe(true);
-    expect(res.body.refunded).toBe(true);
+    expect(res.body.refunded).toBe(false);
     expect(res.body.charged).toBe(0);
     expect(res.body.balance).toBe(50);
     expect(res.body.data.dataMode).toBe("daily_only");
     expect(history).toHaveLength(0);
-    expect(ledger.filter(item=>item.kind==="analysis")).toHaveLength(1);
-    expect(ledger.filter(item=>item.kind==="analysis_refund")).toHaveLength(1);
+    expect(ledger.filter(item=>item.kind==="analysis")).toHaveLength(0);
+    expect(ledger.filter(item=>item.kind==="analysis_refund")).toHaveLength(0);
   });
 
   it("只接受本站页面发起", async () => {
@@ -310,12 +310,11 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     expect(wind.windCallStats().total).toBe(0);
   });
 
-  it("扣分后分析失败：自动退回", async () => {
+  it("取数分析失败：不发起扣分", async () => {
     const res = await call({ body: { q: "样本故障" } }); // 离线样本：认得出，但取日 K 失败
     expect(res.statusCode).toBe(502);
-    expect(res.body).toMatchObject({ refunded: true, balance: 50 });
-    expect(res.body.error).toContain("（已退回积分，剩余 50 积分）");
-    expect(ledger.map((row) => row.kind)).toEqual(["signup", "analysis", "analysis_refund"]);
+    expect(res.body).toMatchObject({ refunded: false, charged: false, balance: 50, stage: "market_analysis" });
+    expect(ledger.map((row) => row.kind)).toEqual(["signup"]);
   });
 
   it("分析成功后存进分析记录；最近分析同一支股票只留最新一次；按记录打开不扣分", async () => {
@@ -328,7 +327,7 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     expect(config.body.recent.map((row) => [row.name, row.code])).toEqual([["样本电子", "603936.SH"], ["样本新材", "300986.SZ"]]);
     const balance = account.balance;
     const opened = await call({ method: "GET", query: { action: "result", id: String(again.body.historyId) } });
-    expect(opened.body).toMatchObject({ ok: true, analyzedAt: "2026-10-21T02:39:00Z" });
+    expect(opened.body).toMatchObject({ ok: true, analyzedAt: new Date().toISOString() });
     expect(opened.body.data.code).toBe("603936.SH");
     expect(account.balance).toBe(balance); // 不扣分
     expect((await call({ method: "GET", query: { action: "result", id: "999" } })).statusCode).toBe(404);
@@ -408,6 +407,49 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     expect((await call({ body: { q: "603936", refresh: true } })).statusCode).toBe(402);
   });
 
+  it("跨日进入先标记过期，普通查询自动更新；当天再次进入直接复用", async () => {
+    await call({ body: { q: "603936" } });
+    const record = sharedResults.get("603936.SH");
+    record.updatedAt = "2026-10-19T08:00:00Z";
+    const balance = account.balance;
+    const viewed = await call({ method: "GET", query: { action: "result", code: "603936.SH" } });
+    expect(viewed.body.needsRefresh).toBe(true);
+    expect(account.balance).toBe(balance);
+    wind.resetWindCallStats();
+    const updated = await call({ body: { q: "603936" } });
+    expect(updated.body).toMatchObject({ ok: true, charged: 10, balance: balance - 10 });
+    expect(wind.windCallStats().total).toBeGreaterThan(0);
+    wind.resetWindCallStats();
+    const today = await call({ body: { q: "603936" } });
+    expect(today.body).toMatchObject({ viewed: true, charged: 0, balance: balance - 10 });
+    expect(wind.windCallStats().total).toBe(0);
+    expect((await call({ method: "GET", query: { action: "result", code: "603936.SH" } })).body.needsRefresh).toBe(false);
+  });
+
+  it("跨日自动更新失败退款，旧报告仍可读且仍标为过期", async () => {
+    await call({ body: { q: "603936" } });
+    const old = sharedResults.get("603936.SH");
+    old.updatedAt = "2026-10-19T08:00:00Z";
+    const balance = account.balance;
+    const fetchRpc = globalThis.fetch;
+    globalThis.fetch = vi.fn((url, options) => String(url).endsWith("/analysis_publish")
+      ? Promise.resolve(Response.json({ message: "publish failed" }, { status: 503 })) : fetchRpc(url, options));
+    const failed = await call({ body: { q: "603936" } });
+    expect(failed.body).toMatchObject({ refunded: true, stage: "save_report", charged: false });
+    expect(account.balance).toBe(balance);
+    expect(failed.body.fallback).toEqual({ data: old.result, analyzedAt: old.updatedAt });
+    expect(sharedResults.get("603936.SH")).toBe(old);
+    expect((await call({ method: "GET", query: { action: "result", code: "603936.SH" } })).body.needsRefresh).toBe(true);
+  });
+
+  it("同一用户同时从代码及带交易所代码更新，只执行一次取数扣费", async () => {
+    const [a,b] = await Promise.all([call({ body: { q: "603936" } }), call({ body: { q: "603936.SH" } })]);
+    expect(a.statusCode).toBe(200); expect(b.statusCode).toBe(200);
+    expect(a.body.historyId).toBe(b.body.historyId);
+    expect(ledger.filter(row => row.kind === "analysis")).toHaveLength(1);
+    expect(history).toHaveLength(1);
+  });
+
   it("结果发布失败会退回积分，不发放查看权", async () => {
     const fetchRpc = globalThis.fetch;
     globalThis.fetch = vi.fn((url, options) => String(url).endsWith("/analysis_publish")
@@ -434,4 +476,13 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     expect((await call({ method: "GET", query: { action: "config" } })).body).toMatchObject({ configured: false, cost: 10, balance: 50 });
     expect(ledger.filter((row) => row.kind === "analysis")).toHaveLength(0);
   });
+});
+
+// Midnight is based on Beijing time, independent of the server's UTC date.
+it("分析新鲜度按北京时间跨日；非法或缺失更新时间视为过期", () => {
+  const now = new Date("2026-11-03T16:01:00Z");
+  expect(isAnalysisCurrent({ updatedAt: "2026-11-03T16:00:00Z" }, now)).toBe(true);
+  expect(isAnalysisCurrent({ updatedAt: "2026-11-03T15:59:59Z" }, now)).toBe(false);
+  expect(isAnalysisCurrent({ updatedAt: "bad" }, now)).toBe(false);
+  expect(isAnalysisCurrent({}, now)).toBe(false);
 });

@@ -5,7 +5,7 @@
 .ta-view-bar #ta-view-open{flex:1;text-align:left;border:0;background:transparent;padding-left:0;font-weight:600}
 .ta-view-bar [data-direction=bullish]{color:var(--price-up)}
 .ta-view-bar [data-direction=bearish]{color:var(--price-down)}
-.ta-view-bar button:focus-visible,.ta-view-drawer button:focus-visible,.ta-view-logic summary:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.ta-view-bar button:focus-visible,.ta-view-drawer button:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 .ta-view-drawer{position:fixed;inset:auto 0 0;margin:0 auto;max-height:90dvh;max-height:min(90dvh,800px);width:min(600px,100%);overflow-y:auto;overscroll-behavior:contain}
 .ta-view-drawer .kd-compose-head{justify-content:space-between}
 .ta-view-drawer .kd-compose-head h2{margin:0}
@@ -14,9 +14,6 @@
 .ta-view-stock .kd-label{margin:0;flex-shrink:0}
 .ta-view-stock strong{font-size:16px;overflow-wrap:anywhere}
 .ta-view-drawer .kd-label small{margin-left:6px;font-size:12px;font-weight:400;color:var(--muted)}
-.ta-view-logic{border:1px solid var(--border);padding:12px}
-.ta-view-logic summary{font-size:15px;cursor:pointer;overflow-wrap:anywhere}
-.ta-view-logic .kd-tag-options{padding-top:14px}
 .ta-view-note{margin:0;font-size:12px;color:var(--muted)}
 #ta-view-error{color:var(--price-down);font-size:13px;margin:0 0 10px}
 #ta-view-error:empty{display:none}
