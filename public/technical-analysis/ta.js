@@ -126,11 +126,11 @@ async function analyze(query, refresh = false) {
     }
     current = payload.data;
     $("#ta-history-bar").hidden = false;
-    $("#ta-history-time").textContent = payload.partial ? "部分数据参考 · 本次免费，未保存完整报告" : `最新结果 · 更新于 ${shortTime(payload.analyzedAt)}`;
+    $("#ta-history-time").textContent = payload.partial ? "本次免费" : `最新结果 · 更新于 ${shortTime(payload.analyzedAt)}`;
     render();
     setUrl({ q: current.code || q });
     if (payload.recent) renderRecent($("#ta-recent"), payload.recent, (row) => openHistory(row.code, true));
-    toast(payload.partial ? (payload.refunded ? "已展示可用数据，积分已退回" : "已展示可用数据，缺失模块未分析，本次免费") : payload.charged > 0 && Number.isFinite(Number(payload.balance)) ? `已完成分析，剩余 ${payload.balance} 积分` : payload.viewed ? "已显示最新结果" : "分析完成");
+    toast(payload.partial ? (payload.refunded ? "积分已退回" : "行情已显示，本次免费") : payload.charged > 0 && Number.isFinite(Number(payload.balance)) ? `已完成分析，剩余 ${payload.balance} 积分` : payload.viewed ? "已显示最新结果" : "分析完成");
   } catch (error) {
     toast(error.message, true);
   } finally {
@@ -173,9 +173,6 @@ function render() {
   change.className = signClass(data.pct);
   setText("#ta-time", data.date);
   const partial = Boolean(data.partial);
-  const warnings = $("#ta-data-warnings");
-  warnings.hidden = !partial;
-  warnings.textContent = partial ? (data.dataWarnings || []).join(" ") : "";
   $("#ta-session").hidden = partial || !data.intradaySnapshot;
   $("#ta-intraday-note").hidden = partial || !data.intradaySnapshot;
   const chartAvailable = mode => (data[mode === "intraday" ? "intraday" : "daily"] || []).length > 0;
@@ -188,8 +185,11 @@ function render() {
   setText("#ta-opportunity", partial ? "综合评分 待补全" : `综合评分 ${data.opportunityScore ?? decision.opportunityScore ?? data.score}`);
   setText("#ta-winodds", decision.winOdds || "—");
   setText("#ta-structure", decision.grade || data.phase || "—");
-  setText("#ta-headline", data.headline);
-  setText("#ta-summary", data.summary);
+  const showSummary = !partial || Boolean(data.availability?.trend);
+  $("#ta-headline").hidden = !showSummary;
+  $("#ta-summary").hidden = !showSummary;
+  setText("#ta-headline", partial ? "日线技术参考" : data.headline);
+  setText("#ta-summary", partial ? String(data.summary || "").replace(/^[^。]*。/, "") : data.summary);
   const primary = (data.market || [])[3] ? data.market[3][0] : (/\.SH$/.test(data.code) ? "上证" : "深证");
   setText("#ta-relative-label", `相对${String(primary).replace(/指数|成指$/, "")}强弱`);
   setText("#ta-relative", data.relative);
