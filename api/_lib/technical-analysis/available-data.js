@@ -29,6 +29,10 @@ export function buildAvailableReport({ stock, snapshot = {}, dailyRows = [], min
     levels: [], supplements: [], scenarios: [], market: [], indicators: {}, limits: ['部分数据可用，仅供行情参考']
   };
   report.partial = true;
+  if (hasDailyAnalysis && reason === 'daily_unavailable') {
+    report.summary = report.summary.replace('分时数据尚未完整返回，以下仅依据该股实际历史日 K。',
+      '历史日 K 未满足完整分析所需长度，以下仅依据实际返回的日 K。');
+  }
   report.dataMode = hasDailyAnalysis && !minutes.length ? 'daily_only' : 'available_data';
   report.daily = daily.slice(-120).map(row => ({ t: row.TIME, o: number(row.OPEN), h: number(row.HIGH),
     l: number(row.LOW), c: number(row.MATCH), v: number(row.VOLUME) }));
