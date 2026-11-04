@@ -51,7 +51,7 @@
       <section class="card"><div class="card-head"><h2 class="card-title">各类宽基</h2><label class="ef-label">查看指标 <select id="ef-metric" disabled><option value="amount">当日净流入</option><option value="day">较昨日</option><option value="week">较近一周</option><option value="month">较近一月</option></select></label></div><div id="ef-groups" class="ef-groups" aria-live="polite"></div></section>
       <section class="card"><div class="card-head"><h2 class="card-title">近一月每日净流入</h2><span class="ef-legend">红：净申购　绿：净赎回</span></div><div class="ef-scroll" tabindex="0" role="region" aria-label="ETF每日净流入热力表，可横向滚动"><table id="ef-table"><caption>最近22个交易日，颜色深浅按各列相对大小</caption></table></div><p id="ef-missing" class="ef-note" hidden>当前数据缺失</p></section>
       <section class="card"><div class="card-head"><h2 id="ef-detail-title" class="card-title">ETF 明细</h2><select id="ef-filter" disabled aria-label="选择宽基类别"></select></div><div class="ef-scroll"><table id="ef-detail"></table></div><p id="ef-detail-missing" class="ef-note" hidden>当前数据缺失</p></section>
-      <footer class="legal"><p>净流入估算＝份额变动 × 当日单位净值。较近一周、近一月分别比较此前5、20个交易日的日均净流入；增减比例以基准绝对值为分母，基准为零时显示增减金额。</p></footer>
+      <footer class="legal"><p>净流入估算＝份额变动 × 当日单位净值。较近一周、近一月分别比较此前5、20个交易日的日均净流入；增减比例以基准绝对值为分母，基准为零时显示增减金额。历史不完整时，比较采用前后均有完整观测的相同ETF样本，并显示覆盖率。</p></footer>
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
