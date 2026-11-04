@@ -61,16 +61,29 @@ function unpack(outer) {
 
 /** 调用一个 Wind 工具，返回 data；网络类错误重试一次。错误信息不带数据来源名称。 */
 // 单次调用 30 秒超时（认股票 12 秒）；整次分析另有总时限（见 api/technical-analysis.js），超时就退回积分。
-async function windCall(server, tool, params, attempt = 0, timeoutMs = 30_000) {
-  try {
-    return unpack(await callWindTool(server, tool, params, { timeoutMs }));
-  } catch (error) {
-    const msg = String(error?.message || error);
-    if (attempt < 1 && /(NETWORK_ERROR|fetch failed|HTTP 50[0234]|ECONN|timeout|超时|网络)/i.test(msg)) {
-      await new Promise((resolve) => setTimeout(resolve, 700));
-      return windCall(server, tool, params, attempt + 1, timeoutMs);
+async function windCall(server, tool, params, attempt = 0, timeoutMs = 30_000, signal) {
+  const started = Date.now(), deadline = started + timeoutMs;
+  for (let retry = attempt; ; retry++) {
+    try {
+      const left = deadline - Date.now();
+      if (left <= 0 || signal?.aborted) throw Object.assign(new Error("请求超时"), { code: "TIMEOUT" });
+      const result = unpack(await callWindTool(server, tool, params, { timeoutMs: left, signal }));
+      console.info("analysis step", { tool, elapsedMs: Date.now() - started, rows: table(result).length, outcome: "success" });
+      return result;
+    } catch (error) {
+      const code = error?.code || "UNKNOWN";
+      if (retry < 1 && code === "NETWORK_ERROR" && deadline - Date.now() > 2000 && !signal?.aborted) {
+        await new Promise(resolve => setTimeout(resolve, 700));
+        continue;
+      }
+      console.warn("analysis step", { tool, elapsedMs: Date.now() - started, code, outcome: "failure" });
+      const messages = { TIMEOUT: "行情请求超时，请稍后重试", RATE_LIMIT: "行情请求频率受限，请稍后重试", QUOTA_ERROR: "行情服务额度不足，暂时无法更新", AUTH_ERROR: "行情服务认证失败，暂时无法更新" };
+      throw Object.assign(new Error(messages[code] || `数据获取失败（${tool}）`), {
+        code: code === "TIMEOUT" ? "timeout" : code === "RATE_LIMIT" ? "rate_limit" : code === "QUOTA_ERROR" ? "quota_exhausted" : code === "AUTH_ERROR" ? "upstream_auth" : "data_error",
+        statusCode: code === "TIMEOUT" ? 504 : code === "RATE_LIMIT" ? 429 : ["QUOTA_ERROR", "AUTH_ERROR"].includes(code) ? 503 : undefined,
+        upstreamCode: code, tool, detail: String(error?.message || error)
+      });
     }
-    throw Object.assign(new Error(`数据获取失败（${tool}）`), { code: "data_error", detail: msg });
   }
 }
 
@@ -1579,12 +1592,12 @@ function buildAnalysis(snapshotRows, stockQuote, stockDaily, markets, styleMarke
   };
 }
 
-async function getMarket(code, name, begin, end) {
+async function getMarket(code, name, begin, end, { timeoutMs = 12_000, signal } = {}) {
   const [quoteResult, dailyResult] = await Promise.allSettled([
-    windCall("index_data", "get_index_quote", { windcode: code }, 0, 8_000),
+    windCall("index_data", "get_index_quote", { windcode: code }, 0, timeoutMs, signal),
     windCall("index_data", "get_index_kline", {
       windcode: code, begin_date: begin, end_date: end, period: "1d", aftype: "0", issusp: "1"
-    })
+    }, 0, timeoutMs, signal)
   ]);
   if (dailyResult.status !== "fulfilled") {
     console.warn(`technical-analysis benchmark ${code} kline: ${dailyResult.reason?.code || "unavailable"}`);
@@ -1615,7 +1628,7 @@ export class InputError extends Error {
 }
 
 /** 第一步：检查输入并认出股票（1 次调用）。认不出抛 StockNotFoundError。 */
-export async function resolveStock(raw, { fresh = false } = {}) {
+export async function resolveStock(raw, { fresh = false, signal } = {}) {
   let input;
   try {
     input = normalizeInput(raw);
@@ -1628,7 +1641,7 @@ export async function resolveStock(raw, { fresh = false } = {}) {
     return { input, key, code: cached.data.code, name: cached.data.name, cached: cached.data };
   let snapshotRows;
   try {
-    snapshotRows = table(await windCall("stock_data", "get_stock_price_indicators", { windcode: input, indexes: SNAPSHOT_INDEXES }, 0, 12_000));
+    snapshotRows = table(await windCall("stock_data", "get_stock_price_indicators", { windcode: input, indexes: SNAPSHOT_INDEXES }, 0, 10_000, signal));
   } catch (error) {
     // 代码或简称不存在时，接口可能直接报「无数据 / 参数无效」，按认不出处理（不扣分）
     if (/NO_RESULTS|INVALID_PARAM_VALUE|PARAM_VALIDATION_ERROR|未获取到数据/i.test(String(error?.detail || ""))) throw new StockNotFoundError();
@@ -1645,25 +1658,24 @@ export async function resolveStock(raw, { fresh = false } = {}) {
 }
 
 /** 第二步：取分时、6 年日 K、指数与（近期大涨时）新闻公告，生成分析结果。 */
-export async function analyzeStock(resolved) {
+export async function analyzeStock(resolved, { signal, timeoutMs = 32_000 } = {}) {
   if (resolved.cached) return resolved.cached;
   const { snapshotRows, code } = resolved;
   const end = new Date(), begin = new Date(end);
   begin.setFullYear(begin.getFullYear() - 6);
   const beginText = dateText(begin), endText = dateText(end);
-  const requests = [
-    windCall("stock_data", "get_stock_quote", { windcode: code }, 0, 8_000),
+  const deadline = Date.now() + timeoutMs;
+  const budget = max => Math.max(1, Math.min(max, deadline - Date.now()));
+  const styleCode = /^(300|301)/.test(code) ? ["399006.SZ", "创业板指"]
+    : /^(688|689)/.test(code) ? ["000688.SH", "科创50"] : null;
+  // Secure the stock's own data before spending queue time on auxiliary indices.
+  const [klineResult, quoteResult] = await Promise.allSettled([
     windCall("stock_data", "get_stock_kline", {
       windcode: code, begin_date: beginText, end_date: endText,
       period: "1d", aftype: "0", issusp: "1"
-    }),
-    getMarket("000001.SH", "上证指数", beginText, endText),
-    getMarket("399001.SZ", "深证成指", beginText, endText)
-  ];
-  const styleCode = /^(300|301)/.test(code) ? ["399006.SZ", "创业板指"]
-    : /^(688|689)/.test(code) ? ["000688.SH", "科创50"] : null;
-  if (styleCode) requests.push(getMarket(styleCode[0], styleCode[1], beginText, endText));
-  const [quoteResult, klineResult, shResult, szResult, styleResult] = await Promise.allSettled(requests);
+    }, 0, budget(18_000), signal),
+    windCall("stock_data", "get_stock_quote", { windcode: code }, 0, budget(12_000), signal)
+  ]);
   if (klineResult.status !== "fulfilled") throw klineResult.reason;
   const klineRows = cleanDailyRows(table(klineResult.value));
   if (!isUsableDailyRows(klineRows)) {
@@ -1677,36 +1689,42 @@ export async function analyzeStock(resolved) {
   if (!sameReferenceSession(quoteRows, klineRows)) {
     try {
       const fallback = cleanMinuteRows(table(await windCall("stock_data", "get_stock_quote",
-        { windcode: code, begin: referenceDate, end: referenceDate }, 0, 5_000)));
+        { windcode: code, begin: referenceDate, end: referenceDate }, 0, budget(5_000), signal)));
       if (sameReferenceSession(fallback, klineRows)) quoteRows = fallback;
     } catch (error) {
       console.warn(`technical-analysis ${code} minute fallback: ${error?.code || "unavailable"}`);
     }
   }
+  const name = String(snapshotRows[0]["中文简称"] || code);
+  if (!sameReferenceSession(quoteRows, klineRows)) {
+    console.info("analysis degraded", { code, reason: "minute_unavailable", rows: quoteRows.length });
+    return buildDailyOnlyReport({ stock: { name, code }, dailyRows: klineRows, reason: "minute_unavailable" });
+  }
+  const marketOptions = { timeoutMs: budget(12_000), signal };
+  const [shResult, szResult, styleResult] = await Promise.allSettled([
+    getMarket("000001.SH", "上证指数", beginText, endText, marketOptions),
+    getMarket("399001.SZ", "深证成指", beginText, endText, marketOptions),
+    styleCode ? getMarket(styleCode[0], styleCode[1], beginText, endText, marketOptions) : null
+  ]);
   const sh = shResult.status === "fulfilled" ? shResult.value : null;
   const sz = szResult.status === "fulfilled" ? szResult.value : null;
-  const style = styleResult?.status === "fulfilled" ? styleResult.value : null;
+  const style = styleResult.status === "fulfilled" ? styleResult.value : null;
   const sameBenchmarkDay = benchmark => benchmark?.daily?.at(-1)?.time
     && String(benchmark.daily.at(-1).time).slice(0, 10) === referenceDate;
-  const validMinutes = sameReferenceSession(quoteRows, klineRows);
-  const validBenchmarks = Boolean(sameBenchmarkDay(sh) && sameBenchmarkDay(sz)
-    && (!styleCode || sameBenchmarkDay(style)));
-  const name = String(snapshotRows[0]["中文简称"] || code);
-  if (!validMinutes || !validBenchmarks) {
-    console.info(`technical-analysis partial ${code}: ${validMinutes ? "benchmark" : "minute"} unavailable`);
-    return buildDailyOnlyReport({ stock: {name,code}, dailyRows: klineRows,
-      reason: validMinutes ? "benchmark_unavailable" : "minute_unavailable" });
+  if (!sameBenchmarkDay(sh) || !sameBenchmarkDay(sz) || (styleCode && !sameBenchmarkDay(style))) {
+    console.info("analysis degraded", { code, reason: "benchmark_unavailable" });
+    return buildDailyOnlyReport({ stock: { name, code }, dailyRows: klineRows, reason: "benchmark_unavailable" });
   }
   const profile = surgeProfile(parseDaily(klineRows), name, code);
   let documents = { news: { items: [] }, announcements: { items: [] } };
-  if (profile.trigger) {
+  if (profile.trigger && deadline - Date.now() > 3500 && !signal?.aborted) {
     const cleanName = name.normalize("NFKC").replace(/\s+/g, ""),
       dateRange = eventQueryRange(profile.asOf, 3),
       queries = [`${cleanName}${dateRange}新闻资讯`, `${cleanName}${dateRange}经营债务融资行业政策股价异动`],
       docs = await Promise.allSettled([
-        windCall("financial_docs", "get_financial_news", { query: queries[0], top_k: 15 }),
-        windCall("financial_docs", "get_financial_news", { query: queries[1], top_k: 15 }),
-        windCall("financial_docs", "get_company_announcements", { query: `${cleanName}${dateRange}公司公告`, top_k: 15 })
+        windCall("financial_docs", "get_financial_news", { query: queries[0], top_k: 15 }, 0, budget(6_000), signal),
+        windCall("financial_docs", "get_financial_news", { query: queries[1], top_k: 15 }, 0, budget(6_000), signal),
+        windCall("financial_docs", "get_company_announcements", { query: `${cleanName}${dateRange}公司公告`, top_k: 15 }, 0, budget(6_000), signal)
       ]);
     documents = { news: { items: [] }, announcements: { items: [] }, errors: [] };
     for (let i = 0; i < 2; i++) {

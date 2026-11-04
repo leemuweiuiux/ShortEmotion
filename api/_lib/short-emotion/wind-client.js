@@ -84,7 +84,7 @@ const HTTP_ERROR_MAP = { 401: "AUTH_ERROR", 429: "RATE_LIMIT", 500: "NETWORK_ERR
 
 function fail(message, serverType) {
   const detail = `${message} (server=${serverType})`;
-  const code = inferErrorCode(message);
+  const code = isQuotaExhaustedMessage(message) ? "QUOTA_ERROR" : inferErrorCode(message);
   if (code === "QUOTA_ERROR" && isQuotaExhaustedMessage(message)) throw new QuotaExhaustedError(detail);
   throw new WindError(code, detail);
 }
@@ -131,23 +131,48 @@ function parseSSE(text) {
 
 // Pace initialize and tools/call together across all servers sharing a key.
 const requestSlots = new Map();
-const pause = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const timeoutError = () => new WindError("TIMEOUT", "Wind请求超时（包含排队与重试）");
+function remaining(options) {
+  if (options.signal?.aborted || Date.now() >= options.deadline) throw timeoutError();
+  return Math.max(1, Math.ceil(options.deadline - Date.now()));
+}
+async function pause(ms, options) {
+  if (ms >= remaining(options)) throw timeoutError();
+  if (!ms) return;
+  await new Promise((resolve, reject) => {
+    const done = () => { options.signal?.removeEventListener('abort', abort); resolve(); };
+    const timer = setTimeout(done, ms);
+    const abort = () => { clearTimeout(timer); options.signal?.removeEventListener('abort', abort); reject(timeoutError()); };
+    options.signal?.addEventListener('abort', abort, { once: true });
+    if (options.signal?.aborted) abort();
+  });
+  remaining(options);
+}
 async function mcpRequest(serverType, method, params, options) {
   for (let attempt = 0; ; attempt++) {
+    remaining(options);
     const slot = Math.max(Date.now(), requestSlots.get(options.apiKey) || 0);
+    // Do not reserve a queue slot that cannot fit in this request's budget.
+    if (slot >= options.deadline) throw timeoutError();
     requestSlots.set(options.apiKey, slot + 1100);
-    await pause(Math.max(0, slot - Date.now()));
+    await pause(slot - Date.now(), options);
     try {
+      if (method === "tools/call") countCall(serverType, params.name, options.keyLabel);
       return await mcpRequestOnce(serverType, method, params, options);
     } catch (error) {
       if (error.code !== "RATE_LIMIT" || attempt >= 3) throw error;
-      // Retry the same account; QPS throttling does not mean its credits ran out.
-      await pause(2000 * 2 ** attempt + Math.floor(Math.random() * 500));
+      const delay = 2000 * 2 ** attempt + Math.floor(Math.random() * 500);
+      // Keep the actionable RATE_LIMIT classification when no retry fits.
+      if (delay + 1100 >= remaining(options)) throw error;
+      await pause(delay, options);
     }
   }
 }
 
-async function mcpRequestOnce(serverType, method, params, { apiKey, timeoutMs }) {
+async function mcpRequestOnce(serverType, method, params, options) {
+  const { apiKey } = options;
+  const timeoutMs = remaining(options);
+  const signal = options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs);
   let response;
   try {
     response = await fetch(SERVERS[serverType], {
@@ -158,17 +183,18 @@ async function mcpRequestOnce(serverType, method, params, { apiKey, timeoutMs })
         "Content-Type": "application/json"
       },
       body: JSON.stringify({ jsonrpc: "2.0", id: Date.now(), method, params }),
-      signal: AbortSignal.timeout(timeoutMs)
+      signal
     });
   } catch (error) {
-    throw new WindError("NETWORK_ERROR", `${error?.message || error} (server=${serverType})`);
+    if (signal.aborted) throw timeoutError();
+    throw new WindError("NETWORK_ERROR", `请求连接失败 (server=${serverType})`);
   }
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
     const code = HTTP_ERROR_MAP[response.status] || "UNKNOWN";
     const detail = `HTTP ${response.status} (server=${serverType})${body ? ` | ${body.slice(0, 200)}` : ""}`;
-    if (code === "QUOTA_ERROR" && isQuotaExhaustedMessage(body)) throw new QuotaExhaustedError(detail);
+    if (isQuotaExhaustedMessage(body)) throw new QuotaExhaustedError(detail);
     throw new WindError(code, detail);
   }
 
@@ -176,7 +202,8 @@ async function mcpRequestOnce(serverType, method, params, { apiKey, timeoutMs })
   try {
     payload = parseSSE(await response.text());
   } catch (error) {
-    throw new WindError("TOOL_RUNTIME_ERROR", `${error.message} (server=${serverType})`);
+    if (signal.aborted) throw timeoutError();
+    throw new WindError("TOOL_RUNTIME_ERROR", `响应解析失败 (server=${serverType})`);
   }
   if (payload.error) fail(payload.error.message || JSON.stringify(payload.error), serverType);
   if (payload.result?.isError) fail(payload.result.content?.[0]?.text || JSON.stringify(payload.result), serverType);
@@ -218,7 +245,7 @@ function countCall(serverType, toolName, keyLabel) {
  * Calls one Wind tool and returns the raw MCP result ({ content: [...] }),
  * exactly what `cli.mjs call` printed to stdout.
  */
-export async function callWindTool(serverType, toolName, params, { timeoutMs = 35_000 } = {}) {
+export async function callWindTool(serverType, toolName, params, { timeoutMs = 35_000, signal } = {}) {
   validateCall(serverType, toolName, params);
 
   if (isMockMode()) {
@@ -231,7 +258,7 @@ export async function callWindTool(serverType, toolName, params, { timeoutMs = 3
   if (!keys.length) throw new WindError("AUTH_ERROR", "WIND_API_KEY（或 WIND_API_KEY_LFJ / _HF / _ZZY）未配置");
 
   const deadline = Date.now() + timeoutMs;
-  const remaining = () => Math.max(1_000, deadline - Date.now());
+  const options = { deadline, signal };
   let lastQuotaError = null;
   for (const account of keys) {
     try {
@@ -239,13 +266,12 @@ export async function callWindTool(serverType, toolName, params, { timeoutMs = 3
         protocolVersion: "2025-03-26",
         capabilities: {},
         clientInfo: { name: CLIENT_NAME, version: SKILL_VERSION }
-      }, { apiKey: account.key, timeoutMs: Math.min(15_000, remaining()) });
-      countCall(serverType, toolName, account.label);
+      }, { ...options, apiKey: account.key, keyLabel: account.label, deadline: Math.min(deadline, Date.now() + 15_000) });
       return await mcpRequest(serverType, "tools/call", {
         name: toolName,
         arguments: params,
         _meta: { clientVersion: SKILL_VERSION }
-      }, { apiKey: account.key, timeoutMs: remaining() });
+      }, { ...options, apiKey: account.key, keyLabel: account.label });
     } catch (error) {
       callStats.failed += 1;
       if (!(error instanceof QuotaExhaustedError)) throw error;

@@ -5,7 +5,7 @@ import { updateNavPoints } from "/shared/nav-points.js?v=2";
 import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, takePendingAnalysis, validQuery, renderRecent, readAnalysisResult, shortTime } from "/shared/nav-account.js?v=4";
 import { compositeCharts } from "./chart-export.js?v=1";
 
-import { initViewDrawer } from "./view-drawer.js?v=1";
+import { initViewDrawer } from "./view-drawer.js?v=2";
 
 const viewDrawer = initViewDrawer({ goLogin });
 
@@ -35,7 +35,7 @@ function renderButton() {
 }
 
 function renderHint() {
-  hint.textContent = !config.configured ? "*个股分析暂未开通。" : config.unlimited ? "*不限额账号，分析不扣积分。" : `*首次查询或更新需要 ${config.cost} 积分，查看已查询股票的最新结果免费。`;
+  hint.textContent = !config.configured ? "*个股分析暂未开通。" : config.unlimited ? "*不限额账号，分析不扣积分。" : `*首次查询或跨日自动更新需要 ${config.cost} 积分，当日分析直接查看。`;
 }
 
 async function loadConfig() {
@@ -58,13 +58,15 @@ function setUrl(params) {
 async function openHistory(id, byCode = false) {
   if (busy) return;
   busy = true;
+  let refreshCode = null;
   renderButton();
   $("#ta-loading").hidden = false;
   try {
     const payload = await readAnalysisResult(id, byCode);
     current = payload.data;
     render();
-    $("#ta-history-time").textContent = `最新结果 · 更新于 ${shortTime(payload.analyzedAt)}`;
+    $("#ta-history-time").textContent = `${payload.needsRefresh ? "历史结果" : "最新结果"} · 更新于 ${shortTime(payload.analyzedAt)}`;
+    if (payload.needsRefresh) refreshCode = current.code;
     $("#ta-history-bar").hidden = false;
     input.value = String(current.code || "").split(".")[0];
     setUrl({ view: current.code });
@@ -75,6 +77,8 @@ async function openHistory(id, byCode = false) {
     $("#ta-loading").hidden = true;
     renderButton();
   }
+  // POST rechecks freshness so another visitor's completed update can be reused.
+  if (refreshCode) await analyze(refreshCode);
 }
 
 $("#ta-reanalyze").addEventListener("click", () => {
@@ -108,6 +112,13 @@ async function analyze(query, refresh = false) {
     if (Number.isFinite(Number(payload.balance))) config.balance = payload.balance;
     if (payload.code === "not_configured") config.configured = false;
     if (!response.ok) {
+      if (payload.fallback?.data) {
+        current = payload.fallback.data;
+        render();
+        $("#ta-history-bar").hidden = false;
+        $("#ta-history-time").textContent = `更新未完成 · 保留 ${shortTime(payload.fallback.analyzedAt)} 的历史结果`;
+        setUrl({ view: current.code });
+      }
       // 失败时说明有没有扣分：积分不足、已退回的提示本身已写明；其余（认不出股票等）没扣分
       const note = payload.code === "insufficient_points" || payload.refunded || payload.charged ? "" : "，未扣分";
       throw new Error(`${payload.error || "分析失败，请稍后再试"}${note}`);
@@ -730,7 +741,7 @@ document.addEventListener("keydown", (event) => { if (event.key === "Escape") { 
 initAccountMenu();
 renderButton();
 const prefill = new URLSearchParams(location.search).get("q");
-if (prefill && validQuery(prefill)) input.value = prefill.trim(); // 链接里的股票只预填，不自动分析（避免打开链接就扣分）
+if (prefill && validQuery(prefill)) input.value = prefill.trim(); // 进入指定股票时检查当日分析，过期则更新
 const pending = takePendingAnalysis(); // 从首页按「开始分析」过来：直接发起
 const viewCode = new URLSearchParams(location.search).get("view");
 const historyId = new URLSearchParams(location.search).get("id"); // 从「最近分析」过来：打开保存的结果
@@ -742,4 +753,11 @@ if (pending) {
   openHistory(viewCode, true);
 } else if (historyId) {
   openHistory(historyId);
+} else if (prefill && validQuery(prefill)) {
+  analyze(prefill);
 }
+
+// Re-entering from browser history also checks today's shared report.
+window.addEventListener("pageshow", event => {
+  if (event.persisted && current?.code && !busy) analyze(current.code);
+});
