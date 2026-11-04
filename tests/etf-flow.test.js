@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {change,comparisons,buildDashboard} from '../api/_lib/etf-flow/metrics.js';
+import {change,comparisons,buildDashboard,compareFunds} from '../api/_lib/etf-flow/metrics.js';
 import {parseHistory,parseCatalog,fundPoints} from '../api/_lib/etf-flow/source.js';
 const history=(unit='份',assets=1344.9693)=>({data:{data:[{columns:[{name:'Wind代码'},{name:'日期'},{name:'基金份额',unit},{name:'单位净值',unit:'元'},{name:'基金资产净值',unit:'亿元'}],rows:[['510300.SH','2026-10-22',3272988.77,4.1093,assets]]}]}});
 describe('ETF flow financial calculations',()=>{
@@ -46,4 +46,10 @@ describe('ETF read endpoint',()=>{
    expect(response.statusCode).toBe(401);expect(response.body.code).toBe('login_required');
   }finally{if(old===undefined)delete process.env.SHORT_EMOTION_AUTH;else process.env.SHORT_EMOTION_AUTH=old;}
  });
+});
+
+it('compares an identical fund cohort when historical data are missing',()=>{
+ const dates=Array.from({length:21},(_,i)=>String(i).padStart(8,'0'));
+ const funds=[{points:dates.map(date=>({date,amount:10}))},{points:dates.map((date,i)=>({date,amount:i===0?null:20}))}];
+ const c=compareFunds(funds,dates,dates.at(-1));expect(c.month).toMatchObject({today:10,baseline:10,pct:0,covered:1,expected:2});expect(c.week).toMatchObject({today:30,baseline:30,pct:0,covered:2,expected:2});
 });

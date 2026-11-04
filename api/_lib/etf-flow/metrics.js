@@ -17,15 +17,26 @@ export function comparisons(points, date) {
  const window=n=>{ const prior=points.slice(Math.max(0,index-n),index); return prior.length===n && prior.every(p=>numeric(p.amount)) ? prior.reduce((s,p)=>s+p.amount,0)/n : null; };
  return {day:change(today,window(1)),week:change(today,window(5)),month:change(today,window(20))};
 }
+export function compareFunds(funds, dates, date) {
+ const index=dates.indexOf(date),expected=funds.filter(f=>!f.listed||f.listed<date).length;
+ return Object.fromEntries([['day',1],['week',5],['month',20]].map(([key,n])=>{
+  const window=dates.slice(Math.max(0,index-n),index+1);
+  const eligible=window.length===n+1?funds.filter(f=>(!f.listed||f.listed<window[0])&&window.every(d=>numeric(f.points.find(p=>p.date===d)?.amount))):[];
+  if(!eligible.length)return [key,{...change(null,null),covered:0,expected}];
+  const sum=d=>eligible.reduce((sum,f)=>sum+f.points.find(p=>p.date===d).amount,0);
+  const today=sum(date),baseline=window.slice(0,-1).reduce((total,d)=>total+sum(d),0)/n;
+  return [key,{...change(today,baseline),today,covered:eligible.length,expected}];
+ }));
+}
 export function buildDashboard(snapshot) {
  const dates=snapshot?.dates || [], date=dates.at(-1)||null;
  const series=GROUPS.map(g=>{
   const funds=(snapshot?.funds||[]).filter(f=>f.group===g.id);
   const points=dates.map(d=>{const active=funds.filter(f=>!f.listed || f.listed<d);const values=active.map(f=>f.points.find(p=>p.date===d)?.amount);
    return {date:d,amount:active.length && values.every(numeric) ? values.reduce((a,b)=>a+b,0) : null,covered:values.filter(numeric).length,expected:active.length};});
-  return {...g,fundCount:funds.length,points,comparison:comparisons(points,date)};
+  return {...g,fundCount:funds.length,points,comparison:compareFunds(funds,dates,date)};
  });
  const totalPoints=dates.map((d,i)=>{const rows=series.map(s=>s.points[i]);return {date:d,amount:rows.length && rows.every(r=>numeric(r.amount)) ? rows.reduce((s,r)=>s+r.amount,0) : null};});
- const total={id:'total',name:'合计',fundCount:snapshot?.funds?.length||0,points:totalPoints,comparison:comparisons(totalPoints,date)};
+ const total={id:'total',name:'合计',fundCount:snapshot?.funds?.length||0,points:totalPoints,comparison:compareFunds(snapshot?.funds||[],dates,date)};
  return {ready:series.some(s=>s.points.some(p=>numeric(p.amount))),date,dates:dates.slice(-22),updatedAt:snapshot?.updatedAt||null,source:'Wind',unit:'亿元',total,series,funds:(snapshot?.funds||[]).map(({quotes,...f})=>f),issues:snapshot?.issues||[]};
 }

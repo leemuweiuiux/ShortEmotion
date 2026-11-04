@@ -3,3 +3,5 @@ main{display:grid;gap:12px;min-width:0}.ef-heading{display:flex;align-items:cent
 
 .ef-overview-grid,.ef-groups,.ef-scroll{margin-top:16px}
 .ef-ratios{grid-template-columns:1fr;gap:7px}.ef-ratios span{display:flex;align-items:baseline;justify-content:space-between;gap:4px}.ef-ratios b{margin:0;white-space:nowrap;overflow-wrap:normal}
+
+.ef-ratios i{font-style:normal}.ef-ratios small{display:block;font-size:9px;margin-top:2px}
