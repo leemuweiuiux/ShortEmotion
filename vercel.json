@@ -73,6 +73,8 @@
     {"source": "/home/", "destination": "/home/index.html"},
     {"source": "/technicalanalysis", "destination": "/technical-analysis/index.html"},
     {"source": "/technicalanalysis/", "destination": "/technical-analysis/index.html"},
+    {"source": "/etfflow", "destination": "/etfflow/index.html"},
+    {"source": "/etfflow/", "destination": "/etfflow/index.html"},
     {"source": "/sectorflow", "destination": "/sectorflow/index.html"},
     {"source": "/sectorflow/", "destination": "/sectorflow/index.html"},
     {"source": "/limitup", "destination": "/limitup/index.html"},

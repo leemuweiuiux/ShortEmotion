@@ -1,7 +1,7 @@
 name: ETF flow data
 on:
   push:
-    branches: [develop, feat/etf-flow]
+    branches: [develop]
     paths: [api/_lib/etf-flow/**, scripts/etf-flow/refresh.mjs, .github/workflows/etf-flow.yml]
   workflow_dispatch:
   schedule:

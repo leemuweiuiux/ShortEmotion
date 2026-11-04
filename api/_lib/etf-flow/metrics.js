@@ -3,7 +3,7 @@ export const GROUPS = [
  ['hs300','沪深300','000300'],['zz1000','中证1000','000852'],['zz500','中证500','000905'],
  ['kc50','科创50','000688'],['a500','中证A500','000510'],['cyb','创业板指','399006'],
  ['sz50','上证50','000016'],['cy50','创业板50','399673'],['sc50','双创50','931643'],
- ['zz2000','中证2000','932000'],['gz2000','国证2000','399303'],['other','其他宽基','']
+ ['zz2000','中证2000','932000'],['gz2000','国证2000','399303']
 ].map(([id,name,index]) => ({id,name,index}));
 export const numeric = value => value !== null && value !== undefined && String(value).trim() !== '' && Number.isFinite(Number(value));
 export function change(today, baseline) {
@@ -25,7 +25,7 @@ export function buildDashboard(snapshot) {
    return {date:d,amount:active.length && values.every(numeric) ? values.reduce((a,b)=>a+b,0) : null,covered:values.filter(numeric).length,expected:active.length};});
   return {...g,fundCount:funds.length,points,comparison:comparisons(points,date)};
  });
- const totalPoints=dates.map((d,i)=>{const rows=series.filter(s=>s.fundCount>0).map(s=>s.points[i]);return {date:d,amount:rows.length && rows.every(r=>numeric(r.amount)) ? rows.reduce((s,r)=>s+r.amount,0) : null};});
+ const totalPoints=dates.map((d,i)=>{const rows=series.map(s=>s.points[i]);return {date:d,amount:rows.length && rows.every(r=>numeric(r.amount)) ? rows.reduce((s,r)=>s+r.amount,0) : null};});
  const total={id:'total',name:'合计',fundCount:snapshot?.funds?.length||0,points:totalPoints,comparison:comparisons(totalPoints,date)};
- return {ready:series.some(s=>s.points.some(p=>numeric(p.amount))),date,dates:dates.slice(-22),updatedAt:snapshot?.updatedAt||null,source:'Wind',unit:'亿元',total,series,funds:snapshot?.funds||[],issues:snapshot?.issues||[]};
+ return {ready:series.some(s=>s.points.some(p=>numeric(p.amount))),date,dates:dates.slice(-22),updatedAt:snapshot?.updatedAt||null,source:'Wind',unit:'亿元',total,series,funds:(snapshot?.funds||[]).map(({quotes,...f})=>f),issues:snapshot?.issues||[]};
 }
