@@ -60,13 +60,16 @@ export function fundPoints(quotes, dates) {
 export function tradingDates(payload) {
  return [...new Set(tableList(payload).flatMap(t=>{const i=col(t.columns,/^(TIME|日期|交易日期|交易时间)$/i);return i<0?[]:t.rows.map(r=>day(r[i])).filter(Boolean);} ))].sort();
 }
-export async function collectSnapshot(call, previous=null, now=new Date()) {
+export async function collectSnapshot(call, previous=null, now=new Date(), {repairOnly=false}={}) {
+ const upstream=call;
+ call=async(...args)=>{for(let attempt=0;;attempt++){try{return await upstream(...args);}catch(error){if(attempt>=2||!/NETWORK_ERROR|TIMEOUT|RATE_LIMIT|ECONNRESET|fetch failed/.test(error.message))throw error;}}};
  const end=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(now).replace(/-/g,'');
  const start=new Date(now);start.setUTCDate(start.getUTCDate()-60);const begin=start.toISOString().slice(0,10).replace(/-/g,'');
  const calendar=tradingDates(await call('index_data','get_index_kline',{windcode:'000300.SH',begin_date:begin,end_date:end})).filter(d=>d<=end);
  if(calendar.length<23)throw new Error('ETF交易日历不足，保留上一版');
  const issues=[],funds=[];const groups=GROUPS.filter(g=>g.index);
- for(const group of groups){
+ if(repairOnly && previous?.funds?.length)funds.push(...previous.funds.map(f=>({...f})));
+ else for(const group of groups){
   try{
    const payload=await call('fund_data','search_funds',{question:`筛选沪深交易所上市且跟踪${group.name==='创业板指'?'创业板':group.name}指数的全部ETF基金，返回基金代码、基金简称、跟踪指数代码、跟踪指数名称、上市日期`});
    const list=parseCatalog(payload,group,end);if(!list.length)throw new Error('未取得完整ETF名单');
@@ -81,6 +84,7 @@ export async function collectSnapshot(call, previous=null, now=new Date()) {
     const required=calendar.slice(-25,-1).filter(d=>!f.listed||f.listed<=d);
     const hasGaps=required.some(d=>!old?.quotes?.some(q=>q.date===d));
     const from=hasGaps ? (required[0]||begin) : old?.quotes?.length?old.quotes.at(-Math.min(7,old.quotes.length)).date:begin;
+    if(repairOnly && !hasGaps && old?.quotes?.length){f.quotes=old.quotes;f.points=fundPoints(f.quotes,calendar);continue;}
     let payload=await call('fund_data','get_fund_financials',{question:`${f.code}从${from}至${end}每日的基金份额、单位净值、基金资产净值，使用各指标原始单位并返回单位`});
     let quotes=parseHistory(payload,f.code);
     if(!quotes.length){payload=await call('analytics_data','get_financial_data',{question:`${f.code}从${from}至${end}每日的基金份额、单位净值、基金资产净值，使用各指标原始单位并返回单位`});quotes=parseHistory(payload,f.code);}
