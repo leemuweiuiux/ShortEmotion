@@ -1,3 +1,4 @@
+import { analyzeModules } from "./modules.js";
 import { buildAvailableReport } from "./available-data.js";
 // 个股技术分析（移植自 lfjDashboard「个股技术分析助手-20261020」technical_analysis_server.mjs）。
 // 分析算法照原版搬过来，只改了：
@@ -1600,15 +1601,20 @@ async function getMarket(code, name, begin, end, { timeoutMs = 12_000, signal } 
       windcode: code, begin_date: begin, end_date: end, period: "1d", aftype: "0", issusp: "1"
     }, 0, timeoutMs, signal)
   ]);
-  if (dailyResult.status !== "fulfilled") {
-    console.warn(`technical-analysis benchmark ${code} kline: ${dailyResult.reason?.code || "unavailable"}`);
-    return null;
-  }
-  const daily = parseDaily(cleanDailyRows(table(dailyResult.value)));
-  if (daily.length < 2) return null;
+  const daily = dailyResult.status === "fulfilled" ? parseDaily(cleanDailyRows(table(dailyResult.value))) : [];
   const quote = quoteResult.status === "fulfilled"
     ? parseQuote(cleanMinuteRows(table(quoteResult.value))) : [];
-  return { name, code, pct: round(marketPct(daily)), series: quote.map(row => row.close), quote, daily };
+  if (daily.length >= 2) return { name, code, pct: round(marketPct(daily)), series: quote.map(row => row.close), quote, daily };
+  // Relative returns do not require long index K lines either. Accept a dated
+  // index snapshot only; the module verifies its timestamp against the stock.
+  try {
+    const row = table(await windCall("index_data", "get_index_price_indicators", {
+      windcode: code, indexes: "涨跌幅,交易时间"
+    }, 0, Math.min(2500, timeoutMs), signal)).find(row => row["Wind代码"] === code);
+    if (row && row["涨跌幅"] != null && row["交易时间"]) return { name, code,
+      pct: null, snapshotPct: Number(row["涨跌幅"]), snapshotTime: row["交易时间"], quote, daily: [], series: [] };
+  } catch { /* keep other independently available benchmarks */ }
+  return null;
 }
 
 const SNAPSHOT_INDEXES = "中文简称,最新成交价,前收盘价,今日开盘价,今日最高价,今日最低价,成交量,成交额,涨跌,涨跌幅,换手率";
@@ -1658,12 +1664,12 @@ export async function resolveStock(raw, { fresh = false, signal } = {}) {
   };
 }
 
-/** 第二步：取分时、6 年日 K、指数与（近期大涨时）新闻公告，生成分析结果。 */
+/** 第二步：近期日 K、分时、指数和事件分别取数；各模块独立判断可用性。 */
 export async function analyzeStock(resolved, { signal, timeoutMs = 32_000 } = {}) {
   if (resolved.cached) return resolved.cached;
   const { snapshotRows, code } = resolved;
   const end = new Date(), begin = new Date(end);
-  begin.setFullYear(begin.getFullYear() - 6);
+  begin.setFullYear(begin.getFullYear() - 1);
   const beginText = dateText(begin), endText = dateText(end);
   const deadline = Date.now() + timeoutMs;
   const budget = max => Math.max(1, Math.min(max, deadline - Date.now()));
@@ -1674,34 +1680,33 @@ export async function analyzeStock(resolved, { signal, timeoutMs = 32_000 } = {}
     windCall("stock_data", "get_stock_kline", {
       windcode: code, begin_date: beginText, end_date: endText,
       period: "1d", aftype: "0", issusp: "1"
-    }, 0, budget(18_000), signal),
-    windCall("stock_data", "get_stock_quote", { windcode: code }, 0, budget(12_000), signal)
+    }, 0, budget(8_000), signal),
+    windCall("stock_data", "get_stock_quote", { windcode: code }, 0, budget(6_000), signal)
   ]);
-  const klineRows = klineResult.status === "fulfilled" ? cleanDailyRows(table(klineResult.value)) : [];
-  const partialReport = (reason, minuteRows = []) => buildAvailableReport({
-    stock: { name: String(snapshotRows[0]["中文简称"] || code), code },
-    snapshot: snapshotRows[0], dailyRows: klineRows, minuteRows, reason
-  });
-  let quoteRows = quoteResult.status === "fulfilled"
-    ? cleanMinuteRows(table(quoteResult.value)) : [];
-  if (klineRows.length < 120) return partialReport("daily_unavailable", quoteRows);
+  let klineRows = klineResult.status === "fulfilled" ? cleanDailyRows(table(klineResult.value)) : [];
+  let quoteRows = quoteResult.status === "fulfilled" ? cleanMinuteRows(table(quoteResult.value)) : [];
+  // A rejected wide request gets one bounded, smaller recent window. Do not
+  // keep retrying the same six-year bulk request or discard successful minutes.
+  if (klineRows.length < 20 && deadline - Date.now() > 9000 && !signal?.aborted) {
+    const shorter = new Date(end); shorter.setDate(shorter.getDate() - 90);
+    try {
+      const rows = cleanDailyRows(table(await windCall("stock_data", "get_stock_kline", {
+        windcode: code, begin_date: dateText(shorter), end_date: endText,
+        period: "1d", aftype: "0", issusp: "1"
+      }, 0, budget(4_000), signal)));
+      if (rows.length > klineRows.length) klineRows = rows;
+    } catch { /* independent modules can still use successful data */ }
+  }
   const referenceDate = latestDailyDay(klineRows);
-  // 盘前、非交易日可能没有当日分钟数据；只允许用真实的同交易日历史分时回补。
-  if (!sameReferenceSession(quoteRows, klineRows)) {
+  if (klineRows.length && quoteRows.length < 15 && deadline - Date.now() > 7000 && !signal?.aborted) {
     try {
       const fallback = cleanMinuteRows(table(await windCall("stock_data", "get_stock_quote",
-        { windcode: code, begin: referenceDate, end: referenceDate }, 0, budget(5_000), signal)));
+        { windcode: code, begin: referenceDate, end: referenceDate }, 0, budget(3_000), signal)));
       if (sameReferenceSession(fallback, klineRows)) quoteRows = fallback;
-    } catch (error) {
-      console.warn(`technical-analysis ${code} minute fallback: ${error?.code || "unavailable"}`);
-    }
+    } catch { /* retain the actual daily data */ }
   }
   const name = String(snapshotRows[0]["中文简称"] || code);
-  if (!sameReferenceSession(quoteRows, klineRows)) {
-    console.info("analysis degraded", { code, reason: "minute_unavailable", rows: quoteRows.length });
-    return partialReport("minute_unavailable");
-  }
-  const marketOptions = { timeoutMs: budget(12_000), signal };
+  const marketOptions = { timeoutMs: budget(5_000), signal };
   const [shResult, szResult, styleResult] = await Promise.allSettled([
     getMarket("000001.SH", "上证指数", beginText, endText, marketOptions),
     getMarket("399001.SZ", "深证成指", beginText, endText, marketOptions),
@@ -1712,11 +1717,10 @@ export async function analyzeStock(resolved, { signal, timeoutMs = 32_000 } = {}
   const style = styleResult.status === "fulfilled" ? styleResult.value : null;
   const sameBenchmarkDay = benchmark => benchmark?.daily?.at(-1)?.time
     && String(benchmark.daily.at(-1).time).slice(0, 10) === referenceDate;
-  if (!sameBenchmarkDay(sh) || !sameBenchmarkDay(sz) || (styleCode && !sameBenchmarkDay(style))) {
-    console.info("analysis degraded", { code, reason: "benchmark_unavailable" });
-    return partialReport("benchmark_unavailable", quoteRows);
-  }
-  const profile = surgeProfile(parseDaily(klineRows), name, code);
+  // Event lookup may be triggered by an actual one-day move even with no K.
+  const profile = klineRows.length >= 10 ? surgeProfile(parseDaily(klineRows), name, code)
+    : { trigger: Math.abs(Number(snapshotRows[0]["涨跌幅"])) >= 7, name, code,
+      asOf: String(quoteRows.at(-1)?.TIME || dateText(end)).slice(0, 10), label: "当日显著异动" };
   let documents = { news: { items: [] }, announcements: { items: [] } };
   if (profile.trigger && deadline - Date.now() > 3500 && !signal?.aborted) {
     const cleanName = name.normalize("NFKC").replace(/\s+/g, ""),
@@ -1735,7 +1739,27 @@ export async function analyzeStock(resolved, { signal, timeoutMs = 32_000 } = {}
     if (docs[2].status === "fulfilled") documents.announcements.items.push(...(docs[2].value?.items || []));
     else documents.errors.push("announcements");
   }
-  const result = buildAnalysis(snapshotRows, quoteRows, klineRows, { sh, sz }, style, documents);
+  let result;
+  const validDailyInputs = klineRows.length >= 120 && klineRows.slice(-120).every(row =>
+    Number(row.VOLUME) > 0 && row.VOLUME != null);
+  const validMinuteInputs = quoteRows.every(row => Number(row.OPEN) > 0 && Number(row.HIGH) > 0
+    && Number(row.LOW) > 0 && Number(row.VOLUME) > 0 && Number(row.TURNOVER) > 0);
+  if (validDailyInputs && validMinuteInputs && sameReferenceSession(quoteRows, klineRows)
+    && sameBenchmarkDay(sh) && sameBenchmarkDay(sz) && (!styleCode || sameBenchmarkDay(style))) {
+    result = buildAnalysis(snapshotRows, quoteRows, klineRows, { sh, sz }, style, documents);
+    result.history.scope = `该股可用历史 · ${klineRows.length} 根日 K`;
+    result.supplements = result.supplements.map(item => ({ ...item,
+      note: String(item.note || "").replace("近6年", "可用历史") }));
+  } else {
+    const base = buildAvailableReport({ stock: { name, code }, snapshot: snapshotRows[0],
+      dailyRows: klineRows, minuteRows: quoteRows });
+    const historical = klineRows.length >= 120 && klineRows.every(row => Number(row.VOLUME) > 0)
+      ? historicalAnalogs(parseDaily(klineRows), sh?.daily) : null;
+    const events = profile.trigger && (documents.news.items.length || documents.announcements.items.length || documents.errors)
+      ? catalystAnalysis(profile, documents) : null;
+    result = analyzeModules(base, { snapshot: snapshotRows[0], dailyRows: klineRows,
+      markets: [sh, sz, style], history: historical, surge: events });
+  }
   cache.set(resolved.key, { time: Date.now(), data: result });
   return result;
 }

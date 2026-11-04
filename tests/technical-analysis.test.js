@@ -82,7 +82,7 @@ describe("个股技术分析算法（离线样本）", () => {
 
 describe("盘前数据容错", () => {
   afterEach(() => { delete process.env.WIND_MOCK_EMPTY_QUOTE; engine.clearAnalysisCache(); });
-  it("分时为空时仅给出真实日 K 参考，不伪造盘中行情或胜率", async () => {
+  it("分时为空时仍计算日线赔率与相对强弱，不伪造分时或综合胜率", async () => {
     process.env.WIND_MOCK_EMPTY_QUOTE = "1";
     engine.clearAnalysisCache();
     const result = await engine.analyze("603936");
@@ -92,8 +92,9 @@ describe("盘前数据容错", () => {
     expect(result.daily.length).toBeGreaterThanOrEqual(20);
     expect(result.score).toBeNull();
     expect(result.opportunityScore).toBeNull();
-    expect(result.rr).toBe("—");
-    expect(result.dataWarnings.join(" ")).toContain("胜率");
+    expect(result.availability.odds).toBe(true);
+    expect(Number(result.rr)).toBeGreaterThan(0);
+    expect(result.dataWarnings).toEqual([]);
     expect(result.referenceDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
@@ -111,20 +112,21 @@ describe("关键价位：来源标注与补充参考（原算法数值不变）"
     expect(sources["当前价"]).toBe("");
   });
 
-  it("创新高：赔率照原算法（0%、极低），另给历史前高", async () => {
+  it("创新高：赔率照原算法，补充压力限定在实际返回区间", async () => {
     engine.clearAnalysisCache();
     const result = await engine.analyze("样本新材"); // 离线样本：近 3 日连续大涨、收在最高价
     expect(result.buyValue.upsidePct).toBe(0);
     expect(result.buyValue.noRecentPressure).toBe(true);
     expect(result.buyValue.pressureNote).toBe("上方无近120日压力");
-    expect(result.supplements[0]).toMatchObject({ label: "历史前高", note: expect.stringMatching(/^\d{4}-\d{2}-\d{2}（近6年）$/) });
+    expect(result.supplements[0].note).toContain("可用历史");
+    expect(result.supplements[0].note).not.toContain("近6年");
     expect(Number(result.supplements[0].value)).toBeGreaterThan(result.price);
   });
 
-  it("近 6 年都在新高：按 现价 + 2 倍 14 日平均波幅 推算", async () => {
+  it("可用区间都在新高：按 现价 + 2 倍 14 日平均波幅 推算", async () => {
     engine.clearAnalysisCache();
     const result = await engine.analyze("样本新高");
-    expect(result.supplements[0]).toMatchObject({ label: "波动推算", note: expect.stringContaining("近6年无更高价位") });
+    expect(result.supplements[0]).toMatchObject({ label: "波动推算", note: expect.stringContaining("可用历史无更高价位") });
     expect(Number(result.supplements[0].value)).toBeGreaterThan(result.price);
   });
 
