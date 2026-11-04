@@ -1,3 +1,4 @@
+import { localTimeLabel, emotionTimeLabel } from "/shared/local-time.js?v=1";
 import { updateNavPoints } from "/shared/nav-points.js?v=2";
 import { prepareTimelineForExport } from "./export-svg.js?v=1";
 
@@ -129,11 +130,6 @@ function goLogin() {
   location.replace(`/login?next=${encodeURIComponent(location.pathname + location.search)}`);
 }
 
-function shanghaiTimeLabel(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(date);
-}
 
 function toast(message, error = false) {
   const element = $("#toast");
@@ -149,21 +145,20 @@ function setText(selector, value) {
 }
 
 function renderHeader() {
-  const quote = data.quoteTime ? String(data.quoteTime).replace(/^\d{4}(\d{2})(\d{2})\s?(\d{2}:\d{2}).*$/, "$1-$2 $3") : null;
   const closed = data.endOfDay || /\s(1[5-9]|2\d):\d{2}/.test(String(data.quoteTime || ""));
   const phase = closed ? "已收盘" : data.offSession ? "非交易时段" : "盘中";
   const status = data.partial ? `${phase} · 部分数据未更新` : phase;
   if (refreshRun.active) return; // 更新中由 renderRefreshState 接管状态条
   $("#connection-dot").className = data.partial ? "status-dot" : "status-dot ok";
   setText("#connection", status);
-  const quoteLabel = data.endOfDay && quote ? `收盘数据 ${quote.slice(0, 5)}` : quote ? `行情时间 ${quote}` : "未返回行情时间";
+  const quoteLabel = emotionTimeLabel(data);
   setText("#quote-time", quoteLabel);
-  reportToolbarState({ connection: status, quoteTime: quote ? `行情时间 ${quote}` : "未返回行情时间", partial: data.partial });
+  reportToolbarState({ connection: status, quoteTime: quoteLabel, partial: data.partial });
 }
 
 function reportToolbarState(overrides = {}) {
   if (!isEmbedded || window.parent === window) return;
-  window.parent.postMessage({ type: "emotion-toolbar-state", connection: data?.partial ? "部分数据未更新" : "数据已连接", quoteTime: data?.quoteTime ? `行情时间 ${String(data.quoteTime).replace(/^(\d{8})\s?/, "$1 ")}` : "等待行情时间", partial: Boolean(data?.partial), ...overrides }, "*");
+  window.parent.postMessage({ type: "emotion-toolbar-state", connection: data?.partial ? "部分数据未更新" : "数据已连接", quoteTime: data ? emotionTimeLabel(data) : "等待行情时间", partial: Boolean(data?.partial), ...overrides }, "*");
 }
 
 function renderPulse() {
@@ -572,7 +567,7 @@ async function loadNews() {
   try {
     const payload = await api("news");
     const items = payload.items || [];
-    const asOf = shanghaiTimeLabel(payload.asOf);
+    const asOf = localTimeLabel(payload.asOf);
     setText("#news-asof", asOf ? `快照 ${asOf}` : "等待快照");
     $("#news-list").innerHTML = items.length ? items.slice(0, 5).map((item) => `<article class="news-item"><b>${escapeHtml(plain(item.title, "市场消息"))}</b><span>${escapeHtml(item.date || "")}${Number(item.relevance) > 0 ? ` · 相关度 ${Number(item.relevance).toFixed(2)}` : ""}</span><p>${escapeHtml(String(item.content || "").slice(0, 170))}${String(item.content || "").length > 170 ? "…" : ""}</p></article>`).join("") : '<div class="empty">暂无新闻快照。</div>';
   } catch (error) {
@@ -968,7 +963,7 @@ async function finishRefresh(success) {
     stopRefresh();
   }
   const after = data?.storedAt || null;
-  const label = shanghaiTimeLabel(after)?.split(" ").at(-1);
+  const label = localTimeLabel(after);
   if (after && after !== before) {
     toast(`已更新：快照 ${label}`);
     const stamp = $("#quote-time");
@@ -1026,7 +1021,7 @@ async function handleManualRefresh() {
     if (!response.ok) throw Object.assign(new Error(payload.error || `请求失败 (${response.status})`), { code: payload.code });
     if (payload.reason === "closed" || payload.reason === "fresh") {
       stopRefresh();
-      const label = shanghaiTimeLabel(payload.storedAt)?.split(" ").at(-1);
+      const label = localTimeLabel(payload.storedAt);
       toast(payload.reason === "closed" ? closedMessage() : `数据刚更新${label ? `（快照 ${label}）` : ""}，无需刷新`);
       return;
     }
