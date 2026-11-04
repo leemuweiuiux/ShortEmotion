@@ -1,0 +1,53 @@
+name: ETF flow data
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '35 12 * * 1-5'
+    - cron: '35 23 * * 0-4'
+permissions:
+  contents: read
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency:
+      group: etf-flow-data
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    env:
+      ETF_FLOW_DATA_DIR: ${{ github.workspace }}/../etf-flow-data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Load ETF history
+        run: |
+          mkdir -p "$ETF_FLOW_DATA_DIR"
+          if git fetch --depth=1 origin etf-flow-data; then
+            git archive FETCH_HEAD | tar -x -C "$ETF_FLOW_DATA_DIR"
+            git rev-parse FETCH_HEAD > "$RUNNER_TEMP/etf-parent"
+          fi
+      - name: Refresh verified ETF flows
+        run: node scripts/etf-flow/refresh.mjs
+        env:
+          WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
+      - name: Publish ETF data
+        run: |
+          cd "$ETF_FLOW_DATA_DIR"
+          echo '{"git":{"deploymentEnabled":false}}' > vercel.json
+          git init -q
+          git checkout -q -b etf-flow-data
+          git add snapshot.json vercel.json
+          tree=$(git write-tree)
+          parent=()
+          if [ -f "$RUNNER_TEMP/etf-parent" ]; then
+            git fetch -q "https://github.com/$GITHUB_REPOSITORY.git" etf-flow-data
+            parent=(-p "$(cat "$RUNNER_TEMP/etf-parent")")
+          fi
+          commit=$(echo "ETF flow snapshot" | git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit-tree "$tree" "${parent[@]}")
+          git update-ref refs/heads/etf-flow-data "$commit"
+          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)" push "https://github.com/$GITHUB_REPOSITORY.git" etf-flow-data
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

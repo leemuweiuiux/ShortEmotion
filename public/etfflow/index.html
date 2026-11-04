@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="robots" content="noindex">
+  <title>宽基ETF资金 · ShortEmotion</title>
+  <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
+  <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <script>
+    // 与看板共用外观设置：深浅色主题与红涨/绿涨配色（twsvp_*）。
+    (function () {
+      var root = document.documentElement;
+      var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
+      var theme = get("twsvp_theme");
+      if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      root.dataset.theme = theme;
+      if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
+      if (get("twsvp_price_scheme") === "green_up") {
+        root.style.setProperty("--price-up", "#76BB40");
+        root.style.setProperty("--price-down", "#FF4015");
+      }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/short-emotion/twsvp.css?v=17">
+  <link rel="stylesheet" href="/etfflow/etfflow.css?v=1">
+  <link rel="stylesheet" href="/shared/fund-flow.css?v=4">
+  <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
+  <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+  <script defer src="/_vercel/insights/script.js"></script>
+  <link rel="stylesheet" href="/shared/global-header.css?v=4">
+  <script defer src="/shared/usage.js?v=3"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <nav class="nav">
+      <a class="nav-logo" href="/home" aria-label="首页"><img src="/short-emotion/logo.svg?v=2" alt="ShortEmotion"></a>
+      <div class="nav-title">宽基ETF资金</div>
+      <button id="account" class="nav-btn" type="button" aria-label="账号" title="账号" aria-haspopup="menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5" stroke="currentColor" stroke-width="1.6"/><path d="M5 19.5c1.2-3.3 3.8-5 7-5s5.8 1.7 7 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </nav>
+
+    <main>
+      <div class="ef-heading"><div><h1>宽基 ETF 资金</h1><p id="ef-date">正在读取数据…</p></div><a href="/sectorflow" class="ef-link">板块资金 →</a></div>
+      <section class="card ef-overview" aria-labelledby="overview-title"><div class="card-head"><h2 id="overview-title" class="card-title">资金概览</h2><span>单位：亿元</span></div><div id="ef-overview" aria-live="polite"></div></section>
+      <section class="card"><div class="card-head"><h2 class="card-title">各类宽基</h2><label class="ef-label">查看指标 <select id="ef-metric" disabled><option value="amount">当日净流入</option><option value="day">较昨日</option><option value="week">较近一周</option><option value="month">较近一月</option></select></label></div><div id="ef-groups" class="ef-groups" aria-live="polite"></div></section>
+      <section class="card"><div class="card-head"><h2 class="card-title">近一月每日净流入</h2><span class="ef-legend">红：净申购　绿：净赎回</span></div><div class="ef-scroll" tabindex="0" role="region" aria-label="ETF每日净流入热力表，可横向滚动"><table id="ef-table"><caption>最近22个交易日，颜色深浅按各列相对大小</caption></table></div><p id="ef-missing" class="ef-note" hidden>当前数据缺失</p></section>
+      <section class="card"><div class="card-head"><h2 id="ef-detail-title" class="card-title">ETF 明细</h2><select id="ef-filter" disabled aria-label="选择宽基类别"></select></div><div class="ef-scroll"><table id="ef-detail"></table></div><p id="ef-detail-missing" class="ef-note" hidden>当前数据缺失</p></section>
+      <footer class="legal"><p>净流入估算＝份额变动 × 当日单位净值。较近一周、近一月分别比较此前5、20个交易日的日均净流入；增减比例以基准绝对值为分母，基准为零时显示增减金额。</p></footer>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="/etfflow/etfflow.js?v=1"></script>
+
+
+  <script type="module" src="/shared/nav-points.js?v=2"></script>
+  <script type="module" src="/shared/global-header.js?v=4"></script>
+</body>
+</html>
+
