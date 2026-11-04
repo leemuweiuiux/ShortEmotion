@@ -310,10 +310,14 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     expect(wind.windCallStats().total).toBe(0);
   });
 
-  it("取数分析失败：不发起扣分", async () => {
+  it("日 K 失败仍返回免费行情和分时，且不发布完整报告", async () => {
     const res = await call({ body: { q: "样本故障" } }); // 离线样本：认得出，但取日 K 失败
-    expect(res.statusCode).toBe(502);
-    expect(res.body).toMatchObject({ refunded: false, charged: false, balance: 50, stage: "market_analysis" });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({ partial: true, charged: 0, balance: 50 });
+    expect(res.body.data.intraday.length).toBeGreaterThan(0);
+    expect(res.body.data.daily).toEqual([]);
+    expect(res.body.data.score).toBeNull();
+    expect(history).toHaveLength(0);
     expect(ledger.map((row) => row.kind)).toEqual(["signup"]);
   });
 
