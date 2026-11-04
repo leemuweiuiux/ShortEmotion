@@ -1,0 +1,19 @@
+name: ETF flow source verification
+on:
+  push:
+    branches: [feat/etf-flow]
+    paths: [scripts/etf-flow/probe.mjs, .github/workflows/etf-flow-probe.yml]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/etf-flow/probe.mjs
+        env:
+          WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
