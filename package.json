@@ -13,6 +13,7 @@
     "build:hant-map": "node scripts/short-emotion/build-hant-map.mjs"
   },
   "devDependencies": {
+    "happy-dom": "^21.0.4",
     "vitest": "4.0.17"
   },
   "dependencies": {

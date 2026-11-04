@@ -27,8 +27,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=17">
-  <link rel="stylesheet" href="/technical-analysis/ta.css?v=13">
+  <link rel="stylesheet" href="/technical-analysis/ta.css?v=14">
   <link rel="stylesheet" href="/shared/form.css?v=1">
+  <link rel="stylesheet" href="/kandian/kandian.css?v=5">
+  <link rel="stylesheet" href="/technical-analysis/view-drawer.css?v=1">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -183,9 +185,28 @@
       </footer>
     </main>
   </div>
+  <aside id="ta-view-bar" class="ta-view-bar" aria-label="发布看法" hidden>
+    <button id="ta-view-open" type="button" aria-haspopup="dialog">发布看法</button>
+    <button id="ta-view-bullish" type="button" data-direction="bullish" aria-haspopup="dialog">看涨</button>
+    <button id="ta-view-bearish" type="button" data-direction="bearish" aria-haspopup="dialog">看跌</button>
+  </aside>
+  <dialog id="ta-view-drawer" class="kd-compose ta-view-drawer" aria-labelledby="ta-view-title">
+    <form autocomplete="off">
+      <header class="kd-compose-head"><h2 id="ta-view-title">发布看法</h2><button id="ta-view-close" class="kd-close" type="button" aria-label="关闭发布看法">×</button></header>
+      <div class="kd-form-body">
+        <section class="ta-view-stock"><span class="kd-label">我在看</span><strong id="ta-view-stock"></strong></section>
+        <fieldset><legend>我的看法</legend><div class="kd-choice"><button type="button" data-direction="bullish" aria-pressed="false">看涨 <span aria-hidden="true">📈</span></button><button type="button" data-direction="neutral" aria-pressed="false">中性</button><button type="button" data-direction="bearish" aria-pressed="false">看跌 <span aria-hidden="true">📉</span></button></div></fieldset>
+        <fieldset><legend>看多远</legend><div class="kd-choice"><button type="button" data-horizon="5" aria-pressed="false">5日</button><button type="button" data-horizon="10" aria-pressed="false">10日</button><button type="button" data-horizon="20" aria-pressed="false">20日</button><button type="button" data-horizon="60" aria-pressed="false">60日</button></div></fieldset>
+        <section><h3 class="kd-label">我的逻辑 <small>选择1—3项</small></h3><details class="ta-view-logic"><summary>选择逻辑…</summary><div id="ta-view-tags" class="kd-tag-options" role="group" aria-label="我的逻辑"></div></details></section>
+        <p class="ta-view-note">发布时锁定最新参考价、发表时间和看法内容。</p>
+      </div>
+      <footer class="kd-form-footer"><p id="ta-view-error" role="alert"></p><button id="ta-view-publish" class="kd-publish" type="submit">发布看法</button></footer>
+    </form>
+  </dialog>
+  <div id="ta-view-status" class="ta-view-status" role="status" hidden>看法已发布到看点 · 观点 <a href="/kandian?tab=views&filter=mine">查看观点 →</a></div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="/short-emotion/vendor/html-to-image.js" defer></script>
-  <script type="module" src="/technical-analysis/ta.js?v=14"></script>
+  <script type="module" src="/technical-analysis/ta.js?v=15"></script>
 
 
   <script type="module" src="/shared/nav-points.js?v=2"></script>

@@ -5,6 +5,10 @@ import { updateNavPoints } from "/shared/nav-points.js?v=2";
 import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, takePendingAnalysis, validQuery, renderRecent, readAnalysisResult, shortTime } from "/shared/nav-account.js?v=4";
 import { compositeCharts } from "./chart-export.js?v=1";
 
+import { initViewDrawer } from "./view-drawer.js?v=1";
+
+const viewDrawer = initViewDrawer({ goLogin });
+
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const form = $("#ta-form");
 const input = $("#ta-input");
@@ -24,6 +28,7 @@ const setText = (selector, value) => { const element = $(selector); if (element)
 
 // ── 积分与按钮 ──
 function renderButton() {
+  viewDrawer.setBusy(busy);
   runButton.textContent = busy ? "分析中…" : "开始分析";
   runButton.disabled = busy || !config.configured;
   $("#ta-reanalyze").textContent = config.unlimited ? "更新数据" : `更新数据 · ${config.cost} 积分`;
@@ -142,6 +147,8 @@ function setLevel(selector, level) {
 
 function render() {
   const data = current;
+  viewDrawer.setStock(data);
+  viewDrawer.setBusy(busy);
   const decision = data.finalDecision || {};
   $("#ta-result").hidden = false;
   document.title = `${data.name} · 个股技术分析`;
