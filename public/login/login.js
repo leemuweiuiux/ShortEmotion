@@ -5,6 +5,7 @@
 // 邀请码（选填）：从邀请链接来的会自动填好（链接 ?invite= 或介绍页记下的 localStorage「se_invite」）；
 //   按「发送验证码」时先检查能不能用；登录完成后才上报（POST /api/auth?action=invite-redeem），失败只提示、不影响登录。
 import { initLanguage, setText } from "/shared/lang.js?v=20";
+import { requestJson, verifyLogin } from "./request.js?v=1";
 
 const $ = (selector) => document.querySelector(selector);
 initLanguage();
@@ -29,6 +30,7 @@ const inviteInput = $("#invite");
 const inviteNote = $("#invite-note");
 let email = "";
 let invite = "";
+let verifying = false;
 
 // ── 邀请码 ──
 const INVITE_KEY = "se_invite";
@@ -48,9 +50,7 @@ function forgetInvite() {
 }
 
 async function checkInvite(code) {
-  const response = await fetch(`/api/auth?action=invite-check&code=${encodeURIComponent(code)}`, { headers: { Accept: "application/json" } });
-  if (!response.ok) throw new Error(String(response.status));
-  return response.json();
+  return requestJson(`/api/auth?action=invite-check&code=${encodeURIComponent(code)}`, { headers: { Accept: "application/json" } }, 6000);
 }
 
 /** 邀请码下方的说明：「沉静松柏 邀请你加入……」或不能用的原因。邀请人显示昵称（系统分配），跟随简繁设置。 */
@@ -85,12 +85,11 @@ if (inviteInput.value) refreshInviteNote(); // 从邀请链接带进来的码：
 // 一般输入框（2026-10-23）：打字时不改写、不检查、不连网，只清掉上次的提示；按「发送验证码」时才检查
 inviteInput.addEventListener("input", () => { if (!inviteNote.hidden) renderInviteNote(null); });
 
-const configReady = fetch("/api/auth?action=config", { headers: { Accept: "application/json" } })
-  .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
-  .then((config) => {
-    if (!config.enabled) location.replace(NEXT); // 登录未开启：看板公开
-    return config;
-  });
+// Load on demand: a failed startup request must not poison every later manual attempt.
+async function checkConfig() {
+  const config = await requestJson("/api/auth?action=config", { cache: "no-store" }, 6000);
+  if (!config.enabled) throw Object.assign(new Error("登录服务暂时不可用"), { code: "auth_unavailable" });
+}
 
 function showError(message) {
   const element = $("#login-error");
@@ -109,20 +108,19 @@ function busy(button, text, label) {
 
 /** 调用本站的登录接口（otp / verify）；失败时带上状态码与错误代码，交给 friendly() 翻成提示。 */
 async function authPost(action, body) {
-  await configReady;
-  const response = await fetch(`/api/auth?action=${action}`, {
+  await checkConfig();
+  return requestJson(`/api/auth?action=${action}`, {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(body)
   });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw Object.assign(new Error(payload.error || String(response.status)), { status: response.status, code: payload.code, retryAfter: Number(payload.retryAfter) || 0 });
-  return payload;
 }
 
 function friendly(error, step) {
   const code = String(error.code || "");
+  if (code === "session_missing") return "登录状态未保存，请允许本站 Cookie，或用系统浏览器打开后重新登录。";
+  if (code === "request_timeout") return step === "send" ? "请求超时，请先检查邮箱是否收到验证码，再手动重试。" : "登录结果暂未确认，请稍后手动重试；如果验证码已使用，请重新获取。";
   if (step === "send" && error.retryAfter > 0) return `同一个邮箱 60 秒内只能发送一次，请 ${error.retryAfter} 秒后再试；刚才的验证码仍然有效。`;
   if (step === "send" && code === "over_email_send_rate_limit") return "现在申请验证码的人比较多，请过几分钟再试。";
   if (error.status === 429 || /rate_limit/.test(code)) return step === "send" ? "发送太频繁了，请稍等一分钟再试。" : "尝试次数太多，请稍后再试。";
@@ -175,7 +173,7 @@ function refreshCountdown() {
   sendButton.disabled = false;
   label(sendButton, leftHere > 0 ? `已发送，去输入验证码（${leftHere} 秒后可重发）` : "发送验证码");
   const leftSent = email ? waitLeft(email) : 0;
-  resendButton.disabled = leftSent > 0;
+  resendButton.disabled = verifying || leftSent > 0;
   label(resendButton, leftSent > 0 ? `重新发送（${leftSent} 秒）` : "重新发送");
 }
 setInterval(refreshCountdown, 1000);
@@ -243,7 +241,7 @@ emailForm.addEventListener("submit", async (event) => {
 });
 
 resendButton.addEventListener("click", async () => {
-  if (sending || waitLeft(email) > 0) return;
+  if (sending || verifying || waitLeft(email) > 0) return;
   showError("");
   sending = true;
   resendButton.disabled = true;
@@ -274,13 +272,12 @@ codeInput.addEventListener("input", () => {
 async function redeemInvite(code) {
   let payload = null;
   try {
-    const response = await fetch("/api/auth?action=invite-redeem", {
+    payload = await requestJson("/api/auth?action=invite-redeem", {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ code })
-    });
-    payload = await response.json().catch(() => null);
+    }, 6000);
   } catch {}
   if (!payload || (!payload.ok && !payload.reason)) return false;
   forgetInvite();
@@ -304,6 +301,7 @@ async function redeemInvite(code) {
 
 codeForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (verifying) return;
   showError("");
   const token = codeInput.value.replace(/\D/g, "");
   if (token.length < 6) {
@@ -312,8 +310,15 @@ codeForm.addEventListener("submit", async (event) => {
     return;
   }
   busy(verifyButton, "登录中…", "登录");
+  verifying = true;
+  resendButton.disabled = true;
+  $("#change-email").disabled = true;
   try {
-    await authPost("verify", { email, token });
+    await verifyLogin(
+      () => authPost("verify", { email, token }),
+      () => requestJson("/api/auth?action=me", { credentials: "same-origin", cache: "no-store" }, 6000),
+      email
+    );
     if (invite && await redeemInvite(invite)) {
       setTimeout(() => location.replace(NEXT), 2600); // 留一点时间看邀请结果
       return;
@@ -322,6 +327,9 @@ codeForm.addEventListener("submit", async (event) => {
   } catch (error) {
     showError(friendly(error, "verify"));
     busy(verifyButton, "", "登录");
+    verifying = false;
+    $("#change-email").disabled = false;
+    refreshCountdown();
   }
 });
 
