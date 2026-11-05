@@ -1,4 +1,4 @@
-// 用户协议 /terms、隐私政策 /privacy（2026-10-24 与产品确认）：运营者 pai，联系邮箱 pai.product.manager@gmail.com；
+// 用户协议 /terms、隐私政策 /privacy（2026-10-24 与产品确认）：运营者 pai（2026-11-06 改为 LFJ、MWL、KOMI），联系邮箱 pai.product.manager@gmail.com；
 // 登录页不用勾选：点击「发送验证码」即表示同意，按钮下方写明（不另外强调境外）；登录页与个人页面最底部放两份文件的链接；
 // 注销先用邮件申请（15 个工作日内处理）；未满 18 周岁需监护人同意。
 import { readFileSync, existsSync } from "node:fs";
@@ -21,7 +21,8 @@ describe("用户协议与隐私政策页面", () => {
   it("写明运营者、联系邮箱、版本与生效日期", () => {
     for (const file of ["public/terms/index.html", "public/privacy/index.html"]) {
       const html = read(file);
-      expect(html).toContain("<span>运营者 pai</span>");
+      expect(html).toContain("<span>运营者 LFJ、MWL、KOMI</span>");
+      expect(html).not.toMatch(/运营者[ ：]pai|由 pai|pai（以下简称/);
       expect(html).toContain(`mailto:${EMAIL}`);
       expect(html).toMatch(/<span>版本 \d+\.\d+<\/span> · <span>生效日期 2026 年 \d+ 月 \d+ 日<\/span>/);
       expect(html).toContain('/legal/legal.js?v=');
@@ -32,7 +33,7 @@ describe("用户协议与隐私政策页面", () => {
     const privacy = read("public/privacy/index.html");
     const terms = read("public/terms/index.html");
     for (const html of [privacy, terms]) {
-      expect(html).toMatch(/<span>版本 1\.[23]<\/span>/);
+      expect(html).toMatch(/<span>版本 1\.[234]<\/span>/);
       expect(html).toContain("每 30 天");
       expect(html).not.toContain("匿名代号");
       expect(html).not.toContain("个人页面");
