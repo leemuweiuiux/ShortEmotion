@@ -20,6 +20,7 @@ export function operationEvent(api, req, status, data = {}) {
     if (q.action === 'refresh') action = 'refresh';
     if (q.action === 'unlock-anomalies') { feature = 'anomalies'; action = 'unlock'; }
   } else if (api === 'limitup' && req.method === 'POST' && q.action === 'unlock') action = 'unlock';
+  else if (api === 'sectorflow' && req.method === 'POST' && q.action === 'unlock') action = 'unlock';
   else if (api === 'kandian' && req.method === 'POST') {
     action = { publish: 'publish', close: 'close', quote: 'stock_lookup', like: body.liked === false ? 'unlike' : 'like' }[body.action];
   } else if (api === 'auth' && req.method === 'POST') {
