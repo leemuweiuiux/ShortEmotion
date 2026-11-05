@@ -4,8 +4,8 @@
 //   获取：注册赠送 +50、每日签到 +5、邀请好友：好友第一次签到时双方各 +50（20261021c_invites.sql）
 //   消耗：手动刷新 −5、解锁当日题材异动 −10（12 小时内有效）、个股技术分析 −10（每次发起都扣，分析失败退回）、
 //         解锁涨停情绪 −10（12 小时内有效，与题材异动分开；20261027090000_limitup_unlock.sql）
-export const POINTS = { signup: 50, signin: 5, refresh: 5, unlock: 10, unlockHours: 12, analysis: 10, invite: 50, unlockLimitup: 10 };
-export const POINT_KINDS = { signup: "注册赠送", signin: "每日签到", refresh: "刷新数据", unlock: "解锁题材异动", refund: "刷新未执行，退回", analysis: "个股分析", analysis_refund: "分析未完成，退回", invite_reward: "邀请好友奖励", invite_bonus: "受邀奖励", admin_grant: "平台发放", admin_revoke: "平台发放撤销", unlock_limitup: "解锁涨停情绪" };
+export const POINTS = { signup: 50, signin: 5, refresh: 5, unlock: 10, unlockHours: 12, analysis: 10, invite: 50, unlockLimitup: 10, unlockSectorflow: 5, unlockEtfflow: 5 };
+export const POINT_KINDS = { signup: "注册赠送", signin: "每日签到", refresh: "刷新数据", unlock: "解锁题材异动", refund: "刷新未执行，退回", analysis: "个股分析", analysis_refund: "分析未完成，退回", invite_reward: "邀请好友奖励", invite_bonus: "受邀奖励", admin_grant: "平台发放", admin_revoke: "平台发放撤销", unlock_limitup: "解锁涨停情绪", unlock_sectorflow: "解锁板块资金", unlock_etfflow: "解锁宽基ETF资金" };
 
 /** 调用一个 points_* 函数；失败时抛出带 statusCode 的错误。 */
 export async function pointsRpc(config, accessToken, name, args = {}) {
@@ -40,6 +40,10 @@ export const pointsStatus = (config, token, timezone) => pointsRpc(config, token
 export const pointsSignin = (config, token, timezone) => pointsRpc(config, token, "points_signin", { p_timezone: cleanTimezone(timezone) });
 export const pointsUnlockAnomalies = (config, token) => pointsRpc(config, token, "points_unlock_anomalies");
 export const pointsLimitupStatus = (config, token) => pointsRpc(config, token, "points_limitup_status");
+export const pointsEtfflowStatus = (config, token) => pointsRpc(config, token, "points_etfflow_status");
+export const pointsUnlockEtfflow = (config, token) => pointsRpc(config, token, "points_unlock_etfflow");
+export const pointsSectorflowStatus = (config, token) => pointsRpc(config, token, "points_sectorflow_status");
+export const pointsUnlockSectorflow = (config, token) => pointsRpc(config, token, "points_unlock_sectorflow");
 export const pointsUnlockLimitup = (config, token) => pointsRpc(config, token, "points_unlock_limitup");
 export const pointsChargeRefresh = (config, token) => pointsRpc(config, token, "points_charge_refresh");
 export const pointsRefundRefresh = (config, token, ledgerId) => pointsRpc(config, token, "points_refund_refresh", { p_ledger_id: ledgerId });

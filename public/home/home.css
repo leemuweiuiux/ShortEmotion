@@ -81,3 +81,13 @@
 .home-card.mr-home .mr-meta { font-size: 11px; line-height: 1.6; opacity: 1; color: var(--muted); }
 .home-card.mr-home .mr-read { display: none; }
 @media (max-width:360px) { .home-card { padding: 16px 12px; gap: 12px; } }
+
+/* ETF uses the same covering unlock treatment as the other paid homepage cards. */
+.home-etf-body { position:relative; }
+.home-etf-body.locked { min-height:250px; }
+.home-etf-body.locked #etf-home-overview { align-self:stretch; }
+.home-etf-body .lock-skeleton { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.home-etf-body .lock-skeleton i { height:112px; }
+#etf-home-lock[hidden],#etf-home-time[hidden],#etf-home-balance[hidden] { display:none; }
+
+#sectorflow-home-lock[hidden],#sectorflow-chart[hidden] { display:none; }
