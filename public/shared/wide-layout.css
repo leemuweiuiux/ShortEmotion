@@ -1,0 +1,67 @@
+/* First wide-screen rollout: opt in per page; mobile and export layouts stay independent. */
+.wide-nav-links { display: none; }
+
+@media (min-width: 768px) {
+  .wide-page { --wide-shell: 1360px; }
+  .wide-page > .app-shell { width: 100%; max-width: var(--wide-shell); }
+  .wide-page > .app-shell > nav.global-header { max-width: none; padding-inline: 24px; }
+  .wide-page > .app-shell > main { padding: 24px 24px calc(100px + env(safe-area-inset-bottom, 0px)); gap: 20px; }
+  .wide-page > .app-shell > main .card { padding: 22px; }
+  .wide-page > .app-shell > main .card-title { font-size: 17px; }
+  .wide-page > .app-shell > main .legal { max-width: 960px; }
+
+  /* Stable rows pair related information; the DOM keeps its mobile reading order. */
+  .wide-home-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .wide-home-grid > #ta-form, .wide-home-grid > .legal { grid-column: 1 / -1; }
+  .wide-home-grid > #ta-form { grid-row: 1; }
+  .wide-home-grid > #emotion-card { grid-area: 2 / 1; }
+  .wide-home-grid > #limitup-card { grid-area: 2 / 2; }
+  .wide-home-grid > #sectorflow-card { grid-area: 3 / 1; }
+  .wide-home-grid > #etf-home-card { grid-area: 3 / 2; }
+  .wide-home-grid > #anomaly-card { grid-area: 4 / 1; }
+  .wide-home-grid > .mr-home { grid-area: 4 / 2; }
+  .wide-home-grid > .home-card { gap: 16px; align-self: stretch; align-content: start; }
+  .wide-home-grid > #ta-form .home-card-body { max-width: 880px; width: 100%; }
+  .wide-home-grid .ef-overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wide-home-grid .ef-stat strong { font-size: 24px; }
+
+  /* ETF dates and categories use the entire available width. */
+  .wide-etfflow .ef-protected { gap: 20px; }
+  .wide-etfflow .ef-overview-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+  .wide-etfflow .ef-groups { gap: 16px; }
+  .wide-etfflow .ef-group { padding: 20px; }
+  .wide-etfflow .ef-group h3 { font-size: 16px; }
+  .wide-etfflow .ef-group strong { font-size: 28px; }
+  .wide-etfflow .ef-ratios { gap: 10px; }
+  .wide-etfflow .ef-ratios span { font-size: 12px; }
+  .wide-etfflow .ef-ratios b { font-size: 14px; }
+  .wide-etfflow #ef-table { font-size: 13px; }
+  .wide-etfflow #ef-detail { font-size: 14px; }
+  .wide-etfflow #ef-detail th:first-child { width: 60%; }
+  .wide-etfflow #ef-detail th, .wide-etfflow #ef-detail td { padding: 14px 12px; }
+  .wide-etfflow #ef-detail-section { scroll-margin-top: 88px; }
+  .wide-page > :is(.sf-etf-dock, .ef-sector-dock) { width: min(720px, calc(100% - 48px)); bottom: 16px; border-bottom: 1px solid var(--border); padding: 12px 18px; box-shadow: 0 6px 28px #00000014; }
+}
+
+@media (min-width: 1024px) {
+  .wide-nav-links { display: flex; align-items: center; gap: 18px; margin-right: 18px; }
+  .wide-nav-links a { display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); font-size: 13px; text-decoration: none; white-space: nowrap; }
+  .wide-nav-links a[aria-current="page"] { color: var(--ink); font-weight: 600; text-decoration: underline; text-underline-offset: 8px; }
+  .wide-nav-links a:hover { color: var(--ink); }
+  .wide-nav-links a:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+  /* Keep the legend readable alongside the chart, instead of stretching across it. */
+  .wide-sectorflow #fund-flow { display: grid; grid-template-columns: minmax(0, 1fr) 240px; column-gap: 28px; align-items: start; }
+  .wide-sectorflow #fund-flow > :is(.ff-controls, .ff-caption, .ff-tip, .ff-picker, .ff-note) { grid-column: 1 / -1; }
+  .wide-sectorflow #fund-flow > .ff-chart { grid-area: 3 / 1; }
+  .wide-sectorflow #fund-flow > .ff-legend { grid-area: 3 / 2; grid-template-columns: minmax(0, 1fr); border-left: 1px solid var(--border); padding-left: 20px; margin-top: 16px; gap: 12px; }
+  .wide-sectorflow #fund-flow .ff-legend button { font-size: 13px; }
+  .wide-sectorflow #fund-flow .ff-legend b { font-size: 13px; }
+  .wide-sectorflow #fund-flow .ff-options { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .wide-sectorflow #sf-access { padding: 72px 24px; }
+}
+
+@media (min-width: 1440px) {
+  .wide-page > .app-shell > main { padding-inline: 32px; gap: 24px; }
+  .wide-page > .app-shell > nav.global-header { padding-inline: 32px; }
+}

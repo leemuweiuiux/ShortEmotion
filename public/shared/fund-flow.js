@@ -193,7 +193,7 @@ export function mountFundFlow(root, { compact = false, initialCode = '', onSelec
       return;
     }
     const width = Math.max(280, host.clientWidth || 560);
-    host.innerHTML = flowChartSvg({ chosen, keys, period, metric, focusCode, width, height: compact ? 250 : 320 });
+    host.innerHTML = flowChartSvg({ chosen, keys, period, metric, focusCode, width, height: compact ? 250 : Math.max(320, Math.min(440, Math.round(width * .48))) });
     root.querySelector('.ff-tip').textContent = focusCode ? (() => { const line = chosen.find((item) => item.code === focusCode); return line ? `${line.name} · ${period === 'today' ? line.lastLabel : day(line.lastLabel)} · ${signed(line.last, unit)}` : ''; })() : '';
   }
   /** 分享小卡用：按导出宽度重新画一份（不克隆页面上的 SVG，避免按手机宽度画的图在导出里被放大、字变大变糊）。 */

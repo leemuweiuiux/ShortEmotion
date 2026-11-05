@@ -34,12 +34,14 @@
   <script defer src="/_vercel/insights/script.js"></script>
   <link rel="stylesheet" href="/shared/global-header.css?v=4">
   <script defer src="/shared/usage.js?v=3"></script>
+  <link rel="stylesheet" href="/shared/wide-layout.css?v=1">
 </head>
-<body>
+<body class="wide-page wide-sectorflow">
   <div class="app-shell">
     <nav class="nav">
       <a class="nav-logo" href="/home" aria-label="首页"><img src="/short-emotion/logo.svg?v=2" alt="ShortEmotion"></a>
       <div class="nav-title">资金流向</div>
+      <div class="wide-nav-links" role="navigation" aria-label="主要功能"><a href="/home">首页</a><a href="/shortemotion/cn">短线情绪</a><a href="/limitup">涨停情绪</a><a href="/sectorflow" aria-current="page">资金流向</a><a href="/etfflow">宽基ETF</a><a href="/kandian">看点</a></div>
       <button id="account" class="nav-btn" type="button" aria-label="账号" title="账号" aria-haspopup="menu" aria-expanded="false">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5" stroke="currentColor" stroke-width="1.6"/><path d="M5 19.5c1.2-3.3 3.8-5 7-5s5.8 1.7 7 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
       </button>
@@ -65,7 +67,7 @@
   <script type="module" src="/sectorflow/etf-dock.js?v=1"></script>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="/short-emotion/vendor/html-to-image.js" defer></script>
-  <script type="module" src="/sectorflow/sectorflow.js?v=10"></script>
+  <script type="module" src="/sectorflow/sectorflow.js?v=11"></script>
 
 
   <script type="module" src="/shared/nav-points.js?v=2"></script>
