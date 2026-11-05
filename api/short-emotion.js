@@ -63,6 +63,22 @@ export function lockedAnomalies(payload, status) {
   };
 }
 
+/** Homepage preview: preserve the same ranking without transferring stock/news details. */
+export function previewAnomalies(payload) {
+  const threshold = Number(payload.summary?.minScore) || 60;
+  const ranked = (payload.items || [])
+    .filter(item => (item.tabScores?.all ?? item.score) >= threshold)
+    .sort((a, b) => (b.tabScores?.all ?? b.score) - (a.tabScores?.all ?? a.score));
+  return {
+    asOf: payload.asOf, storedAt: payload.storedAt,
+    summary: payload.summary, total: ranked.length,
+    items: ranked.slice(0, 3).map(item => ({
+      name: item.name, score: item.score, tabScores: { all: item.tabScores?.all ?? item.score },
+      signals: item.signals, limitCount: item.limitStocks?.length || 0
+    }))
+  };
+}
+
 
 // ── 刷新没跑成时退分 ──
 // 扣分并触发成功后写一个 10 分钟的 HttpOnly cookie「市场.流水号.触发时间」；页面查进度（refresh-status）时，
@@ -235,9 +251,10 @@ async function handler(req, res) {
       if (!session.accessToken) return void res.status(200).json({ ...lockedAnomalies(payload, null), unavailable: true });
       const status = await pointsStatus(authConfig(), session.accessToken);
       // 不限额账号：一直解锁
-      if (status.unlimited) return void res.status(200).json({ ...payload, unlimited: true, unlockUntil: null, balance: status.balance });
+      const visible = req.query?.preview === '1' ? previewAnomalies(payload) : payload;
+      if (status.unlimited) return void res.status(200).json({ ...visible, unlimited: true, unlockUntil: null, balance: status.balance });
       if (!status.unlockUntil) return void res.status(200).json(lockedAnomalies(payload, status));
-      res.status(200).json({ ...payload, unlockUntil: status.unlockUntil, balance: status.balance });
+      res.status(200).json({ ...visible, unlockUntil: status.unlockUntil, balance: status.balance });
     } catch (error) {
       fail(res, error);
     }
@@ -276,7 +293,7 @@ async function handler(req, res) {
   try {
     const payload = await readResource(resource, market, { fresh });
     res.setHeader("Cache-Control", resource === "status" || fresh ? "no-store" : "private, no-cache");
-    res.status(200).json(payload);
+    res.status(200).json(resource === 'anomalies' && req.query?.preview === '1' ? previewAnomalies(payload) : payload);
   } catch (error) {
     fail(res, error);
   }

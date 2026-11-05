@@ -1,3 +1,5 @@
+import {whenNearViewport} from '/shared/viewport-load.js?v=1';
+import { requestJSON, readPoints, rememberSnapshot } from '/shared/request.js?v=1';
 import {etfOverviewMarkup} from '/shared/etf-overview.js?v=1';
 import {sectorflowRequest} from '/shared/sectorflow-access.js?v=1';
 import {etfflowRequest} from '/shared/etfflow-access.js?v=1';
@@ -18,14 +20,12 @@ import { mountFundFlow } from "/shared/fund-flow.js?v=7";
 initAccountMenu();
 
 const POINTS_TEXT = "积分不足，签到获取 +5积分";
-const TIMEZONE = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch { return ""; } })();
 const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
 
 async function request(url, options = {}) {
-  const response = await fetch(url, { credentials: "same-origin", ...options, headers: { Accept: "application/json", ...(options.headers || {}) } });
-  const payload = await response.json().catch(() => ({}));
-  if (payload.code === "login_required") goLogin();
-  return { response, payload };
+  const result = await requestJSON(url, { ttl: 5_000, ...options });
+  if (result.payload.code === "login_required" || result.response.status === 401) goLogin();
+  return result;
 }
 
 // 读取余额供首页分析与解锁使用；积分与签到入口由顶部导航提供。
@@ -33,11 +33,14 @@ let balance = null;
 let unlimited = false;
 async function loadPoints() {
   try {
-    const { response, payload } = await request(`/api/auth?action=points&tz=${encodeURIComponent(TIMEZONE)}`);
+    const { response, payload } = await readPoints();
     if (!response.ok) return;
     balance = payload.balance ?? null;
     unlimited = Boolean(payload.unlimited);
     updateNavPoints(payload);
+    renderAnalysisHint();
+    if(anomalyData?.locked)renderLocked();
+    if(limitupData?.locked)renderLimitUpLocked();
   } catch {}
 }
 
@@ -172,14 +175,15 @@ function renderUnlocked() {
   const items = (anomalyData.items || [])
     .filter((item) => (item.tabScores?.all ?? item.score) >= threshold)
     .sort((a, b) => (b.tabScores?.all ?? b.score) - (a.tabScores?.all ?? a.score));
-  $("#anomaly-pill").textContent = anomalyData.unlimited ? `今日 ${items.length} 个题材` : anomalyData.unlockUntil ? `已解锁至 ${untilLabel(anomalyData.unlockUntil)}` : `今日 ${items.length} 个题材`;
+  $("#anomaly-pill").textContent = anomalyData.unlimited ? `今日 ${anomalyData.total ?? items.length} 个题材` : anomalyData.unlockUntil ? `已解锁至 ${untilLabel(anomalyData.unlockUntil)}` : `今日 ${anomalyData.total ?? items.length} 个题材`;
   if (!items.length) {
     body.innerHTML = '<div class="empty">今日暂未识别到高价值题材异动。</div>';
     return;
   }
   const rows = items.slice(0, 3).map((item) => {
     const signals = (item.signals || []).map((key) => SIGNALS[key]).filter(Boolean).join(" · ");
-    const limits = item.limitStocks?.length ? ` · 涨停 ${item.limitStocks.length} 家` : "";
+    const limitCount = item.limitCount ?? item.limitStocks?.length ?? 0;
+    const limits = limitCount ? ` · 涨停 ${limitCount} 家` : "";
     return `<li><a class="home-preview-link" href="/shortemotion/cn?theme=${encodeURIComponent(item.name)}#themes" aria-label="查看${esc(item.name)}题材详情"><b>${esc(item.name)}</b><strong>${esc(Math.round(item.tabScores?.all ?? item.score))}</strong><small>${esc(signals)}${esc(limits)}</small></a></li>`;
   }).join("");
   body.innerHTML = `<ol class="home-anomaly-list">${rows}</ol>`;
@@ -187,7 +191,7 @@ function renderUnlocked() {
 
 async function loadAnomalies() {
   try {
-    const { response, payload } = await request(`/api/short-emotion?market=cn&resource=anomalies&t=${Date.now()}`);
+    const { response, payload } = await request("/api/short-emotion?market=cn&resource=anomalies&preview=1");
     if (!response.ok) throw new Error(payload.error || "暂时无法读取");
     anomalyData = payload;
     if (payload.balance != null && Number.isFinite(Number(payload.balance)) && !unlimited) {
@@ -254,6 +258,7 @@ async function loadSectorFlow() {
   if(response.status===401)return goLogin();
   if(!response.ok)throw new Error(payload.error||'暂时无法读取资金流向');
   sectorHomeAccess=payload;renderSectorHomeLock();
+  rememberSnapshot("sectorflow",payload);
   flowChart.update(payload.locked?null:payload.dashboard);
  }catch{
   sectorHomeAccess={locked:true,unavailable:true};renderSectorHomeLock();flowChart.update(null);
@@ -326,7 +331,7 @@ function renderLimitUpUnlocked() {
 
 async function loadLimitUp() {
   try {
-    const { response, payload } = await request(`/api/limitup?resource=summary&t=${Date.now()}`);
+    const { response, payload } = await request("/api/limitup?resource=summary");
     if (!response.ok) throw new Error(payload.code === "not_ready" ? "暂无涨停数据，首份数据将在下一个交易时段生成" : payload.error || "暂时无法读取");
     limitupData = payload;
     renderLimitUpMetrics();
@@ -365,11 +370,11 @@ async function unlockLimitUp(event) {
   }
 }
 
-await loadPoints();
+loadPoints();
 loadEmotion();
 loadAnomalies();
-loadLimitUp();
-loadSectorFlow();
+whenNearViewport($("#limitup-card"),loadLimitUp);
+whenNearViewport($("#sectorflow-card"),loadSectorFlow);
 
 
 window.addEventListener("se:points-updated", loadPoints);
@@ -391,7 +396,7 @@ function renderEtfHome(){
  $('#etf-home-overview').innerHTML=etfOverviewMarkup(etfHomeData);
  $('#etf-home-time').textContent=`数据日期 ${etfHomeData.date.slice(0,4)}-${etfHomeData.date.slice(4,6)}-${etfHomeData.date.slice(6)}`;
 }
-async function loadEtfHome(){try{etfHomeData=await etfflowRequest();renderEtfHome();}catch(error){if(error.status===401)return goLogin();$('#etf-home-overview').textContent=error.message;}}
+async function loadEtfHome(){try{etfHomeData=await etfflowRequest();renderEtfHome();rememberSnapshot("etfflow",etfHomeData);}catch(error){if(error.status===401)return goLogin();$('#etf-home-overview').textContent=error.message;}}
 etfHomeButton.addEventListener('click',async()=>{
  if(etfHomeBusy||!etfHomeData)return;
  if(etfHomeData.unavailable){toast('积分服务暂时不可用，请稍后再试',true);loadEtfHome();return;}
@@ -399,5 +404,5 @@ etfHomeButton.addEventListener('click',async()=>{
  etfHomeBusy=true;renderEtfHome();
  try{await etfflowRequest('unlock');toast('已解锁宽基ETF资金');await loadEtfHome();}catch(error){if(error.status===401)return goLogin();toast(error.message,true);}finally{etfHomeBusy=false;renderEtfHome();}
 });
-loadEtfHome();
+whenNearViewport($("#etf-home-card"),loadEtfHome);
 addEventListener('pageshow',event=>{if(event.persisted)loadEtfHome();});

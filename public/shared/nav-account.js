@@ -1,3 +1,4 @@
+import { requestJSON, readAccount, clearRequestCache } from '/shared/request.js?v=1';
 // 首页 /home、个股技术分析 /technicalanalysis 共用：顶栏右侧的账号按钮（邮箱 → 个人页面、退出登录）与底部轻提示。
 // 样式沿用看板的 twsvp.css（.nav、.export-menu.account-menu、.toast）。看板 app.js 里有同样的一份，行为保持一致。
 export const $ = (selector, root = document) => root.querySelector(selector);
@@ -20,8 +21,7 @@ let accountEmail = "";
 
 async function loadAccount(button) {
   try {
-    const response = await fetch("/api/auth?action=me", { headers: { Accept: "application/json" }, credentials: "same-origin" });
-    const payload = await response.json().catch(() => ({}));
+    const { response, payload } = await readAccount();
     if (payload.enabled === false) return button.remove();
     if (!response.ok) return;
     if (!payload.user) return goLogin();
@@ -50,6 +50,7 @@ function openMenu(button) {
   logout.innerHTML = "<b>退出登录</b>";
   logout.addEventListener("click", async () => {
     logout.disabled = true;
+    clearRequestCache();
     try { await fetch("/api/auth?action=logout", { method: "POST", credentials: "same-origin" }); } catch {}
     location.replace("/about");
   });
@@ -89,8 +90,7 @@ export function takePendingAnalysis() {
 
 /** 是否已开通、每次扣几分、余额（未开通或读不到时 configured 可能为 false）。 */
 export async function readAnalysisConfig({ includeLatest = false } = {}) {
-  const response = await fetch(`/api/technical-analysis?action=config${includeLatest ? "&latest=1" : ""}`, { headers: { Accept: "application/json" }, credentials: "same-origin" });
-  const payload = await response.json().catch(() => ({}));
+  const { response, payload } = await requestJSON(`/api/technical-analysis?action=config${includeLatest ? "&latest=1" : ""}`, { ttl: 5_000 });
   if (payload.code === "login_required") goLogin();
   if (!response.ok) throw new Error(payload.error || "暂时无法读取");
   return payload;

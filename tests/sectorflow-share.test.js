@@ -61,7 +61,8 @@ describe("资金流向页面接线", () => {
     expect(html).toContain('id="sf-share"');
     expect(html).toContain('aria-label="分享小卡"');
     expect(html).not.toContain("sf-status");
-    expect(html).toContain("/short-emotion/vendor/html-to-image.js");
+    expect(html).not.toContain("/short-emotion/vendor/html-to-image.js");
+    expect(read("public/shared/export-loader.js")).toContain("/short-emotion/vendor/html-to-image.js");
     expect(read("public/sectorflow/sectorflow.js")).toContain("setupShare");
   });
   it("分享用的是重画的曲线，不克隆页面上的 SVG", () => {

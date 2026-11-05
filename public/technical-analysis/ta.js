@@ -1,3 +1,4 @@
+import {loadImageExporter} from '/shared/export-loader.js?v=1';
 import { updateNavPoints } from "/shared/nav-points.js?v=2";
 // 个股技术分析 /technicalanalysis
 // 输入六位代码或准确简称 → POST /api/technical-analysis（每次扣 10 积分，认不出股票或分析失败不扣分）。
@@ -732,12 +733,12 @@ async function runExport(kind) {
   closeExportMenu();
   if (exporting) return;
   if (!current) return toast("请先分析一支股票", true);
-  if (!window.htmlToImage) return toast("导出组件尚未加载完成，请稍后重试", true);
   const button = $("#export-image");
   exporting = true;
   button.disabled = true;
   button.setAttribute("aria-busy", "true");
   try {
+    await loadImageExporter();
     await withTimeout(prepareExportAssets(), 8_000).catch(() => {});
     if (kind === "cards") {
       toast("正在生成小卡…");
