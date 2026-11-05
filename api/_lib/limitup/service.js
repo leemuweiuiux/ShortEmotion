@@ -80,7 +80,9 @@ export async function refreshLimitUp(store, { day } = {}) {
   const cacheDays = [...new Set([day, previous?.tradingDate].filter(Boolean))];
   for (const cacheDay of cacheDays) await importCache(store, cacheDay);
 
-  const board = await loadLimitUpBoard(day);
+  const board = await loadLimitUpBoard(day, {
+    loadStoredDay: async (storedDay) => (await store.kvGet(LIMITUP_KEYS.day(storedDay)).catch(() => null))?.value || null
+  });
   const output = { ran: false, skipped: null, errors: [], board };
 
   // 资讯缓存按行情日存（资讯复核用的就是行情日）

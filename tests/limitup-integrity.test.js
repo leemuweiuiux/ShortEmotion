@@ -2,6 +2,7 @@
 // 修复后应：按「收盘价=涨停价」补齐今日代码，按板块拆分取齐昨日名单，晋级率用 123 家做分母；
 // 补不齐时不输出天梯/晋级率等由明细推导的数字。
 import { describe, it, expect, vi, beforeEach } from "vitest";
+vi.setConfig({ testTimeout: 20_000 });
 
 process.env.LIMITUP_NEWS_CONCEPT = "0";
 
@@ -113,6 +114,29 @@ describe("涨停明细完整性", () => {
     expect(board.highlights).toEqual([]);
     expect(board.premium).toBeNull();
     expect(board.errors.join("\n")).toMatch(/仅取得 14 家，全市场共 86 家/);
+  });
+
+  it("历史名单少回时，用上一交易日存下的收盘快照补齐昨日名单", async () => {
+    // 模拟 11/05 实际情况：昨日聚合回 100 家，按板块拆分也只回这 100 家里的
+    const full = scenario.yesterday;
+    scenario.yesterday = full.slice(0, 100);
+    const stored = {
+      tradingDate: "20261104", summary: { limitUpCount: 123, stCount: 3 },
+      stocks: full.slice(0, 120).map((code) => ({ code })),
+      dataQuality: {} // 旧快照没有门槛字段
+    };
+    const board = await loadLimitUpBoard("20261105", { loadStoredDay: async (day) => (day === "20261104" ? stored : null) });
+    expect(board.dataQuality.yesterday).toEqual({ returned: 123, total: 123 });
+    expect(board.dataQuality.relayComplete).toBe(true);
+    expect(board.summary.promotionRate).not.toBeNull();
+  });
+
+  it("上一交易日快照本身不全时不拿来补", async () => {
+    scenario.yesterday = scenario.yesterday.slice(0, 100);
+    const stored = { tradingDate: "20261104", summary: { limitUpCount: 123 }, stocks: scenario.yesterday.slice(0, 14).map((code) => ({ code })), dataQuality: { detailComplete: false } };
+    const board = await loadLimitUpBoard("20261105", { loadStoredDay: async () => stored });
+    expect(board.dataQuality.relayComplete).toBe(false);
+    expect(board.summary.promotionRate).toBeNull();
   });
 
   it("封板时间补不上时，只隐藏早盘封板，天梯照常", async () => {

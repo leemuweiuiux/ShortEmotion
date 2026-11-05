@@ -861,6 +861,7 @@ async function loadLimitHistory(day) {
   if (dates.length < 5) errors.push(`交易日历仅返回${dates.length}个历史交易日`);
   const sets = [];
   const names = [];
+  const completeByDate = [];
   for (const [index, date] of dates.entries()) {
     // 上一交易日的名单要和全市场家数（含北交所）核对，晋级率才可信
     const list = await fetchLimitList(date, { includeBj: index === 0 });
@@ -868,8 +869,9 @@ async function loadLimitHistory(day) {
     if (!list.complete && !list.errors.length) errors.push(`${date}涨停名单可能不完整`);
     sets.push(list.codes);
     names.push(list.names);
+    completeByDate.push(list.complete && !list.errors.length);
   }
-  const output = { day, dates, sets, names, complete: errors.length === 0 && sets.length === 5, errors };
+  const output = { day, dates, sets, names, completeByDate, complete: errors.length === 0 && sets.length === 5, errors };
   if (output.complete) cachedLimitHistory = output;
   return output;
 }
