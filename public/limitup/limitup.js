@@ -5,13 +5,13 @@
 import { toast, goLogin, initAccountMenu } from "/shared/nav-account.js?v=4";
 import { setupLimitupShare } from "/limitup/share.js?v=2";
 import { updateNavPoints } from "/shared/nav-points.js?v=2";
+import { showPointsShortage } from "/shared/points-shortage.js?v=1";
 
 initAccountMenu();
 setupLimitupShare();
 
 const API = "/api/limitup";
 const REFRESH_API = "/api/short-emotion?market=cn";
-const POINTS_TEXT = "积分不足，每日签到可得 +5 积分";
 const $ = (selector) => document.querySelector(selector);
 const setText = (selector, value) => { const element = $(selector); if (element) element.textContent = value ?? "—"; };
 
@@ -485,7 +485,7 @@ async function unlock(event) {
     if (payload.code === "login_required") return goLogin();
     setBalance(payload);
     if (response.status === 402) {
-      toast(POINTS_TEXT, true);
+      showPointsShortage({ balance: payload.balance });
       if (current) renderLocked({ ...current, balance: payload.balance ?? current.balance });
       return;
     }
@@ -691,7 +691,7 @@ async function handleManualRefresh() {
   } catch (error) {
     stopRefresh();
     if (error.code === "login_required") return goLogin();
-    if (error.code === "insufficient_points") return toast(POINTS_TEXT, true);
+    if (error.code === "insufficient_points") return showPointsShortage({ balance: error.balance });
     toast(error.code === "not_configured" ? "实时刷新服务尚未开通，页面显示的是最近一次定时快照" : `刷新失败：${error.message}`, true);
   }
 }

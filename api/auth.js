@@ -17,7 +17,9 @@ import { withUsage, browserEvent, recordUsage } from "./_lib/usage.js";
 // GET  /api/auth?action=invite-check&code=SE…  登录前检查邀请码：{ valid, name, reason, message }（不需要登录）
 // GET  /api/auth?action=invite   我的邀请：邀请码、姓名、已邀请 / 已完成人数、累计获得积分、好友列表
 // POST /api/auth?action=invite-redeem  body { code }：登录完成后绑定邀请人（只限刚注册的账号）
-import { redeemPoints } from "./_lib/redemption.js";
+// GET  /api/auth?action=redemption-preview&code=…  兑换码公开预览（不需要登录，落地页 /redeem 用）
+// POST /api/auth?action=redemption-info | redeem-points  body { code }：登录后预览 / 领取兑换码
+import { redeemPoints, previewRedemption, maskEmail } from "./_lib/redemption.js";
 import { pointsStatus, pointsSignin, pointsHistory } from "./_lib/points.js";
 import { signinCalendar } from "./_lib/signin-calendar.js";
 import { inviteCheck, inviteMine, inviteRedeem } from "./_lib/invite.js";
@@ -128,7 +130,9 @@ async function handler(req, res) {
       const session = await resolveSession(req.headers?.cookie, { config, secure, clearOnFailure: false });
       if (!session.user) return send(res, 401, { error: "请先登录", code: "login_required" }, session.setCookies);
       const result = await redeemPoints(config, session.accessToken, readJson(req.body).code, action === "redeem-points");
-      return send(res, 200, result, session.setCookies);
+      // 资格不符时带上当前账号（打码），页面提示「当前登录 a***@…」并可切换账号
+      const account = !result.ok && ["ineligible", "audience_new", "audience_old"].includes(result.reason) ? maskEmail(session.user.email) : undefined;
+      return send(res, 200, account ? { ...result, account } : result, session.setCookies);
     } catch (error) {
       return send(res, error.statusCode || 503, { error: error.message, code: error.code || "points_unavailable" });
     }
@@ -164,6 +168,16 @@ async function handler(req, res) {
   }
 
   // 邀请：登录前检查邀请码（不需要登录）
+  if (action === "redemption-preview" && req.method === "GET") {
+    if (!config) return send(res, 404, { error: "登录未开启", code: "auth_disabled" });
+    try {
+      send(res, 200, await previewRedemption(config, req.query?.code));
+    } catch (error) {
+      send(res, error.statusCode || 503, { error: error.message, code: error.code || "redemption_unavailable" });
+    }
+    return;
+  }
+
   if (action === "invite-check" && req.method === "GET") {
     if (!config) return send(res, 404, { error: "登录未开启", code: "auth_disabled" });
     try {

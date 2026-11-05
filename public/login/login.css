@@ -32,3 +32,9 @@
 .invite-note[hidden] { display: none; }
 .login-done { padding: 10px 12px; border: 1px solid var(--ink); font-size: 13px; line-height: 1.6; }
 .login-done[hidden] { display: none; }
+
+/* 从领取积分页来：登录后领取的积分礼包 */
+.gift-note { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 6px; margin: 0; padding: 12px 14px; border: 1px solid var(--border); background: var(--panel); font-size: 14px; line-height: 1.6; }
+.gift-note em { color: var(--heat); font-family: "Manrope", sans-serif; font-size: 20px; font-style: normal; font-weight: 800; }
+.gift-note small { color: var(--muted); font-size: 13px; }
+.gift-note[hidden] { display: none; }

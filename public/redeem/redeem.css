@@ -1,0 +1,60 @@
+/* 领取积分 /redeem：礼包卡片（与邀请卡同一语汇：直角卡片、热度红数字、点阵底纹）、领取结果、手动输入 */
+.gift-card { position: relative; gap: 18px; overflow: hidden; }
+.gift-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(18, 20, 23, 0.07) 1px, transparent 1px), radial-gradient(rgba(255, 64, 21, 0.16) 1px, transparent 1px);
+  background-size: 14px 14px, 28px 28px;
+  background-position: 0 0, 7px 7px;
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 70%);
+  mask-image: linear-gradient(180deg, #000 0%, transparent 70%);
+}
+:root[data-theme="dark"] .gift-card::before { background-image: radial-gradient(rgba(245, 247, 251, 0.12) 1px, transparent 1px), radial-gradient(rgba(255, 64, 21, 0.24) 1px, transparent 1px); }
+.gift-card > * { position: relative; }
+.gift-brand { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.gift-brand img { display: block; width: 28px; height: 28px; }
+.gift-status { margin-left: auto; padding: 2px 10px; border: 1px solid var(--border); background: var(--panel); color: var(--muted); font-size: 12px; font-style: normal; }
+.gift-body { display: grid; gap: 8px; justify-items: center; text-align: center; padding: 6px 0 2px; }
+.gift-name { margin: 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.gift-amount { display: flex; align-items: baseline; gap: 6px; margin: 0; }
+.gift-amount strong { color: var(--heat, #ff4015); font-family: "Manrope", sans-serif; font-size: 56px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+.gift-amount span { font-size: 16px; font-weight: 600; }
+.gift-card.is-closed .gift-amount strong { color: var(--muted); }
+.gift-remaining { margin: 0; color: var(--heat, #ff4015); font-size: 13px; font-weight: 600; }
+.gift-rules { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 4px 0 0; padding: 0; list-style: none; }
+.gift-rules li { padding: 3px 10px; border: 1px solid var(--border); background: var(--panel); font-size: 12px; line-height: 1.5; white-space: nowrap; }
+.gift-claim { width: 100%; min-height: 48px; font-size: 16px; }
+.gift-error { margin: 0; color: var(--heat, #ff4015); font-size: 13px; line-height: 1.6; }
+.gift-account { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 10px; margin: 0; color: var(--muted); font-size: 12px; }
+.link-btn { padding: 0; border: 0; background: none; color: var(--ink); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+.done-card { gap: 14px; }
+.done-head { display: flex; align-items: center; gap: 8px; }
+.done-head svg { flex: none; width: 24px; height: 24px; color: #16a34a; }
+.done-head strong { font-size: 18px; font-weight: 700; }
+.done-head span { margin-left: auto; color: var(--muted); font-size: 13px; }
+.done-uses { display: grid; gap: 4px; }
+.done-ledger { justify-self: start; }
+/* 积分用途：与签到页「积分可以用来」同样式 */
+.uses-list { display: grid; }
+.use-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; border-top: 1px solid var(--border); color: var(--ink); text-decoration: none; }
+.use-row:first-child { border-top: 0; }
+.use-row span { display: grid; gap: 2px; }
+.use-row b { font-size: 15px; font-weight: 500; }
+.use-row small { color: var(--muted); font-size: 12px; }
+.use-row em { color: var(--muted); font-size: 13px; font-style: normal; white-space: nowrap; }
+.use-row em::after { content: " ›"; }
+
+.manual-form { display: grid; gap: 10px; }
+.manual-form .se-bar input { letter-spacing: .06em; }
+.se-bar .manual-paste { min-width: 0; padding: 0 10px; background: transparent; color: var(--muted); font-weight: 500; }
+.se-bar .manual-paste:hover { color: var(--ink); }
+
+.redeem-rules { gap: 8px; }
+.redeem-rules ul { display: grid; gap: 6px; margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.redeem-rules a { color: var(--ink); }
+
+/* 卡片与说明行有自己的 display，hidden 时一律不显示 */
+.sub-frame [hidden] { display: none !important; }

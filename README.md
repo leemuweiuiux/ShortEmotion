@@ -118,6 +118,10 @@ Supabase Auth                     寄送與驗證郵箱驗證碼（經 Resend �
 - 餘額與流水存在 Supabase（`supabase/migrations/20261020_points.sql`，在 SQL Editor 執行一次），只能經由 `points_*` 函數用登入者自己的憑證存取；
   流水只記類型（註冊贈送／簽到／刷新／解鎖異動／退回），永久保留。營運概況：`select * from points_overview;`
 - 個人資料頁 `/account` 顯示餘額、簽到按鈕與積分記錄。
+- **兌換碼**（2026-11-05）：後台「兌換碼管理」生成，預設 8 位短碼（XXXX-XXXX，去掉 0/O/1/I/L），也可自定義口令（6–16 位）；可限「僅新用戶 / 僅老用戶」（以完成驗證滿 7 天為界）。生成後直接打開分享面板：卡片圖片（含直達二維碼）、領取文案、領取鏈接 `https://www.lfjmwl.com/redeem?code=…`。
+  - 領取頁 `/redeem` 公開：未登入也能看到活動名稱、積分與截止（`redemption_preview`），按「登錄後領取」登入回來自動領取；`/account/redeem` 是同一頁。可貼整段文案自動找出兌換碼。
+  - 積分不足時（首頁、短線情緒、漲停情緒）彈出面板：還差多少分，並指向簽到、邀請好友、兌換碼。
+  - 上線前在 SQL Editor 執行 `supabase/migrations/20261105120000_redemption_share.sql`（只新增欄位與函數，舊版頁面照常可用）；手動核對可跑 `tests/sql/redemption-share.sql`（整段回滾）。
 
 ## 每日看點公開與 SEO / GEO
 

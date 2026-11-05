@@ -30,7 +30,7 @@
   <link rel="stylesheet" href="/shared/form.css?v=1">
   <link rel="stylesheet" href="/shared/date-range.css?v=1">
   <link rel="stylesheet" href="/account/account.css?v=14">
-  <link rel="stylesheet" href="/admin/admin.css?v=usage-7">
+  <link rel="stylesheet" href="/admin/admin.css?v=share-1">
   </head>
 <body class="sub-page admin-page">
   <nav class="subnav">
@@ -107,6 +107,18 @@
         <p class="admin-muted">各档含起点、不含终点；500 分计入最后一档。</p>
       </section>
 
+      <section class="sub-card">
+        <div class="card-row"><div class="section-title">兑换码</div><a class="row-link" href="#redemption" data-tab-link="redemption">管理兑换码 ›</a></div>
+        <div class="admin-stats three">
+          <div class="wide"><span>进行中</span><strong id="codes-active">—</strong></div>
+          <div><span>今日领取人数</span><strong id="codes-users-today">—</strong></div>
+          <div><span>今日发出积分</span><strong id="codes-points-today" class="plus">—</strong></div>
+          <div><span>近 7 日领取人数</span><strong id="codes-users-week">—</strong></div>
+          <div><span>近 7 日发出积分</span><strong id="codes-points-week" class="plus">—</strong></div>
+        </div>
+        <p id="codes-total" class="admin-muted"></p>
+      </section>
+
       <details class="sub-card admin-details usage-details"><summary>全站功能使用 · 用户路径</summary>
         <div class="usage-heading"><div class="section-title">全站功能使用 · 用户路径</div><div class="usage-controls"><button id="usage-expand" type="button" class="btn-secondary">全部展开</button><button id="usage-collapse" type="button" class="btn-secondary">收起</button></div></div>
         <p class="usage-path">About 产品介绍 <span aria-hidden="true">→</span> 登录 <span aria-hidden="true">→</span> Home 首页 <span aria-hidden="true">→</span> 看板 / 个人中心 <span aria-hidden="true">→</span> 具体操作</p>
@@ -168,7 +180,7 @@
       </section>
     </div>
     <div id="tab-redemption" class="admin-panel" hidden>
-      <div class="admin-toolbar"><span class="admin-muted">生成、查看与停用兑换码</span><button id="code-new" type="button" class="btn-primary">生成兑换码</button></div>
+      <div class="admin-toolbar"><span class="admin-muted">生成兑换码后可直接分享链接、文案或卡片图片</span><button id="code-new" type="button" class="btn-primary">生成兑换码</button></div>
       <section class="sub-card">
         <form id="code-filter" class="admin-filter">
           <label class="field"><span>活动 / 兑换码</span><input id="code-search" class="se-input" maxlength="60" placeholder="搜索活动名称或兑换码"></label>
@@ -183,19 +195,59 @@
     <dialog id="code-dialog" class="code-dialog" aria-labelledby="code-dialog-title">
       <div class="card-row"><h2 id="code-dialog-title">生成兑换码</h2><button id="code-close" type="button" class="btn-secondary">关闭</button></div>
       <form id="code-form" class="profile-form">
-        <label class="field"><span>活动名称</span><input name="name" class="se-input" maxlength="60" required placeholder="例如：新功能体验奖励"></label>
-        <label class="field"><span>兑换类型</span><select name="mode" class="se-input"><option value="unlimited">不限人数</option><option value="limited">限制人数</option><option value="targeted">定向人员</option></select></label>
-        <label class="field"><span>每人积分（1–1000）</span><input name="amount" class="se-input" type="number" min="1" max="1000" step="1" required></label>
-        <div class="admin-chips" id="code-amounts"><button type="button" data-code-amount="50">50</button><button type="button" data-code-amount="100">100</button><button type="button" data-code-amount="200">200</button><button type="button" data-code-amount="500">500</button></div>
-        <label class="field" id="code-limit-field" hidden><span>总名额</span><input name="maxClaims" class="se-input" type="number" min="1" max="1000000" step="1"></label>
-        <label id="code-count-field" hidden><input name="showCount" type="checkbox"> 向用户显示已兑换人数与总名额</label>
-        <label class="field" id="code-email-field" hidden><span>指定邮箱（每行一个，最多 500 个）</span><textarea name="emails" class="se-input" rows="5" placeholder="user@example.com"></textarea></label>
-        <label class="field"><span>截止时间（留空为永久，按当前设备时区）</span><input name="expiresAt" type="datetime-local" class="se-input"></label>
-        <label class="field"><span>内部备注</span><textarea name="note" class="se-input" rows="2" maxlength="300"></textarea></label>
-        <p class="admin-muted">每个兑换码每人限领一次。生成后规则固定，可随时停用。</p>
+        <label class="field"><span>活动名称 <small>用户可见：显示在领取页、卡片与积分流水</small></span><input name="name" class="se-input" maxlength="60" required placeholder="例如：新功能体验奖励"></label>
+        <div class="field"><span>每人积分（1–1000）</span>
+          <input name="amount" class="se-input" type="number" min="1" max="1000" step="1" required>
+          <div class="admin-chips" id="code-amounts"><button type="button" data-code-amount="20">20</button><button type="button" data-code-amount="50">50</button><button type="button" data-code-amount="100">100</button><button type="button" data-code-amount="200">200</button></div>
+        </div>
+        <label class="field"><span>兑换类型</span><select name="mode" class="se-input"><option value="limited">限制人数</option><option value="unlimited">不限人数</option><option value="targeted">定向人员</option></select></label>
+        <label class="field" id="code-limit-field" hidden><span>总名额</span><input name="maxClaims" class="se-input" type="number" min="1" max="1000000" step="1" placeholder="例如 100"></label>
+        <label id="code-count-field" class="admin-check" hidden><input name="showCount" type="checkbox" checked> 在领取页显示剩余名额（营造稀缺感）</label>
+        <label class="field" id="code-email-field" hidden><span>指定邮箱 <small id="code-email-count">每行一个，最多 500 个</small></span><textarea name="emails" class="se-input" rows="5" placeholder="user@example.com"></textarea></label>
+        <label class="field" id="code-audience-field"><span>领取对象</span><select name="audience" class="se-input"><option value="all">全部用户</option><option value="new">仅新用户（注册 7 天内）</option><option value="old">仅老用户（注册满 7 天）</option></select></label>
+        <div class="field"><span>兑换码</span>
+          <div class="theme-switch admin-reasons" role="radiogroup" aria-label="兑换码形式">
+            <button type="button" role="radio" aria-checked="true" data-code-style="short">随机短码（8 位）</button>
+            <button type="button" role="radio" aria-checked="false" data-code-style="custom">自定义口令</button>
+          </div>
+          <input name="customCode" class="se-input se-code" maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="6–16 位字母或数字，例如 LFJ2026" hidden>
+        </div>
+        <div class="field"><span>截止时间 <small>北京时间</small></span>
+          <input name="expiresAt" type="datetime-local" class="se-input">
+          <div class="admin-chips" id="code-expiry"><button type="button" data-expiry="today">今天 23:59</button><button type="button" data-expiry="7">7 天</button><button type="button" data-expiry="30">30 天</button><button type="button" data-expiry="">长期有效</button></div>
+        </div>
+        <label class="field"><span>内部备注 <small>只在后台显示</small></span><textarea name="note" class="se-input" rows="2" maxlength="300"></textarea></label>
+        <p id="code-budget" class="code-budget" aria-live="polite"></p>
         <p id="code-error" class="admin-error" role="alert" hidden></p>
         <button id="code-create" class="btn-primary" type="submit">确认生成</button>
+        <p class="admin-muted">每个兑换码每人限领一次。生成后规则固定，可随时停用。</p>
       </form>
+    </dialog>
+    <dialog id="code-share-dialog" class="code-dialog" aria-labelledby="code-share-title">
+      <div class="card-row"><h2 id="code-share-title">分享兑换码</h2><button id="code-share-close" type="button" class="btn-secondary">关闭</button></div>
+      <div class="code-share">
+        <!-- 兑换卡：页面上预览，「保存卡片图片」按同样内容生成图片（二维码直达领取页） -->
+        <div id="code-card" class="code-card">
+          <div class="cc-brand"><img src="/short-emotion/logo.svg?v=2" alt=""><span><b>ShortEmotion</b><small>看懂A股情绪与走势</small></span></div>
+          <p class="cc-lead">送你一份积分礼包</p>
+          <p class="cc-amount"><strong id="cc-amount">—</strong><span>积分</span></p>
+          <p id="cc-name" class="cc-name"></p>
+          <ul id="cc-rules" class="cc-rules"></ul>
+          <div class="cc-code">
+            <div class="cc-code-text"><span>兑换码</span><strong id="cc-code">—</strong><small>扫码直接领取</small></div>
+            <div id="cc-qr" class="cc-qr" aria-label="领取链接二维码"></div>
+          </div>
+          <p class="cc-foot">lfjmwl.com · 仅用于研究与情绪观察，不构成投资建议</p>
+        </div>
+        <div class="code-share-actions">
+          <button id="share-image" type="button" class="btn-primary">保存卡片图片</button>
+          <button id="share-text" type="button" class="btn-secondary">复制领取文案</button>
+          <button id="share-link" type="button" class="btn-secondary">复制领取链接</button>
+          <button id="share-code" type="button" class="btn-secondary">复制兑换码</button>
+        </div>
+        <p id="share-status" class="share-status" role="status" hidden></p>
+        <pre id="share-preview" class="share-preview"></pre>
+      </div>
     </dialog>
     <dialog id="code-detail-dialog" class="code-dialog" aria-labelledby="code-detail-title">
       <div class="card-row"><h2 id="code-detail-title">兑换详情</h2><button id="code-detail-close" type="button" class="btn-secondary">关闭</button></div>
@@ -205,6 +257,8 @@
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/admin/admin.js?v=7"></script>
+  <script src="/short-emotion/vendor/qrcode-generator.js" defer></script>
+  <script src="/short-emotion/vendor/html-to-image.js" defer></script>
+  <script type="module" src="/admin/admin.js?v=8"></script>
 </body>
 </html>

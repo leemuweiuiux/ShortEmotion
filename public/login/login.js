@@ -85,6 +85,29 @@ if (inviteInput.value) refreshInviteNote(); // 从邀请链接带进来的码：
 // 一般输入框（2026-10-23）：打字时不改写、不检查、不连网，只清掉上次的提示；按「发送验证码」时才检查
 inviteInput.addEventListener("input", () => { if (!inviteNote.hidden) renderInviteNote(null); });
 
+// 从领取积分页来（next=/redeem?code=…）：显示「登录后领取 N 积分 · 活动名称」，读不到就不显示
+(async () => {
+  let code = "";
+  try { code = new URL(NEXT, location.origin).pathname === "/redeem" ? new URL(NEXT, location.origin).searchParams.get("code") || "" : ""; } catch {}
+  if (!/^[A-Za-z0-9-]{6,40}$/.test(code)) return;
+  try {
+    const gift = await requestJson(`/api/auth?action=redemption-preview&code=${encodeURIComponent(code)}`, { headers: { Accept: "application/json" } }, 6000);
+    if (!gift?.ok || gift.status !== "active") return;
+    const note = $("#gift-note");
+    note.textContent = "";
+    const lead = document.createElement("span");
+    const amount = document.createElement("em");
+    const tail = document.createElement("span");
+    const name = document.createElement("small");
+    setText(lead, "登录后领取");
+    amount.textContent = String(gift.amount);
+    setText(tail, "积分");
+    setText(name, `· ${gift.name}`);
+    note.append(lead, amount, tail, name);
+    note.hidden = false;
+  } catch {}
+})();
+
 // Load on demand: a failed startup request must not poison every later manual attempt.
 async function checkConfig() {
   const config = await requestJson("/api/auth?action=config", { cache: "no-store" }, 6000);

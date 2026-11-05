@@ -5,6 +5,7 @@
 // GET  /api/admin?action=lookup&email=                         发放前确认对方：打码邮箱、注册日期
 // POST /api/admin?action=grant  body { email, amount, reason }  积分发放（上限由数据库决定；原因 recharge / campaign）
 // POST /api/admin?action=undo   body { ledgerId }               撤销自己几分钟内的一笔发放
+// GET  /api/admin?action=redemption-list|redemption-detail|redemption-stats；POST redemption-create|redemption-disable  兑换码管理
 import { adminOverview, adminLedger, adminLookup, adminGrant, adminUndo, adminMessage, ADMIN } from "./_lib/admin.js";
 import { adminRedemption } from "./_lib/redemption.js";
 import { cleanEmail } from "./_lib/login.js";
@@ -34,7 +35,7 @@ const NOT_FOUND = { error: "接口不存在", code: "not_found" };
 export default async function handler(req, res) {
   const action = String(req.query?.action || "");
   const route = `${req.method} ${action}`;
-  if (!["GET overview", "GET ledger", "GET lookup", "POST grant", "POST undo", "GET redemption-list", "GET redemption-detail", "POST redemption-create", "POST redemption-disable"].includes(route)) return send(res, 404, NOT_FOUND);
+  if (!["GET overview", "GET ledger", "GET lookup", "POST grant", "POST undo", "GET redemption-list", "GET redemption-detail", "GET redemption-stats", "POST redemption-create", "POST redemption-disable"].includes(route)) return send(res, 404, NOT_FOUND);
   if (req.method === "POST" && !sameOrigin(req)) return send(res, 404, NOT_FOUND);
   const config = authConfig();
   if (!config) return send(res, 404, NOT_FOUND);

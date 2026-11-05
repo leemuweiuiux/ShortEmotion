@@ -14,7 +14,7 @@ describe('积分兑换边界',()=>{
  });
  it('预览不领取，所有资格判断交给数据库且不接受指定用户邮箱',async()=>{
   const fetch=vi.fn().mockResolvedValue(Response.json({ok:false,reason:'ineligible'}));vi.stubGlobal('fetch',fetch);
-  expect(await redeemPoints(config,'token','ABCD1234ABCD1234ABCD',false)).toMatchObject({ok:false,message:'当前账号不符合领取条件'});
+  expect(await redeemPoints(config,'token','ABCD1234ABCD1234ABCD',false)).toMatchObject({ok:false,message:'这个兑换码仅限指定账号领取'});
   expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({p_code:'ABCD1234ABCD1234ABCD',p_claim:false});
  });
  it('匿名调用不发起 RPC，后台权限拒绝统一为404',async()=>{
