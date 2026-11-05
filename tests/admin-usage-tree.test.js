@@ -7,7 +7,7 @@ describe('用户路径统计层级', () => {
     const tree=buildUsageTree([]);
     expect(tree.map(x=>x.id)).toEqual(['about','login','home']);
     expect(find(tree,'home').children.map(x=>x.id)).toEqual(['boards','account','legal']);
-    expect(find(tree,'boards').children.map(x=>x.id)).toEqual(['shortemotion','technicalanalysis','sectorflow','limitup','kandian']);
+    expect(find(tree,'boards').children.map(x=>x.id)).toEqual(['shortemotion','technicalanalysis','sectorflow','etfflow','limitup','kandian']);
     expect(find(tree,'shortemotion').children[0].id).toBe('anomalies');
     expect(find(tree,'kandian').children[0].id).toBe('article');
     expect(find(tree,'account').children.map(x=>x.id)).toContain('signin');

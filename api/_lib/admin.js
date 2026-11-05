@@ -59,12 +59,13 @@ const label = (kind) => POINT_KINDS[kind] || kind;
 const withLabels = (rows) => (Array.isArray(rows) ? rows : []).map((row) => ({ ...row, label: label(row.kind) }));
 
 export async function adminOverview(config, token) {
-  const [data, usage] = await Promise.all([adminRpc(config, token, "admin_overview"), adminRpc(config, token, "admin_usage")]);
+  const [data, usage, metrics] = await Promise.all([adminRpc(config, token, "admin_overview"), adminRpc(config, token, "admin_usage"), adminRpc(config, token, "admin_metrics")]);
   return {
     ...data,
+    ...metrics,
     usage,
     analyses: usage.analyses,
-    spend7d: usage.spend7d,
+    spend7d: metrics.spend7d || usage.spend7d,
     points: { ...data.points, today: withLabels(data.points?.today), week: withLabels(data.points?.week) },
     kinds: POINT_KINDS,
     reasons: ADMIN.reasons

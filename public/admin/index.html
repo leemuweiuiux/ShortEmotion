@@ -30,7 +30,7 @@
   <link rel="stylesheet" href="/shared/form.css?v=1">
   <link rel="stylesheet" href="/shared/date-range.css?v=1">
   <link rel="stylesheet" href="/account/account.css?v=14">
-  <link rel="stylesheet" href="/admin/admin.css?v=hierarchy-5">
+  <link rel="stylesheet" href="/admin/admin.css?v=redemption-6">
   </head>
 <body class="sub-page admin-page">
   <nav class="subnav">
@@ -49,6 +49,7 @@
         <a href="#overview" data-tab="overview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4zM14 20h6V4h-6zM4 20h6v-4H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>总览</a>
         <a href="#ledger" data-tab="ledger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>积分列表</a>
         <a href="#grant" data-tab="grant"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>积分发放</a>
+        <a href="#redemption" data-tab="redemption">兑换码管理</a>
       </nav>
       <a class="admin-menu-back" href="/home">返回首页</a>
     </div>
@@ -73,7 +74,14 @@
           <div><span>今日活跃</span><strong id="users-active-today">—</strong></div>
           <div><span>近 7 日活跃</span><strong id="users-active-7d">—</strong></div>
         </div>
+        <details class="admin-details"><summary>邀请转化</summary>
+          <div class="admin-stats trio"><div><span>已绑定</span><strong id="invites-bound">—</strong></div><div><span>已完成签到</span><strong id="invites-rewarded">—</strong></div><div><span>完成率</span><strong id="invites-rate">—</strong></div></div>
+        </details>
       </section>
+
+      <div class="admin-section-head"><h2>积分消耗功能</h2><span class="admin-muted">按登录用户去重</span></div>
+      <div id="paid-features" class="paid-feature-grid" aria-live="polite"></div>
+      <p class="admin-note">成功含已交付的部分分析结果；失败含积分不足等未完成请求。同一人可同时计入成功和失败；免费查看及有效期内重复解锁不计入。刷新已受理单列，尚不代表任务完成。</p>
 
       <section class="sub-card">
         <div class="card-row"><div class="section-title">积分概况</div><span class="admin-muted">流通 <b id="points-circulating">—</b> 分</span></div>
@@ -83,45 +91,23 @@
           <div><span>近 7 日入账（含退款）</span><strong id="points-issued-week" class="plus">—</strong></div>
           <div><span>近 7 日扣分（退款另列）</span><strong id="points-spent-week" class="minus">—</strong></div>
         </div>
-      </section>
-
-      <section class="sub-card">
-        <div class="section-title">积分按类型</div>
-        <div class="admin-table-wrap">
+        <p id="spend-7d" class="admin-muted"></p>
+        <details class="admin-details"><summary>按积分类型查看明细</summary>        <div class="admin-table-wrap">
           <table class="admin-table">
             <thead><tr><th>类型</th><th>今日</th><th>近 7 日</th></tr></thead>
             <tbody id="points-kinds"><tr><td colspan="3" class="admin-empty">读取中…</td></tr></tbody>
           </table>
         </div>
+        </details>
       </section>
 
       <section class="sub-card">
         <div class="card-row"><div class="section-title">积分余额分布</div><span class="admin-muted">不含不限额账号</span></div>
-        <p class="admin-muted"><b class="admin-warn-dot"></b>0–9 分的用户已不够做一次个股分析（10 分）。</p>
         <div id="balance-bars" class="admin-bars"></div>
-        <p id="spend-7d" class="admin-muted"></p>
+        <p class="admin-muted">各档含起点、不含终点；500 分计入最后一档。</p>
       </section>
 
-      <section class="sub-card">
-        <div class="section-title">邀请</div>
-        <div class="admin-stats trio">
-          <div><span>已绑定</span><strong id="invites-bound">—</strong></div>
-          <div><span>已完成签到</span><strong id="invites-rewarded">—</strong></div>
-          <div><span>完成率</span><strong id="invites-rate">—</strong></div>
-        </div>
-      </section>
-
-      <section class="sub-card">
-        <div class="section-title">个股分析（历史流水）</div>
-        <div class="admin-stats">
-          <div><span>今日未退款请求</span><strong id="analyses-today">—</strong></div>
-          <div><span>近 7 日未退款请求</span><strong id="analyses-week">—</strong></div>
-          <div><span>近 7 日请求人数</span><strong id="analyses-users">—</strong></div>
-          <div><span>近 7 日人均请求</span><strong id="analyses-avg">—</strong></div>
-        </div>
-      </section>
-      <p class="admin-note">统计按北京时间；历史个股分析按未退款请求统计，次数与人数使用同一口径，不等同于成功次数；新采集的成功、失败见下方；消耗人数及人均消耗排除已退款流水，包含涨停情绪解锁。</p>
-      <section class="sub-card">
+      <details class="sub-card admin-details usage-details"><summary>全站功能使用 · 用户路径</summary>
         <div class="usage-heading"><div class="section-title">全站功能使用 · 用户路径</div><div class="usage-controls"><button id="usage-expand" type="button" class="btn-secondary">全部展开</button><button id="usage-collapse" type="button" class="btn-secondary">收起</button></div></div>
         <p class="usage-path">About 产品介绍 <span aria-hidden="true">→</span> 登录 <span aria-hidden="true">→</span> Home 首页 <span aria-hidden="true">→</span> 看板 / 个人中心 <span aria-hidden="true">→</span> 具体操作</p>
         <p id="usage-start" class="admin-muted">读取中…</p>
@@ -131,7 +117,7 @@
           <tbody id="usage-rows"><tr><td colspan="4">读取中…</td></tr></tbody>
         </table></div>
         <p class="admin-muted">点击导出只代表操作尝试；接口成功不保证页面渲染成功。刷新任务已受理与完成分开理解。历史未采集的行为不回补。</p>
-      </section>
+      </details>
     </div>
 
     <!-- 2. 积分列表：时间、类型、变动、匿名用户代号 -->
@@ -181,9 +167,44 @@
         <button id="grant-undo" class="btn-secondary" type="button">撤销</button>
       </section>
     </div>
+    <div id="tab-redemption" class="admin-panel" hidden>
+      <div class="admin-toolbar"><span class="admin-muted">生成、查看与停用兑换码</span><button id="code-new" type="button" class="btn-primary">生成兑换码</button></div>
+      <section class="sub-card">
+        <form id="code-filter" class="admin-filter">
+          <label class="field"><span>活动 / 兑换码</span><input id="code-search" class="se-input" maxlength="60" placeholder="搜索活动名称或兑换码"></label>
+          <label class="field"><span>类型</span><select id="code-mode-filter" class="se-input"><option value="">全部类型</option><option value="unlimited">不限人数</option><option value="limited">限制人数</option><option value="targeted">定向人员</option></select></label>
+          <label class="field"><span>状态</span><select id="code-status-filter" class="se-input"><option value="">全部状态</option><option value="active">可兑换</option><option value="full">已兑满</option><option value="expired">已过期</option><option value="disabled">已停用</option></select></label>
+          <button class="btn-primary" type="submit">查询</button>
+        </form>
+        <div id="code-list" class="code-list" aria-live="polite"></div>
+        <button id="code-more" class="ledger-more" type="button" hidden>加载更多</button>
+      </section>
+    </div>
+    <dialog id="code-dialog" class="code-dialog" aria-labelledby="code-dialog-title">
+      <div class="card-row"><h2 id="code-dialog-title">生成兑换码</h2><button id="code-close" type="button" class="btn-secondary">关闭</button></div>
+      <form id="code-form" class="profile-form">
+        <label class="field"><span>活动名称</span><input name="name" class="se-input" maxlength="60" required placeholder="例如：新功能体验奖励"></label>
+        <label class="field"><span>兑换类型</span><select name="mode" class="se-input"><option value="unlimited">不限人数</option><option value="limited">限制人数</option><option value="targeted">定向人员</option></select></label>
+        <label class="field"><span>每人积分（1–1000）</span><input name="amount" class="se-input" type="number" min="1" max="1000" step="1" required></label>
+        <div class="admin-chips" id="code-amounts"><button type="button" data-code-amount="50">50</button><button type="button" data-code-amount="100">100</button><button type="button" data-code-amount="200">200</button><button type="button" data-code-amount="500">500</button></div>
+        <label class="field" id="code-limit-field" hidden><span>总名额</span><input name="maxClaims" class="se-input" type="number" min="1" max="1000000" step="1"></label>
+        <label id="code-count-field" hidden><input name="showCount" type="checkbox"> 向用户显示已兑换人数与总名额</label>
+        <label class="field" id="code-email-field" hidden><span>指定邮箱（每行一个，最多 500 个）</span><textarea name="emails" class="se-input" rows="5" placeholder="user@example.com"></textarea></label>
+        <label class="field"><span>截止时间（留空为永久，按当前设备时区）</span><input name="expiresAt" type="datetime-local" class="se-input"></label>
+        <label class="field"><span>内部备注</span><textarea name="note" class="se-input" rows="2" maxlength="300"></textarea></label>
+        <p class="admin-muted">每个兑换码每人限领一次。生成后规则固定，可随时停用。</p>
+        <p id="code-error" class="admin-error" role="alert" hidden></p>
+        <button id="code-create" class="btn-primary" type="submit">确认生成</button>
+      </form>
+    </dialog>
+    <dialog id="code-detail-dialog" class="code-dialog" aria-labelledby="code-detail-title">
+      <div class="card-row"><h2 id="code-detail-title">兑换详情</h2><button id="code-detail-close" type="button" class="btn-secondary">关闭</button></div>
+      <div id="code-detail" aria-live="polite"></div>
+      <button id="code-claims-more" class="ledger-more" type="button" hidden>更多兑换记录</button>
+    </dialog>
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/admin/admin.js?v=5"></script>
+  <script type="module" src="/admin/admin.js?v=6"></script>
 </body>
 </html>

@@ -134,3 +134,32 @@
 .usage-group { background:var(--panel); }
 .usage-event th { font-weight:400; }
 .usage-node th { text-align:left; }
+
+.admin-section-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:20px 0 12px; }
+.admin-section-head h2, .code-dialog h2 { margin:0; font-size:16px; }
+.paid-feature-grid { display:grid; gap:12px; margin-bottom:12px; }
+.paid-feature-grid .sub-card { margin:0; }
+.paid-feature .admin-stats strong { font-size:22px; }
+.paid-feature .admin-stats div { padding:10px 8px; }
+.paid-feature .admin-muted { margin-top:10px; }
+.admin-details { margin-top:12px; }
+.admin-details summary { cursor:pointer; font-size:13px; color:var(--muted); padding:8px 0; }
+.admin-details[open] summary { margin-bottom:8px; }
+.admin-panel > .usage-details { margin-top:16px; }
+.admin-panel > .admin-note { margin-bottom:16px; }
+.code-list { display:grid; gap:12px; margin-top:16px; }
+.code-item { border-top:1px solid var(--border); padding-top:16px; display:grid; gap:10px; }
+.code-item h3 { margin:0; font-size:15px; overflow-wrap:anywhere; }
+.code-item code { font-size:13px; overflow-wrap:anywhere; }
+.code-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.code-dialog { box-sizing:border-box; width:min(600px,100vw); max-height:90dvh; padding:20px; background:var(--surface); color:var(--ink); border:1px solid var(--border); }
+.code-dialog::backdrop { background:rgba(15,20,25,.45); }
+.code-dialog .profile-form { margin-top:16px; }
+.code-dialog [hidden] { display:none; }
+.code-dialog textarea { height:auto; min-height:70px; resize:vertical; }
+.code-detail-meta { font-size:13px; line-height:1.8; overflow-wrap:anywhere; }
+.code-dialog .admin-table { margin-top:16px; }
+@media(min-width:1000px) {
+  .admin-page .sub-frame, .admin-page .subnav { max-width:1040px; }
+  .paid-feature-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
