@@ -285,10 +285,12 @@ function renderLimitUpMetrics() {
   const count = (value) => (Number.isFinite(Number(value)) && value !== null ? Number(value).toLocaleString("zh-CN") : "—");
   $("#limitup-up").textContent = count(metrics.limitUpCount);
   $("#limitup-down").textContent = count(metrics.limitDownCount);
-  $("#limitup-max").textContent = Number(metrics.maxStreak) > 0 ? streakText(metrics.maxStreak) : "—";
-  $("#limitup-promo").textContent = Number.isFinite(Number(metrics.promotionRate)) && metrics.promotionRate !== null
-    ? `${Math.round(metrics.promotionRate * 100)}%`
-    : "—";
+  const pending = limitupData?.pending || {};
+  $("#limitup-max").textContent = pending.ladder ? "待补齐" : Number(metrics.maxStreak) > 0 ? streakText(metrics.maxStreak) : "—";
+  $("#limitup-promo").textContent = pending.relay ? "待补齐"
+    : Number.isFinite(Number(metrics.promotionRate)) && metrics.promotionRate !== null
+      ? `${Math.round(metrics.promotionRate * 100)}%`
+      : "—";
   $("#limitup-time").textContent = isoQuoteLabel(limitupData?.quoteTime);
 }
 
@@ -317,7 +319,10 @@ function renderLimitUpUnlocked() {
     ? `已解锁至 ${untilLabel(limitupData.unlockUntil)}`
     : ladder.length ? `今日天梯 ${ladder.length} 档` : "涨停天梯";
   if (!ladder.length) {
-    limitupBody.innerHTML = '<div class="empty">今日暂无涨停天梯数据。</div>';
+    const detail = limitupData.pending?.detail;
+    limitupBody.innerHTML = limitupData.pending?.ladder
+      ? `<div class="empty">涨停明细待补齐${detail ? `（已取得 ${esc(detail.returned)}/${esc(detail.total)} 家）` : ""}，天梯暂不展示。</div>`
+      : '<div class="empty">今日暂无涨停天梯数据。</div>';
     return;
   }
   // 板高降序；每档最多列 6 只（同档按封板时间由早到晚），其余写「等 N 家」

@@ -769,6 +769,85 @@ function recentTradingDates(payload, day, count = 5) {
   return [...new Set(tables(payload).flatMap(objects).map((row) => String(row.TIME || row["日期"] || "").replace(/\D/g, "").slice(0, 8))
     .filter((value) => value.length === 8 && value < day))].sort().slice(-count).reverse();
 }
+// ── 涨停名单（收盘价/最新价等于涨停价）：单次查询有 100 行硬上限 ──
+// 「沪深A股」一次查在涨停多的日子会被截断成 100 家（11/04 实际 123 家却只回 100 家），
+// 连板高度、晋级率、断板都会跟着错。因此先查一次聚合，触顶再按板块拆分取并集；
+// 主板单独也可能触顶，再拆沪市主板 / 深市主板。拆分后的每一段都按代码前缀过滤，防 Wind 语义漂移。
+export const LIMIT_LIST_ROW_CAP = 100;
+const LIMIT_LIST_SPLITS = [
+  { key: "主板", phrase: "主板A股", accept: (code) => /^(60\d{4}\.SH|00\d{4}\.SZ)$/.test(code) },
+  { key: "沪市主板", phrase: "上海证券交易所主板A股", accept: (code) => /^60\d{4}\.SH$/.test(code), mainPart: true },
+  { key: "深市主板", phrase: "深圳证券交易所主板A股", accept: (code) => /^00\d{4}\.SZ$/.test(code), mainPart: true },
+  { key: "创业板", phrase: "创业板A股", accept: (code) => /^30\d{4}\.SZ$/.test(code) },
+  { key: "科创板", phrase: "科创板A股", accept: (code) => /^68\d{4}\.SH$/.test(code) },
+  { key: "北交所", phrase: "北交所A股", accept: (code) => /\.BJ$/.test(code) }
+];
+const limitListQuestion = (date, phrase, { latest = false } = {}) => latest
+  ? `筛选当前最新成交价等于涨停价的${phrase}`
+  : `筛选${date}收盘价等于当日涨停价的${phrase}`;
+
+async function queryLimitList(date, phrase, options = {}) {
+  let lastError = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const payload = await windCall("stock_data", "search_stocks", { question: limitListQuestion(date, phrase, options) });
+      const rows = tables(payload).flatMap(objects);
+      if (rows.length) return { rows, capped: rows.length >= LIMIT_LIST_ROW_CAP, error: null };
+      lastError = "空表";
+    } catch (error) {
+      lastError = String(error?.message || error);
+    }
+    if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+  }
+  return { rows: [], capped: false, error: lastError };
+}
+
+/**
+ * 取某日涨停名单（含简称）。返回 { codes:Set, names:Map, complete, capped, errors }。
+ * complete=false 表示名单可能不全（某段触顶或查询失败），调用方不得据此计算晋级率/连板。
+ * includeBj：聚合「沪深A股」不含北交所，需要与全市场家数核对时一并取北交所。
+ */
+export async function fetchLimitList(date, { latest = false, includeBj = false, forceSplit = false } = {}) {
+  const errors = [];
+  const names = new Map();
+  const add = (rows, accept = () => true) => {
+    for (const row of rows) {
+      const code = String(row["Wind代码"] || "").toUpperCase();
+      if (!/^\d{6}\.(SH|SZ|BJ)$/.test(code) || !accept(code)) continue;
+      if (!names.has(code)) names.set(code, row["证券简称"] || null);
+    }
+  };
+  const aggregate = forceSplit ? { rows: [], capped: true, error: null } : await queryLimitList(date, "沪深A股", { latest });
+  add(aggregate.rows, (code) => /\.(SH|SZ)$/.test(code));
+  let complete = !aggregate.capped && !aggregate.error;
+  const capped = [];
+  if (aggregate.error) errors.push(`${date}涨停名单: ${aggregate.error}`);
+  if (aggregate.capped || aggregate.error) {
+    // 聚合触顶或失败：按板块拆分重取
+    const parts = await Promise.all(LIMIT_LIST_SPLITS.filter((split) => split.key !== "北交所")
+      .map(async (split) => ({ split, result: await queryLimitList(date, split.phrase, { latest }) })));
+    const bySplit = new Map(parts.map(({ split, result }) => [split.key, result]));
+    for (const { split, result } of parts) add(result.rows, split.accept);
+    const main = bySplit.get("主板"), sh = bySplit.get("沪市主板"), sz = bySplit.get("深市主板");
+    // 主板：整段未触顶即完整；否则沪深两段都要拿到且都未触顶
+    const mainComplete = (main.rows.length && !main.capped)
+      || (sh.rows.length && !sh.capped && sz.rows.length && !sz.capped);
+    if (!mainComplete) capped.push("主板");
+    // 创业板/科创板：空表在极端冷清日可能是真 0，但聚合已触顶说明市场涨停很多，空表按失败处理
+    const others = ["创业板", "科创板"].filter((key) => bySplit.get(key).capped || !bySplit.get(key).rows.length);
+    capped.push(...others);
+    complete = capped.length === 0;
+    if (!complete) errors.push(`${date}涨停名单拆分后仍不完整：${capped.join("/")}`);
+  }
+  if (includeBj) {
+    const bj = await queryLimitList(date, "北交所A股", { latest });
+    add(bj.rows, LIMIT_LIST_SPLITS.at(-1).accept);
+    // 北交所空表是常态（当日无涨停），只在触顶时判不完整
+    if (bj.capped) { complete = false; capped.push("北交所"); }
+  }
+  return { codes: new Set(names.keys()), names, complete, capped, errors };
+}
+
 async function loadLimitHistory(day) {
   if (cachedLimitHistory?.day === day) return cachedLimitHistory;
   const errors = [];
@@ -781,23 +860,16 @@ async function loadLimitHistory(day) {
   const dates = recentTradingDates(calendarPayload, day, 5);
   if (dates.length < 5) errors.push(`交易日历仅返回${dates.length}个历史交易日`);
   const sets = [];
-  for (const date of dates) {
-    let codes = new Set();
-    let lastError = null;
-    for (let attempt = 0; attempt < 3 && codes.size === 0; attempt += 1) {
-      try {
-        const payload = await windCall("stock_data", "search_stocks", { question: `筛选${date}收盘价等于当日涨停价的沪深A股` });
-        codes = windCodeSet(payload);
-        lastError = null;
-      } catch (error) {
-        lastError = String(error?.message || error);
-      }
-      if (codes.size === 0 && attempt < 2) await new Promise((resolve) => setTimeout(resolve, 300));
-    }
-    if (lastError) errors.push(`${date}涨停名单: ${lastError}`);
-    sets.push(codes);
+  const names = [];
+  for (const [index, date] of dates.entries()) {
+    // 上一交易日的名单要和全市场家数（含北交所）核对，晋级率才可信
+    const list = await fetchLimitList(date, { includeBj: index === 0 });
+    errors.push(...list.errors);
+    if (!list.complete && !list.errors.length) errors.push(`${date}涨停名单可能不完整`);
+    sets.push(list.codes);
+    names.push(list.names);
   }
-  const output = { day, dates, sets, complete: errors.length === 0 && sets.length === 5, errors };
+  const output = { day, dates, sets, names, complete: errors.length === 0 && sets.length === 5, errors };
   if (output.complete) cachedLimitHistory = output;
   return output;
 }

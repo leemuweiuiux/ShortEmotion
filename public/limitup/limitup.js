@@ -40,6 +40,12 @@ async function api(resource, { fresh = readFresh } = {}) {
 }
 
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+// 数据门槛：后端在明细/昨日名单对不上全市场家数时不给数字，这里统一显示「待补齐」
+const pendingGate = (data, key) => data?.dataQuality?.[key] === false;
+function pendingText(data) {
+  const detail = data?.dataQuality?.detail;
+  return detail && pendingGate(data, "detailComplete") ? `涨停明细待补齐（已取得 ${detail.returned}/${detail.total ?? "—"} 家）` : "数据待补齐";
+}
 const pct = (value, digits = 1) => (value == null || !Number.isFinite(Number(value)) ? "—" : `${(Number(value) * 100).toFixed(digits)}%`);
 const signed = (value, digits = 0) => (value == null || !Number.isFinite(Number(value)) ? null : `${Number(value) > 0 ? "+" : ""}${Number(value).toFixed(digits)}`);
 
@@ -89,7 +95,7 @@ function renderSummary(data) {
   const maxStreak = summary.maxStreak || 0;
   const previousStreak = previous?.maxStreak;
   $("#m-maxstreak").innerHTML = maxStreak ? `${streakText(maxStreak)}${arrowOf(previousStreak, maxStreak)}` : "—";
-  const depthNote = `梯队深度 ${summary.ladderDepth ?? 0} 档`;
+  const depthNote = pendingGate(data, "ladderComplete") ? "数据待补齐" : `梯队深度 ${summary.ladderDepth ?? 0} 档`;
   setText("#m-maxstreak-note", Number.isFinite(previousStreak) && maxStreak
     ? `${depthNote} · 上日 ${streakText(previousStreak)}`
     : depthNote);
@@ -103,13 +109,14 @@ function renderSummary(data) {
   if (Number.isFinite(previousFirstSeal) && Number.isFinite(firstSeal)) {
     setText("#m-firstseal-note", `较昨日 ${signed(firstSeal - previousFirstSeal)} 家（${previousFirstSeal} → ${firstSeal}）`);
   } else {
-    setText("#m-firstseal-note", "环比待累积 · 历史日无封板时间");
+    setText("#m-firstseal-note", pendingGate(data, "sealComplete") ? "数据待补齐" : "环比待累积 · 历史日无封板时间");
   }
 
   setText("#m-promotion", pct(summary.promotionRate));
-  setText("#m-promotion-note", summary.yesterdayLimitUpCount
-    ? `基准 ${previous?.tradingDate || data.promotion?.baseTradingDate || "上一交易日"} 涨停 ${summary.yesterdayLimitUpCount} 家`
-    : "基准数据缺失");
+  setText("#m-promotion-note", pendingGate(data, "relayComplete") ? "数据待补齐"
+    : summary.yesterdayLimitUpCount
+      ? `基准 ${previous?.tradingDate || data.promotion?.baseTradingDate || "上一交易日"} 涨停 ${summary.yesterdayLimitUpCount} 家`
+      : "基准数据缺失");
 
   // 跌停家数：上升代表恐慌扩散，用绿跌色提示；环比方向沿用红涨绿跌
   const limitDown = summary.limitDownCount;
@@ -140,7 +147,9 @@ function renderHighlights(data) {
   setText("#highlight-pill", highlights.length ? `${highlights.length} 条结论` : "无信号");
   const container = $("#highlights");
   if (!highlights.length) {
-    container.innerHTML = '<div class="lu-empty">今日暂无明显强弱信号。</div>';
+    container.innerHTML = pendingGate(data, "detailComplete")
+      ? `<div class="lu-empty">${esc(pendingText(data))}，暂不下结论。</div>`
+      : '<div class="lu-empty">今日暂无明显强弱信号。</div>';
     return;
   }
   container.innerHTML = highlights.map((item) => `<div class="lu-highlight ${esc(item.tone || "")}">
@@ -185,7 +194,7 @@ function renderLadder(data) {
   const summary = data.summary || {};
   setText("#ladder-pill", ladder.length
     ? `${streakText(summary.maxStreak)} · 深度 ${summary.ladderDepth || 0}/${ladder.length}`
-    : "无数据");
+    : pendingGate(data, "ladderComplete") ? "待补齐" : "无数据");
 
   // 断板带：昨日最高板今日未晋级，比"今天最高几板"更早反映退潮
   const broken = data.brokenStreaks;
@@ -210,7 +219,9 @@ function renderLadder(data) {
 
   const container = $("#ladder");
   if (!ladder.length) {
-    container.innerHTML = '<div class="lu-empty">今日暂无涨停天梯数据。</div>';
+    container.innerHTML = pendingGate(data, "ladderComplete")
+      ? `<div class="lu-empty">${esc(pendingText(data))}，天梯暂不展示。</div>`
+      : '<div class="lu-empty">今日暂无涨停天梯数据。</div>';
     return;
   }
 
@@ -262,9 +273,12 @@ function renderPromotion(data) {
   const promotion = data.promotion || {};
   const tiers = Array.isArray(promotion.tiers) ? promotion.tiers : [];
   setText("#promo-pill", promotion.baseTradingDate ? `基准 ${promotion.baseTradingDate}` : "无基准");
-  $("#promo-overall").innerHTML = `<strong>${pct(promotion.overallRate)}</strong><span>${promotion.baseLimitUpCount
-    ? `${promotion.promoted?.length ?? 0} / ${promotion.baseLimitUpCount} 家昨日涨停今日继续封板`
-    : "缺少上一交易日涨停名单，无法计算"}</span>`;
+  const relayPending = pendingGate(data, "relayComplete");
+  $("#promo-overall").innerHTML = `<strong>${pct(promotion.overallRate)}</strong><span>${relayPending
+    ? "今日或上一交易日涨停名单与全市场家数不一致，晋级率待补齐"
+    : promotion.baseLimitUpCount
+      ? `${promotion.promoted?.length ?? 0} / ${promotion.baseLimitUpCount} 家昨日涨停今日继续封板`
+      : "缺少上一交易日涨停名单，无法计算"}</span>`;
 
   // 晋级成功的个股落在哪些题材上：只看比率不够，要知道"分子"的质量
   const themes = Array.isArray(promotion.themeBreakdown) ? promotion.themeBreakdown : [];
@@ -276,7 +290,7 @@ function renderPromotion(data) {
   ` : "";
 
   if (!tiers.length) {
-    $("#promo-list").innerHTML = '<div class="lu-empty">暂无可分层计算的晋级数据。</div>';
+    $("#promo-list").innerHTML = `<div class="lu-empty">${relayPending ? "晋级数据待补齐。" : "暂无可分层计算的晋级数据。"}</div>`;
     setText("#promo-note", "晋级率需要上一交易日的涨停名单；首个交易日沉淀后自动生效。");
     return;
   }
@@ -311,7 +325,9 @@ function renderConcepts(data) {
     : "无数据");
   const container = $("#concepts");
   if (!concepts.length) {
-    container.innerHTML = '<div class="lu-empty">今日涨停个股未匹配到有效题材概念。</div>';
+    container.innerHTML = pendingGate(data, "detailComplete")
+      ? `<div class="lu-empty">${esc(pendingText(data))}，题材暂不展示。</div>`
+      : '<div class="lu-empty">今日涨停个股未匹配到有效题材概念。</div>';
     return;
   }
   const previousCounts = new Map((data.previous?.concepts || []).map((concept) => [concept.name, concept.limitCount]));
@@ -450,11 +466,12 @@ function renderFreeMetrics(data) {
   }
   const maxStreak = metrics.maxStreak || 0;
   $("#f-maxstreak").innerHTML = maxStreak ? `${streakText(maxStreak)}${arrowOf(previous?.maxStreak, maxStreak)}` : "—";
-  setText("#f-maxstreak-note", `梯队深度 ${metrics.ladderDepth ?? 0} 档`);
+  setText("#f-maxstreak-note", data.pending?.ladder ? "数据待补齐" : `梯队深度 ${metrics.ladderDepth ?? 0} 档`);
   setText("#f-promotion", pct(metrics.promotionRate));
-  setText("#f-promotion-note", metrics.yesterdayLimitUpCount
-    ? `${metrics.promotedCount ?? 0} / ${metrics.yesterdayLimitUpCount} 家晋级`
-    : "基准数据缺失");
+  setText("#f-promotion-note", data.pending?.relay ? "数据待补齐"
+    : metrics.yesterdayLimitUpCount
+      ? `${metrics.promotedCount ?? 0} / ${metrics.yesterdayLimitUpCount} 家晋级`
+      : "基准数据缺失");
 }
 
 function renderLocked(data) {

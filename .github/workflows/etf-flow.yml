@@ -2,7 +2,7 @@ name: ETF flow data
 on:
   push:
     branches: [develop]
-    paths: [api/_lib/etf-flow/source.js, scripts/etf-flow/refresh.mjs, scripts/etf-flow/repair.mjs]
+    paths: [api/_lib/etf-flow/source.js, api/_lib/etf-flow/catalog.json, scripts/etf-flow/refresh.mjs, scripts/etf-flow/repair.mjs]
   workflow_dispatch:
   schedule:
     - cron: '35 12 * * 1-5' # 北京时间交易日20:35
