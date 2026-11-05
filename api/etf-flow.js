@@ -1,3 +1,4 @@
+import { withUsage } from './_lib/usage.js';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { requireSession,authConfig } from './_lib/session.js';
@@ -44,4 +45,4 @@ export function createEtfflowHandler({session=requireSession,config=authConfig,s
   }catch(e){res.setHeader('Cache-Control','no-store');return res.status(e.statusCode||503).json({error:e.statusCode?e.message:'暂时无法读取ETF资金，请稍后重试',code:e.code||'unavailable',...(e.balance!==undefined?{balance:e.balance}:{})});}
  };
 }
-export default createEtfflowHandler();
+export default withUsage('etfflow',createEtfflowHandler());

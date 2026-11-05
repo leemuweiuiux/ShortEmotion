@@ -6,6 +6,7 @@
 // POST /api/admin?action=grant  body { email, amount, reason }  积分发放（上限由数据库决定；原因 recharge / campaign）
 // POST /api/admin?action=undo   body { ledgerId }               撤销自己几分钟内的一笔发放
 import { adminOverview, adminLedger, adminLookup, adminGrant, adminUndo, adminMessage, ADMIN } from "./_lib/admin.js";
+import { adminRedemption } from "./_lib/redemption.js";
 import { cleanEmail } from "./_lib/login.js";
 import { authConfig, resolveSession, isSecureNodeRequest } from "./_lib/session.js";
 
@@ -33,7 +34,7 @@ const NOT_FOUND = { error: "接口不存在", code: "not_found" };
 export default async function handler(req, res) {
   const action = String(req.query?.action || "");
   const route = `${req.method} ${action}`;
-  if (!["GET overview", "GET ledger", "GET lookup", "POST grant", "POST undo"].includes(route)) return send(res, 404, NOT_FOUND);
+  if (!["GET overview", "GET ledger", "GET lookup", "POST grant", "POST undo", "GET redemption-list", "GET redemption-detail", "POST redemption-create", "POST redemption-disable"].includes(route)) return send(res, 404, NOT_FOUND);
   if (req.method === "POST" && !sameOrigin(req)) return send(res, 404, NOT_FOUND);
   const config = authConfig();
   if (!config) return send(res, 404, NOT_FOUND);
@@ -46,6 +47,10 @@ export default async function handler(req, res) {
   if (!session.user || !session.accessToken) return send(res, 404, NOT_FOUND, session.setCookies || []);
   const token = session.accessToken;
   try {
+    if (action.startsWith("redemption-")) {
+      const payload = req.method === "POST" ? readJson(req.body) : req.query;
+      return send(res, 200, await adminRedemption(config, token, action.slice(11), payload), session.setCookies);
+    }
     if (action === "overview") return send(res, 200, await adminOverview(config, token), session.setCookies);
     if (action === "ledger") return send(res, 200, { rows: await adminLedger(config, token, req.query || {}) }, session.setCookies);
     if (action === "lookup") {

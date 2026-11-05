@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { waitUntil } from '@vercel/functions';
 import { authConfig, resolveSession, isSecureNodeRequest, parseCookies } from './session.js';
 
-export const FEATURES = ['home','about','login','shortemotion','anomalies','technicalanalysis','sectorflow','limitup','kandian','article','account','signin','points','settings','profile','invite','legal'];
+export const FEATURES = ['home','about','login','shortemotion','anomalies','technicalanalysis','sectorflow','etfflow','redemption','limitup','kandian','article','account','signin','points','settings','profile','invite','legal'];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export function browserEvent(body) {
   if (!body || !UUID.test(body.id || '') || !FEATURES.includes(body.feature)) return null;
@@ -20,15 +20,15 @@ export function operationEvent(api, req, status, data = {}) {
     if (q.action === 'refresh') action = 'refresh';
     if (q.action === 'unlock-anomalies') { feature = 'anomalies'; action = 'unlock'; }
   } else if (api === 'limitup' && req.method === 'POST' && q.action === 'unlock') action = 'unlock';
-  else if (api === 'sectorflow' && req.method === 'POST' && q.action === 'unlock') action = 'unlock';
+  else if (['sectorflow','etfflow'].includes(api) && req.method === 'POST' && q.action === 'unlock') action = 'unlock';
   else if (api === 'kandian' && req.method === 'POST') {
     action = { publish: 'publish', close: 'close', quote: 'stock_lookup', like: body.liked === false ? 'unlike' : 'like' }[body.action];
   } else if (api === 'auth' && req.method === 'POST') {
-    const match = { otp:['login','send_code'], verify:['login','login'], session:['login','login'], logout:['login','logout'], signin:['signin','signin'], 'invite-redeem':['invite','redeem'], profile:['profile','save'], nickname:['profile','nickname'], 'nickname-candidate':['profile','nickname_candidate'] }[q.action];
+    const match = { otp:['login','send_code'], verify:['login','login'], session:['login','login'], logout:['login','logout'], signin:['signin','signin'], 'invite-redeem':['invite','redeem'], 'redeem-points':['redemption','redeem'], profile:['profile','save'], nickname:['profile','nickname'], 'nickname-candidate':['profile','nickname_candidate'] }[q.action];
     if (match) [feature, action] = match;
   }
   if (!action) return null; // 排除 config、余额读取、列表及自动轮询。
-  let outcome = data.reason === 'already' && status < 400 ? 'skipped' : status >= 400 || data.error || data.ok === false ? 'failure' : data.partial ? 'partial' : data.dispatched === false || data.already === true ? 'skipped' : status === 202 ? 'accepted' : 'success';
+  let outcome = data.reason === 'already' && status < 400 ? 'skipped' : status >= 400 || data.error || data.ok === false ? 'failure' : data.partial ? 'partial' : data.dispatched === false || data.already === true || (action === 'unlock' && data.charged === false) ? 'skipped' : status === 202 ? 'accepted' : 'success';
   return { id: randomUUID(), feature, action, outcome, source: 'api' };
 }
 export async function recordUsage(req, event) {

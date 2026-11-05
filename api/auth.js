@@ -17,6 +17,7 @@ import { withUsage, browserEvent, recordUsage } from "./_lib/usage.js";
 // GET  /api/auth?action=invite-check&code=SE…  登录前检查邀请码：{ valid, name, reason, message }（不需要登录）
 // GET  /api/auth?action=invite   我的邀请：邀请码、姓名、已邀请 / 已完成人数、累计获得积分、好友列表
 // POST /api/auth?action=invite-redeem  body { code }：登录完成后绑定邀请人（只限刚注册的账号）
+import { redeemPoints } from "./_lib/redemption.js";
 import { pointsStatus, pointsSignin, pointsHistory } from "./_lib/points.js";
 import { signinCalendar } from "./_lib/signin-calendar.js";
 import { inviteCheck, inviteMine, inviteRedeem } from "./_lib/invite.js";
@@ -118,6 +119,19 @@ async function handler(req, res) {
       send(res, error.statusCode || 503, { error: error.message, code: error.code || "auth_unavailable", ...(error.nextChangeAt ? { nextChangeAt: error.nextChangeAt } : {}) });
     }
     return;
+  }
+
+  if (["redemption-info", "redeem-points"].includes(action) && req.method === "POST") {
+    if (!config) return send(res, 404, { error: "登录未开启", code: "auth_disabled" });
+    if (!sameOrigin(req)) return send(res, 403, { error: "来源不允许", code: "forbidden" });
+    try {
+      const session = await resolveSession(req.headers?.cookie, { config, secure, clearOnFailure: false });
+      if (!session.user) return send(res, 401, { error: "请先登录", code: "login_required" }, session.setCookies);
+      const result = await redeemPoints(config, session.accessToken, readJson(req.body).code, action === "redeem-points");
+      return send(res, 200, result, session.setCookies);
+    } catch (error) {
+      return send(res, error.statusCode || 503, { error: error.message, code: error.code || "points_unavailable" });
+    }
   }
 
   // 积分：GET 余额与流水，GET signin-calendar 签到日历，POST signin 签到

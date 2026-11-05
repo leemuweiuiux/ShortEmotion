@@ -1,12 +1,14 @@
+import { paidCardsHtml, BALANCE_BUCKETS } from "/admin/overview.js?v=6";
+import { initRedemption } from "/admin/redemption.js?v=6";
 import { buildUsageTree, usageRowsHtml } from "/admin/usage-tree.js?v=1";
-// 管理后台 /admin（只给管理员；middleware 已挡掉其他人）：总览、积分列表、积分发放。
-// 功能菜单收在导航栏左侧；只显示统计与流水（匿名用户代号），不显示邮箱、余额、备注。接口见 api/admin.js。
+// 管理后台 /admin（只给管理员）：概览、积分流水、直接发放、兑换码管理。
+// 流水沿用匿名代号；兑换码详情仅管理员可查看邮箱与名单。接口见 api/admin.js。
 import { openDateRange, rangeLabel } from "/shared/date-range.js?v=1";
 
 const $ = (selector) => document.querySelector(selector);
 const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
-const KIND_ORDER = ["signup", "signin", "invite_bonus", "invite_reward", "admin_grant", "admin_revoke", "refresh", "unlock", "refund", "analysis", "analysis_refund"];
-const TITLES = { overview: "总览", ledger: "积分列表", grant: "积分发放" };
+const KIND_ORDER = ["signup", "signin", "invite_bonus", "invite_reward", "admin_grant", "admin_revoke", "redemption", "refresh", "unlock", "refund", "analysis", "analysis_refund", "unlock_limitup", "unlock_sectorflow", "unlock_etfflow"];
+const TITLES = { overview: "总览", ledger: "积分列表", grant: "积分发放", redemption: "兑换码管理" };
 const REASONS = { recharge: "积分充值", campaign: "活动奖励" };
 let kinds = {};
 let limits = null; // 发放上限：只来自数据库（总览或发放的回应）
@@ -106,6 +108,7 @@ function showTab(name) {
   $("#page-title").textContent = TITLES[tab];
   document.title = `${TITLES[tab]} · 管理后台 · ShortEmotion`;
   if (tab === "ledger" && !ledgerLoaded) loadLedger(false);
+  if (tab === "redemption") redemption.load();
   if (location.hash.slice(1) !== tab) history.replaceState(null, "", tab === "overview" ? location.pathname : `#${tab}`);
   window.scrollTo(0, 0);
 }
@@ -147,24 +150,20 @@ function renderOverview(data) {
     : '<tr><td colspan="3" class="admin-empty">近 7 日没有积分变动</td></tr>';
 
   const balances = data.balances || {};
-  const buckets = [["0–9 分", balances.lt10, "warn"], ["10–49 分", balances.b10to49], ["50–99 分", balances.b50to99], ["100 分以上", balances.gte100]];
+  const buckets = BALANCE_BUCKETS.map(([name, key]) => [name, balances[key], key === "lt20" ? "warn" : ""]);
   const accounts = Number(balances.accounts) || 0;
   $("#balance-bars").innerHTML = buckets.map(([name, count, tone]) => {
     const width = accounts ? Math.round((100 * Number(count || 0)) / accounts) : 0;
     return `<div class="admin-bar${tone ? ` ${tone}` : ""}"><span>${esc(name)}</span><div class="admin-bar-track"><i style="width:${width}%"></i></div><b>${number(count)}<small>${percent(count, accounts)}</small></b></div>`;
   }).join("");
   const spenders = Number(data.spend7d?.users) || 0;
-  $("#spend-7d").textContent = `近 7 日有消耗（刷新、解锁、个股分析，扣除退款）${number(spenders)} 人，人均消耗 ${spenders ? number(Math.round(Number(data.spend7d.points) / spenders)) : "—"} 分。`;
+  $("#spend-7d").textContent = `近 7 日消耗（已扣除退款）${number(spenders)} 人，人均消耗 ${spenders ? number(Math.round(Number(data.spend7d.points) / spenders)) : "—"} 分。`;
 
   $("#invites-bound").textContent = number(data.invites?.bound);
   $("#invites-rewarded").textContent = number(data.invites?.rewarded);
   $("#invites-rate").textContent = percent(data.invites?.rewarded, data.invites?.bound);
 
-  const analyses = data.analyses || {};
-  $("#analyses-today").textContent = number(analyses.today);
-  $("#analyses-week").textContent = number(analyses.week);
-  $("#analyses-users").textContent = number(analyses.users7d);
-  $("#analyses-avg").textContent = Number(analyses.users7d) > 0 ? (Number(analyses.week) / Number(analyses.users7d)).toFixed(1) : "—";
+  $("#paid-features").innerHTML = paidCardsHtml(data.paidFeatures);
 
   renderUsage(data.usage);
   renderGrantRules(data.grants?.myToday);
@@ -425,4 +424,6 @@ $("#grant-undo").addEventListener("click", async () => {
 try { lastGrant = JSON.parse(sessionStorage.getItem(LAST_KEY) || "null"); } catch {}
 renderLast();
 loadOverview();
+const redemption = initRedemption({ api, toast, confirmSheet, onChange: () => { ledgerLoaded = false; loadOverview(); } });
+
 showTab(location.hash.slice(1));
