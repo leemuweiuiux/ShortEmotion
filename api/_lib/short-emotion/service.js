@@ -4,6 +4,23 @@
 import * as cnEngine from "./engine.js";
 import { normalizeAnomalies } from "./role-policy.js";
 import { resetWindCallStats, windCallStats } from "./wind-client.js";
+import { loadPersistentCaches, savePersistentCaches } from "./persistent-cache.js";
+
+// 每日 Wind 用量（调用次数与返回字节数，计费按返回数据量）：kv/wind-usage_YYYYMMDD.json，保留 30 天
+export const windUsageKey = (day) => `wind-usage:${day}`;
+export function mergeWindUsage(saved, stats, at) {
+  const usage = { runs: 0, calls: 0, bytes: 0, reused: 0, reusedBytes: 0, bytesByTool: {}, nearLimit: 0, ...(saved || {}) };
+  usage.runs += 1;
+  usage.calls += stats.total || 0;
+  usage.bytes += stats.bytes || 0;
+  usage.reused += stats.reused || 0;
+  usage.reusedBytes += stats.reusedBytes || 0;
+  usage.nearLimit += stats.nearLimit?.length || 0;
+  usage.bytesByTool = { ...usage.bytesByTool };
+  for (const [tool, bytes] of Object.entries(stats.bytesByTool || {})) usage.bytesByTool[tool] = (usage.bytesByTool[tool] || 0) + bytes;
+  usage.updatedAt = at;
+  return usage;
+}
 import { getStore, storageMode } from "./store.js";
 import { duePlan, needsCloseCatchUp, scheduleSummary, scheduleFor, MARKETS } from "./schedule.js";
 import { getApiKeys, isMockMode } from "./wind-client.js";
@@ -87,6 +104,11 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
     // windCalls：这次更新实际调用 Wind 的次数（按工具 / 按 Key），用来估算额度消耗
     const output = { ...result, ...extra, status, windCalls: windCallStats(), finishedAt: new Date().toISOString() };
     await store.kvSet(KEY.lastRun, output).catch(() => {});
+    await savePersistentCaches(store, plan.day).catch((error) => { output.errors = [...(output.errors || []), `cache: ${errorText(error)}`]; });
+    if (output.windCalls.total) {
+      const saved = (await store.kvGet(windUsageKey(plan.day)).catch(() => null))?.value;
+      await store.kvSet(windUsageKey(plan.day), mergeWindUsage(saved, output.windCalls, output.finishedAt)).catch(() => {});
+    }
     return output;
   };
 
@@ -151,6 +173,8 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
   const savedState = (await store.kvGet(KEY.engineState(plan.day)).catch(() => null))?.value
     || (await store.kvGet(KEY.engineStateLatest).catch(() => null))?.value;
   importEngineState(savedState, plan.day);
+  // 跨天缓存（主营业务 30 天、个股概念 7 天）：从数据分支读入，结束时写回
+  await loadPersistentCaches(store, plan.day).catch((error) => { result.errors.push(`cache: ${errorText(error)}`); });
 
   let marketLive = true;
   let inAuction = false;
@@ -184,6 +208,17 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
       }
     } catch (error) {
       result.errors.push(`emotion: ${errorText(error)}`);
+    }
+  }
+
+  // 每日返回量预算（可选，环境变量 WIND_DAILY_BYTE_BUDGET，单位字节）：超出后定时更新跳过题材异动（最耗数据量、非核心），
+  // 情绪指标、涨停、板块资金与新闻照常；手动 force 不受限。未设置时只记录用量、不限制。
+  const budget = Number(process.env.WIND_DAILY_BYTE_BUDGET || 0);
+  if (budget > 0 && !force && jobs.anomalies) {
+    const used = (await store.kvGet(windUsageKey(plan.day)).catch(() => null))?.value?.bytes || 0;
+    if (used >= budget) {
+      jobs.anomalies = false;
+      result.skipped.push(`anomalies: 今日 Wind 返回量 ${Math.round(used / 1024)}KB 已达预算 ${Math.round(budget / 1024)}KB，沿用上一份`);
     }
   }
 
@@ -257,6 +292,7 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
       const removedDays = await store.historyPrune(SCHEDULE.historyTradingDays);
       const cutoff = new Date(now.getTime() - 3 * 86_400_000).toISOString();
       for (const prefix of ["lock:", "engine-state:2", "calendar:"]) await store.kvDeleteOlderThan(prefix, cutoff);
+      await store.kvDeleteOlderThan("wind-usage:", new Date(now.getTime() - 30 * 86_400_000).toISOString());
       await store.kvDeleteOlderThan(SECTORFLOW_KEYS.intradayPrefix, new Date(now.getTime() - 30 * 86_400_000).toISOString());
       // 涨停情绪：资讯复核缓存只留 3 天；每日定格快照留 90 天（约 60 个交易日）
       await store.kvDeleteOlderThan(LIMITUP_KEYS.newsCachePrefix, cutoff);
