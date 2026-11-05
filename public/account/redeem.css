@@ -1,0 +1,17 @@
+/* A single form, replaced in place by the completed redemption. */
+.redeem-panel { max-width:480px; margin:20px auto 0; padding:0 4px; }
+.redeem-page [hidden] { display:none !important; }
+.redeem-page .profile-form { gap:16px; }
+.redeem-page .se-input { height:52px; font-size:16px; }
+.redeem-page .btn-primary { min-height:48px; width:100%; }
+.redeem-page .btn-primary:disabled { opacity:.4; cursor:default; }
+.redeem-page .se-input[aria-invalid="true"] { border-color:var(--heat,#ff4015); }
+.redeem-error { margin:-4px 0 0; font-size:13px; line-height:1.6; color:var(--heat,#ff4015); }
+.redeem-result { display:grid; justify-items:center; gap:12px; padding:16px 0 0; text-align:center; outline:none; }
+.redeem-success-icon { display:grid; place-items:center; width:56px; height:56px; border:1px solid var(--border); border-radius:50%; background:var(--panel); }
+.redeem-success-icon svg { width:28px; height:28px; }
+.redeem-result h1 { margin:4px 0 0; font-size:18px; font-weight:600; }
+.redeem-result p { margin:0; }
+.redeem-amount { font-family:"Manrope",sans-serif; font-size:30px; font-weight:700; font-variant-numeric:tabular-nums; }
+.redeem-balance { color:var(--muted); font-size:14px; line-height:1.6; }
+.redeem-result .btn-primary { margin-top:16px; }

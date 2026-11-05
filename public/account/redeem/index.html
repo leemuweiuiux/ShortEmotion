@@ -29,13 +29,14 @@
   <link rel="stylesheet" href="/about/about.css?v=13">
   <link rel="stylesheet" href="/shared/form.css?v=1">
   <link rel="stylesheet" href="/account/account.css?v=14">
+  <link rel="stylesheet" href="/account/redeem.css?v=2">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
   <link rel="stylesheet" href="/shared/global-header.css?v=4">
   <script defer src="/shared/usage.js?v=3"></script>
 </head>
-<body class="sub-page">
+<body class="sub-page redeem-page">
   <nav class="subnav">
     <a id="back" class="subnav-btn" href="/account" aria-label="返回">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -44,21 +45,25 @@
   </nav>
 
   <main class="sub-frame">
-    <section class="sub-card">
+    <div class="redeem-panel">
       <form id="redeem-form" class="profile-form">
-        <label class="field"><span>兑换码</span><input id="redeem-code" class="se-input" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false" required placeholder="输入兑换码"></label>
-        <p id="redeem-preview" class="admin-muted" role="status" hidden></p>
-        <p id="redeem-error" role="alert" hidden></p>
-        <button id="redeem-submit" type="submit" class="btn-primary">校验兑换码</button>
+        <label class="field"><span>兑换码</span><input id="redeem-code" class="se-input" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="redeem-error" required placeholder="输入兑换码"></label>
+        <p id="redeem-error" class="redeem-error" role="alert" hidden></p>
+        <button id="redeem-submit" type="submit" class="btn-primary" disabled>立即兑换</button>
       </form>
-    </section>
-    <section id="redeem-result" class="sub-card" role="status" hidden></section>
-    <a href="/account/points" class="row-link">查看积分流水</a>
+      <section id="redeem-result" class="redeem-result" aria-labelledby="redeem-success-title" tabindex="-1" hidden>
+        <span class="redeem-success-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <h1 id="redeem-success-title">兑换成功</h1>
+        <p id="redeem-amount" class="redeem-amount"></p>
+        <p id="redeem-balance" class="redeem-balance"></p>
+        <button id="redeem-done" type="button" class="btn-primary">完成</button>
+      </section>
+    </div>
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/account/redeem.js?v=1"></script>
+  <script type="module" src="/account/redeem.js?v=2"></script>
   <script type="module" src="/shared/global-header.js?v=4"></script>
 </body>
 </html>
