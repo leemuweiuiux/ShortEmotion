@@ -9,6 +9,8 @@ import { noonCandidates, noonFlows, noonMarket } from '../../api/_lib/morning-re
 import { MORNING, morningMeta, morningPrompt } from '../../api/_lib/morning-report/morning.js';
 import { closeRecord, focusCandidates, pickSector } from '../../api/_lib/morning-report/chain.js';
 import { previousCard, printDryRun, publishArticle, searchNews } from './common.mjs';
+import { windCall, tables, objects } from '../../api/_lib/short-emotion/engine.js';
+import { US_NEWS_QUERY, fetchUsMarket } from '../../api/_lib/morning-report/us-market.js';
 
 const dryRun = process.argv.includes('--dry-run');
 const dayArg = dryRun ? process.argv.find((arg) => arg.startsWith('--day='))?.slice(6) : null;
@@ -32,10 +34,13 @@ const chosen = pickSector(candidates, index);
 // 近 5 个交易日的收盘情绪（站内已存，不调用 Wind）
 const days = (await store.dailyHistory()).map((item) => item.tradingDate).filter((date) => date <= marketDay).sort().slice(-MORNING.recentDays);
 const recent = (await Promise.all(days.map(async (date) => closeRecord(await store.historyForDate(date))))).filter(Boolean);
-// 2 次 Wind 检索：隔夜要闻、选定方向；只留上一交易日至今天的消息
+// 3 次 Wind 检索：隔夜要闻、美股消息、选定方向；只留上一交易日至今天的消息
 const range = { from: marketDay, to: day };
 const overnight = await searchNews(`A股 隔夜外围市场 盘前要闻 ${day}`, range, { dryRun });
+const usNews = await searchNews(`${US_NEWS_QUERY} ${day}`, range, { dryRun });
 const news = await searchNews(`${chosen.name}${marketDay}收盘后至${day}消息`, range, { dryRun });
+// 美股指数：一次固定参数调用（五个指数、三个字段），不查个股；取不到时照常生成
+const us = dryRun ? null : await fetchUsMarket({ windCall, tables, objects }, day);
 
 const evidence = [
   { id: 'market', label: `上一交易日收盘快照 ${emotion.quoteTime}`, data: noonMarket(emotion) },
@@ -43,11 +48,13 @@ const evidence = [
   { id: 'candidates', label: '上一交易日题材候选', data: focusCandidates(candidates, [chosen.name, previous?.sector]) },
   ...materials.evidence,
   ...(previous ? [{ id: 'previous', label: `上一篇观点卡（${previous.edition}）`, data: previous }] : []),
+  ...(us ? [{ id: 'us', label: us.note, data: us.indexes }] : []),
+  ...(usNews.length ? [{ id: 'usnews', label: '隔夜美股消息', data: usNews }] : []),
   ...(overnight.length ? [{ id: 'overnight', label: '隔夜与盘前要闻', data: overnight }] : []),
   ...(news.length ? [{ id: 'news', label: `${chosen.name} 消息检索`, data: news }] : [])
 ];
 
-const prompt = morningPrompt({ day, marketDay, sector: chosen.name, previous, cutoff: now.toISOString() });
+const prompt = morningPrompt({ day, marketDay, sector: chosen.name, previous, cutoff: now.toISOString(), hasUs: Boolean(us || usNews.length) });
 if (dryRun) { printDryRun(prompt, evidence); process.exit(0); }
 
 const article = await generateValidatedReport(prompt, evidence, LIMITS.morning);
