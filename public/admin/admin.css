@@ -159,4 +159,7 @@
 .code-dialog textarea { height:auto; min-height:70px; resize:vertical; }
 .code-detail-meta { font-size:13px; line-height:1.8; overflow-wrap:anywhere; }
 .code-dialog .admin-table { margin-top:16px; }
-@media(min-width:1000px) { .paid-feature-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(min-width:1000px) {
+  .admin-page .sub-frame, .admin-page .subnav { max-width:1040px; }
+  .paid-feature-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
