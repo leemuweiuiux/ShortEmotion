@@ -11,7 +11,7 @@ function iconAccount(){ return '<svg viewBox="0 0 24 24" fill="none" aria-hidden
 function iconCheck(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18m-13 5 2.5 2.5 5-5"/></svg>'; }
 function iconCoins(){ return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="9" cy="6" rx="6" ry="3"/><path d="M3 6v4c0 1.7 2.7 3 6 3m-6-3v4c0 1.7 2.7 3 6 3m-6-3v4c0 1.7 2.7 3 6 3"/><ellipse cx="16" cy="13" rx="5" ry="2.5"/><path d="M11 13v4c0 1.4 2.2 2.5 5 2.5s5-1.1 5-2.5v-4"/></svg>'; }
 function notify(message){ const toast=$('#toast'); if(toast){ toast.textContent=message; toast.className='toast show'; setTimeout(()=>toast.className='toast',3000); }else{ const tip=document.createElement('div');tip.className='global-header-tip';tip.textContent=message;document.body.append(tip);setTimeout(()=>tip.remove(),3000); } }
-if (nav) {
+if (nav && !$('.global-header-space',nav)) {
   nav.classList.add('global-header');
   // Secondary/tertiary pages use the original in-header back control, not a logo.
   // Its explicit href preserves the intended parent (e.g. points -> settings -> account).
