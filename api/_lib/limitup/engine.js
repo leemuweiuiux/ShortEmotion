@@ -1227,7 +1227,12 @@ export function snapshotDayMismatch(quoteTime, expectedDay) {
 }
 
 // ── 主入口 ──────────────────────────────────────────────────────────────
-export async function loadLimitUpBoard(day = localDate()) {
+/**
+ * loadStoredDay(day)：读上一交易日收盘时存下的快照（可选）。
+ * 历史日只能用「收盘价等于涨停价」取名单，涨停多的日子 Wind 会少回（11/04 实际 123 家只回 100 家，
+ * 按板块拆分也没补回来）；而前一天收盘时的快照已经把明细补齐过，直接并进昨日名单。
+ */
+export async function loadLimitUpBoard(day = localDate(), { loadStoredDay = null } = {}) {
   const errors = [];
   const [eventResult, historyResult] = await Promise.all([
     fetchLimitEventRows(day),
@@ -1289,14 +1294,35 @@ export async function loadLimitUpBoard(day = localDate()) {
   // 数据门槛：明细与全市场家数一致才输出由明细推导的指标（天梯、题材、早盘封板）；
   // 昨日名单与上一交易日家数一致才输出晋级率、断板、昨日溢价；五日名单都完整才输出连板高度。
   // 不一致时这些指标不给数字，页面显示「数据待补齐」，而不是给出错误结论（如 11/05 晋级率 1%）。
-  const yesterdaySize = sets[0]?.size || 0;
+  let storedYesterdayCount = 0;
+  let storedYesterdayOk = false;
+  if (sets[0] && historyResult.dates?.[0] && loadStoredDay) {
+    const stored = await Promise.resolve(loadStoredDay(historyResult.dates[0])).catch(() => null);
+    const nonSt = (stored?.stocks || []).map((stock) => String(stock.code || "").toUpperCase()).filter(Boolean);
+    const stCodes = (stored?.stCodes || []).map((code) => String(code).toUpperCase());
+    // 旧快照只存了 ST 家数没存代码：家数按「明细 + ST 家数」核对
+    const storedCount = nonSt.length + (stored?.stCodes ? stCodes.length : Number(stored?.summary?.stCount) || 0);
+    // 只并入当天明细已与全市场家数对上的快照
+    const storedOk = stored?.tradingDate === historyResult.dates[0]
+      && stored?.dataQuality?.detailComplete !== false
+      && detailMatches(storedCount, stored?.summary?.limitUpCount);
+    if (storedOk) {
+      for (const code of [...nonSt, ...stCodes]) sets[0].add(code);
+      storedYesterdayCount = storedCount;
+      storedYesterdayOk = true;
+    }
+  }
+  const yesterdaySize = Math.max(sets[0]?.size || 0, storedYesterdayCount);
   const quality = {
     detail: { returned: allStocks.length, total: marketCounts.limitUp ?? null, eventReturned: eventCount, backfilled },
     detailComplete: detailMatches(allStocks.length, marketCounts.limitUp),
     sealComplete: false,
-    streakComplete: Boolean(historyResult.complete),
+    // 逐日核对：上一交易日若已由收盘快照补齐，就不因当天名单查询少回而判不完整
+    streakComplete: Boolean(historyResult.complete) || (sets.length === 5
+      && (historyResult.completeByDate || []).every((ok, index) => ok || (index === 0 && storedYesterdayOk))),
     yesterday: { returned: yesterdaySize, total: previousMarketCounts?.limitUp ?? null },
-    yesterdayComplete: Boolean(historyResult.complete) && detailMatches(yesterdaySize, previousMarketCounts?.limitUp)
+    yesterdayComplete: (storedYesterdayOk || Boolean(historyResult.completeByDate?.[0] ?? historyResult.complete))
+      && detailMatches(yesterdaySize, previousMarketCounts?.limitUp)
   };
   // 晋级/断板同时需要今日完整名单与昨日完整名单；天梯高度需要今日明细与五日名单
   quality.relayComplete = quality.detailComplete && quality.yesterdayComplete;
@@ -1585,6 +1611,8 @@ export async function loadLimitUpBoard(day = localDate()) {
     // 昨日涨停股今日溢价（赚钱效应）：首板/连板分组与竞价溢价，取不到则为 null
     premium,
     ladder, stocks, sealTimeBuckets,
+    // ST 涨停不进天梯，但次日核对「昨日名单」家数时要用到
+    stCodes: allStocks.filter((stock) => stock.isST).map((stock) => stock.code),
     concepts: conceptBoard,
     promotion,
     previous: previousMarketCounts ? {
