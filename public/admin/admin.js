@@ -1,5 +1,5 @@
 import { paidCardsHtml, BALANCE_BUCKETS } from "/admin/overview.js?v=6";
-import { initRedemption } from "/admin/redemption.js?v=6";
+import { initRedemption } from "/admin/redemption.js?v=7";
 import { buildUsageTree, usageRowsHtml } from "/admin/usage-tree.js?v=2";
 // 管理后台 /admin（只给管理员）：概览、积分流水、直接发放、兑换码管理。
 // 流水沿用匿名代号；兑换码详情仅管理员可查看邮箱与名单。接口见 api/admin.js。
@@ -203,6 +203,7 @@ async function loadOverview() {
   button.disabled = true;
   try {
     renderOverview(await api("action=overview"));
+    redemption.loadStats();
   } catch (error) {
     $("#overview-time").textContent = "暂时无法读取";
     toast(error.message, true);
@@ -423,7 +424,7 @@ $("#grant-undo").addEventListener("click", async () => {
 
 try { lastGrant = JSON.parse(sessionStorage.getItem(LAST_KEY) || "null"); } catch {}
 renderLast();
-loadOverview();
 const redemption = initRedemption({ api, toast, confirmSheet, onChange: () => { ledgerLoaded = false; loadOverview(); } });
+loadOverview();
 
 showTab(location.hash.slice(1));

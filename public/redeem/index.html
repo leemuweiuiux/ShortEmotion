@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="robots" content="noindex">
+  <title>领取积分 · ShortEmotion</title>
+  <meta property="og:title" content="ShortEmotion 积分礼包">
+  <meta property="og:description" content="领取积分，用于解锁题材异动、涨停情绪与个股技术分析。">
+  <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
+  <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <script>
+    // 与介绍页、看板共用外观设置：深浅色跟随系统（或 twsvp_theme），语言：简体 / 繁体
+    (function () {
+      var root = document.documentElement;
+      var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
+      var theme = get("twsvp_theme");
+      if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      root.dataset.theme = theme;
+      if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
+      var lang = get("shortemotion:lang");
+      if (lang !== "hans" && lang !== "hant") lang = /^zh-(tw|hk|mo|hant)/i.test(navigator.language || "") ? "hant" : "hans";
+      root.dataset.lang = lang;
+      if (lang === "hant") root.lang = "zh-Hant-TW";
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/about/about.css?v=13">
+  <link rel="stylesheet" href="/shared/form.css?v=1">
+  <link rel="stylesheet" href="/account/account.css?v=14">
+  <link rel="stylesheet" href="/redeem/redeem.css?v=2">
+  <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
+  <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+  <script defer src="/_vercel/insights/script.js"></script>
+  <link rel="stylesheet" href="/shared/global-header.css?v=4">
+  <script defer src="/shared/usage.js?v=4"></script>
+</head>
+<body class="sub-page">
+  <!-- 领取积分 /redeem（公开页，/account/redeem 也是这一页）：
+       ?code= 带进来先公开预览（活动名称、积分、截止）；已登录一键领取，未登录「登录后领取」，登录回来自动领取（&claim=1）。 -->
+  <nav class="subnav">
+    <a id="back" class="subnav-btn" href="/home" aria-label="返回">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+    <div class="subnav-title">领取积分</div>
+  </nav>
+
+  <main class="sub-frame">
+    <section id="gift" class="sub-card gift-card" aria-live="polite" hidden>
+      <div class="gift-brand">
+        <img src="/short-emotion/logo.svg?v=2" alt="" width="28" height="28">
+        <span>ShortEmotion 积分礼包</span>
+        <em id="gift-status" class="gift-status" hidden></em>
+      </div>
+      <div class="gift-body">
+        <p id="gift-name" class="gift-name"></p>
+        <p class="gift-amount"><strong id="gift-amount">—</strong><span>积分</span></p>
+        <p id="gift-remaining" class="gift-remaining" hidden></p>
+        <ul id="gift-rules" class="gift-rules"></ul>
+      </div>
+      <button id="gift-claim" class="btn-primary gift-claim" type="button">立即领取</button>
+      <p id="gift-error" class="gift-error" role="alert" hidden></p>
+      <p id="gift-account" class="gift-account" hidden></p>
+    </section>
+
+    <section id="done" class="sub-card done-card" role="status" hidden>
+      <div class="done-head">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 12.5l2.7 2.7L16 9.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <strong id="done-title">积分已到账</strong>
+        <span id="done-balance"></span>
+      </div>
+      <div class="done-uses">
+        <p class="section-title">积分可以用来</p>
+        <nav id="done-uses" class="uses-list"></nav>
+      </div>
+      <a class="row-link done-ledger" href="/account/points">查看积分流水 ›</a>
+    </section>
+
+    <section class="sub-card">
+      <form id="manual" class="manual-form" novalidate>
+        <label class="field" for="manual-code"><span id="manual-label">输入兑换码</span></label>
+        <div class="se-bar">
+          <input id="manual-code" class="se-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="兑换码或整段领取文案">
+          <button id="manual-paste" class="manual-paste" type="button" hidden>粘贴</button>
+          <button id="manual-submit" type="submit">兑换</button>
+        </div>
+        <p id="manual-error" class="gift-error" role="alert" hidden></p>
+      </form>
+    </section>
+
+    <section class="sub-card redeem-rules">
+      <p class="section-title">说明</p>
+      <ul>
+        <li>兑换码来自官方活动、社群与合作伙伴；每个兑换码每人限领一次。</li>
+        <li>领取后积分立即到账，可在「积分流水」查看来源。</li>
+        <li>积分不能兑换现金或转让，详见 <a href="/terms">用户协议</a>。</li>
+      </ul>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="/redeem/redeem.js?v=2"></script>
+  <script type="module" src="/shared/global-header.js?v=5"></script>
+</body>
+</html>

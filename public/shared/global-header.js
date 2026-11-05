@@ -1,7 +1,7 @@
 // One shared header for every ShortEmotion page.
 // Existing page-specific account menus remain in charge of their own account button.
 const $ = (s, root=document) => root.querySelector(s);
-const labels = {"/etfflow":"宽基ETF资金","/home":"首页","/about":"ShortEmotion","/login":"ShortEmotion","/shortemotion/cn":"短线情绪","/short-emotion":"短线情绪","/limitup":"涨停情绪","/sectorflow":"资金流向","/technicalanalysis":"个股技术分析","/kandian":"看点","/kandian/article":"看点文章","/account":"个人中心","/account/signin":"每日签到","/account/points":"积分流水","/account/settings":"设置","/account/edit":"编辑个人信息","/account/invite":"邀请好友"};
+const labels = {"/etfflow":"宽基ETF资金","/home":"首页","/about":"ShortEmotion","/login":"ShortEmotion","/shortemotion/cn":"短线情绪","/short-emotion":"短线情绪","/limitup":"涨停情绪","/sectorflow":"资金流向","/technicalanalysis":"个股技术分析","/kandian":"看点","/kandian/article":"看点文章","/account":"个人中心","/account/signin":"每日签到","/account/points":"积分流水","/account/settings":"设置","/account/edit":"编辑个人信息","/account/invite":"邀请好友","/redeem":"领取积分","/account/redeem":"领取积分"};
 let state = { authenticated: false, enabled: true, signedToday: null, unlimited: false };
 let busy = false;
 const nav = document.querySelector('nav.nav, nav.subnav');

@@ -14,10 +14,10 @@ import { updateNavPoints } from "/shared/nav-points.js?v=2";
 //      解锁后按板高列出个股。与题材异动的解锁分开计算。
 import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderLatest } from "/shared/nav-account.js?v=4";
 import { mountFundFlow } from "/shared/fund-flow.js?v=7";
+import { showPointsShortage } from "/shared/points-shortage.js?v=1";
 
 initAccountMenu();
 
-const POINTS_TEXT = "积分不足，签到获取 +5积分";
 const TIMEZONE = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch { return ""; } })();
 const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
 
@@ -80,7 +80,7 @@ form.addEventListener("submit", (event) => {
     return;
   }
   if (!unlimited && balance != null && Number.isFinite(Number(balance)) && balance < analysis.cost) {
-    toast(POINTS_TEXT, true);
+    showPointsShortage({ cost: analysis.cost, balance });
     return;
   }
   setPendingAnalysis(q);
@@ -213,7 +213,7 @@ async function unlock(event) {
       updateNavPoints(payload);
     }
     if (response.status === 402) {
-      toast(POINTS_TEXT, true);
+      showPointsShortage({ balance: payload.balance ?? balance });
       renderLocked();
       return;
     }
@@ -350,7 +350,7 @@ async function unlockLimitUp(event) {
       updateNavPoints(payload);
     }
     if (response.status === 402) {
-      toast(POINTS_TEXT, true);
+      showPointsShortage({ balance: payload.balance ?? balance });
       renderLimitUpLocked();
       return;
     }

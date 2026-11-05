@@ -1,5 +1,6 @@
 import { localTimeLabel, emotionTimeLabel } from "/shared/local-time.js?v=1";
 import { updateNavPoints } from "/shared/nav-points.js?v=2";
+import { showPointsShortage } from "/shared/points-shortage.js?v=1";
 import { prepareTimelineForExport } from "./export-svg.js?v=1";
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -328,7 +329,6 @@ function renderAnomalies() {
 // ── 题材异动的积分锁：未解锁时服务器只给题材数量；解锁扣 10 积分，12 小时内有效（倒计时到 0 自动重新上锁）──
 let pointsBalance = null;
 let unlockTimer = null;
-const POINTS_TEXT = "积分不足，每日签到可得 +5 积分";
 
 function setBalance(value) {
   if (value != null && Number.isFinite(Number(value))) { pointsBalance = Number(value); updateNavPoints({ balance: pointsBalance }); }
@@ -395,7 +395,7 @@ async function unlockAnomalies(event) {
     if (payload.code === "login_required") return goLogin();
     setBalance(payload.balance);
     if (response.status === 402) {
-      toast(POINTS_TEXT, true);
+      showPointsShortage({ balance: payload.balance });
       renderLockedAnomalies();
       return;
     }
@@ -1037,7 +1037,7 @@ async function handleManualRefresh() {
   } catch (error) {
     stopRefresh();
     if (error.code === "login_required") return goLogin();
-    if (error.code === "insufficient_points") return toast(POINTS_TEXT, true);
+    if (error.code === "insufficient_points") return showPointsShortage({ balance: error.balance });
     toast(error.code === "not_configured" ? "实时刷新服务尚未开通，页面显示的是最近一次定时快照" : `刷新失败：${error.message}`, true);
   }
 }
