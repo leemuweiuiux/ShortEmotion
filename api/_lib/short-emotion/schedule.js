@@ -32,10 +32,12 @@ export const SCHEDULES = {
     sessionStart: 9 * 60 + 30,
     // 最后一次更新后清理：保留最近 60 个交易日的盘中快照
     cleanupAt: 15 * 60,
+    finalRefreshAt: 15 * 60 + 35,
+    finalRefreshUntil: 17 * 60,
     historyTradingDays: 60,
     // 晚于这个时间仍拿不到当日行情，就判定今天休市，当天不再调用 Wind
     holidayCheckAfter: 10 * 60,
-    summary: "交易日 09:30–11:30、13:00–15:00 每 30 分钟定时更新"
+    summary: "交易日 09:30–11:30、13:00–15:00 每 30 分钟定时更新，15:35 盘后最终更新"
   }
 };
 
@@ -74,6 +76,10 @@ function inWindows(minute, windows) {
 export function duePlan(date = new Date(), market = "cn") {
   const schedule = scheduleFor(market);
   const clock = shanghaiClock(date, schedule.slotMinutes);
+  // 最终更新独立于行情时间；延迟启动仍归入同一个锁，避免备用触发重复取数。
+  const finalRefresh = clock.isWeekday && clock.minute >= schedule.finalRefreshAt && clock.minute < schedule.finalRefreshUntil;
+  if (finalRefresh) return { ...clock, slot: schedule.finalRefreshAt, finalRefresh: true,
+    jobs: { emotion: true, anomalies: true, limitup: true, news: true, cleanup: true }, anyDue: true, close: null };
   const jobs = {};
   for (const [name, rule] of Object.entries(schedule.jobs)) {
     jobs[name] = clock.isWeekday && inWindows(clock.slot, rule.windows) && clock.slot % rule.everyMinutes === 0;

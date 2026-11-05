@@ -128,7 +128,7 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
   // 收盘后收缩（节约 Wind 额度）：显式 force 刷新必须重算，允许新规则替换旧收盘快照。
   // 普通定时更新在当日已有 15:00 收盘快照时只更新新闻，
   // 行情与题材收盘后不会再变。若当日快照仍是盘中时点，收盘后仍要全量取一次收盘数据。
-  if (!force && market === "cn" && plan.minute > 15 * 60) {
+  if (!force && !plan.finalRefresh && market === "cn" && plan.minute > 15 * 60) {
     const todayEmotion = (await store.kvGet(KEY.emotion).catch(() => null))?.value;
     const closeMinute = quoteMinuteOf(todayEmotion);
     if (todayEmotion && quoteDayOf(todayEmotion) === plan.day && closeMinute != null && closeMinute >= 15 * 60) {
