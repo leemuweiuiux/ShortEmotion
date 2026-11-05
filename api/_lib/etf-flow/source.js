@@ -61,13 +61,14 @@ export function fundPoints(quotes, dates) {
 export function tradingDates(payload) {
  return [...new Set(tableList(payload).flatMap(t=>{const i=col(t.columns,/^(TIME|日期|交易日期|交易时间)$/i);return i<0?[]:t.rows.map(r=>day(r[i])).filter(Boolean);} ))].sort();
 }
-export async function collectSnapshot(call, previous=null, now=new Date()) {
+export async function collectSnapshot(call, previous=null, now=new Date(), {requiredDate=null}={}) {
  const upstream=call;
  call=async(...args)=>{for(let attempt=0;;attempt++){try{return await upstream(...args);}catch(error){if(attempt>=2||!/NETWORK_ERROR|TIMEOUT|RATE_LIMIT|ECONNRESET|fetch failed/.test(error.message))throw error;}}};
  const end=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(now).replace(/-/g,'');
  const start=new Date(now);start.setUTCDate(start.getUTCDate()-60);const begin=start.toISOString().slice(0,10).replace(/-/g,'');
  const calendar=tradingDates(await call('index_data','get_index_kline',{windcode:'000300.SH',begin_date:begin,end_date:end})).filter(d=>d<=end);
  if(calendar.length<23)throw new Error('ETF交易日历不足，保留上一版');
+ if(requiredDate&&!calendar.includes(requiredDate))throw Object.assign(new Error('目标日期无交易行情，跳过本轮ETF采集'),{code:'ETF_NO_TRADING_SESSION'});
  const issues=[],funds=[];const groups=GROUPS.filter(g=>g.index);
  for(const group of groups){
   try{
