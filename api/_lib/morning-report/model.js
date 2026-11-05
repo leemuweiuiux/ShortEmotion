@@ -56,13 +56,15 @@ export async function generateReportJson(prompt, evidence, { env = process.env, 
 export async function generateValidatedReport(prompt, evidence, limits, options = {}) {
   const { validateArticle } = await import('./service.js');
   let article = await generateReportJson(prompt, evidence, options);
-  const fixed = new Set();
+  const fixed = new Map();
   for (;;) {
     try { return validateArticle(article, evidence, limits); }
     catch (error) {
       const kind = error.message === '正文过长' ? 'text' : error.message.startsWith('摘要须为') ? 'summary' : error.message === '观点卡不合格' ? 'views' : null;
-      if (!kind || fixed.has(kind)) throw error;
-      fixed.add(kind);
+      // 正文过长允许压缩两次（2026-11-06 早报压缩一次后仍超长而未发布），其他问题各修一次
+      const tries = (fixed.get(kind) || 0) + 1;
+      if (!kind || tries > (kind === 'text' ? 2 : 1)) throw error;
+      fixed.set(kind, tries);
       const total = article.sections?.reduce((n, section) => n + String(section.text || '').length, 0) || 0;
       console.log(`看点校验修订：${error.message}，摘要${[...String(article.summary || '')].length}字，正文${total}字`);
       if (kind === 'text') {
