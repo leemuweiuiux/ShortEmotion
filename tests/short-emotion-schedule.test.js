@@ -24,9 +24,18 @@ describe("短线情绪 schedule (A股 every 30 min in session, news hourly; 涨�
     expect(due("2026-10-12", "12:30")).toEqual([]);
   });
 
-  it("15:00 is the last run and includes cleanup", () => {
+  it("15:00 closes trading and includes cleanup", () => {
     expect(due("2026-10-12", "15:00")).toEqual(["anomalies", "cleanup", "emotion", "limitup", "news"]);
     expect(due("2026-10-12", "15:30")).toEqual([]);
+  });
+
+  it("15:35 final refresh has a separate slot, including delayed backups", () => {
+    expect(due("2026-10-12", "15:34")).toEqual([]);
+    for (const time of ["15:35", "15:37", "16:37"]) {
+      expect(duePlan(bj("2026-10-12", time))).toMatchObject({ finalRefresh: true, slot: 935 });
+      expect(due("2026-10-12", time)).toEqual(["anomalies", "cleanup", "emotion", "limitup", "news"]);
+    }
+    expect(due("2026-10-17", "15:35")).toEqual([]);
   });
 
   it("a delayed GitHub run stays in its 30-minute slot", () => {
@@ -36,7 +45,7 @@ describe("短线情绪 schedule (A股 every 30 min in session, news hourly; 涨�
 
   it("runs delayed past a close are flagged for catch-up (11:30 lunch, 15:00 close)", () => {
     expect(duePlan(bj("2026-10-12", "15:34")).close).toMatchObject({ at: 900 });
-    expect(duePlan(bj("2026-10-12", "16:40")).close).toMatchObject({ at: 900 });
+    expect(duePlan(bj("2026-10-12", "16:40")).finalRefresh).toBe(true);
     expect(duePlan(bj("2026-10-12", "12:05")).close).toMatchObject({ at: 690, jobs: ["emotion", "anomalies", "limitup"] });
     // 窗口内照常按时段跑，不需要补抓
     expect(duePlan(bj("2026-10-12", "15:10")).close).toBeNull();
@@ -200,5 +209,27 @@ describe("题材异动门槛", () => {
     const anomalies = await readResource("anomalies");
     expect([55, 60]).toContain(anomalies.summary.minScore);
     expect((anomalies.errors || []).some((item) => /门槛/.test(String(item)))).toBe(anomalies.summary.minScore !== 60);
+  });
+});
+
+
+describe("15:35 最终重算", () => {
+  it("已有15:00快照仍重算，备用触发不重复取数", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(bj("2026-11-05", "15:35"));
+    try {
+      process.env.WIND_MOCK = "1";
+      const { getStore } = await import("../api/_lib/short-emotion/store.js");
+      const { runScheduledRefresh } = await import("../api/_lib/short-emotion/service.js");
+      await getStore("cn").kvSet("emotion:latest", { quoteTime: "20261105 15:00:00", scoreVersion: 3 });
+      const first = await runScheduledRefresh();
+      expect(first.ran).toEqual(expect.arrayContaining(["emotion", "anomalies", "limitup"]));
+      vi.setSystemTime(bj("2026-11-05", "16:37"));
+      const second = await runScheduledRefresh();
+      expect(second.status).toBe("duplicate");
+      expect(second.ran).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -8,7 +8,7 @@ import { duePlan } from "../api/_lib/short-emotion/schedule.js";
 
 const root = resolve(import.meta.dirname, "..");
 // 准点定时分散在几个迁移文件里（短线情绪与早报、午间看点），合起来看
-const migration = ["20261023033000_cron_dispatch.sql", "20261023070000_noon_report_cron.sql", "20261023073220_evening_report_cron.sql"]
+const migration = ["20261023033000_cron_dispatch.sql", "20261023070000_noon_report_cron.sql", "20261023073220_evening_report_cron.sql", "20261105115544_short_emotion_final_close.sql"]
   .map((name) => readFileSync(resolve(root, "supabase/migrations", name), "utf8")).join("\n");
 const SECRET = "test-cron-secret";
 
@@ -180,7 +180,7 @@ describe("Supabase 准点定时表", () => {
   });
 
   it("短线情绪：北京时间工作日 09:02、09:32–11:32、13:02–15:02 每 30 分钟", () => {
-    const daily = ["09:02", "09:32", "10:02", "10:32", "11:02", "11:32", "13:02", "13:32", "14:02", "14:32", "15:02"];
+    const daily = ["09:02", "09:32", "10:02", "10:32", "11:02", "11:32", "13:02", "13:32", "14:02", "14:32", "15:02", "15:35"];
     expect(triggersFor("short-emotion")).toEqual(WEEKDAYS.flatMap((day) => daily.map((time) => `${day} ${time}`)).sort());
   });
 
@@ -192,7 +192,8 @@ describe("Supabase 准点定时表", () => {
       expect(duePlan(new Date(monday + (h * 60 + m) * 60_000)).anyDue, time).toBe(true);
     }
     for (let slot = 0; slot < 1440; slot += 30) {
-      if (!duePlan(new Date(monday + (slot + 2) * 60_000)).anyDue) continue;
+      const plan = duePlan(new Date(monday + (slot + 2) * 60_000));
+      if (!plan.anyDue || plan.finalRefresh) continue;
       const label = `${String(Math.floor(slot / 60)).padStart(2, "0")}:${String(slot % 60 + 2).padStart(2, "0")}`;
       expect(triggered.has(label), label).toBe(true);
     }
