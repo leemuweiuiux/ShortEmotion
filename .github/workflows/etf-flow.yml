@@ -5,8 +5,8 @@ on:
     paths: [api/_lib/etf-flow/source.js, scripts/etf-flow/refresh.mjs, scripts/etf-flow/repair.mjs]
   workflow_dispatch:
   schedule:
-    - cron: '35 12 * * 1-5'
-    - cron: '35 23 * * 0-4'
+    - cron: '35 12 * * 1-5' # 北京时间交易日20:35
+    - cron: '50 0 * * 2-6'   # 次日08:50，周五的数据在周六补采
 permissions:
   contents: read
 jobs:
@@ -19,6 +19,7 @@ jobs:
     permissions:
       contents: write
     env:
+      ETF_FLOW_SCHEDULE: ${{ github.event_name == 'schedule' && github.event.schedule || '' }}
       ETF_FLOW_DATA_DIR: ${{ github.workspace }}/../etf-flow-data
     steps:
       - uses: actions/checkout@v4
@@ -33,10 +34,12 @@ jobs:
             git rev-parse FETCH_HEAD > "$RUNNER_TEMP/etf-parent"
           fi
       - name: Refresh verified ETF flows
+        id: refresh
         run: node scripts/etf-flow/${{ github.event_name == 'push' && 'repair' || 'refresh' }}.mjs
         env:
           WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
       - name: Publish ETF data
+        if: steps.refresh.outputs.skipped != 'true'
         run: |
           cd "$ETF_FLOW_DATA_DIR"
           echo '{"git":{"deploymentEnabled":false}}' > vercel.json

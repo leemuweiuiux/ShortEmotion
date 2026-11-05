@@ -7,3 +7,11 @@ main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-co
 #sf-access p { margin:0 0 14px; color:var(--muted); font-size:13px; }
 #sf-access button { padding:10px 18px; font:inherit; font-size:14px; color:var(--card); background:var(--ink); border:0; border-radius:8px; cursor:pointer; }
 #sf-access button:disabled { opacity:.5; cursor:default; }
+
+/* Match the fixed fund navigation on the ETF detail page. */
+main { padding-bottom:calc(100px + env(safe-area-inset-bottom,0px)); }
+.sf-etf-dock { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:min(600px,calc(100% - 24px)); box-sizing:border-box; display:flex; align-items:center; gap:8px; padding:12px 14px calc(12px + env(safe-area-inset-bottom,0px)); z-index:20; background:var(--surface,var(--card)); color:var(--ink); border:1px solid var(--border); border-bottom:0; box-shadow:0 -6px 28px #0000000d; }
+.sf-etf-dock>span { flex:1; min-width:0; text-align:left; font-size:15px; font-weight:600; }
+.sf-etf-dock button { flex:none; min-height:44px; padding:0 18px; border:1px solid var(--border); background:var(--panel); color:var(--ink); font:inherit; font-size:15px; cursor:pointer; white-space:nowrap; }
+.sf-etf-dock button:disabled { opacity:.5; cursor:default; }
+.sf-etf-dock button:focus-visible { outline:2px solid var(--ink); outline-offset:3px; }
