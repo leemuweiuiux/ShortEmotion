@@ -78,11 +78,11 @@ html[data-theme=dark] .ef-stat { background:#151922; }
  #ef-table tbody th,#ef-table thead th:first-child { min-width:56px; }
 }
 
-/* Fixed entry keeps the page readable above the safe-area inset. */
-body { padding-bottom:calc(88px + env(safe-area-inset-bottom,0px)); }
-.ef-sector-dock { position:fixed; z-index:30; left:50%; bottom:max(12px,env(safe-area-inset-bottom,0px)); transform:translateX(-50%); width:calc(100% - 32px); max-width:568px; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:12px 14px; background:var(--card); color:var(--ink); border:1px solid var(--border); border-radius:12px; box-shadow:0 6px 28px #00000016; }
-.ef-sector-dock>span { font-size:14px; font-weight:500; }
-.ef-sector-dock button { min-height:40px; padding:8px 14px; border:0; border-radius:8px; font:inherit; font-size:13px; cursor:pointer; background:var(--ink); color:var(--card); white-space:nowrap; }
+/* Match the stock analysis bottom action bar, including the device safe area. */
+main { padding-bottom:calc(100px + env(safe-area-inset-bottom,0px)); }
+.ef-sector-dock { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:min(600px,calc(100% - 24px)); display:flex; align-items:center; gap:8px; padding:12px 14px calc(12px + env(safe-area-inset-bottom,0px)); z-index:20; background:var(--surface); color:var(--ink); border:1px solid var(--border); border-bottom:0; box-shadow:0 -6px 28px #0000000d; }
+.ef-sector-dock>span { flex:1; text-align:left; font-size:15px; font-weight:600; }
+.ef-sector-dock button { min-height:44px; padding:0 18px; border:1px solid var(--border); background:var(--panel); color:var(--ink); font:inherit; font-size:15px; cursor:pointer; white-space:nowrap; }
 .ef-sector-dock button:disabled { opacity:.5; cursor:default; }
 .ef-sector-dock button:focus-visible { outline:2px solid var(--ink); outline-offset:3px; }
 
