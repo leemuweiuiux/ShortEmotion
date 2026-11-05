@@ -45,6 +45,16 @@ if (nav) {
   const showAccountActions = !secondary && path !== '/login' && nav.dataset.accountActions !== 'hidden';
   // Keep article titles managed by the report detail page.
   const space=document.createElement('span');space.className='global-header-space';title.after(space);
+  // Wide dashboard pages share the same navigation; secondary pages retain their back button.
+  if (document.body.classList.contains('wide-page') && !secondary && !$('.wide-nav-links',nav)) {
+    const links=document.createElement('div');links.className='wide-nav-links';
+    links.setAttribute('role','navigation');links.setAttribute('aria-label','主要功能');
+    for (const [href,label] of [['/home','首页'],['/shortemotion/cn','短线情绪'],['/limitup','涨停情绪'],['/sectorflow','资金流向'],['/etfflow','宽基ETF'],['/technicalanalysis','个股分析'],['/kandian','看点']]) {
+      const link=document.createElement('a');link.href=href;link.textContent=label;
+      if(path===href)link.setAttribute('aria-current','page');links.append(link);
+    }
+    space.after(links);
+  }
   const extra=$('.subnav-save, .mr-share',nav);
   if(extra){extra.classList.add('global-header-extra');space.after(extra);}
   const lang=$('.lang-toggle',nav);

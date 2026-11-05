@@ -1,4 +1,4 @@
-/* First wide-screen rollout: opt in per page; mobile and export layouts stay independent. */
+/* Page families opt in; exports and embedded workbenches retain their own fixed layouts. */
 .wide-nav-links { display: none; }
 
 @media (min-width: 768px) {
@@ -44,7 +44,7 @@
 }
 
 @media (min-width: 1024px) {
-  .wide-nav-links { display: flex; align-items: center; gap: 18px; margin-right: 18px; }
+  .wide-nav-links { display: flex; align-items: center; gap: 14px; margin-right: 12px; }
   .wide-nav-links a { display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); font-size: 13px; text-decoration: none; white-space: nowrap; }
   .wide-nav-links a[aria-current="page"] { color: var(--ink); font-weight: 600; text-decoration: underline; text-underline-offset: 8px; }
   .wide-nav-links a:hover { color: var(--ink); }
@@ -64,4 +64,135 @@
 @media (min-width: 1440px) {
   .wide-page > .app-shell > main { padding-inline: 32px; gap: 24px; }
   .wide-page > .app-shell > nav.global-header { padding-inline: 32px; }
+}
+
+@media (min-width: 768px) {
+  /* Board sections retain their anchors while related cards can sit side by side. */
+  .wide-page > .app-shell > .tabs-wrap { padding-inline: 24px; }
+  .wide-emotion > .app-shell > main > .section { gap: 20px; margin-bottom: 20px; }
+  .wide-emotion #overview .metric-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .wide-emotion #overview .metric-strip article { padding: 18px; }
+  .wide-emotion #timeline-chart { height: 280px; }
+  .wide-emotion .anomaly-panel:not(.locked) #anomaly-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .wide-emotion #anomaly-list > :is(.loading, .empty, .anomaly-empty, .anomaly-view-state) { grid-column: 1 / -1; }
+  .wide-emotion #overview .pulse-main { gap: 24px; }
+
+  .wide-limitup #lu-content > .section { margin-bottom: 20px; }
+  .wide-limitup .lu-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .wide-limitup .lu-free { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .wide-limitup .lu-metric { padding: 20px; }
+  .wide-limitup .lu-metric > strong { font-size: 28px; }
+  .wide-limitup .lu-highlights { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .wide-limitup .lu-concept-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; }
+  .wide-limitup .lu-concept { min-width: 0; }
+
+  .wide-technical #ta-form .se-bar { max-width: 880px; }
+  .wide-technical #ta-result { gap: 20px; }
+  .wide-technical #ta-result .ta-head .ta-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .wide-technical #ta-result .ta-verdict p { max-width: 90ch; }
+  .wide-technical #ta-result .ta-chart { height: 360px; }
+  .wide-technical > .ta-view-bar,
+  .wide-kandian > .kd-publish-bar { width: min(720px, calc(100% - 48px)); max-width: 720px; bottom: 16px; padding: 12px 18px; border: 1px solid var(--border); box-shadow: 0 6px 28px #00000014; }
+  .wide-technical > .ta-view-status { width: min(720px, calc(100% - 48px)); bottom: 100px; }
+  .wide-page > .kd-compose { width: min(680px, calc(100% - 48px)); max-width: 680px; }
+  .wide-technical > .ta-view-drawer { inset: 0; margin: auto; max-height: min(86dvh, 800px); }
+
+  /* Cards use wide lists; long-form reading remains a comfortable line length. */
+  .wide-kandian #morning-report-feed,
+  .wide-kandian #kd-feed,
+  .wide-news .news-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+  .wide-kandian #morning-report-feed > .mr-item,
+  .wide-news .news-list > .mr-item { min-width: 0; padding: 22px; border: 1px solid var(--border); background: var(--surface); }
+  .wide-kandian #morning-report-feed .mr-card,
+  .wide-news .news-list .mr-card { padding: 0; border: 0; }
+  .wide-kandian #morning-report-feed > :not(.mr-item),
+  .wide-kandian #kd-feed > :not(.kd-card),
+  .wide-news .news-list > :not(.mr-item) { grid-column: 1 / -1; }
+  .wide-kandian .kd-toolbar { margin-bottom: 24px; }
+  .wide-news .news-list { padding: 0; border: 0; background: transparent; }
+  .wide-article > .app-shell > main { max-width: 832px; margin-inline: auto; }
+  .wide-article .mr-article { width: 100%; max-width: 760px; padding: 32px; }
+  .wide-article > .app-shell > main > .legal { margin: 16px auto 0; }
+
+  /* Account headers align with boards; the content width follows the task. */
+  .wide-account > nav.subnav,
+  .wide-login > nav.nav { width: 100%; max-width: 1360px; padding-inline: 24px; }
+  .wide-account > .sub-frame { max-width: 1120px; padding: calc(88px + env(safe-area-inset-top, 0px)) 24px 48px; }
+  .wide-account > .sub-frame > .sub-card { min-width: 0; }
+  .wide-account.wide-form > .sub-frame { max-width: 800px; }
+  .wide-account.wide-reading > .sub-frame { max-width: 848px; }
+  .wide-account.wide-ledger > .sub-frame { max-width: 960px; }
+  .wide-reading .legal-doc { padding: 32px; }
+  .wide-login > .page { max-width: 640px; padding-top: 40px; }
+  .wide-profile > .sub-frame,
+  .wide-signin > .sub-frame,
+  .wide-invite > .sub-frame { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-content: start; align-items: start; }
+  .wide-profile > .sub-frame > .sub-card,
+  .wide-signin > .sub-frame > .sub-card,
+  .wide-invite > .sub-frame > .sub-card { margin: 0; }
+  .wide-profile .my-views-card,
+  .wide-signin .signin-stats { grid-column: 1 / -1; }
+  .wide-profile #my-views { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .wide-profile #my-views > :not(.kd-card) { grid-column: 1 / -1; }
+  .wide-invite .invite-main { grid-row: span 2; }
+  .wide-invite > .sub-frame > .sub-card:not(.invite-main) { grid-column: 2; }
+  .wide-account.wide-admin > .sub-frame { max-width: 1360px; }
+  .wide-admin .admin-filter { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .wide-admin .admin-range { grid-column: span 2; }
+  .wide-admin .admin-filter:has(#ledger-clear[hidden]) .btn-primary { grid-column: auto; }
+  .wide-admin #tab-grant { max-width: 800px; margin-inline: auto; }
+  .wide-admin .code-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  .wide-admin .code-list > :not(.code-item) { grid-column: 1 / -1; }
+}
+
+@media (min-width: 1024px) {
+  .wide-emotion #overview,
+  .wide-emotion #breadth,
+  .wide-emotion #themes { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .wide-emotion #overview .metric-strip,
+  .wide-emotion #themes > .anomaly-panel { grid-column: 1 / -1; }
+  .wide-emotion #overview > .card,
+  .wide-emotion #breadth > .card { align-self: stretch; }
+  .wide-limitup #lu-content:not([hidden]) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+  .wide-limitup #lu-content > .section { margin: 0; }
+  .wide-limitup #lu-overview,
+  .wide-limitup #lu-highlights-section,
+  .wide-limitup #lu-concepts-section { grid-column: 1 / -1; }
+  .wide-limitup #lu-promo-section { grid-column: 1 / -1; }
+  .wide-limitup #lu-content .lu-summary { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .wide-limitup .lu-highlights { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .wide-limitup .lu-promo-list { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 32px; }
+
+  .wide-technical #ta-result { grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); align-items: start; }
+  .wide-technical #ta-result > .ta-head { grid-column: 1 / -1; grid-row: 1; }
+  .wide-technical #ta-result > .ta-chart-card { grid-area: 2 / 1; }
+  .wide-technical #ta-result > .ta-levels-card { grid-area: 2 / 2; }
+  .wide-technical #ta-result > .ta-win-card { grid-area: 3 / 1; }
+  .wide-technical #ta-result > .ta-odds-card { grid-area: 3 / 2; }
+  .wide-technical #ta-result > .ta-history-card { grid-row: 4; grid-column: 1 / -1; }
+  .wide-technical #ta-result > .ta-event-card { grid-area: 5 / 1; }
+  .wide-technical #ta-result > .ta-market-card { grid-area: 5 / 2; }
+  .wide-technical #ta-result > .ta-news-card { grid-area: 6 / 1; }
+  .wide-technical #ta-result > .ta-risk-card { grid-area: 6 / 2; }
+  .wide-technical #ta-result .ta-history { gap: 16px; }
+  .wide-technical #ta-result .ta-history > div { padding: 18px; }
+
+  .wide-admin #tab-overview:not([hidden]) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+  .wide-admin #tab-overview > * { grid-column: 1 / -1; margin: 0; }
+  .wide-admin #tab-overview > .wide-admin-half { grid-column: auto; }
+  .wide-admin .paid-feature-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+  .wide-admin #tab-overview > .sub-card:first-of-type .admin-stats.three { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .wide-admin #tab-overview > .sub-card:first-of-type .admin-stats.three > .wide { grid-column: auto; }
+}
+
+/* Embedded dashboard instances stay compact even when the host screen is wide. */
+@media (min-width: 768px) {
+  .wide-page.embed > .app-shell > main { padding: 12px 16px 32px; }
+  .wide-emotion.embed #overview,
+  .wide-emotion.embed #breadth,
+  .wide-emotion.embed #themes { grid-template-columns: minmax(0, 1fr); }
+  .wide-emotion.embed .anomaly-panel:not(.locked) #anomaly-list { grid-template-columns: minmax(0, 1fr); }
+  .wide-emotion.embed #overview .metric-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wide-emotion.embed > .app-shell > main .card { padding: 14px 12px; }
+  .wide-emotion.embed #timeline-chart { height: 200px; }
 }
