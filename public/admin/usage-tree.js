@@ -44,7 +44,6 @@ export function usageRowsHtml(tree, expanded) {
     const row = node.metric;
     const toggle = node.children.length ? `<button class="usage-toggle" type="button" data-usage-node="${esc(node.id)}" aria-expanded="${expanded.has(node.id)}" aria-label="${esc(`${expanded.has(node.id)?'收起':'展开'}${node.label}`)}">${expanded.has(node.id)?'−':'+'}</button>` : '<span class="usage-toggle-spacer" aria-hidden="true"></span>';
     const detail = node.kind === 'group' ? '分组，不汇总人数' : node.kind === 'page' ? node.route : row.source === 'api' ? '接口操作结果' : '浏览器操作尝试';
-    const results = !row ? (node.kind === 'page' ? '暂无页面访问事件，展开查看子功能' : '展开查看各功能') : row.source === 'api' ? `成功 ${number(row.success)} · 失败 ${number(row.failure)} · 部分完成 ${number(row.partial)} · 未执行 ${number(row.skipped)} · 已受理 ${number(row.accepted)}` : node.kind === 'page' ? '页面访问；不代表已使用功能' : '操作尝试；不代表完成';
-    return `<tr class="usage-node usage-${node.kind}"><th scope="row"><div class="usage-node-title" style="--usage-depth:${node.depth}">${toggle}<span>${esc(node.label)}<small>${esc(detail)}</small></span></div></th><td>${row?`${number(row.today)} / ${number(row.usersToday)}`:'—'}</td><td>${row?`${number(row.week)} / ${number(row.users7d)} / ${number(row.anonymous7d)}`:'—'}</td><td>${esc(results)}</td></tr>`;
+    return `<tr class="usage-node usage-${node.kind}"><th scope="row"><div class="usage-node-title" style="--usage-depth:${node.depth}">${toggle}<span>${esc(node.label)}<small>${esc(detail)}</small></span></div></th><td>${row?`${number(row.today)} / ${number(row.usersToday)}`:'—'}</td><td>${row?`${number(row.week)} / ${number(row.users7d)} / ${number(row.anonymous7d)}`:'—'}</td></tr>`;
   }).join('');
 }
