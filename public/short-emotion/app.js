@@ -1,3 +1,4 @@
+import {loadImageExporter} from '/shared/export-loader.js?v=1';
 import { localTimeLabel, emotionTimeLabel } from "/shared/local-time.js?v=1";
 import { updateNavPoints } from "/shared/nav-points.js?v=2";
 import { prepareTimelineForExport } from "./export-svg.js?v=1";
@@ -747,13 +748,13 @@ async function runExport(kind) {
   closeExportMenu();
   if (exporting) return;
   if (!data) return toast("当前没有可导出的短线情绪数据", true);
-  if (!window.htmlToImage) return toast("导出组件尚未加载完成，请稍后重试", true);
   const button = $("#export-image");
   exporting = true;
   button.disabled = true;
   button.setAttribute("aria-busy", "true");
   reportToolbarState({ exporting: true });
   try {
+    await loadImageExporter();
     if (kind === "cards") {
       toast("正在生成小卡…");
       const files = await exportSmallCards((current, total) => toast(`正在生成小卡 ${current}/${total}…`));

@@ -1,3 +1,4 @@
+import {loadImageExporter} from '/shared/export-loader.js?v=1';
 // 资金流向：卡片右上角的「分享小卡」。这页只有一张图，不做长图。
 // 分享的就是页面上当前看到的视图（今天 / 5日 / 20日、金额 / 占比、选中的板块与聚焦），只用已读到的数据，不再请求接口。
 // 曲线按导出宽度重新画（chart.snapshot），不克隆页面上的 SVG：
@@ -28,12 +29,13 @@ export function setupShare(button, chart, { toast, ready }) {
   let busy = false;
   button.addEventListener("click", async () => {
     if (busy || !ready()) return;
-    if (!window.htmlToImage) return toast("分享组件尚未加载完成，请稍后重试", true);
+
     busy = true;
     button.disabled = true;
     button.setAttribute("aria-busy", "true");
     try {
       toast("正在生成小卡…");
+      await loadImageExporter();
       await withTimeout(prepareExportAssets(), 8_000).catch(() => {});
       const file = await buildShareCard(chart);
       showGallery([file], { heading: "分享小卡", shareTitle: file.title, onError: (error) => toast(`保存失败：${error.message}`, true) });

@@ -73,14 +73,19 @@ export async function readSectorFlow(store, resource = "full") {
   const latestRaw = latestEntry?.value || null;
   const latest = latestRaw ? { ...latestRaw, boards: (latestRaw.boards || []).filter(keep) } : null;
   const daily = dailyEntry?.value || null;
-  const intraday = !latest?.tradingDate
-    ? null
-    : (await store.kvGet(SECTORFLOW_KEYS.intraday(latest.tradingDate)).catch(() => null))?.value || null;
+  // Independent stored files can be read together. Homepage never needs the
+  // multi-day windows/history; avoid downloading and building them only to drop them.
+  const [intradayEntry, windowsEntry, historyEntry] = await Promise.all([
+    latest?.tradingDate ? store.kvGet(SECTORFLOW_KEYS.intraday(latest.tradingDate)).catch(() => null) : null,
+    resource === 'summary' ? null : store.kvGet(WINDOW_KEY).catch(() => null),
+    resource === 'summary' ? null : store.kvGet(HISTORY_KEY)
+  ]);
+  const intraday = intradayEntry?.value || null;
   const payload = buildPayload({ boards, latest, daily, intraday });
-  const savedWindows = (await store.kvGet(WINDOW_KEY).catch(() => null))?.value || {};
+  const savedWindows = windowsEntry?.value || {};
   const windows = Object.fromEntries(Object.entries(savedWindows).map(([days, item]) =>
     [days, item?.series ? { ...item, series: item.series.filter(keep) } : item]));
-  const history = (await store.kvGet(HISTORY_KEY))?.value || {};
+  const history = { ...(historyEntry?.value || {}) };
   if (history.published) history.published = { ...history.published, series: history.published.series.filter(keep) };
   const dashboard = buildDashboard({ boards, latest, daily, intraday, windows, history, storedAt: latestEntry?.updatedAt || null });
   if (resource === "summary") dashboard.windows = {};
