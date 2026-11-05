@@ -32,7 +32,7 @@
 <link rel="stylesheet" href="/kandian/reports.css?v=5">
 <link rel="stylesheet" href="/shared/like.css?v=1">
 <link rel="stylesheet" href="/shared/etf-overview.css?v=1">
-<link rel="stylesheet" href="/home/home.css?v=12">  <link rel="stylesheet" href="/shared/global-header.css?v=4">
+<link rel="stylesheet" href="/home/home.css?v=13">  <link rel="stylesheet" href="/shared/global-header.css?v=4">
   <script defer src="/shared/usage.js?v=3"></script>
 </head>
 <body>
@@ -100,7 +100,7 @@
         <span id="limitup-time" class="home-time"></span></div>
       </section>
 
-      <section id="etf-home-card" class="card home-card"><div class="card-head"><h2 class="card-title"><a href="/etfflow">宽基 ETF 资金</a></h2><button id="etf-home-action" class="etf-home-action" type="button" disabled>读取中…</button></div><div class="home-card-body"><div id="etf-home-overview" aria-live="polite">正在读取资金概览…</div><span id="etf-home-time" class="home-time"></span></div></section>
+      <section id="etf-home-card" class="card home-card"><div class="card-head"><h2 class="card-title"><a href="/etfflow">宽基 ETF 资金</a></h2><a class="home-more" href="/etfflow" aria-label="查看更多宽基ETF资金">查看更多 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 5 7 7-7 7" stroke="currentColor" stroke-width="1.6"/></svg></a></div><div id="etf-home-body" class="home-card-body home-etf-body"><div id="etf-home-overview" aria-live="polite">正在读取资金概览…</div><span id="etf-home-time" class="home-time"></span><div id="etf-home-lock" class="anomaly-lock" role="group" aria-label="宽基ETF资金已锁定" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><b>查看宽基 ETF 资金概览</b><p>解锁后 12 小时内，首页与看板都能查看</p><button id="etf-home-action" class="pill-btn" type="button" disabled>解锁 · 10 积分</button><small id="etf-home-balance"></small></div></div></section>
       <section id="sectorflow-card" class="card home-card home-sectorflow">
         <div class="card-head"><h2 class="card-title"><a href="/sectorflow">资金流向</a></h2><a class="home-more" href="/sectorflow" aria-label="查看更多资金流向">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
         <div id="sectorflow-chart" class="home-card-body"></div>
@@ -116,7 +116,7 @@
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/home/home.js?v=14"></script>
+  <script type="module" src="/home/home.js?v=15"></script>
 <script type="module" src="/kandian/reports.js?v=9"></script>
 
   <script type="module" src="/shared/nav-points.js?v=2"></script>

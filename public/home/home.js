@@ -357,10 +357,19 @@ window.addEventListener("se:points-updated", loadPoints);
 let etfHomeData=null,etfHomeBusy=false;
 const etfHomeButton=$('#etf-home-action');
 function renderEtfHome(){
+ const locked=Boolean(etfHomeData?.ready&&etfHomeData.locked);
+ $('#etf-home-body').classList.toggle('locked',locked);
+ $('#etf-home-lock').hidden=!locked;
+ $('#etf-home-time').hidden=locked;
  etfHomeButton.disabled=etfHomeBusy||!etfHomeData?.ready;
- etfHomeButton.textContent=etfHomeBusy?'解锁中…':etfHomeData?.locked?'解锁（10积分）':'查看更多';
+ etfHomeButton.textContent=etfHomeBusy?'解锁中…':'解锁 · 10 积分';
+ $('#etf-home-balance').hidden=etfHomeData?.balance==null;
+ $('#etf-home-balance').textContent=etfHomeData?.balance==null?'':`积分 ${etfHomeData.balance}`;
+ $('#etf-home-lock p').textContent=etfHomeData?.unavailable?'积分服务暂时不可用，请稍后再试':'解锁后 12 小时内，首页与看板都能查看';
  if(!etfHomeData?.ready){$('#etf-home-overview').textContent='当前数据缺失';$('#etf-home-time').textContent='';return;}
- if(etfHomeData?.ready){$('#etf-home-overview').innerHTML=etfOverviewMarkup(etfHomeData);$('#etf-home-time').textContent=`数据日期 ${etfHomeData.date.slice(0,4)}-${etfHomeData.date.slice(4,6)}-${etfHomeData.date.slice(6)}`;}
+ if(locked){$('#etf-home-overview').innerHTML='<div class="lock-skeleton" aria-hidden="true"><i></i><i></i><i></i><i></i></div>';return;}
+ $('#etf-home-overview').innerHTML=etfOverviewMarkup(etfHomeData);
+ $('#etf-home-time').textContent=`数据日期 ${etfHomeData.date.slice(0,4)}-${etfHomeData.date.slice(4,6)}-${etfHomeData.date.slice(6)}`;
 }
 async function loadEtfHome(){try{etfHomeData=await etfflowRequest();renderEtfHome();}catch(error){if(error.status===401)return goLogin();$('#etf-home-overview').textContent=error.message;}}
 etfHomeButton.addEventListener('click',async()=>{
