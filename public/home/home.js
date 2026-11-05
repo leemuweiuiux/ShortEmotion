@@ -15,7 +15,7 @@ import { updateNavPoints } from "/shared/nav-points.js?v=2";
 //   6. 涨停情绪：涨停、跌停、最高板、晋级率 4 个数字免费；涨停天梯须解锁（−10 积分，12 小时，与 /limitup 整页共用），
 //      解锁后按板高列出个股。与题材异动的解锁分开计算。
 import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderLatest } from "/shared/nav-account.js?v=4";
-import { mountFundFlow } from "/shared/fund-flow.js?v=7";
+import { mountFundFlow } from "/shared/fund-flow.js?v=8";
 
 initAccountMenu();
 

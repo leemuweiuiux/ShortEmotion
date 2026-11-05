@@ -36,8 +36,9 @@
   <script defer src="/_vercel/insights/script.js"></script>
   <link rel="stylesheet" href="/shared/global-header.css?v=4">
   <script defer src="/shared/usage.js?v=3"></script>
+  <link rel="stylesheet" href="/shared/wide-layout.css?v=2">
 </head>
-<body>
+<body class="wide-page wide-technical">
   <div class="app-shell">
     <nav class="nav">
       <a class="nav-logo" href="/home" aria-label="首页"><img src="/short-emotion/logo.svg?v=2" alt="ShortEmotion"></a>
@@ -102,7 +103,7 @@
           <p id="ta-intraday-note" class="ta-note" hidden>盘中快照：量能、收盘位置等按当前计算，以收盘后的结果为准。</p>
         </article>
 
-        <article class="card">
+        <article class="card ta-win-card">
           <div class="card-head"><h2 class="card-title">当前胜率</h2><span id="ta-win-level" class="pill">—</span></div>
           <div class="ta-win">
             <div id="ta-score-ring" class="score-ring"><div><strong id="ta-score">—</strong><small>/ 100</small></div></div>
@@ -111,7 +112,7 @@
           <p id="ta-win-verdict" class="readout"></p>
         </article>
 
-        <article class="card">
+        <article class="card ta-odds-card">
           <div class="card-head"><h2 class="card-title">当前赔率</h2><span id="ta-odds-level" class="pill">—</span></div>
           <div class="ta-stats">
             <div><span>至压力位空间</span><strong id="ta-upside">—</strong></div>
@@ -129,13 +130,13 @@
           <p id="ta-history-method" class="ta-note"></p>
         </article>
 
-        <article class="card">
+        <article class="card ta-event-card">
           <div class="card-head"><h2 class="card-title">事件驱动</h2><span id="ta-event-level" class="pill">—</span></div>
           <div id="ta-events" class="ta-events"></div>
           <p id="ta-event-reason" class="ta-note" hidden></p>
         </article>
 
-        <article class="card">
+        <article class="card ta-chart-card">
           <div class="card-head">
             <h2 class="card-title">走势</h2>
             <div class="segmented ta-tabs" role="group" aria-label="图表">
@@ -155,23 +156,23 @@
           </div>
         </article>
 
-        <article class="card">
+        <article class="card ta-market-card">
           <div class="card-head"><h2 class="card-title">市场相对强弱</h2><span class="pill">同期对比</span></div>
           <div id="ta-market" class="ta-market"></div>
         </article>
 
-        <article class="card">
+        <article class="card ta-levels-card">
           <div class="card-head"><h2 class="card-title">关键价位</h2><span class="pill">由近及远</span></div>
           <ol id="ta-levels" class="ta-levels"></ol>
           <div id="ta-supplements" class="ta-supplements" hidden></div>
         </article>
 
-        <article class="card">
+        <article class="card ta-news-card">
           <div class="card-head"><h2 class="card-title">相关新闻与公告</h2><span class="pill">近 3 日</span></div>
           <div id="ta-links" class="ta-links"></div>
         </article>
 
-        <article class="card">
+        <article class="card ta-risk-card">
           <div class="card-head"><h2 class="card-title">仓位风险测算</h2><span class="pill">可选</span></div>
           <div class="ta-risk">
             <label class="field"><span>持仓占总资产（%）</span><input id="ta-position" class="se-input" type="number" inputmode="decimal" value="50" min="0" max="100"></label>
@@ -211,6 +212,6 @@
 
 
   <script type="module" src="/shared/nav-points.js?v=2"></script>
-  <script type="module" src="/shared/global-header.js?v=4"></script>
+  <script type="module" src="/shared/global-header.js?v=5"></script>
 </body>
 </html>

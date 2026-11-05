@@ -17,7 +17,8 @@ const ASSETS = {
   reports: "/kandian/reports.css?v=5",
   news: "/kandian/news.css?v=1",
   header: "/shared/global-header.css?v=4",
-  headerJs: "/shared/global-header.js?v=4",
+  headerJs: "/shared/global-header.js?v=5",
+  wide: "/shared/wide-layout.css?v=2",
   usage: "/shared/usage.js?v=2"
 };
 // 与看板共用外观设置：深浅色跟随系统（或 twsvp_theme）
@@ -105,7 +106,7 @@ function head({ lang, title, description, path, alternates, og = {}, data = [] }
     + `<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(title)}"><meta name="twitter:description" content="${esc(description)}"><meta name="twitter:image" content="${OG_IMAGE}">`
     + `<link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32"><link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">`
     + THEME_SCRIPT
-    + `<link rel="stylesheet" href="${ASSETS.twsvp}"><link rel="stylesheet" href="${ASSETS.reports}"><link rel="stylesheet" href="${ASSETS.news}"><link rel="stylesheet" href="${ASSETS.header}">`
+    + `<link rel="stylesheet" href="${ASSETS.twsvp}"><link rel="stylesheet" href="${ASSETS.reports}"><link rel="stylesheet" href="${ASSETS.news}"><link rel="stylesheet" href="${ASSETS.header}"><link rel="stylesheet" href="${ASSETS.wide}">`
     + `<script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};</script><script defer src="/_vercel/insights/script.js"></script><script defer src="${ASSETS.usage}"></script>`
     + data.map(jsonLd).join("")
     + `</head>`;
@@ -121,8 +122,8 @@ function nav(lang, alternates) {
 const cta = `<aside class="news-cta"><div><b>看今天的实时短线情绪</b><p>情绪分、题材异动、涨停天梯与资金流向；免费注册，邮箱验证码登录。</p></div><div class="news-cta-links"><a class="news-cta-btn" href="/shortemotion/cn">查看实时看板</a><a href="/about">了解 ${SITE_NAME}</a></div></aside>`;
 const legal = `<footer class="legal">仅用于研究与市场观察，不构成投资建议。© 2026 ${SITE_NAME}</footer>`;
 
-function document_({ lang, headHtml, navHtml, main }) {
-  const html = `<!doctype html><html lang="${htmlLang(lang)}">${headHtml}<body><div class="app-shell news-shell">${navHtml}<main class="news-main">${main}</main></div><div id="toast" class="toast" role="status" aria-live="polite"></div><script type="module" src="${ASSETS.headerJs}"></script></body></html>`;
+function document_({ lang, headHtml, navHtml, main, reading = false }) {
+  const html = `<!doctype html><html lang="${htmlLang(lang)}">${headHtml}<body class="wide-page ${reading ? 'wide-article' : 'wide-news'}"><div class="app-shell news-shell">${navHtml}<main class="news-main">${main}</main></div><div id="toast" class="toast" role="status" aria-live="polite"></div><script type="module" src="${ASSETS.headerJs}"></script></body></html>`;
   return localize(lang, html);
 }
 
@@ -174,7 +175,7 @@ export async function articlePage(store, { id, lang = "hans", now = new Date() }
     : "";
   const main = `<nav class="news-crumbs" aria-label="位置"><a href="/about">${SITE_NAME}</a><span aria-hidden="true">›</span><a href="${newsPath(lang)}">每日看点</a></nav>`
     + `<article class="mr-article">${articleHtml(article, { afterLead: snapshotBlock(snap) })}</article>${pager}${cta}${legal}`;
-  const body = document_({ lang, headHtml: head({ lang, title, description, path, alternates, og, data }), navHtml: nav(lang, alternates), main });
+  const body = document_({ lang, headHtml: head({ lang, title, description, path, alternates, og, data }), navHtml: nav(lang, alternates), main, reading: true });
   return { status: 200, type: "text/html; charset=utf-8", cache: "public, max-age=0, s-maxage=600, stale-while-revalidate=86400", body };
 }
 

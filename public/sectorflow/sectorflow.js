@@ -2,7 +2,7 @@ import {sectorflowRequest} from '/shared/sectorflow-access.js?v=1';
 import {requestJSON,restoreSnapshot} from '/shared/request.js?v=1';
 // Full board is protected by an independent 12-hour points unlock.
 import { toast, goLogin, initAccountMenu } from '/shared/nav-account.js?v=4';
-import { mountFundFlow } from '/shared/fund-flow.js?v=7';
+import { mountFundFlow } from '/shared/fund-flow.js?v=8';
 import { setupShare } from '/sectorflow/share.js?v=3';
 initAccountMenu();
 const chart = mountFundFlow(document.querySelector('#fund-flow'), { initialCode: new URLSearchParams(location.search).get('board') || '' });

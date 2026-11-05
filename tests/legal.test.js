@@ -109,7 +109,7 @@ describe("公开页面不能引用登录判断之内的资源（未登录时会�
     for (const file of ["public/terms/index.html", "public/privacy/index.html"]) {
       const html = read(file);
       expect(html).not.toContain("/account/account.css");
-      expect(html).toContain('<body class="legal-page">');
+      expect(html).toMatch(/<body class="[^"\n]*\blegal-page\b[^"\n]*">/);
     }
   });
 });
