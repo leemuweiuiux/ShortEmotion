@@ -1,4 +1,5 @@
 import {etfOverviewMarkup} from '/shared/etf-overview.js?v=1';
+import {sectorflowRequest} from '/shared/sectorflow-access.js?v=1';
 import {etfflowRequest} from '/shared/etfflow-access.js?v=1';
 import { emotionTimeLabel } from "/shared/local-time.js?v=1";
 import { startAnalysisRefresh } from "./analysis-refresh.js?v=1";
@@ -8,7 +9,7 @@ import { updateNavPoints } from "/shared/nav-points.js?v=2";
 //   3. 今日短线情绪：与看板「A股短线情绪」卡同款（姿态、分数、阶段与说明、六个维度），
 //      下面再加市场概况（全A涨跌幅、成交额、涨跌家数、涨跌停）与行情时间，点预览或标题进入看板
 //   4. 当日题材异动：未解锁时只显示题材数量，可在首页直接解锁（−10 积分，12 小时）；解锁后列出前 3 个
-//   5. 资金流向：今日累计净流入曲线，流入/流出各前三；进入 /sectorflow 查看完整周期，不扣积分。
+//   5. 资金流向：今日累计净流入曲线，流入/流出各前三；与 /sectorflow 共用5积分解锁，12小时有效。
 //   6. 涨停情绪：涨停、跌停、最高板、晋级率 4 个数字免费；涨停天梯须解锁（−10 积分，12 小时，与 /limitup 整页共用），
 //      解锁后按板高列出个股。与题材异动的解锁分开计算。
 import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderLatest } from "/shared/nav-account.js?v=4";
@@ -231,15 +232,34 @@ async function unlock(event) {
 const flowChart = mountFundFlow($("#sectorflow-chart"), { compact: true, onSelect: (code) => {
   location.href = `/sectorflow?board=${encodeURIComponent(code)}`;
 } });
-async function loadSectorFlow() {
-  try {
-    const { response, payload } = await request("/api/sectorflow?resource=summary");
-    if (!response.ok) throw new Error(payload.error || "暂时无法读取资金流向");
-    flowChart.update(payload.dashboard);
-  } catch {
-    flowChart.update(null);
-  }
+let sectorHomeAccess=null,sectorHomeBusy=false;
+function renderSectorHomeLock(){
+ const locked=Boolean(sectorHomeAccess?.locked),panel=$('#sectorflow-home-lock');
+ $('#sectorflow-body').classList.toggle('locked',locked);
+ $('#sectorflow-chart').hidden=locked;panel.hidden=!locked;
+ if(!locked){panel.innerHTML='';return;}
+ panel.innerHTML=`${lockIcon}<b>查看资金流向</b><p>${sectorHomeAccess.unavailable?'积分服务暂时不可用，请稍后再试':'解锁后 12 小时内，首页与板块资金页都能查看'}</p><button id="sectorflow-home-unlock" class="pill-btn" type="button" ${sectorHomeBusy?'disabled':''}>${sectorHomeBusy?'解锁中…':'解锁 · 5 积分'}</button>${sectorHomeAccess.balance!=null?`<small>积分 ${esc(sectorHomeAccess.balance)}</small>`:''}`;
+ panel.querySelector('button').addEventListener('click',async()=>{
+  if(sectorHomeBusy)return;
+  if(sectorHomeAccess.unavailable){await loadSectorFlow();return;}
+  sectorHomeBusy=true;renderSectorHomeLock();
+  try{await sectorflowRequest('unlock');toast('已解锁资金流向');await loadSectorFlow();}
+  catch(error){if(error.status===401)return goLogin();toast(error.message,true);}
+  finally{sectorHomeBusy=false;renderSectorHomeLock();}
+ });
 }
+async function loadSectorFlow() {
+ try{
+  const {response,payload}=await request('/api/sectorflow?resource=summary');
+  if(response.status===401)return goLogin();
+  if(!response.ok)throw new Error(payload.error||'暂时无法读取资金流向');
+  sectorHomeAccess=payload;renderSectorHomeLock();
+  flowChart.update(payload.locked?null:payload.dashboard);
+ }catch{
+  sectorHomeAccess={locked:true,unavailable:true};renderSectorHomeLock();flowChart.update(null);
+ }
+}
+addEventListener('pageshow',event=>{if(event.persisted)loadSectorFlow();});
 
 // ── 6. 涨停情绪 ──
 let limitupData = null;
@@ -362,7 +382,7 @@ function renderEtfHome(){
  $('#etf-home-lock').hidden=!locked;
  $('#etf-home-time').hidden=locked;
  etfHomeButton.disabled=etfHomeBusy||!etfHomeData?.ready;
- etfHomeButton.textContent=etfHomeBusy?'解锁中…':'解锁 · 10 积分';
+ etfHomeButton.textContent=etfHomeBusy?'解锁中…':'解锁 · 5 积分';
  $('#etf-home-balance').hidden=etfHomeData?.balance==null;
  $('#etf-home-balance').textContent=etfHomeData?.balance==null?'':`积分 ${etfHomeData.balance}`;
  $('#etf-home-lock p').textContent=etfHomeData?.unavailable?'积分服务暂时不可用，请稍后再试':'解锁后 12 小时内，首页与看板都能查看';
