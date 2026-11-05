@@ -1,4 +1,4 @@
-// Summary remains a free preview. Full data require an independent 12-hour unlock.
+// Homepage and full board share the same 12-hour points unlock.
 import {getStore} from './_lib/short-emotion/store.js';
 import {readSectorFlow} from './_lib/sectorflow/service.js';
 import {requireSession,authConfig} from './_lib/session.js';
@@ -24,10 +24,9 @@ export function createSectorflowHandler({session=requireSession,config=authConfi
     if(!result?.ok)throw new InsufficientPointsError(result?.balance);
     return res.status(200).json({...result,locked:false,...SECTORFLOW_UNLOCK});
    }
-   if(resource==='summary')return res.status(200).json(await read(store('cn'),'summary'));
    const access=await sectorflowAccess(user,{status,config:config()});
    if(resource==='access'||access.locked)return res.status(200).json(access);
-   const payload=await read(store('cn',{fresh:req.query?.fresh==='1'}),'full');
+   const payload=await read(store('cn',{fresh:req.query?.fresh==='1'}),resource);
    return res.status(200).json({...payload,...access});
   }catch(error){res.setHeader('Cache-Control','no-store');return res.status(error.statusCode||500).json({error:error.message,code:error.code||'server_error',...(error.balance!==undefined?{balance:error.balance}:{})});}
  };

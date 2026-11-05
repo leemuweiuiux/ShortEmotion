@@ -67,7 +67,7 @@ setInterval(()=>{if(!document.hidden)load();},5*60_000);
 const sectorAction=$('#ef-sector-action');let sectorAccess=null,sectorBusy=false;
 function renderSectorAccess(){
  sectorAction.disabled=sectorBusy||!sectorAccess;
- sectorAction.textContent=sectorBusy?'解锁中…':!sectorAccess||sectorAccess.locked?'解锁（10积分）':'查看更多';
+ sectorAction.textContent=sectorBusy?'解锁中…':!sectorAccess||sectorAccess.locked?'解锁（5积分）':'查看更多';
  sectorAction.title=sectorAccess?.unavailable?'积分服务暂时不可用，请稍后再试':sectorAccess?.locked?'解锁后12小时内有效，重复查看不扣分':'';
 }
 async function loadSectorAccess(){
@@ -91,6 +91,6 @@ addEventListener('pageshow',event=>{if(event.persisted){loadSectorAccess();load(
 let etfUnlockBusy=false;
 $('#ef-unlock').addEventListener('click',async()=>{
  if(etfUnlockBusy)return;etfUnlockBusy=true;const b=$('#ef-unlock');b.disabled=true;b.textContent='解锁中…';
- try{await etfflowRequest('unlock');toast('已解锁宽基ETF资金');await load();}catch(error){if(error.status===401)return goLogin();toast(error.message,true);}finally{etfUnlockBusy=false;b.disabled=Boolean(dashboard?.unavailable);b.textContent='解锁（10积分）';}
+ try{await etfflowRequest('unlock');toast('已解锁宽基ETF资金');await load();}catch(error){if(error.status===401)return goLogin();toast(error.message,true);}finally{etfUnlockBusy=false;b.disabled=Boolean(dashboard?.unavailable);b.textContent='解锁（5积分）';}
 });
 setupEtfShare($('#ef-share'),{data:()=>dashboard,selected:()=>selected,metric:()=>$('#ef-metric').value,toast});

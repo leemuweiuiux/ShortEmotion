@@ -89,3 +89,5 @@
 .home-etf-body .lock-skeleton { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .home-etf-body .lock-skeleton i { height:112px; }
 #etf-home-lock[hidden],#etf-home-time[hidden],#etf-home-balance[hidden] { display:none; }
+
+#sectorflow-home-lock[hidden],#sectorflow-chart[hidden] { display:none; }

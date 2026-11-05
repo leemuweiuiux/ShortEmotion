@@ -49,7 +49,7 @@
     <main>
       <div class="ef-heading"><div><h1>宽基 ETF 资金</h1><p id="ef-date">正在读取数据…</p></div><div class="ef-share-wrap"><button id="ef-share" class="nav-btn" type="button" aria-label="导出分享" aria-haspopup="menu" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 4v11M7.5 8.5 12 4l4.5 4.5M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
       <section class="card ef-overview" aria-labelledby="overview-title"><div class="card-head"><h2 id="overview-title" class="card-title">资金概览</h2><span>单位：亿元</span></div><div id="ef-overview" aria-live="polite"></div></section>
-      <section id="ef-paywall" class="card" hidden><h2 class="card-title">查看宽基 ETF 资金</h2><p id="ef-paywall-copy" class="card-desc">解锁后查看各类宽基、历史流入及ETF明细，12小时内有效。</p><button id="ef-unlock" class="etf-home-action" type="button">解锁（10积分）</button></section>
+      <section id="ef-paywall" class="card" hidden><h2 class="card-title">查看宽基 ETF 资金</h2><p id="ef-paywall-copy" class="card-desc">解锁后查看各类宽基、历史流入及ETF明细，12小时内有效。</p><button id="ef-unlock" class="etf-home-action" type="button">解锁（5积分）</button></section>
       <div id="ef-protected" class="ef-protected" hidden>
       <section class="card"><div class="card-head"><h2 class="card-title">各类宽基</h2><label class="ef-label">查看指标 <select id="ef-metric" disabled><option value="amount">当日净流入</option><option value="day">较昨日</option><option value="week">较近一周</option><option value="month">较近一月</option></select></label></div><div id="ef-groups" class="ef-groups" aria-live="polite"></div><a id="ef-detail-link" class="ef-detail-link" href="#ef-detail-section">查看所选宽基 ETF 明细 →</a></section>
       <section class="card"><div class="card-head"><h2 class="card-title">近一月每日净流入</h2><span class="ef-legend">红：净申购　绿：净赎回</span></div><div class="ef-scroll-tools"><span>左右滑动查看各类宽基</span><div class="ef-scroll-buttons"><button id="ef-scroll-prev" type="button" aria-label="查看左侧宽基" aria-controls="ef-heatmap-scroll" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m14 6-6 6 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="ef-scroll-next" type="button" aria-label="查看右侧宽基" aria-controls="ef-heatmap-scroll" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m10 6 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div><div id="ef-heatmap-scroll" class="ef-scroll" tabindex="0" role="region" aria-label="ETF每日净流入热力表，可横向滚动"><table id="ef-table"><caption>最近22个交易日，颜色深浅按各列相对大小</caption></table></div><p id="ef-missing" class="ef-note" hidden>当前数据缺失</p></section>
@@ -62,7 +62,7 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="/short-emotion/vendor/html-to-image.js" defer></script>
-  <script type="module" src="/etfflow/etfflow.js?v=3"></script>
+  <script type="module" src="/etfflow/etfflow.js?v=4"></script>
 
 
   <script type="module" src="/shared/nav-points.js?v=2"></script>
