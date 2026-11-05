@@ -79,7 +79,7 @@ describe("板块资金接口 /api/sectorflow", () => {
       expect(text).not.toMatch(/首板|打板|8841299|8841757/);
       expect(text).toContain("先进封装");
     }
-    expect((await call(handler, { method: "POST" })).statusCode).toBe(405);
+    expect((await call(handler, { method: "POST" })).statusCode).toBe(404);
   });
 });
 

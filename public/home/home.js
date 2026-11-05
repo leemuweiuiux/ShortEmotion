@@ -1,3 +1,5 @@
+import {etfOverviewMarkup} from '/shared/etf-overview.js?v=1';
+import {etfflowRequest} from '/shared/etfflow-access.js?v=1';
 import { emotionTimeLabel } from "/shared/local-time.js?v=1";
 import { startAnalysisRefresh } from "./analysis-refresh.js?v=1";
 import { updateNavPoints } from "/shared/nav-points.js?v=2";
@@ -351,3 +353,22 @@ loadSectorFlow();
 
 
 window.addEventListener("se:points-updated", loadPoints);
+
+let etfHomeData=null,etfHomeBusy=false;
+const etfHomeButton=$('#etf-home-action');
+function renderEtfHome(){
+ etfHomeButton.disabled=etfHomeBusy||!etfHomeData?.ready;
+ etfHomeButton.textContent=etfHomeBusy?'解锁中…':etfHomeData?.locked?'解锁（10积分）':'查看更多';
+ if(!etfHomeData?.ready){$('#etf-home-overview').textContent='当前数据缺失';$('#etf-home-time').textContent='';return;}
+ if(etfHomeData?.ready){$('#etf-home-overview').innerHTML=etfOverviewMarkup(etfHomeData);$('#etf-home-time').textContent=`数据日期 ${etfHomeData.date.slice(0,4)}-${etfHomeData.date.slice(4,6)}-${etfHomeData.date.slice(6)}`;}
+}
+async function loadEtfHome(){try{etfHomeData=await etfflowRequest();renderEtfHome();}catch(error){if(error.status===401)return goLogin();$('#etf-home-overview').textContent=error.message;}}
+etfHomeButton.addEventListener('click',async()=>{
+ if(etfHomeBusy||!etfHomeData)return;
+ if(etfHomeData.unavailable){toast('积分服务暂时不可用，请稍后再试',true);loadEtfHome();return;}
+ if(!etfHomeData.locked){location.assign('/etfflow');return;}
+ etfHomeBusy=true;renderEtfHome();
+ try{await etfflowRequest('unlock');toast('已解锁宽基ETF资金');await loadEtfHome();}catch(error){if(error.status===401)return goLogin();toast(error.message,true);}finally{etfHomeBusy=false;renderEtfHome();}
+});
+loadEtfHome();
+addEventListener('pageshow',event=>{if(event.persisted)loadEtfHome();});
