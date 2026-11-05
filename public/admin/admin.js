@@ -1,6 +1,6 @@
 import { paidCardsHtml, BALANCE_BUCKETS } from "/admin/overview.js?v=6";
 import { initRedemption } from "/admin/redemption.js?v=6";
-import { buildUsageTree, usageRowsHtml } from "/admin/usage-tree.js?v=1";
+import { buildUsageTree, usageRowsHtml } from "/admin/usage-tree.js?v=2";
 // 管理后台 /admin（只给管理员）：概览、积分流水、直接发放、兑换码管理。
 // 流水沿用匿名代号；兑换码详情仅管理员可查看邮箱与名单。接口见 api/admin.js。
 import { openDateRange, rangeLabel } from "/shared/date-range.js?v=1";
@@ -177,7 +177,7 @@ function drawUsage() { $("#usage-rows").innerHTML = usageRowsHtml(usageTree, usa
 function renderUsage(usage) {
   $("#usage-start").textContent = usage?.startedAt ? `采集开始 ${timeLabel(usage.startedAt)}；以下为采集开始后的数据。` : "功能使用数据暂不可用";
   if (!usage || !Array.isArray(usage.rows)) {
-    $("#usage-rows").innerHTML = '<tr><td colspan="4">功能使用数据暂不可用，请稍后刷新。</td></tr>';
+    $("#usage-rows").innerHTML = '<tr><td colspan="3">功能使用数据暂不可用，请稍后刷新。</td></tr>';
     usageTree = []; return;
   }
   usageTree = buildUsageTree(usage.rows);

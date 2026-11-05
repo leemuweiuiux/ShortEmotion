@@ -30,7 +30,7 @@
   <link rel="stylesheet" href="/shared/form.css?v=1">
   <link rel="stylesheet" href="/shared/date-range.css?v=1">
   <link rel="stylesheet" href="/account/account.css?v=14">
-  <link rel="stylesheet" href="/admin/admin.css?v=redemption-6">
+  <link rel="stylesheet" href="/admin/admin.css?v=usage-7">
   </head>
 <body class="sub-page admin-page">
   <nav class="subnav">
@@ -49,7 +49,7 @@
         <a href="#overview" data-tab="overview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4zM14 20h6V4h-6zM4 20h6v-4H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>总览</a>
         <a href="#ledger" data-tab="ledger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>积分列表</a>
         <a href="#grant" data-tab="grant"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>积分发放</a>
-        <a href="#redemption" data-tab="redemption">兑换码管理</a>
+        <a href="#redemption" data-tab="redemption"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v5a2 2 0 0 0 0 4v5H4v-5a2 2 0 0 0 0-4V5zM14 5v2m0 4v2m0 4v2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>兑换码管理</a>
       </nav>
       <a class="admin-menu-back" href="/home">返回首页</a>
     </div>
@@ -111,10 +111,10 @@
         <div class="usage-heading"><div class="section-title">全站功能使用 · 用户路径</div><div class="usage-controls"><button id="usage-expand" type="button" class="btn-secondary">全部展开</button><button id="usage-collapse" type="button" class="btn-secondary">收起</button></div></div>
         <p class="usage-path">About 产品介绍 <span aria-hidden="true">→</span> 登录 <span aria-hidden="true">→</span> Home 首页 <span aria-hidden="true">→</span> 看板 / 个人中心 <span aria-hidden="true">→</span> 具体操作</p>
         <p id="usage-start" class="admin-muted">读取中…</p>
-        <p class="admin-muted">页面行展示该页面的访问次数和登录用户去重人数，展开后查看子功能与操作结果；父级不累加子级人数。匿名数为未登录浏览器标识数，不等于真实人数。此处按产品层级整理，不代表用户实际连续访问或转化漏斗。</p>
+        <p class="admin-muted">页面行展示该页面的访问次数和登录用户去重人数，展开后查看子功能与操作次数；父级不累加子级人数。匿名数为未登录浏览器标识数，不等于真实人数。此处按产品层级整理，不代表用户实际连续访问或转化漏斗。</p>
         <div class="admin-table-wrap"><table class="admin-table usage-table">
-          <thead><tr><th>用户路径 / 功能 / 操作</th><th>今日次数 / 人数</th><th>近7日次数 / 人数 / 匿名数</th><th>近7日结果</th></tr></thead>
-          <tbody id="usage-rows"><tr><td colspan="4">读取中…</td></tr></tbody>
+          <thead><tr><th>用户路径 / 功能 / 操作</th><th>今日次数 / 人数</th><th>近7日次数 / 人数 / 匿名数</th></tr></thead>
+          <tbody id="usage-rows"><tr><td colspan="3">读取中…</td></tr></tbody>
         </table></div>
         <p class="admin-muted">点击导出只代表操作尝试；接口成功不保证页面渲染成功。刷新任务已受理与完成分开理解。历史未采集的行为不回补。</p>
       </details>
@@ -205,6 +205,6 @@
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/admin/admin.js?v=6"></script>
+  <script type="module" src="/admin/admin.js?v=7"></script>
 </body>
 </html>

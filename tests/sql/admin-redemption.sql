@@ -17,6 +17,11 @@ begin
  assert (r->>'ok')::boolean, r::text; code2:=r->'code'->>'code'; assert (r->'code'->>'max_claims')::integer=1;
  r:=public.admin_redemption('create','{"id":"20000000-0000-4000-8000-000000000003","name":"test unlimited","mode":"unlimited","amount":50}');
  assert (r->>'ok')::boolean, r::text; code3:=r->'code'->>'code';
+ r:=public.admin_redemption('list','{"search":"test limited","mode":"limited","status":"active"}');
+ assert (r->>'ok')::boolean and jsonb_array_length(r->'rows')=1 and r->'rows'->0->>'code'=code1,r::text;
+ r:=public.admin_redemption('list','{"search":"nonexistent-redemption-test-fixture","mode":"","status":""}');
+ assert (r->>'ok')::boolean and jsonb_array_length(r->'rows')=0,r::text;
+
  r:=public.admin_redemption('create','{"id":"20000000-0000-4000-8000-000000000004","name":"bad","mode":"unlimited","amount":1001}'); assert r->>'reason'='bad_input';
  perform set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',true);
  r:=public.points_redeem_code(code1,false); assert (r->>'claimed')::integer=0 and (r->>'maxClaims')::integer=1;

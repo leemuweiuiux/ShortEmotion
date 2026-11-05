@@ -26,12 +26,13 @@ describe('用户路径统计层级', () => {
     expect(usageRowsHtml(tree,new Set())).toContain('0 / 0');
     expect(find(tree,'future').children[0].metric.source).toBe('browser');
   });
-  it('expands only descendants of expanded nodes, retaining source results and escaping labels', () => {
+  it('expands only descendants of expanded nodes, keeping three columns and escaping labels', () => {
     const tree=buildUsageTree([event('limitup','unlock','api',{success:1,failure:1}),event('limitup','click:<img src=x>')]);
     expect(visibleUsageNodes(tree,new Set()).map(n=>n.id)).toEqual(['about','login','home']);
     const expanded=new Set(['home','boards','limitup']);
     const html=usageRowsHtml(tree,expanded);
-    expect(html).toContain('aria-expanded="true"'); expect(html).toContain('成功 1 · 失败 1');
+    expect(html).toContain('aria-expanded="true"'); expect(html).not.toContain('成功 1 · 失败 1');
+    expect(html.match(/<td>/g)).toHaveLength(visibleUsageNodes(tree,expanded).length*2);
     expect(html).toContain('&lt;img src=x&gt;'); expect(html).not.toContain('<img');
   });
   it('names route destinations without pretending legacy generic navigation knows its target', () => {
