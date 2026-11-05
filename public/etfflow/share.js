@@ -1,3 +1,4 @@
+import {loadImageExporter} from '/shared/export-loader.js?v=1';
 import {exportHeader,exportFooter,renderImage,prepareExportAssets,showGallery,withTimeout,esc} from '/shared/export-image.js?v=2';
 import {etfOverviewMarkup,etfNumber,etfColor} from '/shared/etf-overview.js?v=1';
 const labels={amount:'当日净流入（亿元）',day:'较昨日',week:'较近一周',month:'较近一月'};
@@ -37,10 +38,11 @@ export function setupEtfShare(button,{data,selected,metric,toast}){
  function close(){menu?.remove();menu=null;button.setAttribute('aria-expanded','false');}
  async function run(kind){
   close();if(busy||button.disabled)return;const snapshot=data();if(!snapshot?.ready||snapshot.locked)return;
-  if(!window.htmlToImage)return toast('分享组件尚未加载完成，请稍后重试',true);
+
   busy=true;button.disabled=true;button.setAttribute('aria-busy','true');
   try{
    toast(kind==='long'?'正在生成长图…':'正在生成小卡…');
+   await loadImageExporter();
    await withTimeout(prepareExportAssets(),8000).catch(()=>{});
    const blob=await renderImage(buildEtfExport(snapshot,{kind,selected:selected(),metric:metric()}),{extraClass:'ef-export'});
    const title=`宽基ETF资金-${kind==='long'?'长图':'小卡'}`;
