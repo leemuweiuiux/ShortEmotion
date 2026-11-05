@@ -56,7 +56,8 @@ function renderGift() {
   if (!gift.code) return;
   $("#done").hidden = true;
   setText($("#gift-name"), info?.name || "积分礼包");
-  $("#gift-amount").textContent = info?.amount != null ? String(info.amount) : "—";
+  $("#gift-amount").textContent = info?.amount != null ? String(info.amount) : "";
+  $(".gift-amount").hidden = info?.amount == null; // 读不到预览（例如未登录且预览不可用）时只显示「积分礼包」
   const remaining = $("#gift-remaining");
   const left = info?.maxClaims != null && info?.claimed != null ? Math.max(0, info.maxClaims - info.claimed) : null;
   remaining.hidden = left == null || info?.status !== "active";
