@@ -13,7 +13,7 @@ const date=d=>d?`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`:'—';
 const labels={day:'较昨日',week:'较近一周',month:'较近一月'};
 const state={inflow:'转为净流入',outflow:'转为净流出','outflow-narrower':'净流出收窄','outflow-wider':'净流出扩大',missing:'当前数据缺失',zero:'基准为零'};
 function ratio(c){if(!c||c.state==='missing')return '—';return valid(c.pct)?num(c.pct,1)+'%':num(c.delta)+' 亿';}
-function ratioTitle(c){return c?.state==='missing'?'当前数据缺失':`${state[c?.state]||'净流入变化'}；同一批有效样本 ${c.covered}/${c.expected} 只；今日样本净流入 ${num(c.today)} 亿元；比较基准 ${num(c.baseline)} 亿元；增减 ${num(c.delta)} 亿元`;}
+function ratioTitle(c){return c?.state==='missing'?'当前数据缺失':`${state[c?.state]||'净流入变化'}；同一批有效样本 ${c.covered}/${c.expected} 只；当日样本净流入 ${num(c.today)} 亿元；比较基准 ${num(c.baseline)} 亿元；增减 ${num(c.delta)} 亿元`;}
 const coverage=c=>c?.covered<c?.expected?`<small>${c.covered}/${c.expected}只</small>`:'';
 let dashboard,selected='hs300';
 let received=false;

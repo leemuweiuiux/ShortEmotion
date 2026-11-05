@@ -30,11 +30,33 @@ function quoteMinuteOf(quoteTime) {
   return match ? Number(match[1]) * 60 + Number(match[2]) : null;
 }
 
-/** 当日已有 15:00 之后的收盘快照：收盘后的普通定时更新不再重算（节约 Wind 额度）。 */
-export function hasCloseSnapshot(board, day) {
+function isCloseSnapshot(board, day) {
   if (!board || quoteDayOf(board.quoteTime) !== String(day)) return false;
   const minute = quoteMinuteOf(board.quoteTime);
   return minute != null && minute >= 15 * 60;
+}
+
+/**
+ * 当日已有 15:00 之后、且明细完整的收盘快照：收盘后的普通定时更新不再重算（节约 Wind 额度）。
+ * 明细不完整（dataQuality.detailComplete === false）时收盘后继续补跑，直到取齐。
+ * 旧快照没有这个字段，按完整处理，不追溯重跑。
+ */
+export function hasCloseSnapshot(board, day) {
+  return isCloseSnapshot(board, day) && board.dataQuality?.detailComplete !== false && board.dataQuality?.relayComplete !== false;
+}
+
+/** 快照完整度：门槛通过数优先，其次明细家数。旧快照没有门槛字段，视为最低档。 */
+export function snapshotCompleteness(board) {
+  const quality = board?.dataQuality || {};
+  const gates = ["detailComplete", "relayComplete", "ladderComplete", "sealComplete"].filter((key) => quality[key] === true).length;
+  return gates * 10_000 + (Number(quality.detail?.returned) || (board?.stocks || []).length);
+}
+
+/** 同一交易日收盘后补跑时，新结果不如已存快照完整就不覆盖（Wind 偶发漏数，越跑越差的情况要挡住）。 */
+export function shouldKeepPrevious(previous, board) {
+  if (!previous || !board || previous.tradingDate !== board.tradingDate) return false;
+  if (!isCloseSnapshot(previous, previous.tradingDate) || !isCloseSnapshot(board, board.tradingDate)) return false;
+  return snapshotCompleteness(previous) > snapshotCompleteness(board);
 }
 
 export async function limitupHasClose(store, day) {
@@ -72,6 +94,10 @@ export async function refreshLimitUp(store, { day } = {}) {
 
   if (board.degraded) {
     output.skipped = "未返回涨停列表，保留上一份快照";
+    return output;
+  }
+  if (shouldKeepPrevious(previous, board)) {
+    output.skipped = "本次收盘数据不如已存快照完整，保留已存快照";
     return output;
   }
   await store.kvSet(LIMITUP_KEYS.latest, board);
@@ -122,6 +148,16 @@ export function compactLadder(board, perTier = LADDER_PREVIEW_STOCKS) {
   }));
 }
 
+/** 由快照门槛推出哪些模块待补齐；旧快照没有门槛字段，全部视为已就绪。 */
+export function pendingOf(board) {
+  const quality = board?.dataQuality || {};
+  return {
+    ladder: quality.ladderComplete === false,
+    relay: quality.relayComplete === false,
+    detail: quality.detail && quality.detailComplete === false ? { returned: quality.detail.returned, total: quality.detail.total } : null
+  };
+}
+
 /** 首页卡片：4 个数字免费；天梯只在解锁后返回。 */
 export function summarizeLimitUp(board, previous, { unlocked = false, storedAt = null } = {}) {
   const summary = board?.summary || {};
@@ -146,6 +182,8 @@ export function summarizeLimitUp(board, previous, { unlocked = false, storedAt =
       limitDownCount: previous.limitDownCount ?? null,
       maxStreak: previous.maxStreak ?? null
     } : null,
+    // 门槛未过的指标在首页显示「待补齐」而不是空白或错误数字
+    pending: pendingOf(board),
     ladderTiers: (board?.ladder || []).length,
     ladder: unlocked ? compactLadder(board) : null
   };
