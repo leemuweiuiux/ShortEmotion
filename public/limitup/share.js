@@ -1,3 +1,4 @@
+import {loadImageExporter} from '/shared/export-loader.js?v=1';
 // 涨停情绪：只导出当前已解锁且已显示的数据，不另行请求或刷新。
 import { exportHeader, exportFooter, renderImage, prepareExportAssets, shareOrDownload, showGallery, closeGallery, withTimeout } from "/shared/export-image.js?v=2";
 import { toast } from "/shared/nav-account.js?v=4";
@@ -28,9 +29,10 @@ export function setupLimitupShare() {
   async function run(kind) {
     closeMenu();
     if (busy || $("#lu-content").hidden) return;
-    if (!window.htmlToImage) return toast("分享组件尚未加载完成，请稍后重试", true);
+
     busy = true; button.disabled = true; button.setAttribute("aria-busy", "true");
     try {
+      await loadImageExporter();
       await withTimeout(prepareExportAssets(), 8000).catch(() => {});
       const items = sections();
       const stamp = subtitle();

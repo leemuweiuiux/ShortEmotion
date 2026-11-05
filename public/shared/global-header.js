@@ -1,9 +1,11 @@
+import { readAccount, readPoints, clearRequestCache } from '/shared/request.js?v=1';
 // One shared header for every ShortEmotion page.
 // Existing page-specific account menus remain in charge of their own account button.
 const $ = (s, root=document) => root.querySelector(s);
 const labels = {"/etfflow":"宽基ETF资金","/home":"首页","/about":"ShortEmotion","/login":"ShortEmotion","/shortemotion/cn":"短线情绪","/short-emotion":"短线情绪","/limitup":"涨停情绪","/sectorflow":"资金流向","/technicalanalysis":"个股技术分析","/kandian":"看点","/kandian/article":"看点文章","/account":"个人中心","/account/signin":"每日签到","/account/points":"积分流水","/account/settings":"设置","/account/edit":"编辑个人信息","/account/invite":"邀请好友"};
 let state = { authenticated: false, enabled: true, signedToday: null, unlimited: false };
 let busy = false;
+let refreshAgain = false;
 const nav = document.querySelector('nav.nav, nav.subnav');
 function iconAccount(){ return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5" stroke="currentColor" stroke-width="1.6"/><path d="M5 19.5c1.2-3.3 3.8-5 7-5s5.8 1.7 7 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'; }
 function iconCheck(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18m-13 5 2.5 2.5 5-5"/></svg>'; }
@@ -30,8 +32,7 @@ if (nav) {
     logo.addEventListener('click',async event=>{
       event.preventDefault();
       try {
-        const res=await fetch('/api/auth?action=me',{credentials:'same-origin',headers:{Accept:'application/json'},cache:'no-store'});
-        const data=await res.json().catch(()=>({}));
+        const {response:res,payload:data}=await readAccount();
         location.assign(res.ok && (data.user || data.enabled===false) ? '/home' : '/about');
       }catch{ location.assign('/about'); }
     });
@@ -67,6 +68,7 @@ if (nav) {
       const menu=document.createElement('div');menu.className='global-header-menu';
       menu.innerHTML='<a href="/account">个人中心</a><a href="/account/points">积分流水</a><button type="button">退出登录</button>';
       menu.querySelector('button').addEventListener('click',async()=>{
+        clearRequestCache();
         await fetch('/api/auth?action=logout',{method:'POST',credentials:'same-origin'}).catch(()=>{});
         location.replace('/about');
       });
@@ -86,26 +88,31 @@ if (nav) {
   }
   renderSignin();
   async function refresh(){
+    if(busy)return;
+    busy=true;
     try{
-      const auth=await fetch('/api/auth?action=me',{credentials:'same-origin',headers:{Accept:'application/json'},cache:'no-store'});
-      const a=await auth.json().catch(()=>({}));
+      const accountRequest=readAccount();
+      const pointsRequest=showAccountActions?readPoints().catch(()=>null):null;
+      const {response:auth,payload:a}=await accountRequest;
       state.enabled=a.enabled!==false;
       state.authenticated=Boolean(a.user) || !state.enabled;
       if(!state.authenticated){state.signedToday=null;renderSignin();return;}
       if (!showAccountActions) { renderSignin(); return; }
-      const res=await fetch('/api/auth?action=points&tz=Asia%2FShanghai',{credentials:'same-origin',headers:{Accept:'application/json'},cache:'no-store'});
+      const pointsResult=await pointsRequest;
+      if(!pointsResult){renderSignin();return;}
+      const {response:res,payload:p}=pointsResult;
       if(!res.ok){renderSignin();return;}
-      const p=await res.json();
       state.unlimited=Boolean(p.unlimited);
       state.signedToday=Boolean(p.signedToday);
       updateNavPoints(p);renderSignin();
     }catch{renderSignin();}
+    finally{busy=false;if(refreshAgain){refreshAgain=false;refresh();}}
   }
   refresh();
   window.addEventListener('focus',refresh);
-  window.addEventListener('pageshow',refresh);
+  window.addEventListener('pageshow',event=>{if(event.persisted)refresh();});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
-  window.addEventListener('se:points-updated',refresh);
+  window.addEventListener('se:points-updated',()=>{if(busy)refreshAgain=true;else refresh();});
 }
 export function updateNavPoints(payload){
   if(payload?.balance==null)return;

@@ -1,4 +1,5 @@
 import {sectorflowRequest} from '/shared/sectorflow-access.js?v=1';
+import {requestJSON,restoreSnapshot} from '/shared/request.js?v=1';
 // Full board is protected by an independent 12-hour points unlock.
 import { toast, goLogin, initAccountMenu } from '/shared/nav-account.js?v=4';
 import { mountFundFlow } from '/shared/fund-flow.js?v=8';
@@ -7,15 +8,22 @@ initAccountMenu();
 const chart = mountFundFlow(document.querySelector('#fund-flow'), { initialCode: new URLSearchParams(location.search).get('board') || '' });
 const shareButton = document.querySelector('#sf-share');
 let loaded = false;
+let received = false;
 let unlockBusy = false;
 const accessPanel=document.querySelector('#sf-access'),flowPanel=document.querySelector('#fund-flow');
 setupShare(shareButton, chart, { toast, ready: () => loaded });
+// Seed today's curve while the complete board is loading. Preview data never
+// enables exporting or replaces a newer server response.
+restoreSnapshot('sectorflow').then(payload=>{
+  if(received || !payload?.dashboard || payload.locked)return;
+  chart.update(payload.dashboard);flowPanel.hidden=false;
+});
 async function load() {
   try {
-    const response = await fetch('/api/sectorflow?resource=full', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+    const {response,payload} = await requestJSON('/api/sectorflow?resource=full');
     if (response.status === 401) return goLogin();
-    const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || '暂时无法读取资金流向');
+    received=true;
     if(payload.locked){
       loaded=false;chart.update(null);flowPanel.hidden=true;accessPanel.hidden=false;
       accessPanel.innerHTML='<p></p><button id="sf-unlock" type="button">解锁（5积分）</button>';
@@ -41,3 +49,4 @@ async function load() {
 }
 load();
 setInterval(() => { if (!document.hidden) load(); }, 5 * 60_000);
+addEventListener('pageshow',event=>{if(event.persisted)load();});

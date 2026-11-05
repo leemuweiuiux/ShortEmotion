@@ -1,4 +1,5 @@
 import {etfflowRequest} from '/shared/etfflow-access.js?v=1';
+import {restoreSnapshot} from '/shared/request.js?v=1';
 import {etfOverviewMarkup} from '/shared/etf-overview.js?v=1';
 import {setupEtfShare} from '/etfflow/share.js?v=1';
 import {sectorflowRequest} from '/shared/sectorflow-access.js?v=1';
@@ -15,6 +16,12 @@ function ratio(c){if(!c||c.state==='missing')return '—';return valid(c.pct)?nu
 function ratioTitle(c){return c?.state==='missing'?'当前数据缺失':`${state[c?.state]||'净流入变化'}；同一批有效样本 ${c.covered}/${c.expected} 只；今日样本净流入 ${num(c.today)} 亿元；比较基准 ${num(c.baseline)} 亿元；增减 ${num(c.delta)} 亿元`;}
 const coverage=c=>c?.covered<c?.expected?`<small>${c.covered}/${c.expected}只</small>`:'';
 let dashboard,selected='hs300';
+let received=false;
+restoreSnapshot('etfflow').then(data=>{
+ if(received||!data?.ready||data.locked)return;
+ $('#ef-overview').innerHTML=etfOverviewMarkup(data);
+ $('#ef-date').textContent=`数据日期 ${date(data.date)}`;
+});
 function overview(){$('#ef-overview').innerHTML=etfOverviewMarkup(dashboard);}
 function groups(){
  const metric=$('#ef-metric').value;
@@ -51,8 +58,7 @@ for(const [id,direction] of [['#ef-scroll-prev',-1],['#ef-scroll-next',1]]){
 scrollRegion.addEventListener('scroll',updateScrollButtons,{passive:true});
 if(typeof ResizeObserver!=='undefined')new ResizeObserver(updateScrollButtons).observe(scrollRegion);
 async function load(){try{
- const response=await fetch('/api/etf-flow',{credentials:'same-origin',headers:{Accept:'application/json'}});if(response.status===401)return goLogin();
- const data=await response.json();if(!response.ok)throw new Error(data.error||'暂时无法读取ETF资金');dashboard=data;
+ const data=await etfflowRequest('full');dashboard=data;received=true;
  if(!data.ready){$('#ef-protected').hidden=true;$('#ef-paywall').hidden=true;$('#ef-share').disabled=true;$('#ef-date').textContent='当前数据缺失';for(const id of ['#ef-overview','#ef-groups'])$(id).innerHTML='<p class="ef-empty">当前数据缺失</p>';return;}
  const updated=data.updatedAt?new Intl.DateTimeFormat(undefined,{dateStyle:'short',timeStyle:'short'}).format(new Date(data.updatedAt)):'';
  $('#ef-date').textContent=`数据日期 ${date(data.date)}${updated?` · 更新于 ${updated}`:''}`;
@@ -60,7 +66,7 @@ async function load(){try{
  if(data.locked){$('#ef-unlock').disabled=Boolean(data.unavailable);$('#ef-paywall-copy').textContent=data.unavailable?'积分服务暂时不可用，请稍后再试':'解锁后查看各类宽基、历史流入及ETF明细，12小时内有效。';return;}
  $('#ef-filter').innerHTML=data.series.map(g=>`<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('');
  $('#ef-metric').disabled=false;$('#ef-filter').disabled=false;overview();groups();heatmap();select(selected);
- }catch(e){$('#ef-date').textContent=e.message;if(!dashboard)$('#ef-overview').innerHTML='<p class="ef-empty">当前数据缺失</p>';}}
+ }catch(e){if(e.status===401)return goLogin();$('#ef-date').textContent=e.message;if(!dashboard)$('#ef-overview').innerHTML='<p class="ef-empty">当前数据缺失</p>';}}
 load();
 setInterval(()=>{if(!document.hidden)load();},5*60_000);
 
