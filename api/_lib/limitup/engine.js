@@ -1,4 +1,5 @@
 import { loadMarketLimitCounts } from "../short-emotion/market-limit-counts.js";
+import { loadStockProfileText } from "../short-emotion/persistent-cache.js";
 // 涨停情绪 · 计算层（/limitup）
 //
 // 原样移植自 lfjDashboard「涨停事件工作台20261027」的 api/_lib/short-emotion/limit-engine.js，
@@ -61,7 +62,7 @@ async function fetchSectorRows(day, sector) {
     try {
       const payload = await windCall("stock_data", "search_stocks", { question: eventQuestion(day, sector.phrase) });
       const rows = tables(payload).flatMap(objects);
-      if (rows.length) return { rows, capped: rows.length >= ROW_CAP, error: null };
+      if (rows.length) return { rows, capped: rows.length >= ROW_CAP || Boolean(payload?._nearLimit), error: null };
       lastError = `第${attempt}次空表`;
     } catch (error) {
       lastError = `第${attempt}次: ${String(error?.message || error)}`;
@@ -673,14 +674,12 @@ async function reviewConceptsByNews(stocks, day, brokenCodes = [], nameByCode = 
 
 // ── 主营复核（方案 A） ─────────────────────────────────────────────────
 // 只对带「家电」等集团品牌标签的个股取主营，成本可控（通常个位数）。
-const businessTextCache = new Map();
+// 与短线情绪共用跨天缓存（30 天，见 short-emotion/persistent-cache.js）
 async function loadBusinessText(day, code) {
-  const key = `${day}:${code}`;
-  if (businessTextCache.has(key)) return businessTextCache.get(key);
-  const payload = await windCall("stock_data", "get_stock_basicinfo", { question: `${code}公司主营业务和核心产品` }, 12_000);
-  const text = tables(payload).flatMap(objects).flatMap((row) => Object.values(row)).filter((value) => value != null).join(" ");
-  businessTextCache.set(key, text);
-  return text;
+  return loadStockProfileText(day, code, async () => {
+    const payload = await windCall("stock_data", "get_stock_basicinfo", { question: `${code}公司主营业务和核心产品` }, 12_000);
+    return tables(payload).flatMap(objects).flatMap((row) => Object.values(row)).filter((value) => value != null).join(" ");
+  });
 }
 
 async function reviewBrandConcepts(stocks, day) {
