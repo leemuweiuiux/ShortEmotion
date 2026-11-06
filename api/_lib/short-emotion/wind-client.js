@@ -200,9 +200,7 @@ async function mcpRequestOnce(serverType, method, params, options) {
 
   let payload;
   try {
-    const text = await response.text();
-    if (method === "tools/call") countBytes(serverType, params.name, Buffer.byteLength(text), params.arguments);
-    payload = parseSSE(text);
+    payload = parseSSE(await response.text());
   } catch (error) {
     if (signal.aborted) throw timeoutError();
     throw new WindError("TOOL_RUNTIME_ERROR", `响应解析失败 (server=${serverType})`);
@@ -229,24 +227,9 @@ let mockModulePromise = null;
 
 // 调用统计：每次 tools/call 记一笔（按工具、按 Key），用来估算一次更新消耗多少 Wind 额度。
 // runScheduledRefresh 开始时清零，结束时写进 cron:last-run。initialize 握手不计。
-// 计费按返回数据量（2026-11-06）：另记每次返回的字节数，接近单次 80KB 上限的调用单独列出。
-export const WIND_RESPONSE_LIMIT_BYTES = 80 * 1024;
-export const WIND_RESPONSE_SOFT_LIMIT_BYTES = Math.floor(WIND_RESPONSE_LIMIT_BYTES * 0.9);
-const emptyStats = () => ({ total: 0, failed: 0, byTool: {}, byKey: {}, bytes: 0, bytesByTool: {}, maxBytes: null, nearLimit: [], reused: 0, reusedBytes: 0 });
-let callStats = emptyStats();
+let callStats = { total: 0, failed: 0, byTool: {}, byKey: {} };
 export function resetWindCallStats() {
-  callStats = emptyStats();
-}
-function paramsLabel(params) {
-  const text = params?.question || params?.query || params?.windcode || JSON.stringify(params || {});
-  return String(text).slice(0, 60);
-}
-function countBytes(serverType, toolName, bytes, params) {
-  const tool = `${serverType}/${toolName}`;
-  callStats.bytes += bytes;
-  callStats.bytesByTool[tool] = (callStats.bytesByTool[tool] || 0) + bytes;
-  if (!callStats.maxBytes || bytes > callStats.maxBytes.bytes) callStats.maxBytes = { tool, bytes, params: paramsLabel(params) };
-  if (bytes >= WIND_RESPONSE_SOFT_LIMIT_BYTES && callStats.nearLimit.length < 20) callStats.nearLimit.push({ tool, bytes, params: paramsLabel(params) });
+  callStats = { total: 0, failed: 0, byTool: {}, byKey: {} };
 }
 export function windCallStats() {
   return JSON.parse(JSON.stringify(callStats));
@@ -262,74 +245,13 @@ function countCall(serverType, toolName, keyLabel) {
  * Calls one Wind tool and returns the raw MCP result ({ content: [...] }),
  * exactly what `cli.mjs call` printed to stdout.
  */
-export async function callWindTool(serverType, toolName, params, { timeoutMs = 35_000, signal, fresh = false } = {}) {
+export async function callWindTool(serverType, toolName, params, { timeoutMs = 35_000, signal } = {}) {
   validateCall(serverType, toolName, params);
-  const ttl = dedupeTtlMs();
-  if (!ttl || fresh) return markSize(await callWindToolOnce(serverType, toolName, params, { timeoutMs, signal }));
-  // 同一程序内完全相同的请求（工具 + 参数）在 TTL 内只真正调用一次；进行中的请求也共用。
-  // 失败、空表、空消息不缓存，调用方的重试照常生效。
-  const key = `${serverType}/${toolName}:${JSON.stringify(params)}`;
-  const hit = responseCache.get(key);
-  if (hit && Date.now() - hit.at < ttl) {
-    const result = await hit.promise;
-    if (hit.settled) { callStats.reused += 1; callStats.reusedBytes += result?._bytes || 0; }
-    return result;
-  }
-  const entry = { at: Date.now(), settled: false, promise: null };
-  entry.promise = callWindToolOnce(serverType, toolName, params, { timeoutMs, signal }).then(markSize);
-  responseCache.set(key, entry);
-  try {
-    const result = await entry.promise;
-    entry.settled = true;
-    if (!isCacheable(result)) responseCache.delete(key);
-    return result;
-  } catch (error) {
-    responseCache.delete(key);
-    throw error;
-  }
-}
 
-// ── 进程内去重 ──
-// 默认关闭；GitHub Actions 的数据任务（scripts/*）通过 WIND_DEDUPE_TTL_MS 打开。
-// Vercel 上的接口（个股分析等）不设，保持每次取最新。
-const responseCache = new Map();
-function dedupeTtlMs(env = process.env) {
-  const value = Number(env.WIND_DEDUPE_TTL_MS || 0);
-  return Number.isFinite(value) && value > 0 ? value : 0;
-}
-export function clearWindResponseCache() {
-  responseCache.clear();
-}
-function resultText(result) {
-  return result?.content?.find?.((item) => item.type === "text")?.text || "";
-}
-function isCacheable(result) {
-  const text = resultText(result);
-  if (!text) return false;
-  return !/"rows"\s*:\s*\[\s*\]/.test(text) && !/"items"\s*:\s*\[\s*\]/.test(text) && /"rows"\s*:\s*\[|"items"\s*:\s*\[/.test(text);
-}
-/** 结果上挂两个不可枚举属性：_bytes（返回字节数）与 _nearLimit（接近 80KB，可能被截断，调用方应拆分）。 */
-function markSize(result) {
-  if (!result || typeof result !== "object") return result;
-  const bytes = Buffer.byteLength(resultText(result) || JSON.stringify(result));
-  Object.defineProperty(result, "_bytes", { value: bytes, enumerable: false, configurable: true });
-  Object.defineProperty(result, "_nearLimit", { value: bytes >= WIND_RESPONSE_SOFT_LIMIT_BYTES, enumerable: false, configurable: true });
-  return result;
-}
-
-// 同一 Key、同一服务只握手一次；调用出错（非额度）时作废，下次重新握手。
-const initialized = new Set();
-export function resetWindSessions() {
-  initialized.clear();
-}
-
-async function callWindToolOnce(serverType, toolName, params, { timeoutMs, signal }) {
   if (isMockMode()) {
     countCall(serverType, toolName, "MOCK");
     mockModulePromise ||= import("./mock-wind.js");
-    const result = await mockModulePromise.then((mod) => mod.mockWindResult(serverType, toolName, params));
-    countBytes(serverType, toolName, Buffer.byteLength(JSON.stringify(result)), params);
-    return result;
+    return (await mockModulePromise).mockWindResult(serverType, toolName, params);
   }
 
   const keys = getApiKeys();
@@ -339,16 +261,12 @@ async function callWindToolOnce(serverType, toolName, params, { timeoutMs, signa
   const options = { deadline, signal };
   let lastQuotaError = null;
   for (const account of keys) {
-    const session = `${account.label}|${serverType}`;
     try {
-      if (!initialized.has(session)) {
-        await mcpRequest(serverType, "initialize", {
-          protocolVersion: "2025-03-26",
-          capabilities: {},
-          clientInfo: { name: CLIENT_NAME, version: SKILL_VERSION }
-        }, { ...options, apiKey: account.key, keyLabel: account.label, deadline: Math.min(deadline, Date.now() + 15_000) });
-        initialized.add(session);
-      }
+      await mcpRequest(serverType, "initialize", {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: CLIENT_NAME, version: SKILL_VERSION }
+      }, { ...options, apiKey: account.key, keyLabel: account.label, deadline: Math.min(deadline, Date.now() + 15_000) });
       return await mcpRequest(serverType, "tools/call", {
         name: toolName,
         arguments: params,
@@ -356,7 +274,6 @@ async function callWindToolOnce(serverType, toolName, params, { timeoutMs, signa
       }, { ...options, apiKey: account.key, keyLabel: account.label });
     } catch (error) {
       callStats.failed += 1;
-      initialized.delete(session);
       if (!(error instanceof QuotaExhaustedError)) throw error;
       lastQuotaError = `${account.label}: ${error.message}`;
     }

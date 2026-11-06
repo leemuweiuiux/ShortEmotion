@@ -9,13 +9,13 @@
 //   * per-day caches (concept membership, limit-up history, previous trading date)
 //     can be exported/imported so cron runs on cold instances don't refetch them.
 import { callWindTool } from "./wind-client.js";
-import { conceptCache, loadStockProfileText } from "./persistent-cache.js";
 import { loadMarketLimitCounts } from "./market-limit-counts.js";
 
 const cacheTtlMs = 60_000;
 let inflight = null;
 let anomalyInflight = null;
 const conceptMembershipCache = new Map();
+const investmentLogicCache = new Map();
 const stockCatalystCache = new Map();
 const themeMomentumCache = new Map();
 const themeMomentumCacheTtlMs = 300_000;
@@ -218,10 +218,7 @@ async function windCall(serverType, toolName, params, timeoutMs = 35_000) {
   const momentumCacheKey = cacheableMomentumCall ? `${serverType}:${toolName}:${JSON.stringify(params)}` : null;
   const cachedMomentum = momentumCacheKey ? themeMomentumCache.get(momentumCacheKey) : null;
   if (cachedMomentum && Date.now() - cachedMomentum.capturedAt < themeMomentumCacheTtlMs) return cachedMomentum.payload;
-  const raw = await callWindTool(serverType, toolName, params, { timeoutMs });
-  const payload = unpackWind(raw);
-  // 返回量接近 80KB 时可能被截断：标在结果上，取名单的地方按「触顶」处理，改为拆分重查
-  if (payload && typeof payload === "object" && raw?._nearLimit) Object.defineProperty(payload, "_nearLimit", { value: true, enumerable: false, configurable: true });
+  const payload = unpackWind(await callWindTool(serverType, toolName, params, { timeoutMs }));
   if (momentumCacheKey) {
     payload._capturedAt = new Date().toISOString();
     themeMomentumCache.set(momentumCacheKey, { capturedAt: Date.now(), payload });
@@ -795,7 +792,7 @@ async function queryLimitList(date, phrase, options = {}) {
     try {
       const payload = await windCall("stock_data", "search_stocks", { question: limitListQuestion(date, phrase, options) });
       const rows = tables(payload).flatMap(objects);
-      if (rows.length) return { rows, capped: rows.length >= LIMIT_LIST_ROW_CAP || Boolean(payload?._nearLimit), error: null };
+      if (rows.length) return { rows, capped: rows.length >= LIMIT_LIST_ROW_CAP, error: null };
       lastError = "空表";
     } catch (error) {
       lastError = String(error?.message || error);
@@ -953,18 +950,9 @@ function conceptsOf(payload) {
   return [...new Set(tables(payload).flatMap(objects).flatMap((row) => conceptNamesFromValue(row["所属概念板块"])))];
 }
 async function enrichLimitStocks(day, stocks) {
-  // 跨天缓存（7 天）里有的直接用，不再向 Wind 取
-  for (const x of stocks) {
-    const saved = conceptCache.get(x.code, day);
-    if (saved && !conceptMembershipCache.has(`${day}:${x.code}`)) conceptMembershipCache.set(`${day}:${x.code}`, saved);
-  }
   const missing = stocks.filter((x) => !conceptMembershipCache.has(`${day}:${x.code}`));
   const results = missing.length ? await runWindTasksInBatches(missing.map((x) => () => windCall("analytics_data", "get_financial_data", { question: `${x.code}所属概念板块` }, 12_000)), 12) : [];
-  missing.forEach((x, i) => {
-    const concepts = conceptsOf(fulfilled(results[i]));
-    conceptMembershipCache.set(`${day}:${x.code}`, concepts);
-    if (concepts.length) conceptCache.set(x.code, concepts, day); // 空结果可能是取数失败，不进跨天缓存
-  });
+  missing.forEach((x, i) => conceptMembershipCache.set(`${day}:${x.code}`, conceptsOf(fulfilled(results[i]))));
   return stocks.map((x) => ({ ...x, concepts: conceptMembershipCache.get(`${day}:${x.code}`) || [] }));
 }
 function constituentRows(payload, expectedDay = null) {
@@ -1037,11 +1025,13 @@ function candidateThemeEvidence(theme, row, news, investmentLogic = "") {
 function investmentLogicText(payload) {
   return tables(payload).flatMap(objects).flatMap((row) => Object.values(row)).filter((value) => value != null).join(" ");
 }
-// 主营业务：与涨停情绪的品牌复核共用跨天缓存（30 天，见 persistent-cache.js）
 async function loadInvestmentLogic(day, stock) {
-  return loadStockProfileText(day, stock.code, async () => investmentLogicText(
-    await windCall("stock_data", "get_stock_basicinfo", { question: `${stock.code}公司主营业务和核心产品` }, 12_000)
-  ));
+  const key = `${day}:${stock.code}`;
+  if (investmentLogicCache.has(key)) return investmentLogicCache.get(key);
+  const payload = await windCall("stock_data", "get_stock_basicinfo", { question: `${stock.code}公司主营业务和核心产品` }, 12_000);
+  const text = investmentLogicText(payload);
+  investmentLogicCache.set(key, text);
+  return text;
 }
 async function loadStockCatalyst(day, stock) {
   const branches = stock.candidateBranches || [];
