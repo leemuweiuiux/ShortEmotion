@@ -1,4 +1,5 @@
 import { loadMarketLimitCounts } from "../short-emotion/market-limit-counts.js";
+import { loadStockProfileText } from "../short-emotion/persistent-cache.js";
 // 涨停情绪 · 计算层（/limitup）
 //
 // 原样移植自 lfjDashboard「涨停事件工作台20261027」的 api/_lib/short-emotion/limit-engine.js，
@@ -22,7 +23,8 @@ import {
   localDate,
   limitStreakLabel,
   loadLimitHistory,
-  previousTradingDate
+  previousTradingDate,
+  fetchLimitList
 } from "../short-emotion/engine.js";
 import {
   anomalyThemeName,
@@ -60,7 +62,7 @@ async function fetchSectorRows(day, sector) {
     try {
       const payload = await windCall("stock_data", "search_stocks", { question: eventQuestion(day, sector.phrase) });
       const rows = tables(payload).flatMap(objects);
-      if (rows.length) return { rows, capped: rows.length >= ROW_CAP, error: null };
+      if (rows.length) return { rows, capped: rows.length >= ROW_CAP || Boolean(payload?._nearLimit), error: null };
       lastError = `第${attempt}次空表`;
     } catch (error) {
       lastError = `第${attempt}次: ${String(error?.message || error)}`;
@@ -70,10 +72,21 @@ async function fetchSectorRows(day, sector) {
   return { rows: [], capped: false, error: `${sector.key} ${lastError}` };
 }
 
+// 主板一次查也会撞 100 行（个股按概念拆成多行，11/04 主板触顶），触顶时再拆沪市/深市主板取并集
+const MAIN_SPLITS = [
+  { key: "沪市主板", phrase: "上海证券交易所主板A股", accept: (code) => /^60\d{4}\.SH$/.test(code) },
+  { key: "深市主板", phrase: "深圳证券交易所主板A股", accept: (code) => /^00\d{4}\.SZ$/.test(code) }
+];
+
 async function fetchLimitEventRows(day) {
   const results = await Promise.all(SECTORS.map((sector) => fetchSectorRows(day, sector)));
   const rows = results.flatMap((result) => result.rows);
   const cappedSectors = SECTORS.filter((_, index) => results[index].capped).map((sector) => sector.key);
+  if (cappedSectors.includes("主板")) {
+    const parts = await Promise.all(MAIN_SPLITS.map((split) => fetchSectorRows(day, split)));
+    parts.forEach((part, index) => rows.push(...part.rows.filter((row) => MAIN_SPLITS[index].accept(String(row["Wind代码"] || "").toUpperCase()))));
+    if (parts.every((part) => part.rows.length && !part.capped)) cappedSectors.splice(cappedSectors.indexOf("主板"), 1);
+  }
   if (!rows.length) {
     const detail = results.map((result) => result.error).filter(Boolean).join(" / ");
     return { rows: [], cappedSectors, errors: [`涨停事件表全板块为空: ${detail}`], complete: false };
@@ -88,6 +101,62 @@ async function fetchLimitEventRows(day) {
 // `2026-10-26T09:49:27+08:00` → `09:49:27`
 function sealClock(value) {
   return String(value || "").match(/(\d{2}):(\d{2}):(\d{2})/)?.[0] || null;
+}
+
+// ── 明细补齐 ────────────────────────────────────────────────────────────
+// 「涨停」措辞的事件表偶发只回一小部分（11/02 18/132、11/05 14/86），而全市场家数是对的。
+// 缺口用「最新价/收盘价等于涨停价」按板块拆分补代码，再按代码分批补首次封板时间（尽力而为）。
+const SEAL_LOOKUP_BATCH = 20;
+const SEAL_LOOKUP_MAX_BATCHES = 4;
+
+/** 明细是否与全市场家数一致：允许 2%（至少 1 家）的时点误差（家数与名单不是同一秒取的）。 */
+export function detailTolerance(total) {
+  return Math.max(1, Math.round(Number(total || 0) * 0.02));
+}
+export function detailMatches(returned, total, { intraday = false } = {}) {
+  if (!Number.isFinite(total)) return false;
+  if (Math.abs(returned - total) <= detailTolerance(total)) return true;
+  // 盘中明细「多于」家数，通常是两次取数之间有股票开板（几分钟的时间差），不是缺数据：
+  // 盘中允许多出 max(3, 10%)；收盘后仍按 2% 严格核对。明细「少于」家数始终严格。
+  return intraday && returned > total && returned - total <= Math.max(3, Math.round(total * 0.1));
+}
+
+async function lookupSealTimes(day, codes) {
+  const found = new Map();
+  const batches = [];
+  for (let i = 0; i < codes.length && batches.length < SEAL_LOOKUP_MAX_BATCHES; i += SEAL_LOOKUP_BATCH) batches.push(codes.slice(i, i + SEAL_LOOKUP_BATCH));
+  for (const batch of batches) {
+    const wanted = new Set(batch);
+    try {
+      const payload = await windCall("stock_data", "search_stocks", {
+        question: `筛选${batch.join("、")}并返回Wind代码、证券简称、${day}首次封板时间`
+      });
+      for (const row of tables(payload).flatMap(objects)) {
+        const code = String(row["Wind代码"] || "").toUpperCase();
+        if (!wanted.has(code) || found.has(code)) continue;
+        // 只认带完整时分秒且日期对得上的封板时间，避免把别的交易日的时间混进来
+        const raw = String(row["涨跌停时间"] || "");
+        const date = raw.match(/(\d{4})-(\d{2})-(\d{2})/);
+        if (date && `${date[1]}${date[2]}${date[3]}` !== String(day)) continue;
+        const clock = sealClock(raw);
+        if (clock) found.set(code, clock);
+      }
+    } catch { /* 封板时间补不上不影响家数与天梯，只影响早盘封板统计 */ }
+  }
+  return found;
+}
+
+async function backfillLimitStocks(day, knownCodes, { latest = false } = {}) {
+  const list = await fetchLimitList(day, { latest, includeBj: true }).catch((error) => ({
+    codes: new Set(), names: new Map(), complete: false, errors: [String(error?.message || error)]
+  }));
+  const missing = [...list.codes].filter((code) => !knownCodes.has(code));
+  const seal = missing.length ? await lookupSealTimes(day, missing) : new Map();
+  return {
+    rows: missing.map((code) => ({ "Wind代码": code, "证券简称": list.names.get(code), "涨跌停时间": null, "所属概念板块": "", sealClock: seal.get(code) || null })),
+    complete: list.complete,
+    errors: list.errors || []
+  };
 }
 
 // ── 配方 ③：跌停事件表 ──────────────────────────────────────────────────
@@ -608,14 +677,12 @@ async function reviewConceptsByNews(stocks, day, brokenCodes = [], nameByCode = 
 
 // ── 主营复核（方案 A） ─────────────────────────────────────────────────
 // 只对带「家电」等集团品牌标签的个股取主营，成本可控（通常个位数）。
-const businessTextCache = new Map();
+// 与短线情绪共用跨天缓存（30 天，见 short-emotion/persistent-cache.js）
 async function loadBusinessText(day, code) {
-  const key = `${day}:${code}`;
-  if (businessTextCache.has(key)) return businessTextCache.get(key);
-  const payload = await windCall("stock_data", "get_stock_basicinfo", { question: `${code}公司主营业务和核心产品` }, 12_000);
-  const text = tables(payload).flatMap(objects).flatMap((row) => Object.values(row)).filter((value) => value != null).join(" ");
-  businessTextCache.set(key, text);
-  return text;
+  return loadStockProfileText(day, code, async () => {
+    const payload = await windCall("stock_data", "get_stock_basicinfo", { question: `${code}公司主营业务和核心产品` }, 12_000);
+    return tables(payload).flatMap(objects).flatMap((row) => Object.values(row)).filter((value) => value != null).join(" ");
+  });
 }
 
 async function reviewBrandConcepts(stocks, day) {
@@ -1162,7 +1229,12 @@ export function snapshotDayMismatch(quoteTime, expectedDay) {
 }
 
 // ── 主入口 ──────────────────────────────────────────────────────────────
-export async function loadLimitUpBoard(day = localDate()) {
+/**
+ * loadStoredDay(day)：读上一交易日收盘时存下的快照（可选）。
+ * 历史日只能用「收盘价等于涨停价」取名单，涨停多的日子 Wind 会少回（11/04 实际 123 家只回 100 家，
+ * 按板块拆分也没补回来）；而前一天收盘时的快照已经把明细补齐过，直接并进昨日名单。
+ */
+export async function loadLimitUpBoard(day = localDate(), { loadStoredDay = null } = {}) {
   const errors = [];
   const [eventResult, historyResult] = await Promise.all([
     fetchLimitEventRows(day),
@@ -1176,23 +1248,102 @@ export async function loadLimitUpBoard(day = localDate()) {
   const sets = historyResult.sets || [];
   const rawByCode = new Map();
   for (const row of eventResult.rows) {
-    const code = row["Wind代码"];
+    const code = String(row["Wind代码"] || "").toUpperCase();
     if (!code || rawByCode.has(code)) continue;
-    rawByCode.set(code, row);
+    rawByCode.set(code, { ...row, "Wind代码": code });
+  }
+
+  // 盘前构建时本地日期已是新交易日，但行情还停在上一交易日收盘：
+  // 资讯检索、断板解释、跌停取数都必须用「行情日期」，否则当天数据一条都取不到。
+  const quoteTime = eventResult.rows.map((row) => row["交易时间"]).filter(Boolean).sort().at(-1) || null;
+  const dataDay = quoteDayOf(quoteTime) || day;
+  const baseTradingDate = historyResult.dates?.[0] || await previousTradingDate(day).catch(() => null);
+  let [marketCounts, previousMarketCounts] = await Promise.all([
+    loadMarketLimitCounts(dataDay),
+    baseTradingDate ? loadMarketLimitCounts(baseTradingDate) : null
+  ]);
+  errors.push(...marketCounts.errors);
+
+  // 盘中与否：行情日是今天且行情时间早于 15:00
+  const quoteMinute = String(quoteTime || "").match(/T(\d{2}):(\d{2})/);
+  const liveSession = dataDay === day && Boolean(quoteMinute) && Number(quoteMinute[1]) * 60 + Number(quoteMinute[2]) < 15 * 60;
+  // 对不上时先重取一次家数（跳过 60 秒缓存），让家数与刚取到的明细尽量同一时刻
+  if (Number.isFinite(marketCounts.limitUp) && !detailMatches(rawByCode.size, marketCounts.limitUp)) {
+    const again = await loadMarketLimitCounts(dataDay, { fresh: true }).catch(() => null);
+    if (Number.isFinite(again?.limitUp)) marketCounts = { ...again, errors: marketCounts.errors };
+  }
+
+  // 明细与全市场家数对不上：补代码（与家数同口径含北交所、含 ST），封板时间尽力补
+  const eventCount = rawByCode.size;
+  let backfilled = 0;
+  if (Number.isFinite(marketCounts.limitUp) && rawByCode.size < marketCounts.limitUp && !detailMatches(rawByCode.size, marketCounts.limitUp)) {
+    const minute = String(quoteTime || "").match(/T(\d{2}):(\d{2})/);
+    const intraday = dataDay === day && minute && Number(minute[1]) * 60 + Number(minute[2]) < 15 * 60;
+    const backfill = await backfillLimitStocks(dataDay, new Set(rawByCode.keys()), { latest: Boolean(intraday) });
+    for (const row of backfill.rows) {
+      if (rawByCode.has(row["Wind代码"])) continue;
+      rawByCode.set(row["Wind代码"], row);
+      backfilled += 1;
+    }
+    if (backfill.errors.length) errors.push(...backfill.errors.map((message) => `涨停明细补齐: ${message}`));
   }
 
   const allStocks = [...rawByCode.values()].map((row) => {
     const code = row["Wind代码"];
-    const sealTime = sealClock(row["涨跌停时间"]);
+    const sealTime = row.sealClock !== undefined ? row.sealClock : sealClock(row["涨跌停时间"]);
     return {
       code, name: row["证券简称"],
       sealTime, bucket: sealBucketLabel(sealTime),
       streak: sets.length ? streakAgainst(sets, code) : null,
       rawConcepts: String(row["所属概念板块"] || "").split(/[;；]/).map(x => x.trim()).filter(Boolean),
       concepts: limitConcepts(row["所属概念板块"]),
-      boardType: boardOf(code), isST: isStName(row["证券简称"])
+      boardType: boardOf(code), isST: isStName(row["证券简称"]),
+      ...(row.sealClock !== undefined ? { backfilled: true } : {})
     };
   }).filter((stock) => stock.code && stock.name);
+
+  // 数据门槛：明细与全市场家数一致才输出由明细推导的指标（天梯、题材、早盘封板）；
+  // 昨日名单与上一交易日家数一致才输出晋级率、断板、昨日溢价；五日名单都完整才输出连板高度。
+  // 不一致时这些指标不给数字，页面显示「数据待补齐」，而不是给出错误结论（如 11/05 晋级率 1%）。
+  let storedYesterdayCount = 0;
+  let storedYesterdayOk = false;
+  if (sets[0] && historyResult.dates?.[0] && loadStoredDay) {
+    const stored = await Promise.resolve(loadStoredDay(historyResult.dates[0])).catch(() => null);
+    const nonSt = (stored?.stocks || []).map((stock) => String(stock.code || "").toUpperCase()).filter(Boolean);
+    const stCodes = (stored?.stCodes || []).map((code) => String(code).toUpperCase());
+    // 旧快照只存了 ST 家数没存代码：家数按「明细 + ST 家数」核对
+    const storedCount = nonSt.length + (stored?.stCodes ? stCodes.length : Number(stored?.summary?.stCount) || 0);
+    // 只并入当天明细已与全市场家数对上的快照
+    const storedOk = stored?.tradingDate === historyResult.dates[0]
+      && stored?.dataQuality?.detailComplete !== false
+      && detailMatches(storedCount, stored?.summary?.limitUpCount);
+    if (storedOk) {
+      for (const code of [...nonSt, ...stCodes]) sets[0].add(code);
+      storedYesterdayCount = storedCount;
+      storedYesterdayOk = true;
+    }
+  }
+  const yesterdaySize = Math.max(sets[0]?.size || 0, storedYesterdayCount);
+  const quality = {
+    detail: { returned: allStocks.length, total: marketCounts.limitUp ?? null, eventReturned: eventCount, backfilled },
+    detailComplete: detailMatches(allStocks.length, marketCounts.limitUp, { intraday: liveSession }),
+    sealComplete: false,
+    // 逐日核对：上一交易日若已由收盘快照补齐，就不因当天名单查询少回而判不完整
+    streakComplete: Boolean(historyResult.complete) || (sets.length === 5
+      && (historyResult.completeByDate || []).every((ok, index) => ok || (index === 0 && storedYesterdayOk))),
+    yesterday: { returned: yesterdaySize, total: previousMarketCounts?.limitUp ?? null },
+    yesterdayComplete: (storedYesterdayOk || Boolean(historyResult.completeByDate?.[0] ?? historyResult.complete))
+      && detailMatches(yesterdaySize, previousMarketCounts?.limitUp)
+  };
+  // 晋级/断板同时需要今日完整名单与昨日完整名单；天梯高度需要今日明细与五日名单
+  quality.relayComplete = quality.detailComplete && quality.yesterdayComplete;
+  quality.ladderComplete = quality.detailComplete && quality.streakComplete;
+  if (!quality.detailComplete) {
+    errors.push(`涨停明细仅取得 ${allStocks.length} 家，全市场共 ${marketCounts.limitUp ?? "—"} 家；天梯、题材与早盘封板暂不展示`);
+  }
+  if (!quality.yesterdayComplete) {
+    errors.push(`上一交易日涨停名单 ${yesterdaySize} 家，与全市场 ${previousMarketCounts?.limitUp ?? "—"} 家不一致或不完整；晋级率、断板与昨日溢价暂不展示`);
+  }
 
   // ST 股不参与统计与展示：涨跌幅受限、连板口径失真，留在天梯里会误导高度判断。
   const stCount = allStocks.filter((stock) => stock.isST).length;
@@ -1203,8 +1354,9 @@ export async function loadLimitUpBoard(day = localDate()) {
   // 连板股次之（决定空间高度），首板最后（数量大、单只信息量低）。
   const todayCodes = new Set(kept.map((stock) => stock.code));
   const yesterdayCodes = sets[0] || null;
-  const baseTradingDate = historyResult.dates?.[0] || await previousTradingDate(day).catch(() => null);
-  const promotion = promotionOf(todayCodes, sets, yesterdayCodes);
+  const promotion = quality.relayComplete
+    ? promotionOf(todayCodes, sets, yesterdayCodes)
+    : { baseTradingDate: null, baseLimitUpCount: 0, tiers: [], overallRate: null, promoted: [], failed: [], withheld: true };
   promotion.baseTradingDate = baseTradingDate;
 
   const topStreak = yesterdayCodes?.size
@@ -1213,11 +1365,11 @@ export async function loadLimitUpBoard(day = localDate()) {
   const topCodes = topStreak && yesterdayCodes?.size
     ? [...yesterdayCodes].filter((code) => streakAgainst(sets.slice(1), code) === topStreak)
     : [];
-  const brokenCodes = topCodes.filter((code) => !todayCodes.has(code));
+  const brokenCodes = quality.relayComplete ? topCodes.filter((code) => !todayCodes.has(code)) : [];
 
   // 昨日名单（简称 + 概念）：断板、未晋级、以及题材强弱里「昨日涨停家数」都要用。
   // 即便今天全部晋级也要取一次，否则无法判断前期主线是否出现负反馈。
-  const yesterday = baseTradingDate
+  const yesterday = baseTradingDate && quality.relayComplete
     ? await fetchYesterdayNames(baseTradingDate)
     : { names: new Map(), concepts: new Map() };
   const nameByCode = yesterday.names;
@@ -1226,23 +1378,13 @@ export async function loadLimitUpBoard(day = localDate()) {
     errors.push("断板股简称未补齐（昨日涨停名单查询失败），暂以代码展示");
   }
 
-  // 盘前构建时本地日期已是新交易日，但行情还停在上一交易日收盘：
-  // 资讯检索、断板解释、跌停取数都必须用「行情日期」，否则当天数据一条都取不到。
-  const quoteTime = eventResult.rows.map((row) => row["交易时间"]).filter(Boolean).sort().at(-1) || null;
-  const dataDay = quoteDayOf(quoteTime) || day;
-  const [marketCounts, previousMarketCounts] = await Promise.all([
-    loadMarketLimitCounts(dataDay),
-    baseTradingDate ? loadMarketLimitCounts(baseTradingDate) : null
-  ]);
-  errors.push(...marketCounts.errors);
-
   // 跌停取数：按行情日期查当日跌停（历史日同样支持「跌停」措辞），
   // 同时补一次上一交易日的跌停家数，给「跌停扩散 / 收敛」提供环比。
   // 顺带取昨日涨停股今日溢价（赚钱效应）与竞价溢价，三者互不依赖，并行发出。
   const [downResult, previousDownCount, premium] = await Promise.all([
     fetchLimitDownRows(dataDay),
     fetchLimitDownCount(baseTradingDate),
-    fetchPremium({
+    !quality.yesterdayComplete ? null : fetchPremium({
       baseDay: baseTradingDate,
       day: dataDay,
       codes: [...(yesterdayCodes || [])],
@@ -1269,7 +1411,8 @@ export async function loadLimitUpBoard(day = localDate()) {
     .sort((a, b) => String(a.downTime || "99").localeCompare(String(b.downTime || "99")));
 
   // 资讯复核：Wind 概念准不准、有没有漏，都用当日资讯过一遍
-  const newsReview = await reviewConceptsByNews(kept, dataDay, brokenCodes, nameByCode, baseTradingDate || dataDay, brokenConceptMap);
+  // 明细不全时题材不展示，也就不花额度做资讯复核
+  const newsReview = await reviewConceptsByNews(quality.detailComplete ? kept : [], dataDay, brokenCodes, nameByCode, baseTradingDate || dataDay, brokenConceptMap);
   const newsConceptFilled = newsReview.filled;
   // 熔断说明队列没跑完，页面应知道「未被资讯验证」而不是「资讯确认无题材」
   if (newsReview.aborted) {
@@ -1280,7 +1423,7 @@ export async function loadLimitUpBoard(day = localDate()) {
   // 资讯复核已因额度熔断时不再试主营，否则每只都要把 5 把 Key 轮一遍
   const brandReview = newsReview.aborted
     ? { checked: 0, pruned: 0, failed: 0, skipped: true, businessText: new Map() }
-    : await reviewBrandConcepts(kept, day);
+    : await reviewBrandConcepts(quality.detailComplete ? kept : [], day);
   if (brandReview.failed) {
     errors.push(`主营复核失败 ${brandReview.failed} 只，相关个股保留 Wind 标签`);
   }
@@ -1326,7 +1469,7 @@ export async function loadLimitUpBoard(day = localDate()) {
       tradingDate: baseTradingDate,
       limitUpCount: yesterdayCodes.size,
       limitDownCount: previousDownCount,
-      maxStreak: maxStreak || null,
+      maxStreak: quality.streakComplete ? (maxStreak || null) : null,
       firstSealCount: null,
       // 昨日涨停题材（家数/最高板），供页面画「较上日」与负反馈基准
       concepts: previousThemes.map((theme) => ({ name: theme.name, limitCount: theme.count, maxStreak: theme.maxStreak })),
@@ -1342,11 +1485,13 @@ export async function loadLimitUpBoard(day = localDate()) {
     if (!tierMap.has(streak)) tierMap.set(streak, []);
     tierMap.get(streak).push(stock.code);
   }
-  const ladder = [...tierMap].sort((a, b) => b[0] - a[0])
+  const ladder = !quality.ladderComplete ? [] : [...tierMap].sort((a, b) => b[0] - a[0])
     .map(([streak, codes]) => ({ streak, label: limitStreakLabel(streak), count: codes.length, stocks: codes }));
   const levels = new Set(tierMap.keys());
   let ladderDepth = 0;
   while (levels.has(ladderDepth + 1)) ladderDepth += 1;
+  if (!quality.ladderComplete) ladderDepth = null;
+  quality.sealComplete = quality.detailComplete && stocks.every((stock) => Boolean(stock.sealTime));
 
   // 断板带：昨日最高板里今日没再接上的，是退潮最直接的信号，优先于"今天最高几板"。
   const brokenStreaks = brokenCodes.length ? {
@@ -1375,14 +1520,14 @@ export async function loadLimitUpBoard(day = localDate()) {
     names: brokenConceptMap.get(item.code) || [],
     streak: item.fromStreak || 1
   })));
-  const themeStrength = buildThemeStrength({
+  const themeStrength = !quality.detailComplete ? [] : buildThemeStrength({
     upThemes: themeCountsOf(stocks),
     downThemes: themeCountsOf(downStocks),
     previousThemes,
     brokenThemes
   });
   // 概念聚合不再只讲涨停：涨跌强弱状态直接挂在同一行，页面只保留一个题材模块
-  const conceptBoard = mergeThemeBoard({ concepts: aggregateConcepts(stocks), themeStrength }).slice(0, 30);
+  const conceptBoard = !quality.detailComplete ? [] : mergeThemeBoard({ concepts: aggregateConcepts(stocks), themeStrength }).slice(0, 30);
   // 变化仅是排查线索：完整历史且昨日有一定样本时才提示，不认定为错误或行情原因。
   if (historyResult.complete) for (const concept of conceptBoard) {
     const prior = previousThemes.find(item => item.name === concept.name)?.count || 0;
@@ -1408,14 +1553,13 @@ export async function loadLimitUpBoard(day = localDate()) {
   const bucketed = new Map(SEAL_BUCKETS.map((bucket) => [bucket.label, []]));
   bucketed.set("时间未知", []); bucketed.set("其他", []);
   for (const stock of stocks) bucketed.get(stock.bucket)?.push(stock.code);
-  const sealTimeBuckets = [...bucketed].filter(([, codes]) => codes.length)
+  // 封板时间不全（补齐的个股没拿到时间）时，早盘封板与分布都不给数字
+  const sealTimeBuckets = !quality.sealComplete ? [] : [...bucketed].filter(([, codes]) => codes.length)
     .map(([label, codes]) => ({ label, count: codes.length, stocks: codes }));
 
-  const firstSealCount = stocks.filter((stock) => clockMinutes(stock.sealTime) != null && clockMinutes(stock.sealTime) < 600).length;
+  const firstSealCount = !quality.sealComplete ? null
+    : stocks.filter((stock) => clockMinutes(stock.sealTime) != null && clockMinutes(stock.sealTime) < 600).length;
 
-  if (marketCounts.limitUp != null && marketCounts.limitUp !== allStocks.length) {
-    errors.push(`涨停明细仅返回 ${allStocks.length} 家，全市场共 ${marketCounts.limitUp} 家；明细与连板数据待补齐`);
-  }
   if (marketCounts.limitDown != null && marketCounts.limitDown !== rawDownStocks.length) {
     errors.push(`跌停明细仅返回 ${rawDownStocks.length} 家，全市场共 ${marketCounts.limitDown} 家；明细待补齐`);
   }
@@ -1424,7 +1568,7 @@ export async function loadLimitUpBoard(day = localDate()) {
     limitDownCount: marketCounts.limitDown,
     upDownNet: marketCounts.limitUp != null && marketCounts.limitDown != null ? marketCounts.limitUp - marketCounts.limitDown : null,
     limitCountScope: marketCounts.scope,
-    maxStreak: ladder[0]?.streak || 0,
+    maxStreak: quality.ladderComplete ? (ladder[0]?.streak || 0) : null,
     ladderDepth,
     firstSealCount,
     stCount,
@@ -1440,7 +1584,7 @@ export async function loadLimitUpBoard(day = localDate()) {
     previousLimitDownCount: previousMarketCounts?.limitDown ?? null,
     negativeFeedbackThemes: themeStrength.filter((theme) => theme.negativeFeedback).length,
     // 一字板=集合竞价直接封板，是竞价强度最硬的证据（今日涨停股口径，零额外取数）
-    auctionSealCount: stocks.filter((stock) => stock.isAuctionSeal).length,
+    auctionSealCount: quality.sealComplete ? stocks.filter((stock) => stock.isAuctionSeal).length : null,
     // 昨日涨停股今日表现（赚钱效应）：今日涨跌幅中位数 / 隔夜开盘（竞价）溢价中位数
     premiumMedian: premium?.median ?? null,
     premiumSampleSize: premium?.sampleSize ?? 0,
@@ -1449,7 +1593,7 @@ export async function loadLimitUpBoard(day = localDate()) {
   // 顶部亮点：把「主线 / 赚钱效应 / 竞价 / 接力 / 高度 / 封板 / 集中度 / 负反馈 / 冰点 / 断板」
   // 压缩成几句话，先看结论再看明细。结构类维度依赖 ladder 与 concepts，必须传原始天梯与合并后的题材行。
   const reviewNames = new Set(conceptBoard.filter(item => item.reviewReasons?.length).map(item => item.name));
-  const highlights = buildHighlights({
+  const highlights = !quality.detailComplete ? [] : buildHighlights({
     summary, themeStrength: themeStrength.filter(item => !reviewNames.has(item.name)), brokenStreaks,
     concepts: conceptBoard.filter(item => !reviewNames.has(item.name)), ladder, quoteTime, premium
   });
@@ -1478,6 +1622,8 @@ export async function loadLimitUpBoard(day = localDate()) {
     // 昨日涨停股今日溢价（赚钱效应）：首板/连板分组与竞价溢价，取不到则为 null
     premium,
     ladder, stocks, sealTimeBuckets,
+    // ST 涨停不进天梯，但次日核对「昨日名单」家数时要用到
+    stCodes: allStocks.filter((stock) => stock.isST).map((stock) => stock.code),
     concepts: conceptBoard,
     promotion,
     previous: previousMarketCounts ? {
@@ -1499,6 +1645,14 @@ export async function loadLimitUpBoard(day = localDate()) {
         ambiguousConcepts: stocks.filter(stock => stock.concepts?.some(name => familyCandidates(name).length > 1)).length
       },
       limitDownComplete: Boolean(downResult.complete),
+      // 门槛结果：页面据此把对应模块显示为「数据待补齐」
+      detail: quality.detail,
+      detailComplete: quality.detailComplete,
+      sealComplete: quality.sealComplete,
+      yesterday: quality.yesterday,
+      yesterdayComplete: quality.yesterdayComplete,
+      relayComplete: quality.relayComplete,
+      ladderComplete: quality.ladderComplete,
       errors: [...errors]
     },
     errors

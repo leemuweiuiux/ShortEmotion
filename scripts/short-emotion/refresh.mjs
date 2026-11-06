@@ -11,6 +11,8 @@ import { readFile } from "node:fs/promises";
 
 process.env.SHORT_EMOTION_STORE ||= "file";
 process.env.SHORT_EMOTION_DATA_DIR ||= "short-emotion-data";
+// 同一次运行里完全相同的 Wind 请求只真正取一次（计费按返回数据量）：短线情绪、题材异动、涨停情绪会问同一句
+process.env.WIND_DEDUPE_TTL_MS ||= "600000";
 
 const { getStore } = await import("../../api/_lib/short-emotion/store.js");
 const { isTradingSessionHistory } = await import("../../api/_lib/short-emotion/engine.js");

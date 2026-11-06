@@ -25,17 +25,18 @@
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=17">
-  <link rel="stylesheet" href="/sectorflow/sectorflow.css?v=5">
+  <link rel="stylesheet" href="/sectorflow/sectorflow.css?v=6">
   <link rel="stylesheet" href="/shared/fund-flow.css?v=4">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
   <link rel="stylesheet" href="/shared/global-header.css?v=4">
   <script defer src="/shared/usage.js?v=3"></script>
+  <link rel="stylesheet" href="/shared/wide-layout.css?v=2">
 </head>
-<body>
+<body class="wide-page wide-sectorflow">
   <div class="app-shell">
     <nav class="nav">
       <a class="nav-logo" href="/home" aria-label="首页"><img src="/short-emotion/logo.svg?v=2" alt="ShortEmotion"></a>
@@ -46,7 +47,6 @@
     </nav>
 
     <main>
-      <a href="/etfflow" class="card-desc" style="text-align:right;color:inherit">宽基 ETF 资金 →</a>
       <section class="card">
         <div class="card-head">
           <h2 class="card-title">主力资金流向</h2>
@@ -62,13 +62,15 @@
       </footer>
     </main>
   </div>
+  <aside class="sf-etf-dock" aria-label="宽基ETF资金"><span>查看宽基ETF资金</span><button id="sf-etf-action" type="button" disabled>读取中…</button></aside>
+  <script type="module" src="/sectorflow/etf-dock.js?v=1"></script>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="/short-emotion/vendor/html-to-image.js" defer></script>
-  <script type="module" src="/sectorflow/sectorflow.js?v=10"></script>
+
+  <script type="module" src="/sectorflow/sectorflow.js?v=11"></script>
 
 
   <script type="module" src="/shared/nav-points.js?v=2"></script>
-  <script type="module" src="/shared/global-header.js?v=4"></script>
+  <script type="module" src="/shared/global-header.js?v=6"></script>
 </body>
 </html>
 

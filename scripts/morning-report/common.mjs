@@ -14,6 +14,8 @@ export async function previousCard(store, index, { id, publishedAt }) {
 /** 一次 Wind 消息检索，结果按日期过滤并瘦身；查不到不影响生成。 */
 export async function searchNews(query, range, { dryRun = false } = {}) {
   if (dryRun) return [];
+  // Wind 的 query 不允许空白字符（2026-11-06 早报因此丢了隔夜消息）：空格统一去掉
+  query = String(query).replace(/\s+/g, '');
   try {
     return slimNews(await windCall('financial_docs', 'get_financial_news', { query, top_k: 8 }), range);
   } catch (error) {

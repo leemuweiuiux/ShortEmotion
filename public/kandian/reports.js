@@ -1,3 +1,4 @@
+import {whenNearViewport} from '/shared/viewport-load.js?v=1';
 import { likeHtml, initLikes } from '/shared/like.js';
 import { articleHtml, cardHtml, editionName } from '/kandian/article-view.js?v=1';
 // 文章正文、列表卡片与公开页 /news 共用 /kandian/article-view.js（含 AI 生成标识）
@@ -13,7 +14,7 @@ async function get(query) {
  return r.json();
 }
 const home = document.querySelector('#morning-report-body');
-if(home) get('limit=1').then(p=>{home.innerHTML=p.items.length?reportCard(p.items[0]):'<p class="mr-muted">要闻准备中，发布后将在这里显示。</p>';}).catch(()=>{home.textContent='暂时无法读取看点，请稍后重试。';});
+if(home) whenNearViewport(home,()=>get('limit=1').then(p=>{home.innerHTML=p.items.length?reportCard(p.items[0]):'<p class="mr-muted">要闻准备中，发布后将在这里显示。</p>';}).catch(()=>{home.textContent='暂时无法读取看点，请稍后重试。';}));
 const feed = document.querySelector('#morning-report-feed');
 if(feed){
  let offset=0; const more=document.querySelector('#morning-report-more');

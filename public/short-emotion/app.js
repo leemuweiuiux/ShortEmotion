@@ -1,3 +1,4 @@
+import {loadImageExporter} from '/shared/export-loader.js?v=1';
 import { localTimeLabel, emotionTimeLabel } from "/shared/local-time.js?v=1";
 import { updateNavPoints } from "/shared/nav-points.js?v=2";
 import { showPointsShortage } from "/shared/points-shortage.js?v=1";
@@ -424,7 +425,6 @@ function renderDailyTimeline() {
     .sort((a, b) => String(a.tradingDate).localeCompare(String(b.tradingDate)));
   const history = allDaily.slice(-20);
   const versionOf = (item) => Number(item.scoreVersion || 1);
-  const mixedVersions = new Set(history.map(versionOf)).size > 1;
   setText("#history-count", `近 ${history.length} 个交易日均值`);
   if (history.length < 2) {
     $("#timeline-chart").innerHTML = `<div class="empty">\u5df2\u6c89\u6dc0${history.length}\u4e2a\u65e5\u7ebf\u70b9\uff1b\u6bcf\u65e5\u6309\u5f53\u5929 n \u4e2a\u76d8\u4e2d\u5feb\u7167\u7b49\u6743\u5e73\u5747\uff0c\u540e\u7eed\u81ea\u52a8\u7d2f\u8ba1\u3002</div>`;
@@ -434,14 +434,8 @@ function renderDailyTimeline() {
   const pad = 25;
   const xAt = (index) => pad + index / Math.max(1, history.length - 1) * (width - pad * 2);
   const points = history.map((item, index) => ({ ...item, x: xAt(index), y: height - pad - Number(item.score) / 100 * (height - pad * 2) }));
-  const segments = [];
-  for (const point of points) {
-    if (!segments.length || versionOf(segments.at(-1).at(-1)) !== versionOf(point)) segments.push([]);
-    segments.at(-1).push(point);
-  }
-  const lines = segments.filter((segment) => segment.length > 1)
-    .map((segment) => `<polyline class="timeline-line" points="${segment.map((point) => `${point.x},${point.y}`).join(" ")}"/>`).join("");
-  const area = mixedVersions ? "" : `<polygon class="timeline-area daily" points="${points[0].x},${height - pad} ${points.map((point) => `${point.x},${point.y}`).join(" ")} ${points.at(-1).x},${height - pad}"/>`;
+  const lines = `<polyline class="timeline-line" points="${points.map((point) => `${point.x},${point.y}`).join(" ")}"/>`;
+  const area = `<polygon class="timeline-area daily" points="${points[0].x},${height - pad} ${points.map((point) => `${point.x},${point.y}`).join(" ")} ${points.at(-1).x},${height - pad}"/>`;
   const grid = [25, 50, 75].map((score) => { const y = height - pad - score / 100 * (height - pad * 2); return `<line class="timeline-grid" x1="${pad}" y1="${y}" x2="${width - pad}" y2="${y}"/><text class="timeline-label" x="0" y="${y + 3}">${score}</text>`; }).join("");
   const dots = points.map((point, index) => `<circle class="timeline-dot" cx="${point.x}" cy="${point.y}" r="${index === points.length - 1 ? 5 : 3}"><title>${escapeHtml(point.tradingDate)} \u00b7 \u5747\u503c ${Number(point.score).toFixed(2)} \u00b7 n=${point.sampleCount} \u00b7 口径 v${versionOf(point)} \u00b7 ${escapeHtml(point.phase)}</title></circle>`).join("");
   const axisIndexes = [...new Set([0, Math.round((history.length - 1) * .25), Math.round((history.length - 1) * .5), Math.round((history.length - 1) * .75), history.length - 1])];
@@ -747,13 +741,13 @@ async function runExport(kind) {
   closeExportMenu();
   if (exporting) return;
   if (!data) return toast("当前没有可导出的短线情绪数据", true);
-  if (!window.htmlToImage) return toast("导出组件尚未加载完成，请稍后重试", true);
   const button = $("#export-image");
   exporting = true;
   button.disabled = true;
   button.setAttribute("aria-busy", "true");
   reportToolbarState({ exporting: true });
   try {
+    await loadImageExporter();
     if (kind === "cards") {
       toast("正在生成小卡…");
       const files = await exportSmallCards((current, total) => toast(`正在生成小卡 ${current}/${total}…`));

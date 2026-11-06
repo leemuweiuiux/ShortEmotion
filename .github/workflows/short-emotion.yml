@@ -6,6 +6,7 @@
 # 再经 GitHub API 手动运行本工作流（force=false，与定时任务同一套逻辑；见 supabase/migrations/20261023033000_cron_dispatch.sql）。
 # 下面自带的 schedule 留作备用：工作日 09:07–16:37 每 30 分钟唤醒（实测常晚 25–30 分钟、还会丢），
 # 收盘后多唤醒几次，用来补抓 15:00 收盘快照；同一个 30 分钟时段只调用一次 Wind，两边都触发不会多花额度。
+# 15:35 由 Supabase 准点触发最终重算；15:37–16:37 的备用唤醒共享最终时段锁。
 # 各时段跑哪些任务见 api/_lib/short-emotion/schedule.js。
 #
 # 页面「刷新」按钮与 /api/cron 都通过 GitHub API 手动运行本工作流（api/_lib/short-emotion/github.js），
@@ -87,6 +88,7 @@ jobs:
         run: node scripts/short-emotion/refresh.mjs ${{ (inputs.target == 'sectorflow-history' || github.event.schedule == '17,47 9-10 * * 1-5') && '--history-only' || '' }} ${{ (github.event_name == 'workflow_dispatch' && inputs.force) && '--force' || '' }} --market=${{ (github.event_name == 'workflow_dispatch' && inputs.market) || 'all' }}
         env:
           WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
+          WIND_DAILY_BYTE_BUDGET: ${{ vars.WIND_DAILY_BYTE_BUDGET }}
           SHORT_EMOTION_STORE: file
           SHORT_EMOTION_DATA_DIR: ${{ env.DATA_DIR }}
       - name: Publish data branch

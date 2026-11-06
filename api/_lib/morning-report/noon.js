@@ -45,7 +45,7 @@ export function morningPath(records = []) {
   const byTime = new Map(); // 同一分钟（例如 11:30 的准点与补抓）只留最后一笔
   for (const record of records) {
     const minute = minuteOf(record.quoteTime);
-    if (minute == null || minute > NOON.sessionEnd) continue;
+    if (minute == null || minute < 570 || minute > NOON.sessionEnd) continue;
     byTime.set(minute, { time: hhmm(minute), score: record.score, phase: record.phase, up: record.up, down: record.down, limitUp: record.limitUp, limitDown: record.limitDown });
   }
   return [...byTime.entries()].sort(([a], [b]) => a - b).map(([, point]) => point);

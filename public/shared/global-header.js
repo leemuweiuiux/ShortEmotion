@@ -1,15 +1,17 @@
+import { readAccount, readPoints, clearRequestCache } from '/shared/request.js?v=1';
 // One shared header for every ShortEmotion page.
 // Existing page-specific account menus remain in charge of their own account button.
 const $ = (s, root=document) => root.querySelector(s);
 const labels = {"/etfflow":"宽基ETF资金","/home":"首页","/about":"ShortEmotion","/login":"ShortEmotion","/shortemotion/cn":"短线情绪","/short-emotion":"短线情绪","/limitup":"涨停情绪","/sectorflow":"资金流向","/technicalanalysis":"个股技术分析","/kandian":"看点","/kandian/article":"看点文章","/account":"个人中心","/account/signin":"每日签到","/account/points":"积分流水","/account/settings":"设置","/account/edit":"编辑个人信息","/account/invite":"邀请好友","/redeem":"领取积分","/account/redeem":"领取积分"};
 let state = { authenticated: false, enabled: true, signedToday: null, unlimited: false };
 let busy = false;
+let refreshAgain = false;
 const nav = document.querySelector('nav.nav, nav.subnav');
 function iconAccount(){ return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5" stroke="currentColor" stroke-width="1.6"/><path d="M5 19.5c1.2-3.3 3.8-5 7-5s5.8 1.7 7 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'; }
 function iconCheck(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18m-13 5 2.5 2.5 5-5"/></svg>'; }
 function iconCoins(){ return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="9" cy="6" rx="6" ry="3"/><path d="M3 6v4c0 1.7 2.7 3 6 3m-6-3v4c0 1.7 2.7 3 6 3m-6-3v4c0 1.7 2.7 3 6 3"/><ellipse cx="16" cy="13" rx="5" ry="2.5"/><path d="M11 13v4c0 1.4 2.2 2.5 5 2.5s5-1.1 5-2.5v-4"/></svg>'; }
 function notify(message){ const toast=$('#toast'); if(toast){ toast.textContent=message; toast.className='toast show'; setTimeout(()=>toast.className='toast',3000); }else{ const tip=document.createElement('div');tip.className='global-header-tip';tip.textContent=message;document.body.append(tip);setTimeout(()=>tip.remove(),3000); } }
-if (nav) {
+if (nav && !$('.global-header-space',nav)) {
   nav.classList.add('global-header');
   // Secondary/tertiary pages use the original in-header back control, not a logo.
   // Its explicit href preserves the intended parent (e.g. points -> settings -> account).
@@ -30,8 +32,7 @@ if (nav) {
     logo.addEventListener('click',async event=>{
       event.preventDefault();
       try {
-        const res=await fetch('/api/auth?action=me',{credentials:'same-origin',headers:{Accept:'application/json'},cache:'no-store'});
-        const data=await res.json().catch(()=>({}));
+        const {response:res,payload:data}=await readAccount();
         location.assign(res.ok && (data.user || data.enabled===false) ? '/home' : '/about');
       }catch{ location.assign('/about'); }
     });
@@ -44,6 +45,16 @@ if (nav) {
   const showAccountActions = !secondary && path !== '/login' && nav.dataset.accountActions !== 'hidden';
   // Keep article titles managed by the report detail page.
   const space=document.createElement('span');space.className='global-header-space';title.after(space);
+  // Wide dashboard pages share the same navigation; secondary pages retain their back button.
+  if (document.body.classList.contains('wide-page') && !secondary && !$('.wide-nav-links',nav)) {
+    const links=document.createElement('div');links.className='wide-nav-links';
+    links.setAttribute('role','navigation');links.setAttribute('aria-label','主要功能');
+    for (const [href,label] of [['/home','首页'],['/shortemotion/cn','短线情绪'],['/limitup','涨停情绪'],['/sectorflow','资金流向'],['/etfflow','宽基ETF'],['/technicalanalysis','个股分析'],['/kandian','看点']]) {
+      const link=document.createElement('a');link.href=href;link.textContent=label;
+      if(path===href)link.setAttribute('aria-current','page');links.append(link);
+    }
+    space.after(links);
+  }
   const extra=$('.subnav-save, .mr-share',nav);
   if(extra){extra.classList.add('global-header-extra');space.after(extra);}
   const lang=$('.lang-toggle',nav);
@@ -67,6 +78,7 @@ if (nav) {
       const menu=document.createElement('div');menu.className='global-header-menu';
       menu.innerHTML='<a href="/account">个人中心</a><a href="/account/points">积分流水</a><button type="button">退出登录</button>';
       menu.querySelector('button').addEventListener('click',async()=>{
+        clearRequestCache();
         await fetch('/api/auth?action=logout',{method:'POST',credentials:'same-origin'}).catch(()=>{});
         location.replace('/about');
       });
@@ -86,26 +98,31 @@ if (nav) {
   }
   renderSignin();
   async function refresh(){
+    if(busy)return;
+    busy=true;
     try{
-      const auth=await fetch('/api/auth?action=me',{credentials:'same-origin',headers:{Accept:'application/json'},cache:'no-store'});
-      const a=await auth.json().catch(()=>({}));
+      const accountRequest=readAccount();
+      const pointsRequest=showAccountActions?readPoints().catch(()=>null):null;
+      const {response:auth,payload:a}=await accountRequest;
       state.enabled=a.enabled!==false;
       state.authenticated=Boolean(a.user) || !state.enabled;
       if(!state.authenticated){state.signedToday=null;renderSignin();return;}
       if (!showAccountActions) { renderSignin(); return; }
-      const res=await fetch('/api/auth?action=points&tz=Asia%2FShanghai',{credentials:'same-origin',headers:{Accept:'application/json'},cache:'no-store'});
+      const pointsResult=await pointsRequest;
+      if(!pointsResult){renderSignin();return;}
+      const {response:res,payload:p}=pointsResult;
       if(!res.ok){renderSignin();return;}
-      const p=await res.json();
       state.unlimited=Boolean(p.unlimited);
       state.signedToday=Boolean(p.signedToday);
       updateNavPoints(p);renderSignin();
     }catch{renderSignin();}
+    finally{busy=false;if(refreshAgain){refreshAgain=false;refresh();}}
   }
   refresh();
   window.addEventListener('focus',refresh);
-  window.addEventListener('pageshow',refresh);
+  window.addEventListener('pageshow',event=>{if(event.persisted)refresh();});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
-  window.addEventListener('se:points-updated',refresh);
+  window.addEventListener('se:points-updated',()=>{if(busy)refreshAgain=true;else refresh();});
 }
 export function updateNavPoints(payload){
   if(payload?.balance==null)return;

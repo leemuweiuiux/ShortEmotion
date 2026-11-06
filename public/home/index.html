@@ -21,7 +21,7 @@
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=17">
   <link rel="stylesheet" href="/technical-analysis/ta.css?v=13">
   <link rel="stylesheet" href="/shared/form.css?v=1">
@@ -34,8 +34,9 @@
 <link rel="stylesheet" href="/shared/etf-overview.css?v=1">
 <link rel="stylesheet" href="/home/home.css?v=14">  <link rel="stylesheet" href="/shared/global-header.css?v=4">
   <script defer src="/shared/usage.js?v=3"></script>
+  <link rel="stylesheet" href="/shared/wide-layout.css?v=2">
 </head>
-<body>
+<body class="wide-page wide-home">
   <div class="app-shell">
     <nav class="nav">
       <a class="nav-logo" href="/home" aria-label="首页"><img src="/short-emotion/logo.svg?v=2" alt="ShortEmotion"></a>
@@ -45,7 +46,7 @@
       </button>
     </nav>
 
-    <main>
+    <main class="wide-home-grid">
       <form id="ta-form" class="card ta-search home-card" autocomplete="off">
         <div class="card-head"><h2 class="card-title"><a href="/technicalanalysis">个股技术分析</a></h2><a class="home-more" href="/technicalanalysis" aria-label="查看更多个股技术分析">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
         <div class="home-card-body"><div class="se-bar">
@@ -116,11 +117,11 @@
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/home/home.js?v=16"></script>
+  <script type="module" src="/home/home.js?v=18"></script>
 <script type="module" src="/kandian/reports.js?v=9"></script>
 
   <script type="module" src="/shared/nav-points.js?v=2"></script>
-  <script type="module" src="/shared/global-header.js?v=4"></script>
+  <script type="module" src="/shared/global-header.js?v=6"></script>
 </body>
 </html>
 

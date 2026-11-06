@@ -30,9 +30,10 @@
   <link rel="stylesheet" href="/shared/form.css?v=1">
   <link rel="stylesheet" href="/shared/date-range.css?v=1">
   <link rel="stylesheet" href="/account/account.css?v=14">
-  <link rel="stylesheet" href="/admin/admin.css?v=share-1">
-  </head>
-<body class="sub-page admin-page">
+  <link rel="stylesheet" href="/admin/admin.css?v=share-usage-1">
+  <link rel="stylesheet" href="/shared/wide-layout.css?v=2">
+</head>
+<body class="sub-page admin-page wide-account wide-admin">
   <nav class="subnav">
     <button id="menu-btn" class="subnav-btn" type="button" aria-label="功能菜单" aria-haspopup="true" aria-expanded="false" aria-controls="admin-menu">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -83,7 +84,7 @@
       <div id="paid-features" class="paid-feature-grid" aria-live="polite"></div>
       <p class="admin-note">成功含已交付的部分分析结果；失败含积分不足等未完成请求。同一人可同时计入成功和失败；免费查看及有效期内重复解锁不计入。刷新已受理单列，尚不代表任务完成。</p>
 
-      <section class="sub-card">
+      <section class="sub-card wide-admin-half">
         <div class="card-row"><div class="section-title">积分概况</div><span class="admin-muted">流通 <b id="points-circulating">—</b> 分</span></div>
         <div class="admin-stats">
           <div><span>今日入账（含退款）</span><strong id="points-issued-today" class="plus">—</strong></div>
@@ -101,7 +102,7 @@
         </details>
       </section>
 
-      <section class="sub-card">
+      <section class="sub-card wide-admin-half">
         <div class="card-row"><div class="section-title">积分余额分布</div><span class="admin-muted">不含不限额账号</span></div>
         <div id="balance-bars" class="admin-bars"></div>
         <p class="admin-muted">各档含起点、不含终点；500 分计入最后一档。</p>

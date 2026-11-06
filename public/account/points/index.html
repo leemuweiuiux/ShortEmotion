@@ -34,8 +34,9 @@
   <script defer src="/_vercel/insights/script.js"></script>
   <link rel="stylesheet" href="/shared/global-header.css?v=4">
   <script defer src="/shared/usage.js?v=3"></script>
+  <link rel="stylesheet" href="/shared/wide-layout.css?v=2">
 </head>
-<body class="sub-page">
+<body class="sub-page wide-account wide-ledger">
   <nav class="subnav">
     <a id="back" class="subnav-btn" href="/account/settings" aria-label="返回">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -44,7 +45,6 @@
   </nav>
 
   <main class="sub-frame">
-    <a class="sub-card row-link" href="/account/redeem">使用兑换码领取积分 ›</a>
     <section class="sub-card ledger-card">
       <ol id="ledger" class="ledger-list"><li class="ledger-empty">读取中…</li></ol>
       <button id="ledger-more" class="ledger-more" type="button" hidden>加载更多</button>
@@ -54,6 +54,6 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script type="module" src="/account/points.js?v=11"></script>
-  <script type="module" src="/shared/global-header.js?v=4"></script>
+  <script type="module" src="/shared/global-header.js?v=6"></script>
 </body>
 </html>

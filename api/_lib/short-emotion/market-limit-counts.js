@@ -38,9 +38,9 @@ export function parseLimitCount(payload, direction, day) {
   return totals.length && totals.every(value => value === totals[0]) ? totals[0] : null;
 }
 
-export async function loadMarketLimitCounts(day) {
+export async function loadMarketLimitCounts(day, { fresh = false } = {}) {
   const cached = cache.get(day);
-  if (cached && Date.now() - cached.at < 60_000) return cached.promise;
+  if (!fresh && cached && Date.now() - cached.at < 60_000) return cached.promise;
   const promise = (async () => {
     const errors = [];
     const counts = await Promise.all(["涨停", "跌停"].map(async direction => {

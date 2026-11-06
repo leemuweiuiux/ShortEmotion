@@ -1,4 +1,12 @@
 import { GROUPS, numeric } from './metrics.js';
+import { readFileSync } from 'node:fs';
+// 固定名单：资金只按这份名单计算，不随每次自然语言筛选的结果增减（筛选偶发漏掉几只，合计就会跳）。
+const CATALOG = JSON.parse(readFileSync(new URL('./catalog.json', import.meta.url), 'utf8'));
+export function catalogFunds(asOf, catalog = CATALOG) {
+ return GROUPS.flatMap(group => (catalog.groups?.[group.id]?.funds || [])
+  .filter(f => !f.listed || f.listed <= asOf)
+  .map(f => ({ code: f.code, name: f.name, group: group.id, index: group.index, listed: f.listed || null })));
+}
 export function tableList(payload) {
  const text=payload?.content?.find(c=>c.type==='text')?.text;
  if(text){try{payload=JSON.parse(text);}catch{return [];}}
@@ -61,22 +69,25 @@ export function fundPoints(quotes, dates) {
 export function tradingDates(payload) {
  return [...new Set(tableList(payload).flatMap(t=>{const i=col(t.columns,/^(TIME|日期|交易日期|交易时间)$/i);return i<0?[]:t.rows.map(r=>day(r[i])).filter(Boolean);} ))].sort();
 }
-export async function collectSnapshot(call, previous=null, now=new Date()) {
+export async function collectSnapshot(call, previous=null, now=new Date(), {requiredDate=null,catalog=CATALOG}={}) {
  const upstream=call;
  call=async(...args)=>{for(let attempt=0;;attempt++){try{return await upstream(...args);}catch(error){if(attempt>=2||!/NETWORK_ERROR|TIMEOUT|RATE_LIMIT|ECONNRESET|fetch failed/.test(error.message))throw error;}}};
  const end=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(now).replace(/-/g,'');
  const start=new Date(now);start.setUTCDate(start.getUTCDate()-60);const begin=start.toISOString().slice(0,10).replace(/-/g,'');
  const calendar=tradingDates(await call('index_data','get_index_kline',{windcode:'000300.SH',begin_date:begin,end_date:end})).filter(d=>d<=end);
  if(calendar.length<23)throw new Error('ETF交易日历不足，保留上一版');
- const issues=[],funds=[];const groups=GROUPS.filter(g=>g.index);
+ if(requiredDate&&!calendar.includes(requiredDate))throw Object.assign(new Error('目标日期无交易行情，跳过本轮ETF采集'),{code:'ETF_NO_TRADING_SESSION'});
+ const issues=[];const groups=GROUPS.filter(g=>g.index);
+ const funds=catalogFunds(end,catalog);
+ if(!funds.length)throw new Error('ETF固定名单为空，保留上一版');
+ // 自动筛选只用来发现名单外的新 ETF，结果记为待核对，不计入资金
+ const listed=new Set(funds.map(f=>f.code)),candidates=new Map((previous?.catalogCandidates||[]).filter(c=>!listed.has(c.code)).map(c=>[c.code,c]));
  for(const group of groups){
   try{
    const payload=await call('fund_data','search_funds',{question:`筛选沪深交易所上市且跟踪${group.name==='创业板指'?'创业板':group.name}指数的全部ETF基金，返回基金代码、基金简称、跟踪指数代码、跟踪指数名称、上市日期`});
-   const list=parseCatalog(payload,group,end);if(!list.length)throw new Error('未取得完整ETF名单');
-   funds.push(...list);
-  }catch(e){issues.push({group:group.id,reason:e.message});funds.push(...(previous?.funds||[]).filter(f=>f.group===group.id));}
+   for(const f of parseCatalog(payload,group,end))if(!listed.has(f.code)&&!candidates.has(f.code))candidates.set(f.code,{...f,foundAt:end});
+  }catch{/* 发现新 ETF 失败不影响按固定名单计算 */}
  }
- if(!funds.length)throw new Error('未取得ETF名单，保留上一版');
  const unique=[...new Map(funds.map(f=>[f.code,f])).values()];let next=0;
  async function worker(){
   while(next<unique.length){const f=unique[next++],old=previous?.funds?.find(x=>x.code===f.code);
@@ -96,7 +107,13 @@ export async function collectSnapshot(call, previous=null, now=new Date()) {
  await Promise.all([worker(),worker(),worker()]);
  // Drop the in-progress final market day until every active ETF has a verified observation.
  let dates=calendar.slice(1);
+ // 停牌/退市：最近 5 个交易日都没有观测、但更早有观测的，标为暂停，不再拖住整日发布
+ const recent=calendar.slice(-6,-1);
+ for(const f of unique){
+  const stale=f.quotes.length&&recent.length===5&&!recent.some(d=>f.quotes.some(q=>q.date===d))&&f.quotes.some(q=>q.date<recent[0]);
+  if(stale){f.inactive=true;issues.push({code:f.code,group:f.group,reason:'最近5个交易日无份额数据，疑似停牌或退市，暂不计入'});}else delete f.inactive;
+ }
  const final=dates.at(-1);
- if(unique.some(f=>(!f.listed||f.listed<final)&&!numeric(f.points.find(p=>p.date===final)?.amount)))dates=dates.slice(0,-1);
- return {version:1,updatedAt:now.toISOString(),dates:dates.slice(-60),funds:unique,issues,catalogGroups:groups.map(g=>g.id)};
+ if(unique.some(f=>!f.inactive&&(!f.listed||f.listed<final)&&!numeric(f.points.find(p=>p.date===final)?.amount)))dates=dates.slice(0,-1);
+ return {version:1,updatedAt:now.toISOString(),dates:dates.slice(-60),funds:unique,issues,catalogGroups:groups.map(g=>g.id),catalogCandidates:[...candidates.values()]};
 }

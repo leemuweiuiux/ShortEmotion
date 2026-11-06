@@ -1,3 +1,4 @@
+import {loadImageExporter} from '/shared/export-loader.js?v=1';
 // 看点早报详情：顶栏右上角的分享按钮 → 「分享全文」（整篇一张长图）、「分享小卡」（导读一张、每一节一张）。
 // 只用页面上已经显示的文章，不再请求接口。导出做法见 /shared/export-image.js。
 import { exportHeader, exportFooter, renderImage, prepareExportAssets, shareOrDownload, showGallery, closeGallery, withTimeout } from "/shared/export-image.js?v=2";
@@ -72,11 +73,12 @@ export function setupShare(article, root) {
   async function run(kind) {
     closeMenu();
     if (exporting) return;
-    if (!window.htmlToImage) return toast("分享组件尚未加载完成，请稍后重试", true);
+
     exporting = true;
     button.disabled = true;
     button.setAttribute("aria-busy", "true");
     try {
+      await loadImageExporter();
       await withTimeout(prepareExportAssets(), 8_000).catch(() => {});
       await (kind === "cards" ? shareCards(article, root) : shareWhole(article, root));
     } catch (error) {

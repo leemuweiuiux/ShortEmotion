@@ -6,7 +6,7 @@ let buildEtfExport,heatmapPanels;const window=new Window();
 beforeAll(async()=>{
  globalThis.document=window.document;
  // Resolve browser absolute imports to the real shared modules for Node-based DOM checks.
- const source=(await readFile(new URL('../public/etfflow/share.js',import.meta.url),'utf8')).replace("'/shared/export-image.js?v=2'",JSON.stringify(new URL('../public/shared/export-image.js',import.meta.url).href)).replace("'/shared/etf-overview.js?v=1'",JSON.stringify(new URL('../public/shared/etf-overview.js',import.meta.url).href));
+ const source=(await readFile(new URL('../public/etfflow/share.js',import.meta.url),'utf8')).replace("'/shared/export-loader.js?v=1'",JSON.stringify(new URL('../public/shared/export-loader.js',import.meta.url).href)).replace("'/shared/export-image.js?v=2'",JSON.stringify(new URL('../public/shared/export-image.js',import.meta.url).href)).replace("'/shared/etf-overview.js?v=1'",JSON.stringify(new URL('../public/shared/etf-overview.js',import.meta.url).href));
  ({buildEtfExport,heatmapPanels}=await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`));
 });
 afterAll(()=>{delete globalThis.document;window.happyDOM.abort();});

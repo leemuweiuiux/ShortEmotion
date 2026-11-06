@@ -23,7 +23,7 @@ describe("收盘补抓（mock Wind，内存存储）", () => {
     return runScheduledRefresh({ now: bj(date, time) });
   }
 
-  it("15:00 那次被延迟到 15:34：快照停在 14:35 就补抓收盘，之后不再调用 Wind", async () => {
+  it("15:00 那次被延迟到 15:34：快照停在 14:35 就补抓收盘，15:35后仍执行最终重算", async () => {
     const store = getStore("cn");
     await store.kvSet("emotion:latest", { quoteTime: "20261021 14:35:00", score: 64 });
     const first = await runAt("2026-10-21", "15:34");
@@ -34,13 +34,14 @@ describe("收盘补抓（mock Wind，内存存储）", () => {
     expect(latest.quoteTime.startsWith("20261021 15:")).toBe(true);
 
     const later = await runAt("2026-10-21", "16:07");
-    expect(later.status).toBe("idle");
+    expect(later.ran).toContain("emotion");
+    expect((await runAt("2026-10-21", "16:37")).status).toBe("duplicate");
   });
 
   it("同一时段只补抓一次", async () => {
     const store = getStore("cn");
     await store.kvSet("emotion:latest", { quoteTime: "20261022 14:35:00", score: 64 });
-    await store.kvSet("lock:slot:20261022:930", { at: "x" });
+    await store.kvSet("lock:slot:20261022:935", { at: "x" });
     const result = await runAt("2026-10-22", "15:40");
     expect(result.status).toBe("duplicate");
   });

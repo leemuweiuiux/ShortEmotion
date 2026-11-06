@@ -297,6 +297,39 @@ describe("设计 Demo 子网域 demo.lfjmwl.com", () => {
     expect(sql).toContain("revoke all on study_private.study3_export from public, anon, authenticated;");
   });
 
+  it("Study 2/3 实验页：触发顺序由编号后两位决定，6 种排列轮替，同一编号固定", () => {
+    for (const page of ["study2", "study3"]) {
+      const html = readFileSync(resolve(root, `public/demo/${page}/index.html`), "utf8");
+      expect(html).not.toContain("function shuffle(");
+      expect(html).toContain("var order = orderFor(id);");
+      const src = html.slice(html.indexOf("var ORDERS = ["), html.indexOf("var order = orderFor(id);"));
+      const fn = src.slice(0, src.indexOf("\n  }\n") + 4);
+      const orderFor = new Function(`${fn}; return orderFor;`)();
+      expect(orderFor("101")).toEqual(["single", "double", "triple"]);
+      expect(orderFor("102")).toEqual(["double", "single", "triple"]);
+      expect(orderFor("107")).toEqual(orderFor("101"));
+      expect(orderFor("301")).toEqual(orderFor("101"));
+      const six = new Set(["01", "02", "03", "04", "05", "06"].map((n) => orderFor("2" + n).join(">")));
+      expect(six.size).toBe(6);
+      expect(html).toContain("v.slice(1) === '00'");
+    }
+  });
+
+  it("Study 2 实验页上传 Supabase（与 study3 分表，不含问卷题）", () => {
+    const html = readFileSync(resolve(root, "public/demo/study2/index.html"), "utf8");
+    expect(html).toContain("/rest/v1/rpc/study2_submit");
+    expect(html).toContain("var OUTBOX = 'study2.outbox.v1';");
+    expect(html).toContain("enqueue(S, R); nextRound();");
+    expect(html).toContain("enqueue(S, null);");
+    expect(html).not.toContain("study3_submit");
+    expect(html).toContain('id="backfill"');
+    expect(html).toContain("if (r.next_pressed_at == null || done[r.index] || queued[x.key + ':' + r.index]) return;");
+    const sql = readFileSync(resolve(root, "supabase/migrations/20261106050000_study2.sql"), "utf8");
+    expect(sql).toContain("create function public.study2_submit(");
+    expect(sql).toContain("revoke all on study_private.study2_export from public, anon, authenticated;");
+    expect(sql).not.toMatch(/\bq smallint/);
+  });
+
   it("Study 2 实验页：编号首位决定组别，卡片与反馈沿用 study1，基线组点赞后不变", () => {
     const html = readFileSync(resolve(root, "public/demo/study2/index.html"), "utf8");
     const study1 = readFileSync(resolve(root, "public/demo/study1/index.html"), "utf8");

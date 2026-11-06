@@ -15,7 +15,7 @@ img { max-width: 100%; }
 </style>
 <style>
 /* Layout: Study 2 实验流程（方案 A）。受测编号决定组别：1xx 基线、2xx 颜色、3xx 动画、4xx 文字。
-   每人三轮（单击／双击／连击，顺序随机），每轮点赞 1 次，点赞成功 4 秒后提示填写问卷；点赞卡片与反馈和 study1 完全相同，
+   每人三轮（单击／双击／连击，顺序由编号后两位决定，6 种排列轮替），每轮点赞 1 次，点赞成功 4 秒后提示填写问卷；点赞卡片与反馈和 study1 完全相同，
    基线组点赞后图标不变。固定浅色，不随系统深色模式改变。 */
 :root {
   --bg: #FAFAFA;
@@ -266,6 +266,10 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
 <section class="view admin" id="vAdmin" hidden>
   <h1>研究者面板</h1>
   <p class="small" id="adminSum"></p>
+  <p class="small" id="syncSum"></p>
+  <div class="row">
+    <button type="button" class="next" id="backfill">上传个人受测结果</button>
+  </div>
   <div class="tbl"><table>
     <thead><tr><th>编号</th><th>组别</th><th>顺序</th><th>完成</th><th>开始时间</th></tr></thead>
     <tbody id="adminRows"></tbody>
@@ -274,6 +278,7 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
     <button type="button" class="ghost" id="dlCsv">下载 CSV</button>
     <button type="button" class="ghost" id="dlJson">下载 JSON</button>
     <button type="button" class="ghost" id="copyJson">复制 JSON</button>
+    <button type="button" class="ghost" id="syncNow">重新上传</button>
   </div>
   <textarea id="adminText" readonly hidden aria-label="JSON"></textarea>
   <div class="err" id="adminMsg" role="status"></div>
@@ -334,17 +339,19 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
     } catch (e) {}
   }
 
-  /* ── 随机顺序 ── */
-  function shuffle(a) {
-    a = a.slice();
-    for (var i = a.length - 1; i > 0; i--) {
-      var r;
-      if (window.crypto && crypto.getRandomValues) { var u = new Uint32Array(1); crypto.getRandomValues(u); r = u[0] / 4294967296; }
-      else r = Math.random();
-      var j = Math.floor(r * (i + 1));
-      var t = a[i]; a[i] = a[j]; a[j] = t;
-    }
-    return a;
+  /* ── 触发顺序：由编号后两位决定，同一编号固定 ── */
+  // 后两位 01、07、13…用第 1 种，02、08、14…用第 2 种，依此类推；每连续 6 个编号正好用完 6 种排列
+  var ORDERS = [
+    ['single', 'double', 'triple'],
+    ['double', 'single', 'triple'],
+    ['single', 'triple', 'double'],
+    ['triple', 'single', 'double'],
+    ['double', 'triple', 'single'],
+    ['triple', 'double', 'single']
+  ];
+  function orderFor(id) {
+    var n = parseInt(id.slice(1), 10);
+    return ORDERS[(n - 1) % ORDERS.length].slice();
   }
 
   /* ── 会话状态 ── */
@@ -362,7 +369,7 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
   $('idGo').addEventListener('click', function () {
     var v = (idInput.value || '').trim();
     if (v === ADMIN_ID) { openAdmin(); return; }
-    if (!/^[1-4][0-9]{2}$/.test(v)) { idErr.textContent = '编号应为三位数字，首位是 1、2、3 或 4，例如 101'; return; }
+    if (!/^[1-4][0-9]{2}$/.test(v) || v.slice(1) === '00') { idErr.textContent = '编号应为三位数字，首位是 1、2、3 或 4，后两位从 01 开始，例如 101'; return; }
     var exists = loadAll().some(function (x) { return x.id === v; });
     if (exists && dupWarned !== v) {
       dupWarned = v;
@@ -379,9 +386,10 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
   function startSession(id) {
     t0 = performance.now();
     feed = GROUPS[id.charAt(0)];
-    var order = shuffle(['single', 'double', 'triple']);
+    var order = orderFor(id);
     S = {
       key: id + '-' + Date.now(),
+      uuid: uuid(),
       id: id,
       group: feed,
       group_zh: GROUP_ZH[feed],
@@ -408,7 +416,7 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
       var t = now();
       if (step === 'vIntro') { S.events.push({ t: t, type: 'intro_next' }); nextRound(); }
       else if (step === 'vRound') { R.round_next_at = t; startCountdown(); }
-      else if (step === 'vNext') { R.next_pressed_at = t; R.pad_done_at = t; saveSession(); nextRound(); }
+      else if (step === 'vNext') { R.next_pressed_at = t; R.pad_done_at = t; saveSession(); enqueue(S, R); nextRound(); }
     });
   });
 
@@ -565,6 +573,7 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
     S.completed = S.rounds.every(function (r) { return r.like_at != null && r.pad_done_at != null; });
     S.events.push({ t: now(), type: 'session_end' });
     saveSession();
+    enqueue(S, null);
     show('vEnd');
   }
   $('endHome').addEventListener('click', function () {
@@ -576,8 +585,137 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
     if (S && !S.ended_at) { e.preventDefault(); e.returnValue = ''; }
   });
 
+  /* ── 上传到 Supabase（每轮按「下一个」时一次、结束时一次）；失败自动排队重试；本机记录与导出照旧 ── */
+  var SUPA_URL = 'https://awrpzbxdhrwbweskgipj.supabase.co';
+  var SUPA_KEY = 'sb_publishable_qrJ5pPfwyGVpWtqd6SdlHg_DtzOg2hB';
+  var OUTBOX = 'study2.outbox.v1';
+  function uuid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    var b = new Uint8Array(16);
+    if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(b); else for (var i = 0; i < 16; i++) b[i] = Math.floor(Math.random() * 256);
+    b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128;
+    var h = Array.prototype.map.call(b, function (x) { return (x + 256).toString(16).slice(1); }).join('');
+    return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20);
+  }
+  function loadBox() { try { return JSON.parse(localStorage.getItem(OUTBOX) || '[]') || []; } catch (e) { return []; } }
+  function saveBox(b) { try { localStorage.setItem(OUTBOX, JSON.stringify(b)); } catch (e) {} }
+  function metrics(r) {
+    var on = (r.touches || []).filter(function (t) { return t.on_like && !t.after_like && r.card_on_at != null && (r.like_at == null || t.down <= r.like_at); });
+    var first = (r.touches || []).filter(function (t) { return t.on_like; })[0];
+    var last = on.slice(-r.need);
+    var press = last.filter(function (t) { return t.up != null; }).map(function (t) { return t.up - t.down; });
+    var ioi = []; for (var i = 1; i < last.length; i++) ioi.push(last[i].down - last[i - 1].down);
+    return { on: on, first: first, press: press, ioi: ioi };
+  }
+  function num(x) { return x == null || x === '' ? null : Math.round(x * 10) / 10; }
+  function enqueue(s, r) {
+    if (!s.uuid) s.uuid = uuid();
+    var session = {
+      id: s.uuid, participant: s.id, grp: s.group, trigger_order: s.order,
+      started_at: s.started_at, ended_at: s.ended_at, completed: !!s.completed,
+      user_agent: s.user_agent, screen: s.screen
+    };
+    var round = null;
+    if (r) {
+      var m = metrics(r);
+      round = {
+        round_index: r.index, trigger: r.trigger, need_taps: r.need, skipped: !!r.skipped,
+        first_tap_latency_ms: m.first && r.card_on_at != null ? num(m.first.down - r.card_on_at) : null,
+        like_latency_ms: r.like_at != null && r.card_on_at != null ? num(r.like_at - r.card_on_at) : null,
+        like_press_ms: m.press.map(num), like_ioi_ms: m.ioi.map(num),
+        taps_before_like: m.on.length, gesture_fails: (r.gesture_fails || []).length, extra_taps: r.extra_taps || 0,
+        pad_prompt_after_like_ms: r.next_shown_at != null && r.like_at != null ? num(r.next_shown_at - r.like_at) : null,
+        pad_time_ms: r.pad_done_at != null && r.pad_shown_at != null ? num(r.pad_done_at - r.pad_shown_at) : null,
+        raw: { round_shown_at: r.round_shown_at, round_next_at: r.round_next_at, countdown_start_at: r.countdown_start_at,
+               card_on_at: r.card_on_at, like_at: r.like_at, next_shown_at: r.next_shown_at, next_pressed_at: r.next_pressed_at,
+               gesture_fails: r.gesture_fails, touches: r.touches }
+      };
+    }
+    var box = loadBox();
+    box.push({ key: s.key, round: r ? r.index : 0, body: { p_session: session, p_round: round } });
+    saveBox(box);
+    flush();
+  }
+  var flushing = false;
+  function flush(done) {
+    if (flushing) { if (done) done(); return; }
+    var box = loadBox();
+    if (!box.length) { if (done) done(); return; }
+    flushing = true;
+    var item = box[0];
+    fetch(SUPA_URL + '/rest/v1/rpc/study2_submit', {
+      method: 'POST',
+      headers: { apikey: SUPA_KEY, 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(item.body)
+    }).then(function (res) {
+      if (res.ok) return res.json();
+      return res.status >= 400 && res.status < 500 && res.status !== 429 ? 'bad' : false;
+    }).then(function (ok) {
+      flushing = false;
+      if (ok === true || ok === 'bad') {
+        var b = loadBox(); b.shift(); saveBox(b);
+        if (ok === true) markSynced(item.key, item.round);
+        else { try { var f = JSON.parse(localStorage.getItem(OUTBOX + '.failed') || '[]'); f.push(item); localStorage.setItem(OUTBOX + '.failed', JSON.stringify(f)); } catch (e) {} }
+        flush(done);
+      } else { if (done) done(); }
+    }).catch(function () { flushing = false; if (done) done(); });
+  }
+  function markSynced(key, round) {
+    try {
+      var all = loadAll();
+      var x = all.find(function (a) { return a.key === key; });
+      if (!x) return;
+      x.synced = x.synced || {};
+      x.synced[round] = new Date().toISOString();
+      localStorage.setItem(STORE, JSON.stringify(all));
+      if (S && S.key === key) { S.synced = x.synced; }
+    } catch (e) {}
+  }
+  window.addEventListener('online', function () { flush(); });
+  setInterval(function () { flush(); }, 20000);
+  flush();
+  $('syncNow').addEventListener('click', function () {
+    $('adminMsg').textContent = '正在上传…';
+    flush(function () {
+      var n = loadBox().length;
+      $('adminMsg').textContent = n ? '仍有 ' + n + ' 笔未上传，请检查网络后再试' : '已全部上传';
+      $('syncSum').textContent = '待上传：' + n + ' 笔';
+    });
+  });
+
+  // 上传个人受测结果：把本机记录中尚未上传的轮次与结束标记加入上传队列（含本功能上线前的旧记录）；已上传或已在队列中的不会重复加入
+  $('backfill').addEventListener('click', function () {
+    var all = loadAll();
+    var queued = {};
+    loadBox().forEach(function (i) { queued[i.key + ':' + i.round] = true; });
+    var changed = false;
+    all.forEach(function (x) { if (!x.uuid) { x.uuid = uuid(); changed = true; } });
+    if (changed) { try { localStorage.setItem(STORE, JSON.stringify(all)); } catch (e) { $('adminMsg').textContent = '无法写入本机存储，上传未开始'; return; } }
+    var n = 0, sessions = 0;
+    all.forEach(function (x) {
+      var done = x.synced || {};
+      var before = n;
+      (x.rounds || []).forEach(function (r) {
+        if (r.next_pressed_at == null || done[r.index] || queued[x.key + ':' + r.index]) return;
+        enqueue(x, r); n += 1;
+      });
+      if (x.ended_at && !done[0] && !queued[x.key + ':0']) { enqueue(x, null); n += 1; }
+      if (n > before) sessions += 1;
+    });
+    $('syncSum').textContent = '待上传：' + loadBox().length + ' 笔';
+    if (!n) { $('adminMsg').textContent = '本机没有需要上传的记录'; return; }
+    $('adminMsg').textContent = '已加入 ' + sessions + ' 人、' + n + ' 笔，正在上传…';
+    var waitFlush = function (cb) { if (flushing) { setTimeout(function () { waitFlush(cb); }, 300); return; } flush(cb); };
+    waitFlush(function () {
+      var left = loadBox().length;
+      $('adminMsg').textContent = left ? '已加入 ' + n + ' 笔，仍有 ' + left + ' 笔未上传，请联网后按「重新上传」' : '上传完成：' + sessions + ' 人、' + n + ' 笔已全部上传';
+      $('syncSum').textContent = '待上传：' + left + ' 笔';
+    });
+  });
+
   /* ── 研究者面板与导出 ── */
   function openAdmin() {
+    $('syncSum').textContent = '待上传：' + loadBox().length + ' 笔';
     var all = loadAll();
     var done = all.filter(function (x) { return x.completed; }).length;
     var by = { base: 0, color: 0, anim: 0, text: 0 };
