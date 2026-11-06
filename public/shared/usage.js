@@ -1,6 +1,6 @@
 // 只采集功能标识，不采集输入文本、股票、文章 ID、邮箱、完整 URL 或查询参数。
 (() => {
-  const routes = {'/':'about','/home':'home','/about':'about','/login':'login','/shortemotion/cn':'shortemotion','/short-emotion':'shortemotion','/technicalanalysis':'technicalanalysis','/technical-analysis':'technicalanalysis','/sectorflow':'sectorflow','/etfflow':'etfflow','/account/redeem':'redemption','/limitup':'limitup','/kandian':'kandian','/kandian/article':'article','/account':'account','/account/signin':'signin','/account/points':'points','/account/settings':'settings','/account/edit':'profile','/account/invite':'invite','/terms':'legal','/privacy':'legal'};
+  const routes = {'/':'about','/home':'home','/about':'about','/login':'login','/shortemotion/cn':'shortemotion','/short-emotion':'shortemotion','/technicalanalysis':'technicalanalysis','/technical-analysis':'technicalanalysis','/sectorflow':'sectorflow','/etfflow':'etfflow','/account/redeem':'redemption','/redeem':'redemption','/limitup':'limitup','/kandian':'kandian','/kandian/article':'article','/account':'account','/account/signin':'signin','/account/points':'points','/account/settings':'settings','/account/edit':'profile','/account/invite':'invite','/terms':'legal','/privacy':'legal'};
   const path = location.pathname.replace(/\/index\.html$/, '').replace(/\.html$/, '').replace(/\/$/, '') || '/';
   // 公开的每日看点：列表算「看点」，文章算「文章」（简繁同一类）
   const feature = routes[path] || (/^(?:\/zh-hant)?\/news$/.test(path) ? 'kandian' : /^(?:\/zh-hant)?\/news\/[\w-]+$/.test(path) ? 'article' : undefined);

@@ -175,3 +175,51 @@
   .admin-page .sub-frame, .admin-page .subnav { max-width:1040px; }
   .paid-feature-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
+
+/* ── 兑换码：列表、生成表单、分享弹窗与兑换卡（卡片与邀请卡同一语汇） ── */
+.code-item.is-closed h3, .code-item.is-closed code { color: var(--muted); }
+.code-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0; color: var(--muted); font-size: 12px; }
+.code-line code { color: var(--ink); font-family: "Manrope", ui-monospace, monospace; font-size: 15px; font-weight: 700; letter-spacing: .06em; }
+.code-progress { height: 4px; background: var(--panel); overflow: hidden; }
+.code-progress i { display: block; height: 100%; background: var(--heat, #ff4015); }
+.code-actions .btn-primary, .code-actions .btn-secondary { min-height: 36px; padding: 0 16px; font-size: 13px; }
+.code-budget { margin: 0; padding: 10px 12px; background: var(--panel); font-size: 13px; line-height: 1.6; }
+.code-budget.warn { border: 1px solid var(--heat, #ff4015); background: transparent; color: var(--heat, #ff4015); }
+.code-budget[hidden] { display: none; }
+.admin-check { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.code-dialog .admin-reasons { justify-self: start; }
+.code-detail-meta [data-detail-share] { margin-top: 8px; min-height: 36px; padding: 0 18px; }
+
+.code-share { display: grid; gap: 14px; margin-top: 16px; }
+@media (min-width: 640px) { .code-share { grid-template-columns: 300px minmax(0, 1fr); align-items: start; } .code-share .share-preview, .code-share .share-status { grid-column: 2; } .code-share .code-card { grid-row: span 3; } }
+.code-share-actions { display: grid; gap: 8px; align-content: start; }
+.share-status { margin: 0; padding: 8px 12px; border: 1px solid var(--ink); font-size: 13px; }
+.share-status.error { border-color: var(--heat, #ff4015); color: var(--heat, #ff4015); }
+.share-status[hidden] { display: none; }
+.share-preview { margin: 0; padding: 12px; background: var(--panel); color: var(--muted); font: 12px/1.7 "Noto Sans SC", sans-serif; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.code-card { position: relative; display: grid; gap: 12px; padding: 20px 18px 16px; background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
+.code-card::before { content: ""; position: absolute; inset: 0; pointer-events: none; background-image: radial-gradient(rgba(18, 20, 23, 0.07) 1px, transparent 1px), radial-gradient(rgba(255, 64, 21, 0.16) 1px, transparent 1px); background-size: 14px 14px, 28px 28px; background-position: 0 0, 7px 7px; -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 60%); mask-image: linear-gradient(180deg, #000 0%, transparent 60%); }
+.code-card > * { position: relative; margin: 0; }
+.cc-brand { display: flex; align-items: center; gap: 10px; }
+.cc-brand img { display: block; width: 32px; height: 32px; }
+.cc-brand span { display: grid; gap: 1px; }
+.cc-brand b { font-family: "Manrope", sans-serif; font-size: 15px; font-weight: 700; }
+.cc-brand small { color: var(--muted); font-size: 11px; }
+.cc-lead { margin-top: 6px !important; color: var(--muted); font-size: 14px; }
+.cc-amount { display: flex; align-items: baseline; gap: 6px; }
+.cc-amount strong { color: var(--heat, #ff4015); font-family: "Manrope", sans-serif; font-size: 52px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+.cc-amount span { font-size: 16px; font-weight: 700; }
+.cc-name { font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+.cc-rules { display: flex; flex-wrap: wrap; gap: 6px; padding: 0; list-style: none; }
+.cc-rules li { padding: 3px 10px; border: 1px solid var(--border); background: var(--panel); font-size: 12px; line-height: 1.5; white-space: nowrap; }
+.cc-code { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px; background: var(--panel); border: 1px solid var(--border); }
+.cc-code-text { display: grid; gap: 4px; min-width: 0; }
+.cc-code-text span, .cc-code-text small { color: var(--muted); font-size: 11px; }
+.cc-code-text strong { font-family: "Manrope", ui-monospace, monospace; font-size: 22px; font-weight: 800; line-height: 1.15; letter-spacing: .06em; overflow-wrap: anywhere; }
+.cc-code-text strong.long { font-size: 13px; letter-spacing: .02em; }
+.cc-qr { width: 84px; height: 84px; background: #ffffff; }
+.cc-qr svg { display: block; width: 100%; height: 100%; }
+.cc-foot { color: var(--muted); font-size: 11px; line-height: 1.5; }
+.code-export-host { position: fixed; top: 0; left: -10000px; pointer-events: none; }
+.admin-toolbar .btn-primary { flex: none; white-space: nowrap; }
