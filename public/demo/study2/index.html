@@ -267,6 +267,9 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
   <h1>研究者面板</h1>
   <p class="small" id="adminSum"></p>
   <p class="small" id="syncSum"></p>
+  <div class="row">
+    <button type="button" class="next" id="backfill">上传个人受测结果</button>
+  </div>
   <div class="tbl"><table>
     <thead><tr><th>编号</th><th>组别</th><th>顺序</th><th>完成</th><th>开始时间</th></tr></thead>
     <tbody id="adminRows"></tbody>
@@ -276,7 +279,6 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
     <button type="button" class="ghost" id="dlJson">下载 JSON</button>
     <button type="button" class="ghost" id="copyJson">复制 JSON</button>
     <button type="button" class="ghost" id="syncNow">重新上传</button>
-    <button type="button" class="ghost" id="backfill">补传本机历史记录</button>
   </div>
   <textarea id="adminText" readonly hidden aria-label="JSON"></textarea>
   <div class="err" id="adminMsg" role="status"></div>
@@ -681,7 +683,7 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
     });
   });
 
-  // 补传：把本机记录中尚未上传的轮次与结束标记加入上传队列（含本功能上线前的旧记录）；已上传或已在队列中的不会重复加入
+  // 上传个人受测结果：把本机记录中尚未上传的轮次与结束标记加入上传队列（含本功能上线前的旧记录）；已上传或已在队列中的不会重复加入
   $('backfill').addEventListener('click', function () {
     var all = loadAll();
     var queued = {};
