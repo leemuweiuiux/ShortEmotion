@@ -265,7 +265,7 @@ function countCall(serverType, toolName, keyLabel) {
 export async function callWindTool(serverType, toolName, params, { timeoutMs = 35_000, signal, fresh = false } = {}) {
   validateCall(serverType, toolName, params);
   const ttl = dedupeTtlMs();
-  if (!ttl || fresh) return markSize(await callWindToolOnce(serverType, toolName, params, { timeoutMs, signal }));
+  if (!ttl || fresh || isRealtimeList(toolName, params)) return markSize(await callWindToolOnce(serverType, toolName, params, { timeoutMs, signal }));
   // 同一程序内完全相同的请求（工具 + 参数）在 TTL 内只真正调用一次；进行中的请求也共用。
   // 失败、空表、空消息不缓存，调用方的重试照常生效。
   const key = `${serverType}/${toolName}:${JSON.stringify(params)}`;
@@ -293,6 +293,12 @@ export async function callWindTool(serverType, toolName, params, { timeoutMs = 3
 // 默认关闭；GitHub Actions 的数据任务（scripts/*）通过 WIND_DEDUPE_TTL_MS 打开。
 // Vercel 上的接口（个股分析等）不设，保持每次取最新。
 const responseCache = new Map();
+// 涨跌停名单与家数不去重（2026-11-06）：涨停情绪要让名单与家数在同一时刻取到，
+// 共用短线情绪几分钟前的名单会与稍后取的家数对不上（10:02 明细 25 家、家数 23 家，指标全部「待补齐」）。
+export function isRealtimeList(toolName, params = {}) {
+  if (toolName === "search_stocks") return true;
+  return /涨停|跌停|炸板|封板/.test(String(params.question || params.query || ""));
+}
 function dedupeTtlMs(env = process.env) {
   const value = Number(env.WIND_DEDUPE_TTL_MS || 0);
   return Number.isFinite(value) && value > 0 ? value : 0;

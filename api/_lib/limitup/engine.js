@@ -113,9 +113,12 @@ const SEAL_LOOKUP_MAX_BATCHES = 4;
 export function detailTolerance(total) {
   return Math.max(1, Math.round(Number(total || 0) * 0.02));
 }
-export function detailMatches(returned, total) {
+export function detailMatches(returned, total, { intraday = false } = {}) {
   if (!Number.isFinite(total)) return false;
-  return Math.abs(returned - total) <= detailTolerance(total);
+  if (Math.abs(returned - total) <= detailTolerance(total)) return true;
+  // 盘中明细「多于」家数，通常是两次取数之间有股票开板（几分钟的时间差），不是缺数据：
+  // 盘中允许多出 max(3, 10%)；收盘后仍按 2% 严格核对。明细「少于」家数始终严格。
+  return intraday && returned > total && returned - total <= Math.max(3, Math.round(total * 0.1));
 }
 
 async function lookupSealTimes(day, codes) {
@@ -1255,11 +1258,20 @@ export async function loadLimitUpBoard(day = localDate(), { loadStoredDay = null
   const quoteTime = eventResult.rows.map((row) => row["交易时间"]).filter(Boolean).sort().at(-1) || null;
   const dataDay = quoteDayOf(quoteTime) || day;
   const baseTradingDate = historyResult.dates?.[0] || await previousTradingDate(day).catch(() => null);
-  const [marketCounts, previousMarketCounts] = await Promise.all([
+  let [marketCounts, previousMarketCounts] = await Promise.all([
     loadMarketLimitCounts(dataDay),
     baseTradingDate ? loadMarketLimitCounts(baseTradingDate) : null
   ]);
   errors.push(...marketCounts.errors);
+
+  // 盘中与否：行情日是今天且行情时间早于 15:00
+  const quoteMinute = String(quoteTime || "").match(/T(\d{2}):(\d{2})/);
+  const liveSession = dataDay === day && Boolean(quoteMinute) && Number(quoteMinute[1]) * 60 + Number(quoteMinute[2]) < 15 * 60;
+  // 对不上时先重取一次家数（跳过 60 秒缓存），让家数与刚取到的明细尽量同一时刻
+  if (Number.isFinite(marketCounts.limitUp) && !detailMatches(rawByCode.size, marketCounts.limitUp)) {
+    const again = await loadMarketLimitCounts(dataDay, { fresh: true }).catch(() => null);
+    if (Number.isFinite(again?.limitUp)) marketCounts = { ...again, errors: marketCounts.errors };
+  }
 
   // 明细与全市场家数对不上：补代码（与家数同口径含北交所、含 ST），封板时间尽力补
   const eventCount = rawByCode.size;
@@ -1314,7 +1326,7 @@ export async function loadLimitUpBoard(day = localDate(), { loadStoredDay = null
   const yesterdaySize = Math.max(sets[0]?.size || 0, storedYesterdayCount);
   const quality = {
     detail: { returned: allStocks.length, total: marketCounts.limitUp ?? null, eventReturned: eventCount, backfilled },
-    detailComplete: detailMatches(allStocks.length, marketCounts.limitUp),
+    detailComplete: detailMatches(allStocks.length, marketCounts.limitUp, { intraday: liveSession }),
     sealComplete: false,
     // 逐日核对：上一交易日若已由收盘快照补齐，就不因当天名单查询少回而判不完整
     streakComplete: Boolean(historyResult.complete) || (sets.length === 5

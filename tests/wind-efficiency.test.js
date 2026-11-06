@@ -45,14 +45,14 @@ describe("wind client data efficiency", { timeout: 20_000 }, () => {
     vi.stubEnv("WIND_DEDUPE_TTL_MS", "60000");
     calls = [];
     const [a, b] = await Promise.all([
-      wind.callWindTool("stock_data", "search_stocks", { question: "shared" }),
-      wind.callWindTool("stock_data", "search_stocks", { question: "shared" })
+      wind.callWindTool("stock_data", "get_stock_basicinfo", { question: "shared" }),
+      wind.callWindTool("stock_data", "get_stock_basicinfo", { question: "shared" })
     ]);
-    await wind.callWindTool("stock_data", "search_stocks", { question: "shared" });
+    await wind.callWindTool("stock_data", "get_stock_basicinfo", { question: "shared" });
     expect(calls.filter((m) => m === "tools/call")).toHaveLength(1);
     expect(a).toBe(b);
     expect(wind.windCallStats().reused).toBeGreaterThanOrEqual(1);
-    await wind.callWindTool("stock_data", "search_stocks", { question: "shared" }, { fresh: true });
+    await wind.callWindTool("stock_data", "get_stock_basicinfo", { question: "shared" }, { fresh: true });
     expect(calls.filter((m) => m === "tools/call")).toHaveLength(2);
   });
 
@@ -60,8 +60,8 @@ describe("wind client data efficiency", { timeout: 20_000 }, () => {
     vi.stubEnv("WIND_DEDUPE_TTL_MS", "60000");
     let n = 0;
     stubFetch(() => (n++ === 0 ? table([]) : table([["600000.SH"]])));
-    await wind.callWindTool("stock_data", "search_stocks", { question: "retry" });
-    const second = await wind.callWindTool("stock_data", "search_stocks", { question: "retry" });
+    await wind.callWindTool("stock_data", "get_stock_basicinfo", { question: "retry" });
+    const second = await wind.callWindTool("stock_data", "get_stock_basicinfo", { question: "retry" });
     expect(calls.filter((m) => m === "tools/call")).toHaveLength(2);
     expect(second.content[0].text).toContain("600000.SH");
   });
@@ -108,5 +108,23 @@ describe("persistent caches", () => {
     const first = mergeWindUsage(null, { total: 3, bytes: 100, bytesByTool: { x: 100 }, nearLimit: [] }, "t1");
     const second = mergeWindUsage(first, { total: 2, bytes: 50, bytesByTool: { x: 20, y: 30 }, nearLimit: [{}], reused: 1, reusedBytes: 40 }, "t2");
     expect(second).toMatchObject({ runs: 2, calls: 5, bytes: 150, reused: 1, reusedBytes: 40, nearLimit: 1, bytesByTool: { x: 120, y: 30 }, updatedAt: "t2" });
+  });
+});
+
+import { detailMatches } from "../api/_lib/limitup/engine.js";
+
+describe("2026-11-06 涨停名单与家数配对", () => {
+  it("never dedupes limit lists or limit counts", () => {
+    expect(wind.isRealtimeList("search_stocks", { question: "当前涨停的沪深A股" })).toBe(true);
+    expect(wind.isRealtimeList("get_financial_data", { question: "20261106沪深京A股涨停家数（包含ST股票）" })).toBe(true);
+    expect(wind.isRealtimeList("get_stock_basicinfo", { question: "600000.SH公司主营业务和核心产品" })).toBe(false);
+  });
+  it("tolerates a small intraday surplus but stays strict after close and for shortfalls", () => {
+    expect(detailMatches(25, 23)).toBe(false);
+    expect(detailMatches(25, 23, { intraday: true })).toBe(true);
+    expect(detailMatches(27, 23, { intraday: true })).toBe(false); // 多 4 家 > max(3, 10%)
+    expect(detailMatches(21, 23, { intraday: true })).toBe(false); // 少于家数始终严格
+    expect(detailMatches(130, 120, { intraday: true })).toBe(true);
+    expect(detailMatches(86, 86)).toBe(true);
   });
 });
