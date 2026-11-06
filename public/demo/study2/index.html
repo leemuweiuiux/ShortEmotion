@@ -276,6 +276,7 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
     <button type="button" class="ghost" id="dlJson">下载 JSON</button>
     <button type="button" class="ghost" id="copyJson">复制 JSON</button>
     <button type="button" class="ghost" id="syncNow">重新上传</button>
+    <button type="button" class="ghost" id="backfill">补传本机历史记录</button>
   </div>
   <textarea id="adminText" readonly hidden aria-label="JSON"></textarea>
   <div class="err" id="adminMsg" role="status"></div>
@@ -677,6 +678,36 @@ button, input { font: inherit; color: inherit; -webkit-tap-highlight-color: tran
       var n = loadBox().length;
       $('adminMsg').textContent = n ? '仍有 ' + n + ' 笔未上传，请检查网络后再试' : '已全部上传';
       $('syncSum').textContent = '待上传：' + n + ' 笔';
+    });
+  });
+
+  // 补传：把本机记录中尚未上传的轮次与结束标记加入上传队列（含本功能上线前的旧记录）；已上传或已在队列中的不会重复加入
+  $('backfill').addEventListener('click', function () {
+    var all = loadAll();
+    var queued = {};
+    loadBox().forEach(function (i) { queued[i.key + ':' + i.round] = true; });
+    var changed = false;
+    all.forEach(function (x) { if (!x.uuid) { x.uuid = uuid(); changed = true; } });
+    if (changed) { try { localStorage.setItem(STORE, JSON.stringify(all)); } catch (e) { $('adminMsg').textContent = '无法写入本机存储，补传未开始'; return; } }
+    var n = 0, sessions = 0;
+    all.forEach(function (x) {
+      var done = x.synced || {};
+      var before = n;
+      (x.rounds || []).forEach(function (r) {
+        if (r.next_pressed_at == null || done[r.index] || queued[x.key + ':' + r.index]) return;
+        enqueue(x, r); n += 1;
+      });
+      if (x.ended_at && !done[0] && !queued[x.key + ':0']) { enqueue(x, null); n += 1; }
+      if (n > before) sessions += 1;
+    });
+    $('syncSum').textContent = '待上传：' + loadBox().length + ' 笔';
+    if (!n) { $('adminMsg').textContent = '本机没有需要补传的记录'; return; }
+    $('adminMsg').textContent = '已加入 ' + sessions + ' 人、' + n + ' 笔，正在上传…';
+    var waitFlush = function (cb) { if (flushing) { setTimeout(function () { waitFlush(cb); }, 300); return; } flush(cb); };
+    waitFlush(function () {
+      var left = loadBox().length;
+      $('adminMsg').textContent = left ? '已加入 ' + n + ' 笔，仍有 ' + left + ' 笔未上传，请联网后按「重新上传」' : '补传完成：' + sessions + ' 人、' + n + ' 笔已全部上传';
+      $('syncSum').textContent = '待上传：' + left + ' 笔';
     });
   });
 

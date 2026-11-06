@@ -322,6 +322,8 @@ describe("设计 Demo 子网域 demo.lfjmwl.com", () => {
     expect(html).toContain("enqueue(S, R); nextRound();");
     expect(html).toContain("enqueue(S, null);");
     expect(html).not.toContain("study3_submit");
+    expect(html).toContain('id="backfill"');
+    expect(html).toContain("if (r.next_pressed_at == null || done[r.index] || queued[x.key + ':' + r.index]) return;");
     const sql = readFileSync(resolve(root, "supabase/migrations/20261106050000_study2.sql"), "utf8");
     expect(sql).toContain("create function public.study2_submit(");
     expect(sql).toContain("revoke all on study_private.study2_export from public, anon, authenticated;");
