@@ -32,9 +32,15 @@
     {"source": "/shortemotion/hk", "destination": "/shortemotion/cn", "permanent": false},
     {"source": "/shortemotion/hk/", "destination": "/shortemotion/cn", "permanent": false}
   ],
+  "headers": [
+    {"source": "/download/android/:file(.*\\.apk)", "headers": [{"key": "Content-Type", "value": "application/vnd.android.package-archive"}, {"key": "Content-Disposition", "value": "attachment"}, {"key": "Cache-Control", "value": "public, max-age=31536000, immutable"}]},
+    {"source": "/download/android/latest.json", "headers": [{"key": "Cache-Control", "value": "no-cache"}]}
+  ],
   "rewrites": [
     {"source": "/:name", "has": [{"type": "host", "value": "demo.lfjmwl.com"}], "destination": "/demo/:name/index.html"},
     {"source": "/:name/", "has": [{"type": "host", "value": "demo.lfjmwl.com"}], "destination": "/demo/:name/index.html"},
+    {"source": "/download", "destination": "/download/index.html"},
+    {"source": "/download/", "destination": "/download/index.html"},
     {"source": "/kandian/article", "destination": "/kandian/article.html"},
     {"source": "/sitemap.xml", "destination": "/api/news?view=sitemap"},
     {"source": "/news/feed.xml", "destination": "/api/news?view=rss"},

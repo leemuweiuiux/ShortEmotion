@@ -1,0 +1,8 @@
+{
+  "version": "1.0.0",
+  "versionCode": 1,
+  "url": "/download/android/shortemotion-1.0.0.apk",
+  "sha256": "49cc439cc8ff08eb682b6df645dda8ca0cccb0fca4d75a164be918a066f1b191",
+  "bytes": 906497,
+  "notes": "首次发布。邮箱登录直达看板，支持 Android 返回手势、网络重试和图片保存。"
+}
