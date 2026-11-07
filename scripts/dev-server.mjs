@@ -73,8 +73,9 @@ async function runMiddleware(req, res, url) {
   return null;
 }
 
-const TYPES = { ".txt": "text/plain; charset=utf-8", ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".json": "application/json", ".png": "image/png", ".webp": "image/webp" };
-const port = Number(process.env.PORT || 3000);
+const TYPES = { ".txt": "text/plain; charset=utf-8", ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".json": "application/json", ".png": "image/png", ".apk": "application/vnd.android.package-archive", ".webp": "image/webp" };
+const portArg = process.argv.indexOf("--port");
+const port = Number(process.env.PORT || (portArg >= 0 ? process.argv[portArg + 1] : 3000));
 
 function vercelResponse(res) {
   res.status = (code) => { res.statusCode = code; return res; };
