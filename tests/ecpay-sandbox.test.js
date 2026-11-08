@@ -12,7 +12,7 @@ vi.mock("../api/_lib/session.js", () => ({
   isSecureNodeRequest: () => true
 }));
 
-import handler from "../api/ecpay-sandbox.js";
+import handler from "../api/_lib/ecpay-sandbox-api.js";
 
 async function call(options = {}) {
   const response = { setHeader: vi.fn(), status(code) { this.code = code; return this; }, json(body) { this.body = body; } };

@@ -6,7 +6,7 @@ const orders = $("#purchase-orders");
 const recheck = $("#purchase-recheck");
 const orderNo = new URLSearchParams(location.search).get("order") || "";
 const isOrder = /^SE[A-F0-9]{18}$/;
-const endpoint = "/api/ecpay-sandbox";
+const endpoint = "/api/auth?action=ecpay-sandbox";
 let polls = 0;
 
 async function request(query = "", body) {
@@ -69,7 +69,7 @@ function showOrders(history) {
 }
 
 async function loadOrder(manual = false) {
-  const query = "?order=" + orderNo + (manual ? "&recheck=1" : "");
+  const query = "&order=" + orderNo + (manual ? "&recheck=1" : "");
   const result = await request(query, manual ? {} : undefined);
   const order = result.history[0];
   setText(status, orderStatus(order));

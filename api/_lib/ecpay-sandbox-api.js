@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { authConfig, isSecureNodeRequest, resolveSession } from "./_lib/session.js";
-import { checkoutUrl, orderPattern, packages, signedFields, taipeiTime } from "../supabase/functions/_shared/ecpay-sandbox.mjs";
+import { authConfig, isSecureNodeRequest, resolveSession } from "./session.js";
+import { checkoutUrl, orderPattern, packages, signedFields, taipeiTime } from "../../supabase/functions/_shared/ecpay-sandbox.mjs";
 
 const origin = "https://exp.lfjmwl.com";
 const host = new URL(origin).host;
