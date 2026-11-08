@@ -2,9 +2,47 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { Window } from 'happy-dom';
-import { validRelease } from '../public/download/download.js';
+import { installedAndroidVersion, isNewerVersion, validRelease } from '../public/download/android-release.js';
 const script = readFileSync(new URL('../android/app/src/main/assets/native.js', import.meta.url), 'utf8');
 describe('Android native web integration', () => {
+  it('checks numeric version segments and only recognizes the native app user agent', () => {
+    expect(installedAndroidVersion('Android Chrome ShortEmotionAndroid/1.0.9')).toBe('1.0.9');
+    expect(installedAndroidVersion('Android Chrome')).toBeNull();
+    expect(isNewerVersion('1.0.10', '1.0.9')).toBe(true);
+    expect(isNewerVersion('1.0.9', '1.0.9')).toBe(false);
+    expect(isNewerVersion('1.0.9', '1.1.0')).toBe(false);
+  });
+  it('syncs the status bar to the header when the page theme changes', async () => {
+    const win = new Window();
+    win.document.body.innerHTML = '<nav class="nav">首页</nav>';
+    // happy-dom does not recompute descendant CSS when an ancestor attribute changes.
+    win.getComputedStyle = () => ({
+      backgroundColor: win.document.documentElement.dataset.theme === 'dark' ? 'rgb(21, 25, 34)' : 'rgb(255, 255, 255)'
+    });
+    const colors = [];
+    win.ShortEmotionTheme = { postMessage: color => colors.push(color) };
+    vm.runInNewContext(script, {
+      window: win, document: win.document, navigator: win.navigator,
+      HTMLAnchorElement: win.HTMLAnchorElement, location: { pathname: '/home' }
+    });
+    expect(colors).toEqual(['#ffffff']);
+    win.document.documentElement.dataset.theme = 'dark';
+    await win.happyDOM.whenAsyncComplete();
+    expect(colors).toEqual(['#ffffff', '#151922']);
+  });
+  it('keeps reading and editing text selectable while protecting touch controls', () => {
+    const win = new Window();
+    win.document.body.innerHTML = '<button>开始分析</button><a href="/home">首页</a><p>可复制的正文</p><input type="text">';
+    vm.runInNewContext(script, {
+      window: win, document: win.document, navigator: win.navigator,
+      HTMLAnchorElement: win.HTMLAnchorElement, location: { pathname: '/home' }
+    });
+    const selection = selector => win.getComputedStyle(win.document.querySelector(selector)).userSelect;
+    expect(selection('button')).toBe('none');
+    expect(selection('a')).toBe('none');
+    expect(selection('p')).not.toBe('none');
+    expect(selection('input')).not.toBe('none');
+  });
   it('redirects an existing session to its safe next page without requiring a native bridge', async () => {
     let destination;
     const win = new Window({ url: 'https://www.lfjmwl.com/login?next=%2Fhome' });

@@ -14,6 +14,7 @@ import android.util.Base64;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.webkit.CookieManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -43,6 +44,7 @@ public class MainActivity extends Activity {
     static final String ORIGIN = "https://www.lfjmwl.com";
     static final String START = ORIGIN + "/login?next=%2Fhome";
     private WebView web;
+    private View statusBarBackdrop;
     private ProgressBar progress;
     private LinearLayout errorPanel;
     private String retryUrl = START;
@@ -69,13 +71,22 @@ public class MainActivity extends Activity {
     }
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        FrameLayout windowContent = new FrameLayout(this);
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.WHITE);
+        windowContent.addView(root, new FrameLayout.LayoutParams(-1, -1));
+        statusBarBackdrop = new View(this);
+        windowContent.addView(statusBarBackdrop, new FrameLayout.LayoutParams(-1, 0, Gravity.TOP));
+        if (Build.VERSION.SDK_INT >= 29) getWindow().setStatusBarContrastEnforced(false);
+        setStatusBarBackground(Color.WHITE);
         // Target 35 enforces edge-to-edge; protect both website header and bottom drawers.
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             if (Build.VERSION.SDK_INT >= 30) {
                 android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout() | WindowInsets.Type.ime());
                 view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+                if (Build.VERSION.SDK_INT >= 35 && statusBarBackdrop.getLayoutParams().height != bars.top) {
+                    statusBarBackdrop.setLayoutParams(new FrameLayout.LayoutParams(-1, bars.top, Gravity.TOP));
+                }
             } else view.setPadding(insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(), insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom());
             return Build.VERSION.SDK_INT >= 30 ? WindowInsets.CONSUMED : insets.consumeSystemWindowInsets();
         });
@@ -95,7 +106,7 @@ public class MainActivity extends Activity {
         Button browser = new Button(this); browser.setText("在浏览器打开"); browser.setOnClickListener(v -> external(Uri.parse(retryUrl)));
         errorPanel.addView(title); errorPanel.addView(description); errorPanel.addView(retry); errorPanel.addView(browser);
         root.addView(errorPanel, new FrameLayout.LayoutParams(-1,-1)); errorPanel.setVisibility(View.GONE);
-        setContentView(root);
+        setContentView(windowContent);
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -103,13 +114,18 @@ public class MainActivity extends Activity {
         settings.setAllowContentAccess(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setMediaPlaybackRequiresUserGesture(true);
-        settings.setUserAgentString(settings.getUserAgentString() + " ShortEmotionAndroid/1.0.0");
+        settings.setUserAgentString(settings.getUserAgentString() + " ShortEmotionAndroid/" + BuildConfig.VERSION_NAME);
         settings.setSupportMultipleWindows(false);
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, false);
         WebView.setWebContentsDebuggingEnabled(false);
         try (var input = getAssets().open("native.js")) { java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream(); byte[] chunk = new byte[4096]; int n; while ((n = input.read(chunk)) != -1) buffer.write(chunk, 0, n); nativeScript = buffer.toString("UTF-8"); } catch (Exception ignored) {}
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            WebViewCompat.addWebMessageListener(web, "ShortEmotionTheme", Collections.singleton(ORIGIN), (view, message, source, mainFrame, reply) -> {
+                if (failed || !mainFrame || !trusted(source) || view.getUrl() == null || !trusted(Uri.parse(view.getUrl()))) return;
+                String color = message.getData();
+                if (color != null && color.matches("#[0-9a-fA-F]{6}")) setStatusBarBackground(Color.parseColor(color));
+            });
             WebViewCompat.addWebMessageListener(web, "ShortEmotionFiles", Collections.singleton(ORIGIN), (view, message, source, mainFrame, reply) -> {
                 if (!mainFrame || !trusted(source) || !trusted(Uri.parse(web.getUrl() == null ? "" : web.getUrl()))) return;
                 receive(message.getData());
@@ -167,7 +183,23 @@ public class MainActivity extends Activity {
         web.loadUrl(START);
     }
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
-    private void showError() { failed = true; progress.setVisibility(View.GONE); errorPanel.setVisibility(View.VISIBLE); }
+    private void setStatusBarBackground(int color) {
+        statusBarBackdrop.setBackgroundColor(color);
+        // Android 15 draws the app under the transparent system status bar.
+        if (Build.VERSION.SDK_INT < 35) getWindow().setStatusBarColor(color);
+        boolean darkIcons = Color.luminance(color) > 0.179f;
+        if (Build.VERSION.SDK_INT >= 30) {
+            WindowInsetsController controller = getWindow().getInsetsController();
+            int flag = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS;
+            if (controller != null) controller.setSystemBarsAppearance(darkIcons ? flag : 0, flag);
+        } else {
+            View decor = getWindow().getDecorView();
+            int flag = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            int current = decor.getSystemUiVisibility();
+            decor.setSystemUiVisibility(darkIcons ? current | flag : current & ~flag);
+        }
+    }
+    private void showError() { failed = true; progress.setVisibility(View.GONE); errorPanel.setVisibility(View.VISIBLE); setStatusBarBackground(Color.WHITE); }
     private void toast(String message) { runOnUiThread(() -> Toast.makeText(this, message, Toast.LENGTH_LONG).show()); }
     private void external(Uri uri) {
         if (!java.util.Arrays.asList("https", "http", "mailto", "tel").contains(uri.getScheme() == null ? "" : uri.getScheme())) { toast("暂不支持打开此链接"); return; }
