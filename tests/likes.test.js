@@ -1,4 +1,4 @@
-// 点赞：看点文章接口带上赞数（api/morning-report.js）、页面接线、数据库迁移的权限。
+// 点赞：看点文章接口带上赞数（api/_lib/morning-report/handler.js）、页面接线、数据库迁移的权限。
 import { readFileSync } from "node:fs";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 
@@ -9,12 +9,16 @@ vi.mock("../api/_lib/kandian/service.js", async (importOriginal) => ({ ...await 
 const { requireSession } = await import("../api/_lib/session.js");
 const { readReports } = await import("../api/_lib/morning-report/service.js");
 const { dbRequest } = await import("../api/_lib/kandian/service.js");
-const { default: handler } = await import("../api/morning-report.js");
+const { default: handler } = await import("../api/kandian.js");
 
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
 async function call(query = {}) {
   const res = { setHeader: vi.fn(), status(n) { this.code = n; return this; }, json(b) { this.body = b; return this; } };
-  await handler({ method: "GET", query, headers: {} }, res);
+  const { rewrites } = JSON.parse(read("vercel.json"));
+  const route = rewrites.find(({ source }) => source === "/api/morning-report");
+  const target = new URL(route.destination, "https://example.test");
+  expect(target.pathname).toBe("/api/kandian");
+  await handler({ method: "GET", query: { ...query, ...Object.fromEntries(target.searchParams) }, headers: {} }, res);
   return res;
 }
 

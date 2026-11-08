@@ -1,4 +1,4 @@
-import { withUsage } from "./_lib/usage.js";
+import { withUsage } from "../usage.js";
 // 涨停情绪（/limitup）— 页面接口（需登录）
 //
 // GET  /api/limitup?resource=summary
@@ -11,10 +11,10 @@ import { withUsage } from "./_lib/usage.js";
 // 只读数据分支里的快照，不调用 Wind（取数在 GitHub Actions 的短线情绪更新里，见 api/_lib/limitup/service.js）。
 // 「刷新」沿用短线情绪：POST /api/short-emotion?market=cn&action=refresh（同一次更新会重算涨停情绪）。
 // 未登录返回 401 login_required；积分不足返回 402 insufficient_points。
-import { getStore } from "./_lib/short-emotion/store.js";
-import { readLimitUp, LimitUpNotReadyError } from "./_lib/limitup/service.js";
-import { requireSession, authConfig } from "./_lib/session.js";
-import { POINTS, pointsLimitupStatus, pointsUnlockLimitup, InsufficientPointsError } from "./_lib/points.js";
+import { getStore } from "../short-emotion/store.js";
+import { readLimitUp, LimitUpNotReadyError } from "./service.js";
+import { requireSession, authConfig } from "../session.js";
+import { POINTS, pointsLimitupStatus, pointsUnlockLimitup, InsufficientPointsError } from "../points.js";
 
 const RESOURCES = new Set(["summary", "full"]);
 const UNLOCK = { unlockCost: POINTS.unlockLimitup, unlockHours: POINTS.unlockHours };

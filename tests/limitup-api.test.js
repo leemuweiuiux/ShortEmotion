@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { vi } from "vitest";
 
 const session = await import("../api/_lib/session.js");
-const { default: handler, unlockState } = await import("../api/limitup.js");
+const { default: handler, unlockState } = await import("../api/_lib/limitup/handler.js");
 const { POINT_KINDS } = await import("../api/_lib/points.js");
 
 const SUPABASE = "https://awrpzbxdhrwbweskgipj.supabase.co";

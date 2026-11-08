@@ -1,5 +1,5 @@
 import {describe,it,expect,vi} from 'vitest';
-import {createEtfflowHandler} from '../api/etf-flow.js';
+import {createEtfflowHandler} from '../api/_lib/etf-flow/handler.js';
 const dates=['20261102','20261103'];
 const snapshot={dates,funds:[{code:'510300.SH',name:'沪深300ETF',group:'hs300',points:dates.map((date,i)=>({date,amount:i+1}))}]};
 function setup(extra={}){const deps={session:async()=>({enabled:true,accessToken:'token'}),config:()=>({}),status:async()=>({balance:100,unlockUntil:null}),read:vi.fn(async()=>snapshot),unlock:vi.fn(async()=>({ok:true,charged:true,balance:95})),...extra};return {handler:createEtfflowHandler(deps),...deps};}

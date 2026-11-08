@@ -1,10 +1,10 @@
-import { withUsage } from './_lib/usage.js';
+import { withUsage } from '../usage.js';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { requireSession,authConfig } from './_lib/session.js';
-import { buildDashboard } from './_lib/etf-flow/metrics.js';
-import {pointsEtfflowStatus,pointsUnlockEtfflow,InsufficientPointsError} from './_lib/points.js';
-import {etfflowAccess,ETF_UNLOCK} from './_lib/etf-flow/access.js';
+import { requireSession,authConfig } from '../session.js';
+import { buildDashboard } from './metrics.js';
+import {pointsEtfflowStatus,pointsUnlockEtfflow,InsufficientPointsError} from '../points.js';
+import {etfflowAccess,ETF_UNLOCK} from './access.js';
 const DATA_URL='https://raw.githubusercontent.com/leemuweiuiux/ShortEmotion/etf-flow-data/snapshot.json';
 let cached=null;
 export async function readSnapshot() {

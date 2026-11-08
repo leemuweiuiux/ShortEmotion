@@ -1,10 +1,10 @@
 // Homepage and full board share the same 12-hour points unlock.
-import {getStore} from './_lib/short-emotion/store.js';
-import {readSectorFlow} from './_lib/sectorflow/service.js';
-import {requireSession,authConfig} from './_lib/session.js';
-import {pointsSectorflowStatus,pointsUnlockSectorflow,InsufficientPointsError} from './_lib/points.js';
-import {sectorflowAccess,hasSectorflowData,SECTORFLOW_UNLOCK} from './_lib/sectorflow/access.js';
-import {withUsage} from './_lib/usage.js';
+import {getStore} from '../short-emotion/store.js';
+import {readSectorFlow} from './service.js';
+import {requireSession,authConfig} from '../session.js';
+import {pointsSectorflowStatus,pointsUnlockSectorflow,InsufficientPointsError} from '../points.js';
+import {sectorflowAccess,hasSectorflowData,SECTORFLOW_UNLOCK} from './access.js';
+import {withUsage} from '../usage.js';
 const RESOURCES=new Set(['full','summary','access']);
 export function createSectorflowHandler({session=requireSession,config=authConfig,read=readSectorFlow,store=getStore,status=pointsSectorflowStatus,unlock=pointsUnlockSectorflow}={}){
  return async function handler(req,res){

@@ -1,7 +1,7 @@
-import { requireSession, authConfig } from './_lib/session.js';
-import { getStore } from './_lib/short-emotion/store.js';
-import { readReports } from './_lib/morning-report/service.js';
-import { dbRequest, likeSummary, likeOf } from './_lib/kandian/service.js';
+import { requireSession, authConfig } from '../session.js';
+import { getStore } from '../short-emotion/store.js';
+import { readReports } from './service.js';
+import { dbRequest, likeSummary, likeOf } from '../kandian/service.js';
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, no-store');
   if (req.method !== 'GET') { res.setHeader('Allow','GET'); return res.status(405).json({error:'Method Not Allowed'}); }

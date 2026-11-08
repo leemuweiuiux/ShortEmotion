@@ -40,7 +40,7 @@ describe('ETF read endpoint',()=>{
  it('requires a session before accessing the market-data snapshot',async()=>{
   const old=process.env.SHORT_EMOTION_AUTH;delete process.env.SHORT_EMOTION_AUTH;
   try{
-   const {default:handler}=await import('../api/etf-flow.js');
+   const {default:handler}=await import('../api/_lib/etf-flow/handler.js');
    const response={headers:{},setHeader(k,v){this.headers[k]=v;},status(n){this.statusCode=n;return this;},json(v){this.body=v;return this;}};
    await handler({method:'GET',headers:{cookie:'',host:'localhost'}},response);
    expect(response.statusCode).toBe(401);expect(response.body.code).toBe('login_required');
