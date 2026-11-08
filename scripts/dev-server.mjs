@@ -18,6 +18,7 @@ const API_ROUTES = {
   kandian: () => import("../api/kandian.js"),
   "short-emotion": () => import("../api/short-emotion.js"),
   auth: () => import("../api/auth.js"),
+  "ecpay-sandbox": () => import("../api/ecpay-sandbox.js"),
   "technical-analysis": () => import("../api/technical-analysis.js"),
   admin: () => import("../api/admin.js"),
   "morning-report": () => import("../api/morning-report.js"),

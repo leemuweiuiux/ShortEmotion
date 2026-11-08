@@ -65,6 +65,7 @@
     {"source": "/account/redeem/", "destination": "/redeem/index.html"},
     {"source": "/account/points", "destination": "/account/points/index.html"},
     {"source": "/account/points/", "destination": "/account/points/index.html"},
+    {"source": "/account/buy-points", "has": [{"type": "host", "value": "exp.lfjmwl.com"}], "destination": "/account/buy-points/index.html"},
     {"source": "/account/settings", "destination": "/account/settings/index.html"},
     {"source": "/account/settings/", "destination": "/account/settings/index.html"},
     {"source": "/admin", "destination": "/admin/index.html"},

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="robots" content="noindex">
+  <title>购买积分 · ShortEmotion</title>
+  <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
+  <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <script>
+    // 与介绍页、看板共用外观设置：深浅色跟随系统（或 twsvp_theme），语言：简体 / 繁体
+    (function () {
+      var root = document.documentElement;
+      var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
+      var theme = get("twsvp_theme");
+      if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      root.dataset.theme = theme;
+      if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
+      var lang = get("shortemotion:lang");
+      if (lang !== "hans" && lang !== "hant") lang = /^zh-(tw|hk|mo|hant)/i.test(navigator.language || "") ? "hant" : "hans";
+      root.dataset.lang = lang;
+      if (lang === "hant") root.lang = "zh-Hant-TW";
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/about/about.css?v=13">
+  <link rel="stylesheet" href="/shared/form.css?v=1">
+  <link rel="stylesheet" href="/account/account.css?v=14">
+  <link rel="stylesheet" href="/account/buy-points.css?v=1">
+  <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
+  <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+  <script defer src="/_vercel/insights/script.js"></script>
+  <link rel="stylesheet" href="/shared/global-header.css?v=4">
+  <script defer src="/shared/usage.js?v=3"></script>
+  <link rel="stylesheet" href="/shared/wide-layout.css?v=2">
+</head>
+<body class="sub-page wide-account wide-ledger sandbox-purchase">
+  <nav class="subnav">
+    <a id="back" class="subnav-btn" href="/account" aria-label="返回">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+    <div class="subnav-title">购买积分</div>
+  </nav>
+
+  <main class="sub-frame">
+    <section class="sub-card">
+      <div class="section-title">选择积分包</div>
+      <p class="invite-entry-copy">测试环境 · 不会真实扣款。积分包按人民币定价，绿界收银台显示新台币测试金额。</p>
+      <p id="purchase-account" class="invite-entry-copy"></p>
+      <div id="purchase-packages" class="purchase-packages"></div>
+      <p class="invite-entry-copy">看板使用积分解锁，每次解锁有效期为 12 小时。测试积分单独显示。</p>
+    </section>
+    <section class="sub-card">
+      <div class="section-title">测试订单</div>
+      <p id="purchase-status" class="invite-entry-copy" role="status" aria-live="polite">读取中…</p>
+      <button id="purchase-recheck" class="ledger-more" type="button" hidden>查询付款结果</button>
+      <ol id="purchase-orders" class="ledger-list"></ol>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="/account/buy-points.js?v=1"></script>
+  <script type="module" src="/shared/global-header.js?v=6"></script>
+</body>
+</html>
