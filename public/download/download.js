@@ -1,15 +1,9 @@
-export function validRelease(data) {
-  return data && /^\d+\.\d+\.\d+$/.test(data.version) && Number.isInteger(data.versionCode) && data.versionCode > 0
-    && data.url === `/download/android/shortemotion-${data.version}.apk`
-    && /^[a-f0-9]{64}$/.test(data.sha256) && data.bytes > 0;
-}
+import { readAndroidRelease } from './android-release.js?v=1';
+
 if (typeof document !== 'undefined') {
   const link = document.getElementById('download');
   document.getElementById('wechat').hidden = !/MicroMessenger/i.test(navigator.userAgent);
-  fetch('/download/android/latest.json', { cache: 'no-store' }).then(r => {
-    if (!r.ok) throw Error('unavailable'); return r.json();
-  }).then(data => {
-    if (!validRelease(data)) throw Error('invalid release');
+  readAndroidRelease().then(data => {
     link.href = data.url; link.download = `shortemotion-${data.version}.apk`; link.removeAttribute('aria-disabled');
     link.textContent = '下载 Android App';
     document.getElementById('version').textContent = `v${data.version} · ${(data.bytes / 1024 / 1024).toFixed(1)} MB · Android 8.0 及以上`;

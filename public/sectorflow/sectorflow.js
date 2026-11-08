@@ -1,3 +1,4 @@
+import { showUnlockSuccess } from "/shared/unlock-toast.js?v=1";
 import {sectorflowRequest} from '/shared/sectorflow-access.js?v=1';
 import {requestJSON,restoreSnapshot} from '/shared/request.js?v=1';
 // Full board is protected by an independent 12-hour points unlock.
@@ -31,7 +32,7 @@ async function load() {
       const button=accessPanel.querySelector('button');button.disabled=Boolean(payload.unavailable)||unlockBusy;
       button.addEventListener('click',async()=>{
         if(unlockBusy)return;unlockBusy=true;button.disabled=true;button.textContent='解锁中…';
-        try{await sectorflowRequest('unlock');await load();}
+        try{const result=await sectorflowRequest('unlock');showUnlockSuccess(toast, 'sectorflow', result);await load();}
         catch(error){if(error.status===401)return goLogin();toast(error.message,true);}
         finally{unlockBusy=false;const current=accessPanel.querySelector('button');if(current){current.disabled=Boolean(payload.unavailable);current.textContent='解锁（5积分）';}}
       });return;

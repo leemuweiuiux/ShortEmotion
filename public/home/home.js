@@ -1,3 +1,4 @@
+import { showUnlockSuccess } from "/shared/unlock-toast.js?v=1";
 import {whenNearViewport} from '/shared/viewport-load.js?v=1';
 import { requestJSON, readPoints, rememberSnapshot } from '/shared/request.js?v=1';
 import {etfOverviewMarkup} from '/shared/etf-overview.js?v=1';
@@ -175,7 +176,7 @@ function renderUnlocked() {
   const items = (anomalyData.items || [])
     .filter((item) => (item.tabScores?.all ?? item.score) >= threshold)
     .sort((a, b) => (b.tabScores?.all ?? b.score) - (a.tabScores?.all ?? a.score));
-  $("#anomaly-pill").textContent = anomalyData.unlimited ? `今日 ${anomalyData.total ?? items.length} 个题材` : anomalyData.unlockUntil ? `已解锁至 ${untilLabel(anomalyData.unlockUntil)}` : `今日 ${anomalyData.total ?? items.length} 个题材`;
+  $("#anomaly-pill").textContent = anomalyData.unlimited ? `今日 ${anomalyData.total ?? items.length} 个题材` : anomalyData.unlockUntil ? `有效至 ${untilLabel(anomalyData.unlockUntil)}` : `今日 ${anomalyData.total ?? items.length} 个题材`;
   if (!items.length) {
     body.innerHTML = '<div class="empty">今日暂未识别到高价值题材异动。</div>';
     return;
@@ -222,7 +223,7 @@ async function unlock(event) {
       return;
     }
     if (!response.ok) throw new Error(payload.error || "解锁失败，请稍后再试");
-    if (payload.charged) toast(payload.balance != null && Number.isFinite(Number(payload.balance)) ? `已解锁，剩余 ${payload.balance} 积分` : "已解锁");
+    showUnlockSuccess(toast, "anomalies", payload);
     if (limitupData?.locked) renderLimitUpLocked(); // 余额变了，涨停天梯的「去签到」提示跟着更新
     await loadAnomalies();
   } catch (error) {
@@ -247,7 +248,7 @@ function renderSectorHomeLock(){
   if(sectorHomeBusy)return;
   if(sectorHomeAccess.unavailable){await loadSectorFlow();return;}
   sectorHomeBusy=true;renderSectorHomeLock();
-  try{await sectorflowRequest('unlock');toast('已解锁资金流向');await loadSectorFlow();}
+  try{const result=await sectorflowRequest('unlock');showUnlockSuccess(toast, 'sectorflow', result);await loadSectorFlow();}
   catch(error){if(error.status===401)return goLogin();toast(error.message,true);}
   finally{sectorHomeBusy=false;renderSectorHomeLock();}
  });
@@ -316,7 +317,7 @@ function renderLimitUpUnlocked() {
   limitupBody.classList.remove("locked");
   const ladder = Array.isArray(limitupData.ladder) ? limitupData.ladder : [];
   $("#limitup-pill").textContent = !limitupData.unlimited && limitupData.unlockUntil
-    ? `已解锁至 ${untilLabel(limitupData.unlockUntil)}`
+    ? `有效至 ${untilLabel(limitupData.unlockUntil)}`
     : ladder.length ? `今日天梯 ${ladder.length} 档` : "涨停天梯";
   if (!ladder.length) {
     const detail = limitupData.pending?.detail;
@@ -365,7 +366,7 @@ async function unlockLimitUp(event) {
       return;
     }
     if (!response.ok) throw new Error(payload.error || "解锁失败，请稍后再试");
-    if (payload.charged) toast(payload.balance != null && Number.isFinite(Number(payload.balance)) ? `已解锁，剩余 ${payload.balance} 积分` : "已解锁");
+    showUnlockSuccess(toast, "limitup", payload);
     if (anomalyData?.locked) renderLocked(); // 余额变了，题材异动的「去签到」提示跟着更新
     await loadLimitUp();
   } catch (error) {
@@ -407,7 +408,7 @@ etfHomeButton.addEventListener('click',async()=>{
  if(etfHomeData.unavailable){toast('积分服务暂时不可用，请稍后再试',true);loadEtfHome();return;}
  if(!etfHomeData.locked){location.assign('/etfflow');return;}
  etfHomeBusy=true;renderEtfHome();
- try{await etfflowRequest('unlock');toast('已解锁宽基ETF资金');await loadEtfHome();}catch(error){if(error.status===401)return goLogin();toast(error.message,true);}finally{etfHomeBusy=false;renderEtfHome();}
+ try{const result=await etfflowRequest('unlock');showUnlockSuccess(toast, 'etfflow', result);await loadEtfHome();}catch(error){if(error.status===401)return goLogin();toast(error.message,true);}finally{etfHomeBusy=false;renderEtfHome();}
 });
 whenNearViewport($("#etf-home-card"),loadEtfHome);
 addEventListener('pageshow',event=>{if(event.persisted)loadEtfHome();});

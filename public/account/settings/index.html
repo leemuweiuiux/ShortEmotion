@@ -28,7 +28,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/about/about.css?v=13">
   <link rel="stylesheet" href="/shared/form.css?v=1">
-  <link rel="stylesheet" href="/account/account.css?v=14">
+  <link rel="stylesheet" href="/account/account.css?v=15">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -63,12 +63,22 @@
       <a class="settings-row" href="/privacy"><span>隐私政策</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
     </nav>
 
+    <section id="android-update" class="sub-card settings-list" aria-label="App 版本" hidden>
+      <button id="check-android-update" class="settings-row update-check" type="button">
+        <span>更新版本</span><span id="android-installed-version" class="update-version"></span>
+      </button>
+      <div id="android-update-result" class="update-result" hidden>
+        <p id="android-update-status" role="status" aria-live="polite"></p>
+        <a id="android-update-download" class="btn-primary update-download" hidden>下载新版</a>
+      </div>
+    </section>
+
     <button id="logout" class="logout-link" type="button">退出登录</button>
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/account/settings.js?v=4"></script>
+  <script type="module" src="/account/settings.js?v=5"></script>
   <script type="module" src="/shared/global-header.js?v=6"></script>
 </body>
 </html>

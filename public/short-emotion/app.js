@@ -1,3 +1,4 @@
+import { showUnlockSuccess } from "/shared/unlock-toast.js?v=1";
 import {loadImageExporter} from '/shared/export-loader.js?v=1';
 import { localTimeLabel, emotionTimeLabel } from "/shared/local-time.js?v=1";
 import { updateNavPoints } from "/shared/nav-points.js?v=2";
@@ -364,7 +365,7 @@ function renderUnlockCountdown() {
       return;
     }
     pill.hidden = false;
-    pill.textContent = `已解锁 · 剩余 ${countdownText(left)}`;
+    pill.textContent = `可查看 ${countdownText(left)}`;
   };
   tick();
   unlockTimer = setInterval(tick, 1000);
@@ -401,7 +402,7 @@ async function unlockAnomalies(event) {
       return;
     }
     if (!response.ok) throw new Error(payload.error || `请求失败 (${response.status})`);
-    if (payload.charged) toast(Number.isFinite(Number(payload.balance)) ? `已解锁，剩余 ${payload.balance} 积分` : "已解锁");
+    showUnlockSuccess(toast, "anomalies", payload);
     await loadAnomalies(true);
   } catch (error) {
     toast(error.message, true);

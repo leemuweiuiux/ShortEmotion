@@ -1,3 +1,4 @@
+import { showUnlockSuccess } from "/shared/unlock-toast.js?v=1";
 import {etfflowRequest} from '/shared/etfflow-access.js?v=1';
 import {restoreSnapshot} from '/shared/request.js?v=1';
 import {etfOverviewMarkup} from '/shared/etf-overview.js?v=1';
@@ -86,7 +87,7 @@ sectorAction.addEventListener('click',async()=>{
  if(sectorAccess.unavailable){toast('积分服务暂时不可用，请稍后再试',true);loadSectorAccess();return;}
  if(!sectorAccess.locked){location.assign('/sectorflow');return;}
  sectorBusy=true;renderSectorAccess();
- try{const result=await sectorflowRequest('unlock');sectorAccess={...result,locked:false};toast('已解锁板块资金');}
+ try{const result=await sectorflowRequest('unlock');sectorAccess={...result,locked:false};showUnlockSuccess(toast, 'sectorflow', result);}
  catch(error){if(error.status===401)return goLogin();toast(error.message,true);}
  finally{sectorBusy=false;renderSectorAccess();}
 });
@@ -97,6 +98,6 @@ addEventListener('pageshow',event=>{if(event.persisted){loadSectorAccess();load(
 let etfUnlockBusy=false;
 $('#ef-unlock').addEventListener('click',async()=>{
  if(etfUnlockBusy)return;etfUnlockBusy=true;const b=$('#ef-unlock');b.disabled=true;b.textContent='解锁中…';
- try{await etfflowRequest('unlock');toast('已解锁宽基ETF资金');await load();}catch(error){if(error.status===401)return goLogin();toast(error.message,true);}finally{etfUnlockBusy=false;b.disabled=Boolean(dashboard?.unavailable);b.textContent='解锁（5积分）';}
+ try{const result=await etfflowRequest('unlock');showUnlockSuccess(toast, 'etfflow', result);await load();}catch(error){if(error.status===401)return goLogin();toast(error.message,true);}finally{etfUnlockBusy=false;b.disabled=Boolean(dashboard?.unavailable);b.textContent='解锁（5积分）';}
 });
 setupEtfShare($('#ef-share'),{data:()=>dashboard,selected:()=>selected,metric:()=>$('#ef-metric').value,toast});
