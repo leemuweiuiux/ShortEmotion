@@ -1,8 +1,8 @@
 {
-  "version": "1.0.1",
-  "versionCode": 2,
-  "url": "/download/android/shortemotion-1.0.1.apk",
-  "sha256": "f85a3471d6c1046681166fcf9d8e5372dc21e6284eef2fe49d20c65fa7c93ac9",
-  "bytes": 907789,
-  "notes": "状态栏跟随导航栏的浅色或深色主题。按钮、导航与标签页增加按下反馈，并避免长按选中文字。"
+  "version": "1.0.2",
+  "versionCode": 3,
+  "url": "/download/android/shortemotion-1.0.2.apk",
+  "sha256": "7be21343233b9448884b5f71f1b8fdd70d608847a56bb3e313702c6d3f4e3d4e",
+  "bytes": 907777,
+  "notes": "修复部分 Android 设备启动时闪退的问题。已安装旧版的用户可以直接覆盖安装。"
 }
