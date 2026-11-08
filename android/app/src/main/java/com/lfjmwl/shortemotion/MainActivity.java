@@ -76,9 +76,8 @@ public class MainActivity extends Activity {
         root.setBackgroundColor(Color.WHITE);
         windowContent.addView(root, new FrameLayout.LayoutParams(-1, -1));
         statusBarBackdrop = new View(this);
+        statusBarBackdrop.setBackgroundColor(Color.WHITE);
         windowContent.addView(statusBarBackdrop, new FrameLayout.LayoutParams(-1, 0, Gravity.TOP));
-        if (Build.VERSION.SDK_INT >= 29) getWindow().setStatusBarContrastEnforced(false);
-        setStatusBarBackground(Color.WHITE);
         // Target 35 enforces edge-to-edge; protect both website header and bottom drawers.
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             if (Build.VERSION.SDK_INT >= 30) {
@@ -107,6 +106,7 @@ public class MainActivity extends Activity {
         errorPanel.addView(title); errorPanel.addView(description); errorPanel.addView(retry); errorPanel.addView(browser);
         root.addView(errorPanel, new FrameLayout.LayoutParams(-1,-1)); errorPanel.setVisibility(View.GONE);
         setContentView(windowContent);
+        if (Build.VERSION.SDK_INT >= 29) getWindow().setStatusBarContrastEnforced(false);
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -189,7 +189,9 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT < 35) getWindow().setStatusBarColor(color);
         boolean darkIcons = Color.luminance(color) > 0.179f;
         if (Build.VERSION.SDK_INT >= 30) {
-            WindowInsetsController controller = getWindow().getInsetsController();
+            // A detached View has no controller. Window.getInsetsController() can
+            // dereference a missing decor during a cold start.
+            WindowInsetsController controller = statusBarBackdrop.getWindowInsetsController();
             int flag = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS;
             if (controller != null) controller.setSystemBarsAppearance(darkIcons ? flag : 0, flag);
         } else {
