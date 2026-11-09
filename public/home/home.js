@@ -375,6 +375,62 @@ async function unlockLimitUp(event) {
   }
 }
 
+const linkageCard = $("#global-linkage-card");
+const linkageMap = $(".home-linkage-map");
+const linkageButtons = [...linkageCard.querySelectorAll("[data-linkage-market]")];
+const linkageStatus = $("#home-linkage-status");
+const linkageThemes = $("#home-linkage-themes");
+const linkageDate = $("#home-linkage-date");
+let linkageGroups = [];
+let linkageLoaded = false;
+
+function selectLinkageMarket(market) {
+  linkageMap.dataset.market = market;
+  for (const button of linkageButtons) {
+    button.setAttribute("aria-pressed", String(button.dataset.linkageMarket === market));
+  }
+  const themes = linkageGroups.find((group) => group.market === market)?.themes || [];
+  const ranked = themes.filter((theme) => theme.pairs?.some((pair) => Number.isFinite(pair.heat?.average)));
+  const preview = ranked.length ? ranked : themes;
+  linkageThemes.replaceChildren(...preview.slice(0, 3).map(({ theme }) => {
+    const tag = document.createElement("li");
+    tag.textContent = theme;
+    return tag;
+  }));
+  linkageThemes.hidden = !themes.length;
+  if (linkageLoaded) {
+    linkageStatus.textContent = ranked.length ? "热度靠前的主题" : themes.length ? "联动主题" : "当前市场暂无联动快照";
+  }
+}
+
+async function loadGlobalLinkageCard() {
+  try {
+    const { response, payload } = await request("/api/short-emotion?market=cn&resource=global-linkage");
+    if (!response.ok) throw new Error();
+    linkageGroups = payload.groups || [];
+    for (const button of linkageButtons) {
+      const group = linkageGroups.find(({ market }) => market === button.dataset.linkageMarket);
+      const pairs = group?.themes?.reduce((total, theme) => total + (theme.pairs?.length || 0), 0);
+      button.querySelector("span").textContent = pairs ? `${pairs} 组配对` : "暂无数据";
+    }
+    if (/^\d{8}$/.test(payload.tradingDate || "")) {
+      const date = payload.tradingDate.replace(/^(....)(..)(..)$/, "$1-$2-$3");
+      linkageDate.dateTime = date;
+      linkageDate.textContent = `数据日期 ${date}`;
+      linkageDate.hidden = false;
+    }
+    linkageLoaded = true;
+    selectLinkageMarket(linkageMap.dataset.market);
+  } catch {
+    linkageStatus.textContent = "全球联动数据暂不可用";
+  }
+}
+
+for (const button of linkageButtons) {
+  button.addEventListener("click", () => selectLinkageMarket(button.dataset.linkageMarket));
+}
+whenNearViewport(linkageCard, loadGlobalLinkageCard);
+
 loadPoints();
 loadEmotion();
 loadAnomalies();
