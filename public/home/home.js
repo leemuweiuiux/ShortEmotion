@@ -1,3 +1,4 @@
+import { linkageCorrelationLabel } from "/shared/linkage-correlation.js?v=1";
 import {whenNearViewport} from '/shared/viewport-load.js?v=1';
 import { requestJSON, readPoints, rememberSnapshot } from '/shared/request.js?v=1';
 import {etfOverviewMarkup} from '/shared/etf-overview.js?v=1';
@@ -378,10 +379,9 @@ async function unlockLimitUp(event) {
 const linkageCard = $("#global-linkage-card");
 const linkageScroll = $("#home-linkage-scroll");
 const linkageThemes = $("#home-linkage-themes");
-const linkagePlayback = $("#home-linkage-playback");
 const linkageMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
 let linkageRepeat;
-let linkagePaused = Boolean(linkageMotion?.matches);
+let linkageTouched = false;
 let linkageVisible = false;
 let linkageHovered = false;
 let linkageFrame = 0;
@@ -402,11 +402,7 @@ function updateLinkagePlayback() {
   const canScroll = linkageThemes.offsetWidth > linkageScroll.clientWidth;
   if (linkageRepeat) linkageRepeat.hidden = !canScroll;
   linkageCycleWidth = canScroll && linkageRepeat ? linkageRepeat.offsetLeft - linkageThemes.offsetLeft : 0;
-  linkagePlayback.hidden = !canScroll;
-  linkagePlayback.textContent = linkagePaused ? "继续" : "暂停";
-  linkagePlayback.setAttribute("aria-label", linkagePaused ? "继续滚动联动板块" : "暂停滚动联动板块");
-
-  if (!linkageCycleWidth || linkagePaused || !linkageVisible || linkageHovered || linkageScroll.matches(":focus-within")) {
+  if (!linkageCycleWidth || linkageMotion?.matches || linkageTouched || !linkageVisible || linkageHovered || linkageScroll.matches(":focus-within")) {
     cancelAnimationFrame(linkageFrame);
     linkageFrame = 0;
   } else if (!linkageFrame) {
@@ -416,14 +412,7 @@ function updateLinkagePlayback() {
   }
 }
 
-linkagePlayback.addEventListener("click", () => {
-  linkagePaused = !linkagePaused;
-  updateLinkagePlayback();
-});
-linkageMotion?.addEventListener?.("change", (event) => {
-  linkagePaused = event.matches;
-  updateLinkagePlayback();
-});
+linkageMotion?.addEventListener?.("change", updateLinkagePlayback);
 linkageScroll.addEventListener("pointerenter", (event) => {
   if (event.pointerType !== "mouse") return;
   linkageHovered = true;
@@ -435,7 +424,7 @@ linkageScroll.addEventListener("pointerleave", (event) => {
   updateLinkagePlayback();
 });
 linkageScroll.addEventListener("touchstart", () => {
-  linkagePaused = true;
+  linkageTouched = true;
   updateLinkagePlayback();
 }, { passive: true });
 linkageScroll.addEventListener("focusin", updateLinkagePlayback);
@@ -452,20 +441,28 @@ async function loadGlobalLinkageCard() {
   try {
     const { response, payload } = await request("/api/short-emotion?market=cn&resource=global-linkage");
     if (!response.ok) throw new Error();
-    const themes = (payload.groups || []).flatMap((group) => (group.themes || []).map((theme) => ({
-      name: theme.theme,
-      market: group.market,
-      label: group.label,
-      pairs: theme.pairs?.length || 0,
-      rank: Math.min(...(theme.pairs || []).map((pair) => pair.heat?.rank ?? Infinity))
-    }))).sort((left, right) => left.rank - right.rank);
+    const themes = (payload.groups || []).flatMap((group) => (group.themes || []).map((theme) => {
+      const pairs = theme.pairs || [];
+      const stocks = new Set(pairs.flatMap(({ cn, peer }) => [cn?.code, peer?.code]).filter(Boolean));
+      return {
+        name: theme.theme,
+        market: group.market,
+        label: group.label,
+        stockCount: stocks.size,
+        correlation: linkageCorrelationLabel(pairs),
+        rank: Math.min(...pairs.map((pair) => pair.heat?.rank ?? Infinity))
+      };
+    })).sort((left, right) => left.rank - right.rank);
     if (!themes.length) {
       status.textContent = "暂无联动板块数据";
       return;
     }
     linkageThemes.innerHTML = themes.map((theme) => {
       const tone = theme.market === "KR" ? "home-linkage-kr" : "home-linkage-us";
-      return `<li><b>${esc(theme.name)}</b><small class="${tone}">${esc(theme.label)} · ${theme.pairs} 组配对</small></li>`;
+      return `<li>
+        <div class="home-linkage-theme-head"><b>${esc(theme.name)}</b><small class="${tone}">${esc(theme.label)}</small><small class="home-linkage-correlation" title="按周收益相关性分档">联动度：<strong>${theme.correlation}</strong></small></div>
+        <span class="home-linkage-stock-count">关联股票 ${theme.stockCount} 只</span>
+      </li>`;
     }).join("");
     linkageRepeat = linkageThemes.cloneNode(true);
     linkageRepeat.removeAttribute("id");

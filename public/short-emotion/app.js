@@ -1,3 +1,4 @@
+import { linkageCorrelationLabel } from "/shared/linkage-correlation.js?v=1";
 import {loadImageExporter} from '/shared/export-loader.js?v=1';
 import { localTimeLabel, emotionTimeLabel } from "/shared/local-time.js?v=1";
 import { updateNavPoints } from "/shared/nav-points.js?v=2";
@@ -524,17 +525,7 @@ function glCardHead(theme) {
   const top = pairs.find((pair) => Number.isFinite(pair.heat?.average));
   const average = Number.isFinite(top?.heat?.average) ? top.heat.average : null;
   const width = average == null ? 0 : Math.max(0, Math.min(100, average));
-  // 相关性按 |r| 分档（口径见底部说明）：卡内档位一致只写一个词，不一致写「低~高」区间。
-  const values = pairs.map((pair) => pair.weekly?.correlation).filter((value) => Number.isFinite(value));
-  const tierOf = (value) => { const abs = Math.abs(value); return abs >= 0.6 ? "高" : abs >= 0.3 ? "中" : "低"; };
-  const tierOrder = { 低: 0, 中: 1, 高: 2 };
-  const tiers = [...new Set(values.map(tierOf))].sort((left, right) => tierOrder[left] - tierOrder[right]);
-  // 负相关不降档，但方向要能看出：全为负标「(反向)」，正负混杂标「(含反向)」。
-  const negatives = values.filter((value) => value < 0).length;
-  const direction = negatives === 0 ? "" : negatives === values.length ? "(反向)" : "(含反向)";
-  const correlation = tiers.length === 0
-    ? "—"
-    : `${tiers.length === 1 ? tiers[0] : `${tiers[0]}~${tiers.at(-1)}`}${direction}`;
+  const correlation = linkageCorrelationLabel(pairs);
   return `<h3 class="gl-card-name">${escapeHtml(theme.theme)}</h3>
     <div class="gl-card-heat">
       <b class="gl-heat-value">${glHeatValue(average)}</b>
