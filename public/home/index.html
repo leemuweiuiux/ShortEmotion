@@ -32,7 +32,7 @@
 <link rel="stylesheet" href="/kandian/reports.css?v=5">
 <link rel="stylesheet" href="/shared/like.css?v=1">
 <link rel="stylesheet" href="/shared/etf-overview.css?v=1">
-<link rel="stylesheet" href="/home/home.css?v=17">  <link rel="stylesheet" href="/shared/global-header.css?v=4">
+<link rel="stylesheet" href="/home/home.css?v=18">  <link rel="stylesheet" href="/shared/global-header.css?v=4">
   <script defer src="/shared/usage.js?v=3"></script>
   <link rel="stylesheet" href="/shared/wide-layout.css?v=3">
 </head>
@@ -86,25 +86,7 @@
           <h2 id="home-linkage-title" class="card-title"><a href="/shortemotion/cn#global">全球联动</a></h2>
           <a class="home-more" href="/shortemotion/cn#global" aria-label="查看更多全球联动">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
         </div>
-        <div class="home-card-body home-linkage-body">
-          <div class="home-linkage-map">
-            <div class="home-linkage-map-stage">
-              <svg viewBox="0 0 920 370" aria-hidden="true">
-                <defs><pattern id="home-map-grid" width="77" height="77" patternUnits="userSpaceOnUse"><path d="M77 0H0V77" fill="none" stroke="currentColor" opacity=".28"/></pattern></defs>
-                <rect width="920" height="370" fill="url(#home-map-grid)"/>
-                <use href="/home/global-linkage-land.svg#land" class="home-linkage-land"/>
-                <path class="home-linkage-route home-linkage-us" d="M342 128C440 19 635 9 744 117"/>
-                <path class="home-linkage-route home-linkage-kr" d="M342 128Q373 89 404 125"/>
-                <circle class="home-linkage-pin home-linkage-us" cx="744" cy="117" r="7"/>
-                <circle class="home-linkage-pin home-linkage-kr" cx="404" cy="125" r="7"/>
-                <circle class="home-linkage-pin home-linkage-cn" cx="342" cy="128" r="8"/>
-              </svg>
-              <span class="home-linkage-label home-linkage-label-cn" aria-hidden="true">中国</span>
-              <span class="home-linkage-label home-linkage-label-kr" aria-hidden="true">韩国</span>
-              <span class="home-linkage-label home-linkage-label-us" aria-hidden="true">美国</span>
-            </div>
-            <time id="home-linkage-date" class="home-time" hidden></time>
-          </div>
+        <div class="home-card-body">
           <div class="home-linkage-ticker">
             <p id="home-linkage-status" class="home-time" role="status">正在读取联动板块…</p>
             <div id="home-linkage-scroll" class="home-linkage-scroll" role="region" aria-label="联动板块" tabindex="0" hidden>
@@ -113,6 +95,7 @@
               </div>
             </div>
           </div>
+          <time id="home-linkage-date" class="home-time" hidden></time>
         </div>
       </section>
 
