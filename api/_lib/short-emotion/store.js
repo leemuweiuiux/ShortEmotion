@@ -346,11 +346,12 @@ export function marketSubdir(market = "cn") {
   return market === "cn" ? "" : market;
 }
 
-export function getStore(market = "cn", { fresh = false } = {}) {
+export function getStore(market = "cn", { fresh = false, dataBranch = DATA_BRANCH } = {}) {
   const mode = storageMode();
   const sub = marketSubdir(market);
   if (mode === "file") return new FileStore(path.join(process.env.SHORT_EMOTION_DATA_DIR || "short-emotion-data", sub));
   if (mode === "github") {
+    if (dataBranch !== DATA_BRANCH) return new GithubReadStore(`${DATA_RAW_BASE}/${dataBranch}`, { sub, fresh });
     const custom = process.env.SHORT_EMOTION_DATA_URL;
     const base = String(custom || DEFAULT_DATA_URL).replace(/\/+$/, "");
     return new GithubReadStore(base, { sub, pinToCommit: !custom && Boolean(githubToken()), fresh });

@@ -25,7 +25,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-  <link rel="stylesheet" href="/short-emotion/twsvp.css?v=18">
+  <link rel="stylesheet" href="/short-emotion/twsvp.css?v=19">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -47,6 +47,7 @@
       <div class="tabs" role="tablist" aria-label="页面分区">
         <button class="tab-btn active" data-target="overview" type="button">情绪总览</button>
         <button id="breadth-tab" class="tab-btn" data-target="breadth" type="button">市场广度</button>
+        <button class="tab-btn" data-target="global" type="button">全球联动</button>
         <button id="themes-tab" class="tab-btn" data-target="themes" type="button">题材异动</button>
         <button class="tab-btn" data-target="timeline" type="button">情绪路径</button>
       </div>
@@ -109,6 +110,15 @@
         </article>
       </section>
 
+      <section id="global" class="section">
+        <article id="global-card" class="card gl-panel">
+          <div class="card-head"><h2 class="card-title">全球联动</h2><span id="gl-pill" class="pill">新闻热度 · 30日</span></div>
+          <div id="gl-summary" class="gl-summary"></div>
+          <div id="gl-groups" class="gl-groups"><div class="loading">正在读取全球联动数据…</div></div>
+          <small id="gl-note" class="gl-note"></small>
+        </article>
+      </section>
+
       <section id="themes" class="section">
         <article class="card anomaly-panel">
           <div class="card-head"><h2 id="anomaly-title" class="card-title">当日题材异动</h2><span id="anomaly-unlock" class="pill" hidden></span></div>
@@ -153,7 +163,7 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/short-emotion/app.js?v=54"></script>
+  <script type="module" src="/short-emotion/app.js?v=55-exp"></script>
 
 
   <script type="module" src="/shared/nav-points.js?v=2"></script>

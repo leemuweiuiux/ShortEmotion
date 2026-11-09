@@ -1,0 +1,54 @@
+name: Global linkage preview
+
+on:
+  push:
+    branches: [exp]
+    paths:
+      - .github/workflows/global-linkage-exp.yml
+      - api/_lib/short-emotion/global-linkage.js
+      - scripts/short-emotion/refresh-global-linkage.mjs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: global-linkage-exp-data
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SHORT_EMOTION_STORE: file
+      SHORT_EMOTION_DATA_DIR: ${{ github.workspace }}/../global-linkage-data
+      DATA_BRANCH: global-linkage-exp-data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Load previous snapshot
+        run: |
+          branch=$(git ls-remote --heads origin "refs/heads/$DATA_BRANCH")
+          if [ -n "$branch" ]; then
+            git fetch --depth=1 origin "$DATA_BRANCH"
+            git worktree add --detach "$SHORT_EMOTION_DATA_DIR" FETCH_HEAD
+          else
+            mkdir -p "$SHORT_EMOTION_DATA_DIR"
+            git -C "$SHORT_EMOTION_DATA_DIR" init -q
+          fi
+      - name: Generate preview snapshot
+        run: node scripts/short-emotion/refresh-global-linkage.mjs
+        env:
+          WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
+      - name: Publish preview snapshot
+        run: |
+          cd "$SHORT_EMOTION_DATA_DIR"
+          printf '%s\n' '{"git":{"deploymentEnabled":false}}' > vercel.json
+          git add kv/global-linkage_latest.json vercel.json
+          if git diff --cached --quiet; then exit 0; fi
+          git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -qm "Refresh preview global linkage snapshot"
+          snapshot_commit=$(git rev-parse HEAD)
+          git -C "$GITHUB_WORKSPACE" fetch "$SHORT_EMOTION_DATA_DIR" "$snapshot_commit"
+          git -C "$GITHUB_WORKSPACE" push origin "FETCH_HEAD:refs/heads/$DATA_BRANCH"
