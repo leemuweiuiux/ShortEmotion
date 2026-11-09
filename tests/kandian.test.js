@@ -25,6 +25,16 @@ describe('真实观点API边界',()=>{
   expect(res.body.views).toHaveLength(5);expect(res.body.next).toBe('2026-10-24T01:00:00.000Z');
  });
  it('非法标签与期限在取价前拒绝',async()=>{expect(()=>validateView({...input,horizon:3})).toThrow();expect(()=>validateView({...input,tags:['随意编造']})).toThrow();expect(()=>validateView({...input,tags:['回踩支撑']})).toThrow();expect((await run({...input,tags:['趋势转强','资金流入','题材发酵','政策消息']})).code).toBe(400);expect(quoteStock).not.toHaveBeenCalled();});
+ it('发布只接受看涨和看跌，并校验对应的逻辑', async () => {
+  expect(validateView({...input, direction:'bearish', tags:['资金流出','政策利空']}).direction).toBe('bearish');
+  for (const draft of [
+    {...input, direction:'neutral'},
+    {...input, direction:'bearish'},
+    {...input, tags:['趋势转强','资金流出']},
+    {...input, tags:['区间震荡']}
+  ]) expect((await run(draft)).code).toBe(400);
+  expect(quoteStock).not.toHaveBeenCalled();
+ });
  it('补充说明已移除：客户端传来也忽略，写库固定为空字符串，列表不返回',async()=>{dbRequest.mockResolvedValueOnce([]).mockResolvedValueOnce(row);const res=await run({...input,note:'不该写入'});expect(res.code).toBe(200);expect(dbRequest.mock.calls[1][3].p_view.note).toBe('');expect(res.body.view).not.toHaveProperty('note');});
 });
 
@@ -40,15 +50,15 @@ it('用户观点内容转义后呈现，不执行用户HTML', async()=>{
   expect(text).toContain('&lt;img');expect(text).not.toContain('<img');expect(text).not.toContain('示例');expect(text).not.toContain('补充说明');
 });
 
-it('发布页：看涨｜中性｜看跌、一层 10 项逻辑、没有补充说明与 emoji 式字符图标', async()=>{
-  const {DIRECTIONS,LOGIC_TAGS}=await import('../public/kandian/data.js');
-  expect(Object.values(DIRECTIONS)).toEqual(['看涨','中性','看跌']);
-  expect(LOGIC_TAGS).toHaveLength(10);
+it('发布页：看跌｜看涨、逻辑按方向分组、没有补充说明与 emoji 式字符图标', async()=>{
+  const {LOGIC_TAGS}=await import('../public/kandian/data.js');
+  expect(Object.keys(LOGIC_TAGS)).toEqual(['bearish','bullish']);
+  expect(LOGIC_TAGS.bearish.filter(tag => LOGIC_TAGS.bullish.includes(tag))).toEqual([]);
   const {readFileSync}=await import('node:fs');
   const html=readFileSync(new URL('../public/kandian/index.html',import.meta.url),'utf8');
   const order=(attr)=>[...html.matchAll(new RegExp(`data-${attr}="(bullish|neutral|bearish)"`,'g'))].map(m=>m[1]);
-  expect(order('direction')).toEqual(['bullish','neutral','bearish']);
-  expect([...html.matchAll(/<option value="(all|bullish|neutral|bearish)"/g)].map(m=>m[1])).toEqual(['all','bullish','neutral','bearish']);
+  expect(order('direction')).toEqual(['bearish','bullish']);
+  expect([...html.matchAll(/<option value="(all|bullish|neutral|bearish)"/g)].map(m=>m[1])).toEqual(['all','bullish','bearish']);
   expect(html).not.toMatch(/kd-note|补充说明|kd-categories|[↗↘→◈＋×]/u);
   expect(html).toContain('/shared/form.css');
   const css=readFileSync(new URL('../public/kandian/kandian.css',import.meta.url),'utf8');

@@ -1,10 +1,12 @@
 import { likeHtml } from "../shared/like.js";
 
-// 顺序即页面顺序：看涨｜中性｜看跌（2026-10-23 与产品确认）
-export const DIRECTIONS = { bullish: "看涨", neutral: "中性", bearish: "看跌" };
+// 保留历史观点的方向文案，发布方向由 LOGIC_TAGS 定义。
+const DIRECTIONS = { bullish: "看涨", neutral: "中性", bearish: "看跌" };
 export const HORIZONS = [5, 10, 20, 60];
-// 逻辑：一层、10 项，选 1—3 项（2026-10-23 与产品确认；之前是 5 类 63 项）
-export const LOGIC_TAGS = ["趋势转强", "趋势转弱", "区间震荡", "资金流入", "资金流出", "题材发酵", "题材退潮", "政策消息", "业绩变化", "公司事件"];
+export const LOGIC_TAGS = {
+  bearish: ["趋势转弱", "资金流出", "题材退潮", "政策利空", "业绩下滑", "公司利空"],
+  bullish: ["趋势转强", "资金流入", "题材发酵", "政策利好", "业绩改善", "公司利好"]
+};
 export const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 export function timeLabel(value) {
   return new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(value));

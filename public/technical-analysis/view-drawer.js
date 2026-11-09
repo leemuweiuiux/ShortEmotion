@@ -1,4 +1,4 @@
-import { DIRECTIONS, HORIZONS, LOGIC_TAGS, escapeHtml } from '../kandian/data.js?v=4';
+import { HORIZONS, LOGIC_TAGS, escapeHtml } from '../kandian/data.js?v=5';
 
 // The stock comes only from the displayed report; the server fetches a fresh quote on publish.
 export function initViewDrawer({ root = document, request = fetch, goLogin, onPublished = () => {} } = {}) {
@@ -21,15 +21,24 @@ export function initViewDrawer({ root = document, request = fetch, goLogin, onPu
   }, { passive: true });
   const tags = new Set();
 
-  dialog.querySelector('#ta-view-tags').innerHTML = LOGIC_TAGS.map(tag => `<button type="button" data-tag="${escapeHtml(tag)}" aria-pressed="false">${escapeHtml(tag)}</button>`).join('');
+  const logic = dialog.querySelector('#ta-view-logic');
+  const tagOptions = dialog.querySelector('#ta-view-tags');
+
+  function setDirection(value) {
+    if (direction === value) return;
+    direction = value;
+    tags.clear();
+    logic.hidden = !direction;
+    tagOptions.innerHTML = (LOGIC_TAGS[direction] || []).map(tag => `<button type="button" data-tag="${escapeHtml(tag)}" aria-pressed="false">${escapeHtml(tag)}</button>`).join('');
+  }
   function renderChoices() {
     for (const button of form.querySelectorAll('[data-direction]')) button.setAttribute('aria-pressed', String(button.dataset.direction === direction));
     for (const button of form.querySelectorAll('[data-horizon]')) button.setAttribute('aria-pressed', String(Number(button.dataset.horizon) === horizon));
     for (const button of form.querySelectorAll('[data-tag]')) button.setAttribute('aria-pressed', String(tags.has(button.dataset.tag)));
   }
   function reset() {
-    direction = horizon = null;
-    tags.clear();
+    setDirection(null);
+    horizon = null;
     requestId = crypto.randomUUID();
     retryBody = null;
     error.textContent = '';
@@ -39,7 +48,7 @@ export function initViewDrawer({ root = document, request = fetch, goLogin, onPu
   bar.addEventListener('click', event => {
     const button = event.target.closest('button');
     if (!button || !stock || pending) return;
-    if (button.dataset.direction) direction = button.dataset.direction;
+    if (button.dataset.direction) setDirection(button.dataset.direction);
     error.textContent = '';
     renderChoices();
     dialog.showModal();
@@ -52,7 +61,7 @@ export function initViewDrawer({ root = document, request = fetch, goLogin, onPu
   form.addEventListener('click', event => {
     const button = event.target.closest('button');
     if (!button || pending) return;
-    if (button.dataset.direction) direction = button.dataset.direction;
+    if (button.dataset.direction) setDirection(button.dataset.direction);
     if (button.dataset.horizon) horizon = Number(button.dataset.horizon);
     if (button.dataset.tag) {
       const tag = button.dataset.tag;
@@ -66,7 +75,7 @@ export function initViewDrawer({ root = document, request = fetch, goLogin, onPu
   form.addEventListener('submit', async event => {
     event.preventDefault();
     if (pending) return;
-    if (!stock || !Object.hasOwn(DIRECTIONS, direction) || !HORIZONS.includes(horizon) || !tags.size) {
+    if (!stock || !Object.hasOwn(LOGIC_TAGS, direction) || !HORIZONS.includes(horizon) || !tags.size) {
       error.textContent = '请选择看法、期限和至少一项逻辑。';
       return;
     }
