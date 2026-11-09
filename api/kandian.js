@@ -1,4 +1,5 @@
 import { withUsage } from "./_lib/usage.js";
+import readReportRequest from "./_lib/morning-report/handler.js";
 import { requireSession, authConfig } from './_lib/session.js';
 import { validateView, quoteStock, dbRequest, presentView, likeSummary, likeOf, LIKE_TYPES } from './_lib/kandian/service.js';
 const send = (res, status, body) => { res.setHeader('Cache-Control', 'no-store'); return res.status(status).json(body); };
@@ -77,4 +78,8 @@ async function handler(req, res) {
   }
 }
 
-export default withUsage("kandian", handler);
+const viewRequest = withUsage("kandian", handler);
+
+export default function kandian(req, res) {
+  return req.query?.__se_report === "1" ? readReportRequest(req, res) : viewRequest(req, res);
+}

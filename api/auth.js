@@ -1,4 +1,5 @@
 import { withUsage, browserEvent, recordUsage } from "./_lib/usage.js";
+import sandboxCheckout from "./_lib/ecpay-sandbox-api.js";
 // 登录接口（配合 /login 页面与 api/_lib/session.js）
 //
 // GET  /api/auth?action=config   Supabase 项目地址与 Publishable key（公开值），页面用来直接申请 / 验证验证码
@@ -55,6 +56,7 @@ function send(res, status, body, setCookies = []) {
 
 async function handler(req, res) {
   const action = String(req.query?.action || "");
+  if (action === "ecpay-sandbox") return sandboxCheckout(req, res);
   const config = authConfig();
   const secure = isSecureNodeRequest(req);
 

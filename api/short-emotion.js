@@ -117,7 +117,7 @@ export function refundDecision(ticket, run, now = Date.now()) {
   return now - ticket.requestedAt > NO_RUN_GRACE_MS ? "refund" : null;
 }
 
-const RESOURCES = new Set(["summary", "emotion", "anomalies", "history", "news", "status", "refresh-status"]);
+const RESOURCES = new Set(["summary", "emotion", "anomalies", "history", "news", "global-linkage", "status", "refresh-status"]);
 
 // 六个维度，顺序与看板一致
 const DIMENSION_KEYS = ["breadth", "limits", "ladder", "profit", "themes", "liquidity"];

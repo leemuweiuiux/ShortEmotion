@@ -1,5 +1,5 @@
 import {describe,it,expect,vi} from 'vitest';
-import {createSectorflowHandler} from '../api/sectorflow.js';
+import {createSectorflowHandler} from '../api/_lib/sectorflow/handler.js';
 import {sectorflowAccess} from '../api/_lib/sectorflow/access.js';
 const session={enabled:true,accessToken:'test-token',user:{id:'test-user'}};
 const unlocked={balance:95,unlimited:false,unlockUntil:'2099-01-01T00:00:00Z'};

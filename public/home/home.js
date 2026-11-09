@@ -1,4 +1,5 @@
 import { showUnlockSuccess } from "/shared/unlock-toast.js?v=1";
+import { linkageCorrelationLabel } from "/shared/linkage-correlation.js?v=1";
 import {whenNearViewport} from '/shared/viewport-load.js?v=1';
 import { requestJSON, readPoints, rememberSnapshot } from '/shared/request.js?v=1';
 import {etfOverviewMarkup} from '/shared/etf-overview.js?v=1';
@@ -375,6 +376,116 @@ async function unlockLimitUp(event) {
     button.textContent = "解锁";
   }
 }
+
+const linkageCard = $("#global-linkage-card");
+const linkageScroll = $("#home-linkage-scroll");
+const linkageThemes = $("#home-linkage-themes");
+const linkageMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+let linkageRepeat;
+let linkageTouched = false;
+let linkageVisible = false;
+let linkageHovered = false;
+let linkageFrame = 0;
+let linkageLastFrame;
+let linkageOffset;
+let linkageCycleWidth = 0;
+
+function advanceLinkage(now) {
+  if (linkageLastFrame !== undefined) {
+    linkageOffset = (linkageOffset + Math.min(50, now - linkageLastFrame) * 0.032) % linkageCycleWidth;
+    linkageScroll.scrollLeft = linkageOffset;
+  }
+  linkageLastFrame = now;
+  linkageFrame = requestAnimationFrame(advanceLinkage);
+}
+
+function updateLinkagePlayback() {
+  const canScroll = linkageThemes.offsetWidth > linkageScroll.clientWidth;
+  if (linkageRepeat) linkageRepeat.hidden = !canScroll;
+  linkageCycleWidth = canScroll && linkageRepeat ? linkageRepeat.offsetLeft - linkageThemes.offsetLeft : 0;
+  if (!linkageCycleWidth || linkageMotion?.matches || linkageTouched || !linkageVisible || linkageHovered || linkageScroll.matches(":focus-within")) {
+    cancelAnimationFrame(linkageFrame);
+    linkageFrame = 0;
+  } else if (!linkageFrame) {
+    linkageLastFrame = undefined;
+    linkageOffset = linkageScroll.scrollLeft;
+    linkageFrame = requestAnimationFrame(advanceLinkage);
+  }
+}
+
+linkageMotion?.addEventListener?.("change", updateLinkagePlayback);
+linkageScroll.addEventListener("pointerenter", (event) => {
+  if (event.pointerType !== "mouse") return;
+  linkageHovered = true;
+  updateLinkagePlayback();
+});
+linkageScroll.addEventListener("pointerleave", (event) => {
+  if (event.pointerType !== "mouse") return;
+  linkageHovered = false;
+  updateLinkagePlayback();
+});
+linkageScroll.addEventListener("touchstart", () => {
+  linkageTouched = true;
+  updateLinkagePlayback();
+}, { passive: true });
+linkageScroll.addEventListener("focusin", updateLinkagePlayback);
+linkageScroll.addEventListener("focusout", () => requestAnimationFrame(updateLinkagePlayback));
+if (typeof IntersectionObserver === "undefined") linkageVisible = true;
+else new IntersectionObserver(([entry]) => {
+  linkageVisible = entry.isIntersecting;
+  updateLinkagePlayback();
+}).observe(linkageScroll);
+if (typeof ResizeObserver !== "undefined") new ResizeObserver(updateLinkagePlayback).observe(linkageScroll);
+
+async function loadGlobalLinkageCard() {
+  const status = $("#home-linkage-status");
+  try {
+    const { response, payload } = await request("/api/short-emotion?market=cn&resource=global-linkage");
+    if (!response.ok) throw new Error();
+    const themes = (payload.groups || []).flatMap((group) => (group.themes || []).map((theme) => {
+      const pairs = theme.pairs || [];
+      const stocks = new Set(pairs.flatMap(({ cn, peer }) => [cn?.code, peer?.code]).filter(Boolean));
+      return {
+        name: theme.theme,
+        market: group.market,
+        label: group.label,
+        stockCount: stocks.size,
+        correlation: linkageCorrelationLabel(pairs),
+        rank: Math.min(...pairs.map((pair) => pair.heat?.rank ?? Infinity))
+      };
+    })).sort((left, right) => left.rank - right.rank);
+    if (!themes.length) {
+      status.textContent = "暂无联动板块数据";
+      return;
+    }
+    linkageThemes.innerHTML = themes.map((theme) => {
+      const tone = theme.market === "KR" ? "home-linkage-kr" : "home-linkage-us";
+      return `<li>
+        <div class="home-linkage-theme-head"><b>${esc(theme.name)}</b><small class="${tone}">${esc(theme.label)}</small><small class="home-linkage-correlation" title="按周收益相关性分档">联动度：<strong>${theme.correlation}</strong></small></div>
+        <span class="home-linkage-stock-count">关联股票 ${theme.stockCount} 只</span>
+      </li>`;
+    }).join("");
+    linkageRepeat = linkageThemes.cloneNode(true);
+    linkageRepeat.removeAttribute("id");
+    linkageRepeat.setAttribute("aria-hidden", "true");
+    linkageThemes.after(linkageRepeat);
+    linkageScroll.hidden = false;
+    status.hidden = true;
+    updateLinkagePlayback();
+
+    if (/^\d{8}$/.test(payload.tradingDate || "")) {
+      const date = payload.tradingDate.replace(/^(....)(..)(..)$/, "$1-$2-$3");
+      const dateLabel = $("#home-linkage-date");
+      dateLabel.dateTime = date;
+      dateLabel.textContent = `数据日期 ${date}`;
+      dateLabel.hidden = false;
+    }
+  } catch {
+    status.textContent = "联动板块暂不可用";
+  }
+}
+
+whenNearViewport(linkageCard, loadGlobalLinkageCard);
 
 loadPoints();
 loadEmotion();

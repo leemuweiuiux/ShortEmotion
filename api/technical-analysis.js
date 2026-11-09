@@ -135,7 +135,7 @@ async function runAnalysis(req, { session, config, needsPoints }) {
   let fallback = null;
   let knownBalance = null, knownUnlimited = false;
   const started = Date.now();
-  const deadline = started + 44_000;
+  const deadline = started + 50_000;
   const available = () => deadline - Date.now() - (needsPoints ? 18_000 : 1000);
   const ensureBudget = (minimum = 1000) => { if (available() < minimum) throw Object.assign(new Error("分析超时，请稍后再试"), { code: "timeout", statusCode: 504 }); };
   try {
