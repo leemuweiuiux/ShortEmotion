@@ -376,59 +376,117 @@ async function unlockLimitUp(event) {
 }
 
 const linkageCard = $("#global-linkage-card");
-const linkageMap = $(".home-linkage-map");
-const linkageButtons = [...linkageCard.querySelectorAll("[data-linkage-market]")];
-const linkageStatus = $("#home-linkage-status");
+const linkageScroll = $("#home-linkage-scroll");
 const linkageThemes = $("#home-linkage-themes");
-const linkageDate = $("#home-linkage-date");
-let linkageGroups = [];
-let linkageLoaded = false;
+const linkagePlayback = $("#home-linkage-playback");
+const linkageMotion = matchMedia("(prefers-reduced-motion: reduce)");
+let linkageRepeat;
+let linkagePaused = linkageMotion.matches;
+let linkageVisible = false;
+let linkageHovered = false;
+let linkageFrame = 0;
+let linkageLastFrame;
+let linkageOffset;
+let linkageCycleWidth = 0;
 
-function selectLinkageMarket(market) {
-  linkageMap.dataset.market = market;
-  for (const button of linkageButtons) {
-    button.setAttribute("aria-pressed", String(button.dataset.linkageMarket === market));
+function advanceLinkage(now) {
+  if (linkageLastFrame !== undefined) {
+    linkageOffset = (linkageOffset + Math.min(50, now - linkageLastFrame) * 0.032) % linkageCycleWidth;
+    linkageScroll.scrollLeft = linkageOffset;
   }
-  const themes = linkageGroups.find((group) => group.market === market)?.themes || [];
-  const ranked = themes.filter((theme) => theme.pairs?.some((pair) => Number.isFinite(pair.heat?.average)));
-  const preview = ranked.length ? ranked : themes;
-  linkageThemes.replaceChildren(...preview.slice(0, 3).map(({ theme }) => {
-    const tag = document.createElement("li");
-    tag.textContent = theme;
-    return tag;
-  }));
-  linkageThemes.hidden = !themes.length;
-  if (linkageLoaded) {
-    linkageStatus.textContent = ranked.length ? "热度靠前的主题" : themes.length ? "联动主题" : "当前市场暂无联动快照";
+  linkageLastFrame = now;
+  linkageFrame = requestAnimationFrame(advanceLinkage);
+}
+
+function updateLinkagePlayback() {
+  const canScroll = linkageThemes.offsetWidth > linkageScroll.clientWidth;
+  if (linkageRepeat) linkageRepeat.hidden = !canScroll;
+  linkageCycleWidth = canScroll && linkageRepeat ? linkageRepeat.offsetLeft - linkageThemes.offsetLeft : 0;
+  linkagePlayback.hidden = !canScroll;
+  linkagePlayback.textContent = linkagePaused ? "继续" : "暂停";
+  linkagePlayback.setAttribute("aria-label", linkagePaused ? "继续滚动联动板块" : "暂停滚动联动板块");
+
+  if (!linkageCycleWidth || linkagePaused || !linkageVisible || linkageHovered || linkageScroll.matches(":focus-within")) {
+    cancelAnimationFrame(linkageFrame);
+    linkageFrame = 0;
+  } else if (!linkageFrame) {
+    linkageLastFrame = undefined;
+    linkageOffset = linkageScroll.scrollLeft;
+    linkageFrame = requestAnimationFrame(advanceLinkage);
   }
 }
 
+linkagePlayback.addEventListener("click", () => {
+  linkagePaused = !linkagePaused;
+  updateLinkagePlayback();
+});
+linkageMotion.addEventListener("change", (event) => {
+  linkagePaused = event.matches;
+  updateLinkagePlayback();
+});
+linkageScroll.addEventListener("pointerenter", (event) => {
+  if (event.pointerType !== "mouse") return;
+  linkageHovered = true;
+  updateLinkagePlayback();
+});
+linkageScroll.addEventListener("pointerleave", (event) => {
+  if (event.pointerType !== "mouse") return;
+  linkageHovered = false;
+  updateLinkagePlayback();
+});
+linkageScroll.addEventListener("touchstart", () => {
+  linkagePaused = true;
+  updateLinkagePlayback();
+}, { passive: true });
+linkageScroll.addEventListener("focusin", updateLinkagePlayback);
+linkageScroll.addEventListener("focusout", () => requestAnimationFrame(updateLinkagePlayback));
+if (typeof IntersectionObserver === "undefined") linkageVisible = true;
+else new IntersectionObserver(([entry]) => {
+  linkageVisible = entry.isIntersecting;
+  updateLinkagePlayback();
+}).observe(linkageScroll);
+if (typeof ResizeObserver !== "undefined") new ResizeObserver(updateLinkagePlayback).observe(linkageScroll);
+
 async function loadGlobalLinkageCard() {
+  const status = $("#home-linkage-status");
   try {
     const { response, payload } = await request("/api/short-emotion?market=cn&resource=global-linkage");
     if (!response.ok) throw new Error();
-    linkageGroups = payload.groups || [];
-    for (const button of linkageButtons) {
-      const group = linkageGroups.find(({ market }) => market === button.dataset.linkageMarket);
-      const pairs = group?.themes?.reduce((total, theme) => total + (theme.pairs?.length || 0), 0);
-      button.querySelector("span").textContent = pairs ? `${pairs} 组配对` : "暂无数据";
+    const themes = (payload.groups || []).flatMap((group) => (group.themes || []).map((theme) => ({
+      name: theme.theme,
+      market: group.market,
+      label: group.label,
+      pairs: theme.pairs?.length || 0,
+      rank: Math.min(...(theme.pairs || []).map((pair) => pair.heat?.rank ?? Infinity))
+    }))).sort((left, right) => left.rank - right.rank);
+    if (!themes.length) {
+      status.textContent = "暂无联动板块数据";
+      return;
     }
+    linkageThemes.innerHTML = themes.map((theme) => {
+      const tone = theme.market === "KR" ? "home-linkage-kr" : "home-linkage-us";
+      return `<li><b>${esc(theme.name)}</b><small class="${tone}">${esc(theme.label)} · ${theme.pairs} 组配对</small></li>`;
+    }).join("");
+    linkageRepeat = linkageThemes.cloneNode(true);
+    linkageRepeat.removeAttribute("id");
+    linkageRepeat.setAttribute("aria-hidden", "true");
+    linkageThemes.after(linkageRepeat);
+    linkageScroll.hidden = false;
+    status.hidden = true;
+    updateLinkagePlayback();
+
     if (/^\d{8}$/.test(payload.tradingDate || "")) {
       const date = payload.tradingDate.replace(/^(....)(..)(..)$/, "$1-$2-$3");
-      linkageDate.dateTime = date;
-      linkageDate.textContent = `数据日期 ${date}`;
-      linkageDate.hidden = false;
+      const dateLabel = $("#home-linkage-date");
+      dateLabel.dateTime = date;
+      dateLabel.textContent = `数据日期 ${date}`;
+      dateLabel.hidden = false;
     }
-    linkageLoaded = true;
-    selectLinkageMarket(linkageMap.dataset.market);
   } catch {
-    linkageStatus.textContent = "全球联动数据暂不可用";
+    status.textContent = "联动板块暂不可用";
   }
 }
 
-for (const button of linkageButtons) {
-  button.addEventListener("click", () => selectLinkageMarket(button.dataset.linkageMarket));
-}
 whenNearViewport(linkageCard, loadGlobalLinkageCard);
 
 loadPoints();
