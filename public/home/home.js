@@ -379,9 +379,9 @@ const linkageCard = $("#global-linkage-card");
 const linkageScroll = $("#home-linkage-scroll");
 const linkageThemes = $("#home-linkage-themes");
 const linkagePlayback = $("#home-linkage-playback");
-const linkageMotion = matchMedia("(prefers-reduced-motion: reduce)");
+const linkageMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
 let linkageRepeat;
-let linkagePaused = linkageMotion.matches;
+let linkagePaused = Boolean(linkageMotion?.matches);
 let linkageVisible = false;
 let linkageHovered = false;
 let linkageFrame = 0;
@@ -420,7 +420,7 @@ linkagePlayback.addEventListener("click", () => {
   linkagePaused = !linkagePaused;
   updateLinkagePlayback();
 });
-linkageMotion.addEventListener("change", (event) => {
+linkageMotion?.addEventListener?.("change", (event) => {
   linkagePaused = event.matches;
   updateLinkagePlayback();
 });
