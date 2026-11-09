@@ -1,22 +1,35 @@
 let gradientId = 0;
 
-// cloneForExport removes HTML ids. Rebuild each timeline's paint reference
-// afterwards with an export-only id so it cannot resolve to the live chart.
-export function prepareTimelineForExport(root, ink) {
-  for (const svg of root.querySelectorAll(".timeline-chart svg")) {
+const timelineStyles = [
+  [".timeline-grid", ["stroke", "stroke-width"]],
+  [".timeline-line", ["fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin"]],
+  [".timeline-dot", ["fill", "stroke", "stroke-width"]],
+  [".timeline-label", ["fill", "font-size"]],
+  [".timeline-stop", ["stop-color", "stop-opacity"]]
+];
+
+// html-to-image deep-clones SVG without copying its children's computed styles.
+export function prepareTimelineForExport(source, clone) {
+  const originalCharts = source.querySelectorAll(".timeline-chart svg");
+  clone.querySelectorAll(".timeline-chart svg").forEach((svg, index) => {
+    const original = originalCharts[index];
+    for (const [selector, properties] of timelineStyles) {
+      const originals = original.querySelectorAll(selector);
+      svg.querySelectorAll(selector).forEach((element, slot) => {
+        const style = getComputedStyle(originals[slot]);
+        for (const property of properties) {
+          element.style.setProperty(property, style.getPropertyValue(property));
+        }
+      });
+    }
+
+    // The HTML clone drops ids, so restore a reference local to this exported chart.
     const gradient = svg.querySelector("linearGradient");
-    if (!gradient) continue;
+    if (!gradient) return;
     const id = `export-timeline-gradient-${++gradientId}`;
     gradient.setAttribute("id", id);
-    for (const stop of gradient.querySelectorAll("stop")) {
-      stop.style.setProperty("stop-color", ink);
-    }
     for (const area of svg.querySelectorAll(".timeline-area")) {
-      // Inline paint overrides the stylesheet's url(#areaGradient[Daily]).
       area.style.setProperty("fill", `url(#${id})`);
     }
-    for (const line of svg.querySelectorAll(".timeline-line")) {
-      line.style.setProperty("fill", "none");
-    }
-  }
+  });
 }
