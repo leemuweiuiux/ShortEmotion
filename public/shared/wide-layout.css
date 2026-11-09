@@ -16,10 +16,11 @@
   .wide-home-grid > #ta-form { grid-row: 1; }
   .wide-home-grid > #emotion-card { grid-area: 2 / 1; }
   .wide-home-grid > #limitup-card { grid-area: 2 / 2; }
-  .wide-home-grid > #sectorflow-card { grid-area: 3 / 1; }
-  .wide-home-grid > #etf-home-card { grid-area: 3 / 2; }
-  .wide-home-grid > #anomaly-card { grid-area: 4 / 1; }
-  .wide-home-grid > .mr-home { grid-area: 4 / 2; }
+  .wide-home-grid > #global-linkage-card { grid-row: 3; grid-column: 1 / -1; }
+  .wide-home-grid > #sectorflow-card { grid-area: 4 / 1; }
+  .wide-home-grid > #etf-home-card { grid-area: 4 / 2; }
+  .wide-home-grid > #anomaly-card { grid-area: 5 / 1; }
+  .wide-home-grid > .mr-home { grid-area: 5 / 2; }
   .wide-home-grid > .home-card { gap: 16px; align-self: stretch; align-content: start; }
   .wide-home-grid > #ta-form .home-card-body { max-width: 880px; width: 100%; }
   .wide-home-grid .ef-overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

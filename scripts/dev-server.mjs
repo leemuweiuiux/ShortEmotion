@@ -20,10 +20,7 @@ const API_ROUTES = {
   auth: () => import("../api/auth.js"),
   "technical-analysis": () => import("../api/technical-analysis.js"),
   admin: () => import("../api/admin.js"),
-  "morning-report": () => import("../api/morning-report.js"),
-  "etf-flow": () => import("../api/etf-flow.js"),
-  sectorflow: () => import("../api/sectorflow.js"),
-  limitup: () => import("../api/limitup.js"),
+  "market-data": () => import("../api/market-data.js"),
   news: () => import("../api/news.js")
 };
 

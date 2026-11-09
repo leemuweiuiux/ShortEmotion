@@ -1,0 +1,5 @@
+.sandbox-purchase .sub-card { display: grid; gap: 12px; }
+.sandbox-purchase [hidden] { display: none; }
+.purchase-packages { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.purchase-packages .btn-primary { display: grid; min-height: 72px; padding: 10px; gap: 4px; justify-items: center; white-space: normal; }
+.purchase-packages small { font-size: 12px; font-weight: 500; }

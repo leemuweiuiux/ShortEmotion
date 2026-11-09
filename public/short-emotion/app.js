@@ -1,4 +1,5 @@
 import { showUnlockSuccess } from "/shared/unlock-toast.js?v=1";
+import { linkageCorrelationLabel } from "/shared/linkage-correlation.js?v=1";
 import {loadImageExporter} from '/shared/export-loader.js?v=1';
 import { localTimeLabel, emotionTimeLabel } from "/shared/local-time.js?v=1";
 import { updateNavPoints } from "/shared/nav-points.js?v=2";
@@ -510,6 +511,174 @@ function renderTimeline() {
   $("#timeline-chart").innerHTML = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><defs><linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1"><stop class="timeline-stop" offset="0" stop-opacity=".12"/><stop class="timeline-stop" offset="1" stop-opacity="0"/></linearGradient></defs>${grid}${axis}<polygon class="timeline-area" points="${area}"/><polyline class="timeline-line" points="${line}"/>${dots}</svg>`;
 }
 
+// ── 全球联动：A股核心个股 vs 海外核心个股（按讨论热度排序，相关性仅作参考）──
+let globalLinkage = null;
+
+// Wind 简称常带英文全称，如「SK海力士(SK HYNIX)」，页面上只留中文名
+const glName = (value) => String(value || "").replace(/[(（][^)）]*[)）]/g, "").trim() || String(value || "—");
+
+const glHeatValue = (value) => (Number.isFinite(value) ? value.toFixed(1) : "—");
+const glDate = (value) => (value ? `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}` : "—");
+
+/** 卡片标题行：主题名 + 一行三段（热度值 → 强度条 → 相关性），不再单列排名徽标与配对热度副行。 */
+function glCardHead(theme) {
+  const pairs = theme.pairs || [];
+  const top = pairs.find((pair) => Number.isFinite(pair.heat?.average));
+  const average = Number.isFinite(top?.heat?.average) ? top.heat.average : null;
+  const width = average == null ? 0 : Math.max(0, Math.min(100, average));
+  const correlation = linkageCorrelationLabel(pairs);
+  return `<h3 class="gl-card-name">${escapeHtml(theme.theme)}</h3>
+    <div class="gl-card-heat">
+      <b class="gl-heat-value">${glHeatValue(average)}</b>
+      <span class="gl-heat-track"><i style="width:${width.toFixed(1)}%"></i></span>
+      <span class="gl-corr-label">相关性</span>
+      <b class="gl-corr-value">${correlation}</b>
+    </div>`;
+}
+
+// 产业链关系：每卡一句行业级描述，由快照里该主题各配对原有描述合并改写，只保留既有事实，不逐条点名配对。
+const GL_RELATION_COPY = {
+  "US|AI算力": "博通供交换芯片与光 DSP，中际旭创供光模块，同属 AI 算力链；服务器整机环节浪潮信息与戴尔直接竞争，同受算力资本开支驱动。",
+  "US|新能源车": "宁德时代向特斯拉供动力电池，属下游客户关系；整车环节比亚迪与特斯拉直接竞争，同受电动车需求与价格战驱动。",
+  "US|半导体": "Fabless 设计与晶圆代工分工并存，同受 AI 芯片与先进制程需求驱动；设备与存储环节北方华创、兆易创新对标应用材料、美光，国产替代直面全球龙头。",
+  "US|消费电子": "立讯精密、歌尔股份为苹果提供组装、零部件与声学器件代工，属下游客户关系，苹果是立讯第一大客户。",
+  "US|创新药": "恒瑞医药与礼来在 GLP-1 等赛道部分靶点直接竞争；君实生物与莫德纳同做抗体/mRNA 类创新药，技术路线与融资环境同源。",
+  "US|光伏": "隆基绿能、晶科能源与第一太阳能同属光伏组件与电池片制造商，直接竞争，共享装机需求与硅料价格周期，美国市场是共同战场。",
+  "US|游戏传媒": "芒果超媒与奈飞同为长视频平台，会员加广告变现模式对标但市场不重叠；完美世界与网易在游戏研发运营上直接竞争。",
+  "US|军工": "中航沈飞与洛克希德马丁同为战斗机整机厂，主力机型直接对标；中航西飞做运输机、轰炸机整机，雷神做导弹与航电，同属军工链不同环节。",
+  "KR|新能源车": "宁德时代与 LG 新能源同做动力电池，争夺全球装机份额；整车环节比亚迪与现代汽车在电动车与出口市场直接竞争。",
+  "KR|半导体": "三星电子兼晶圆代工与存储龙头，与中芯国际在成熟制程直接竞争；兆易创新做利基存储，对标 SK 海力士，共享存储价格周期。",
+  "KR|消费电子": "立讯精密、歌尔股份为三星等安卓阵营提供连接器、声学器件与整机代工，属供应链客户关系，三星同时是终端竞争者。",
+  "KR|创新药": "三星生物制剂做 CDMO 代工，恒瑞医药为创新药研发方，属上下游订单关系；君实生物与赛尔群同属生物药赛道，部分适应症直接竞争。",
+  "KR|游戏传媒": "NAVER 是韩国门户与内容平台，与芒果超媒同属内容加广告变现，模式对标、非直接竞争；完美世界与 NCSOFT 在 MMORPG 研发上直接竞争。"
+};
+
+/** 取该卡的产业链关系：优先用合并改写版，新主题兜底为原有描述去重拼接（不加点对点前缀）。 */
+function glCardRelation(market, theme) {
+  const copy = GL_RELATION_COPY[`${market}|${theme.theme}`];
+  if (copy) return copy;
+  const seen = new Set();
+  const parts = (theme.pairs || []).map((pair) => String(pair.relation || "").trim().replace(/[。；;]+$/, "")).filter((text) => {
+    if (!text || seen.has(text)) return false;
+    seen.add(text);
+    return true;
+  });
+  return parts.length ? `${parts.join("；")}。` : "";
+}
+
+/** 表格一行：名称 + 代码（含侧别、美股数据日期）/ 日收益 / 周收益 / 60日收益。 */
+function glStockRow(item, side) {
+  const perf = item.perf || {};
+  const tradingDate = globalLinkage?.tradingDate;
+  // 美股按 T-1 取数，数据日期与快照交易日不同时跟在代码后，避免和 A股混成同一天。
+  const lagDate = perf.dayDate && tradingDate && perf.dayDate !== tradingDate
+    ? ` · ${perf.dayDate.slice(4, 6)}-${perf.dayDate.slice(6, 8)}`
+    : "";
+  return `<tr class="gl-stock-row">
+            <td class="gl-col-name"><b class="gl-stock-name">${escapeHtml(glName(item.name))}</b><i class="gl-stock-code">${escapeHtml(`${side} · ${item.code}${lagDate}`)}</i></td>
+            <td class="${signClass(perf.day)}">${formatPct(perf.day)}</td>
+            <td class="${signClass(perf.week)}">${formatPct(perf.week)}</td>
+            <td class="${signClass(item.changePct)}">${formatPct(item.changePct)}</td>
+          </tr>`;
+}
+
+function renderGlobalLinkage() {
+  const root = $("#gl-groups");
+  if (!root) return;
+  const groups = globalLinkage?.groups || [];
+  const shown = groups.filter((group) => group.themes?.length);
+  const note = $("#gl-note");
+  if (!shown.length) {
+    root.innerHTML = `<div class="empty">${globalLinkage?.pending
+      ? "全球联动快照暂未生成"
+      : "全球联动数据暂不可用"}</div>`;
+    $("#gl-summary").innerHTML = "";
+    if (note) note.textContent = globalLinkage?.pending ? "" : glNoteText();
+    return;
+  }
+
+  const flat = shown.flatMap((group) => group.themes.flatMap((theme) => theme.pairs.map((pair) => ({ ...pair, theme: theme.theme, group: group.label }))));
+  const missing = flat.filter((pair) => !Number.isFinite(pair.heat?.average)).length;
+  const snapshotDate = globalLinkage.tradingDate ? `<i class="gl-sep">·</i>${escapeHtml(glDate(globalLinkage.tradingDate))}` : "";
+  $("#gl-summary").innerHTML = `<b>${flat.length} 组配对</b><i class="gl-sep">·</i>按热度降序${missing ? `<i class="gl-sep">·</i>${missing} 组无热度置底` : ""}${snapshotDate}`;
+
+  root.innerHTML = shown.map((group) => `
+    <div class="gl-group">
+      <div class="gl-group-head"><h3>${escapeHtml(group.label)}</h3><span class="pill">${group.themes.reduce((sum, theme) => sum + theme.pairs.length, 0)} 组</span></div>
+      <div class="gl-list">
+        ${group.themes.map((theme) => {
+          const side = group.market === "KR" ? "韩股" : "美股";
+          // 同一主题内去重：A股按代码去重，海外按代码去重，不新增股票。
+          const cnStocks = [...new Map(theme.pairs.filter((pair) => pair.cn?.code).map((pair) => [pair.cn.code, pair.cn])).values()];
+          const peerStocks = [...new Map(theme.pairs.filter((pair) => pair.peer?.code).map((pair) => [pair.peer.code, pair.peer])).values()];
+          const relation = glCardRelation(group.market, theme);
+          return `<article class="gl-card">
+          <header class="gl-card-head">${glCardHead(theme)}</header>
+          <p class="gl-relation"><b>产业链关系</b>${escapeHtml(relation || "—")}</p>
+          <table class="gl-table">
+            <colgroup><col><col class="gl-col-num"><col class="gl-col-num"><col class="gl-col-num"></colgroup>
+            <thead><tr><th class="gl-col-name">名称</th><th>日收益</th><th>周收益</th><th>60日收益</th></tr></thead>
+            <tbody>
+              <tr class="gl-group-row"><td colspan="4">A股代表 · ${cnStocks.length} 只</td></tr>
+              ${cnStocks.map((item) => glStockRow(item, "A股")).join("")}
+              <tr class="gl-group-row"><td colspan="4">${side}代表 · ${peerStocks.length} 只</td></tr>
+              ${peerStocks.map((item) => glStockRow(item, side)).join("")}
+            </tbody>
+          </table>
+        </article>`;
+        }).join("")}
+      </div>
+    </div>`).join("");
+
+  if (note) note.textContent = glNoteText();
+}
+
+function glNoteText() {
+  if (!globalLinkage) return "";
+  const heat = globalLinkage.heat || {};
+  const coverage = heat.coverage || {};
+  const stats = globalLinkage.stats || {};
+  const range = heat.range?.start ? `${glDate(heat.range.start)} ~ ${glDate(heat.range.end)}` : "—";
+  const nameOf = new Map();
+  for (const group of globalLinkage.groups || []) {
+    for (const theme of group.themes || []) {
+      for (const pair of theme.pairs || []) nameOf.set(pair.cn?.code, glName(pair.cn?.name));
+    }
+  }
+  // 旧快照可能没写 coverage.missing，就用实际缺热度的个股代码兜底。
+  const missingCodes = coverage.missing?.length
+    ? coverage.missing
+    : [...new Set((globalLinkage.groups || []).flatMap((group) => group.themes.flatMap((theme) => theme.pairs.filter((pair) => pair.heat?.average == null).map((pair) => pair.cn.code))))];
+  const missingNames = missingCodes.map((code) => nameOf.get(code) || code);
+  const priceMissing = stats.priceMissing || [];
+  // 完全没有收盘价的代码已经在「收盘价缺失」里，这里只列有价格但算不出日/周的
+  const perfGap = (stats.perfMissing || []).filter((code) => !priceMissing.includes(code));
+  // 卡内不再逐张重复样本说明，这里统一交代一次：样本跨度按全表配对取值。
+  const allPairs = (globalLinkage.groups || []).flatMap((group) => group.themes.flatMap((theme) => theme.pairs || []));
+  const sampleSpan = (values) => {
+    const unique = [...new Set(values.filter((value) => Number.isFinite(value)))].sort((a, b) => a - b);
+    return unique.length === 0 ? "" : unique.length === 1 ? `${unique[0]}` : `${unique[0]}–${unique.at(-1)}`;
+  };
+  const days = sampleSpan(allPairs.map((pair) => pair.direction?.samples));
+  const weeks = sampleSpan(allPairs.map((pair) => pair.weekly?.samples));
+  const align = [allPairs.some((pair) => pair.lag === 1) ? "美股 T-1" : "", allPairs.some((pair) => pair.lag === 0) ? "韩股优先同日" : ""].filter(Boolean).join("、");
+  return `${plain(heat.metric, "新闻热度（0–100）")} · 近 ${heat.window || 30} 个交易日（${range}）；美股无该指标，中美配对只统计 A股侧。`
+    + `${missingNames.length ? `${missingNames.slice(0, 4).join("、")}${missingNames.length > 4 ? " 等" : ""}无热度。` : ""}`
+    + `涨跌幅：日=最近交易日，周=本周至今，日期跟随快照交易日${align ? `（${align}）` : ""}。`
+    + `${perfGap.length ? `日/周涨跌幅缺失：${perfGap.slice(0, 6).join("、")}。` : ""}`
+    + `${priceMissing.length ? `收盘价缺失：${priceMissing.slice(0, 6).join("、")}。` : ""}`
+    + `相关性按 |r| 分档（<0.3 低、0.3–0.6 中、≥0.6 高），基于卡内各配对的周收益 r${weeks ? `（样本 ${weeks} 周）` : ""}，负相关不降档；方向同步率${days ? `（样本 ${days} 日）` : ""}仅参考，不构成筛选条件。`;
+}
+
+async function loadGlobalLinkage() {
+  try {
+    globalLinkage = await api("global-linkage");
+  } catch {
+    // 读取失败时保留已经显示的快照。
+  }
+  renderGlobalLinkage();
+}
+
 function renderAll() {
   renderHeader();
   renderPulse();
@@ -525,6 +694,7 @@ async function loadEmotion(force = false) {
   button.disabled = true;
   if (!refreshRun.active) button.textContent = "读取中…";
   reportToolbarState({ refreshing: true });
+  void loadGlobalLinkage();
   try {
     data = await api("emotion");
     const historyPayload = await api("history").catch(() => null);
@@ -657,6 +827,7 @@ function exportCardSources() {
   add($("#theme-ranking"), "热度排名");
   add($(".catalyst-panel"), "事件催化");
   add($(".timeline-panel"), "情绪路径");
+  if (globalLinkage?.groups?.length) add($("#global-card"), "全球联动");
   return sources;
 }
 

@@ -15,10 +15,15 @@ it('obtains stock data first, then computes independent modules even without min
   expect(report.availability.trend).toBe(true);expect(report.availability.odds).toBe(true);
   const args=wind.callWindTool.mock.calls.find(c=>c[1]==='get_stock_kline')[2];
   expect(args.begin_date).toBe('2025-10-20');
-  expect(wind.callWindTool.mock.calls.map(c=>c[1])).toEqual(['get_stock_price_indicators','get_stock_kline','get_stock_quote','get_stock_quote','get_index_quote','get_index_kline','get_index_quote','get_index_kline']);
+  const indexWindows = wind.callWindTool.mock.calls.filter(([, tool]) => tool === 'get_index_kline')
+    .map(([, , params]) => params);
+  expect(indexWindows.filter(({ windcode }) => windcode === '000001.SH')).toHaveLength(5);
+  expect(indexWindows.filter(({ windcode }) => windcode === '399001.SZ'))
+    .toEqual([expect.objectContaining({ begin_date: '2026-09-20', end_date: '2026-10-20' })]);
+  expect(wind.callWindTool.mock.calls.slice(0, 8).map(c=>c[1])).toEqual(['get_stock_price_indicators','get_stock_kline','get_stock_quote','get_stock_quote','get_index_quote','get_index_kline','get_index_quote','get_index_kline']);
 });
 
-it('falls back once to 90 days, keeps minute/odds analysis, and never requires six-year candles',async()=>{
+it('falls back once to 90 days, keeps minute/odds analysis, and never requires long history',async()=>{
   vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2026-10-20T16:00:00+08:00'));
   const {mockWindResult}=await import('../api/_lib/short-emotion/mock-wind.js');
   wind.callWindTool.mockImplementation(async(server,tool,params)=>{

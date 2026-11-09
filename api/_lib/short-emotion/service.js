@@ -4,6 +4,7 @@
 import * as cnEngine from "./engine.js";
 import { normalizeAnomalies } from "./role-policy.js";
 import { resetWindCallStats, windCallStats } from "./wind-client.js";
+import { readGlobalLinkage } from "./global-linkage.js";
 import { loadPersistentCaches, savePersistentCaches } from "./persistent-cache.js";
 
 // 每日 Wind 用量（调用次数与返回字节数，计费按返回数据量）：kv/wind-usage_YYYYMMDD.json，保留 30 天
@@ -321,7 +322,7 @@ export async function readResource(resource, market = "cn", { fresh = false } = 
   market = normalizeMarket(market);
   const { classify } = MARKET_CONFIG[market].engine;
   const SCHEDULE = scheduleFor(market);
-  const store = getStore(market, { fresh });
+  const store = getStore(market, { fresh, dataBranch: resource === "global-linkage" ? "global-linkage-exp-data" : undefined });
   const meta = (entry) => ({ marketCode: market, storedAt: entry?.updatedAt || null, schedule: scheduleSummary(market) });
 
   if (resource === "emotion") {
@@ -348,6 +349,7 @@ export async function readResource(resource, market = "cn", { fresh = false } = 
       .map((item) => ({ ...item, phase: classify(item.score, { upRatio: null }).phase }));
     return { tradingDate, history, dailyHistory };
   }
+  if (resource === "global-linkage") return readGlobalLinkage(store);
   if (resource === "status") {
     const lastRun = await store.kvGet(KEY.lastRun).catch(() => null);
     return {

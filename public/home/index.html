@@ -32,9 +32,9 @@
 <link rel="stylesheet" href="/kandian/reports.css?v=5">
 <link rel="stylesheet" href="/shared/like.css?v=1">
 <link rel="stylesheet" href="/shared/etf-overview.css?v=1">
-<link rel="stylesheet" href="/home/home.css?v=14">  <link rel="stylesheet" href="/shared/global-header.css?v=4">
+<link rel="stylesheet" href="/home/home.css?v=18">  <link rel="stylesheet" href="/shared/global-header.css?v=4">
   <script defer src="/shared/usage.js?v=3"></script>
-  <link rel="stylesheet" href="/shared/wide-layout.css?v=2">
+  <link rel="stylesheet" href="/shared/wide-layout.css?v=3">
 </head>
 <body class="wide-page wide-home">
   <div class="app-shell">
@@ -81,6 +81,24 @@
         </a></div>
       </section>
 
+      <section id="global-linkage-card" class="card home-card home-linkage" aria-labelledby="home-linkage-title">
+        <div class="card-head">
+          <h2 id="home-linkage-title" class="card-title"><a href="/shortemotion/cn#global">全球联动</a></h2>
+          <a class="home-more" href="/shortemotion/cn#global" aria-label="查看更多全球联动">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        </div>
+        <div class="home-card-body">
+          <div class="home-linkage-ticker">
+            <p id="home-linkage-status" class="home-time" role="status">正在读取联动板块…</p>
+            <div id="home-linkage-scroll" class="home-linkage-scroll" role="region" aria-label="联动板块" tabindex="0" hidden>
+              <div class="home-linkage-track">
+                <ul id="home-linkage-themes" class="home-linkage-themes"></ul>
+              </div>
+            </div>
+          </div>
+          <time id="home-linkage-date" class="home-time" hidden></time>
+        </div>
+      </section>
+
       <section id="anomaly-card" class="card home-card home-anomaly">
         <div class="card-head"><h2 class="card-title"><a href="/shortemotion/cn#themes">当日题材异动</a></h2><a class="home-more" href="/shortemotion/cn#themes" aria-label="查看更多当日题材异动">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
         <div class="home-card-body"><div class="home-card-meta"><span id="anomaly-pill" class="pill">读取中</span></div>
@@ -117,7 +135,7 @@
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/home/home.js?v=19"></script>
+  <script type="module" src="/home/home.js?v=23"></script>
 <script type="module" src="/kandian/reports.js?v=9"></script>
 
   <script type="module" src="/shared/nav-points.js?v=2"></script>
