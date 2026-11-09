@@ -11,6 +11,10 @@ import { cleanDailyRows, cleanMinuteRows, sameReferenceSession, latestDailyDay }
 
 const cache = new Map();
 const CACHE_MS = 60_000;
+const HISTORY_YEARS = 5;
+const DAILY_RESPONSE_SOFT_LIMIT = 72 * 1024;
+const DAY_MS = 86_400_000;
+const MIN_SPLIT_WINDOW_DAYS = 45;
 
 function round(n, d = 2) {
   return Number(Number(n).toFixed(d));
@@ -66,11 +70,18 @@ function unpack(outer) {
 async function windCall(server, tool, params, attempt = 0, timeoutMs = 30_000, signal) {
   const started = Date.now(), deadline = started + timeoutMs;
   for (let retry = attempt; ; retry++) {
+    let bytes;
     try {
       const left = deadline - Date.now();
       if (left <= 0 || signal?.aborted) throw Object.assign(new Error("请求超时"), { code: "TIMEOUT" });
-      const result = unpack(await callWindTool(server, tool, params, { timeoutMs: left, signal }));
-      console.info("analysis step", { tool, elapsedMs: Date.now() - started, rows: table(result).length, outcome: "success" });
+      const raw = await callWindTool(server, tool, params, { timeoutMs: left, signal });
+      bytes = Buffer.byteLength(raw?.content?.find(item => item.type === "text")?.text || "");
+      if (tool.endsWith("_kline") && bytes >= DAILY_RESPONSE_SOFT_LIMIT) {
+        throw Object.assign(new Error(`日 K 回包接近大小上限（${bytes} bytes）`), { code: "RESPONSE_TOO_LARGE" });
+      }
+      const result = unpack(raw);
+      console.info("analysis step", { tool, windcode: params.windcode, begin: params.begin_date, end: params.end_date,
+        elapsedMs: Date.now() - started, bytes, rows: table(result).length, items: result?.items?.length, outcome: "success" });
       return result;
     } catch (error) {
       const code = error?.code || "UNKNOWN";
@@ -78,7 +89,8 @@ async function windCall(server, tool, params, attempt = 0, timeoutMs = 30_000, s
         await new Promise(resolve => setTimeout(resolve, 700));
         continue;
       }
-      console.warn("analysis step", { tool, elapsedMs: Date.now() - started, code, outcome: "failure" });
+      console.warn("analysis step", { tool, windcode: params.windcode, begin: params.begin_date, end: params.end_date,
+        elapsedMs: Date.now() - started, bytes, code, outcome: "failure" });
       const messages = { TIMEOUT: "行情请求超时，请稍后重试", RATE_LIMIT: "行情请求频率受限，请稍后重试", QUOTA_ERROR: "行情服务额度不足，暂时无法更新", AUTH_ERROR: "行情服务认证失败，暂时无法更新" };
       throw Object.assign(new Error(messages[code] || `数据获取失败（${tool}）`), {
         code: code === "TIMEOUT" ? "timeout" : code === "RATE_LIMIT" ? "rate_limit" : code === "QUOTA_ERROR" ? "quota_exhausted" : code === "AUTH_ERROR" ? "upstream_auth" : "data_error",
@@ -181,14 +193,14 @@ function pressureSupplements({ price, target, targetSource, highSources = [], al
   const day = (row) => String(row.time).slice(0, 10);
   if (target <= price) {
     const peak = nearestHistoricalHigh(allDaily, price);
-    if (peak) return [{ label: "历史前高", value: money(peak.high), note: `${day(peak)}（近6年）` }];
-    return [{ label: "波动推算", value: money(price + 2 * averageTrueRange(allDaily, 14)), note: "现价 + 2 倍 14 日平均波幅；近6年无更高价位" }];
+    if (peak) return [{ label: "历史前高", value: money(peak.high), note: `${day(peak)}（可用历史）` }];
+    return [{ label: "波动推算", value: money(price + 2 * averageTrueRange(allDaily, 14)), note: "现价 + 2 倍 14 日平均波幅；可用历史无更高价位" }];
   }
   if (targetSource === "布林上轨" && (target - price) / price < 0.02) {
     const next = highSources.filter(([value]) => value > target * 1.003).sort((a, b) => a[0] - b[0])[0];
     if (next) return [{ label: "下一档压力", value: money(next[0]), note: next[1] }];
     const peak = nearestHistoricalHigh(allDaily, target);
-    if (peak) return [{ label: "下一档压力", value: money(peak.high), note: `历史前高 ${day(peak)}（近6年）` }];
+    if (peak) return [{ label: "下一档压力", value: money(peak.high), note: `历史前高 ${day(peak)}（可用历史）` }];
   }
   return [];
 }
@@ -322,7 +334,7 @@ function historicalAnalogs(data, marketDaily) {
   return {
     sampleSize,
     confidence,
-    scope: "该股近6年自身历史",
+    scope: `该股可用历史 · ${data.length} 根日 K`,
     method: "按当日涨跌、5日涨幅、量比、振幅、均线/突破状态及市场环境匹配；样本间隔至少5日，未计交易成本。",
     horizons,
   };
@@ -1140,7 +1152,7 @@ function buildAnalysis(snapshotRows, stockQuote, stockDaily, markets, styleMarke
     reward = Math.max(0.01, target - price),
     rr = reward / risk,
     rrScore = clamp(rr >= 2 ? 5 : rr >= 1.3 ? 4 : rr >= 0.8 ? 3 : 1, 0, 5);
-  const history = historicalAnalogs(allDaily, primary.daily || []),
+  const history = historicalAnalogs(allDaily, primary.historyDaily || primary.daily || []),
     surge = catalystAnalysis(surgeProfile(allDaily, snap["中文简称"], snap["Wind代码"]), documents);
   const upsidePct = (100 * Math.max(0, target - price)) / price,
     downsidePct = (100 * Math.max(0, price - invalidation)) / price,
@@ -1594,14 +1606,76 @@ function buildAnalysis(snapshotRows, stockQuote, stockDaily, markets, styleMarke
   };
 }
 
-async function getMarket(code, name, begin, end, { timeoutMs = 12_000, signal } = {}) {
+function isoDay(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function previousDay(day) {
+  return isoDay(new Date(Date.parse(day) - DAY_MS));
+}
+
+function dailyWindows(endDay) {
+  const end = new Date(endDay);
+  return Array.from({ length: HISTORY_YEARS }, (_, i) => {
+    const start = new Date(end);
+    start.setUTCFullYear(end.getUTCFullYear() - i - 1);
+    // Clamp Feb 29 to Feb 28 in non-leap years.
+    if (start.getUTCMonth() !== end.getUTCMonth()) start.setUTCDate(0);
+    const begin = isoDay(start);
+    const window = { begin, end: endDay };
+    endDay = previousDay(begin);
+    return window;
+  });
+}
+
+function dailyRowDay(row) {
+  return String(row.TIME).replace(/^(\d{4})(\d{2})(\d{2})/, "$1-$2-$3").slice(0, 10);
+}
+
+async function getDailyWindow(server, tool, code, { begin, end }, deadline, signal) {
+  try {
+    const data = await windCall(server, tool, {
+      windcode: code, begin_date: begin, end_date: end, period: "1d", aftype: "0", issusp: "1"
+    }, 0, Math.max(1, deadline - Date.now()), signal);
+    const rows = cleanDailyRows(table(data)).filter(row => {
+      const day = dailyRowDay(row);
+      return day >= begin && day <= end;
+    });
+    return [...new Map(rows.map(row => [dailyRowDay(row), row])).values()];
+  } catch (error) {
+    const from = Date.parse(begin), to = Date.parse(end);
+    const oversized = error.upstreamCode === "RESPONSE_TOO_LARGE"
+      || /(?:response|payload).{0,24}(?:too large|size limit|exceed)|回包.{0,12}(?:过大|超限)|HTTP 413|80\s*KB/i.test(error.detail || "");
+    if (!oversized || to - from < MIN_SPLIT_WINDOW_DAYS * DAY_MS || signal?.aborted) throw error;
+    const middle = isoDay(new Date(from + Math.floor((to - from) / DAY_MS / 2) * DAY_MS));
+    const newer = await getDailyWindow(server, tool, code, { begin: middle, end }, deadline, signal);
+    const older = await getDailyWindow(server, tool, code, { begin, end: previousDay(middle) }, deadline, signal);
+    return [...older, ...newer];
+  }
+}
+
+async function extendDailyHistory(server, tool, code, windows, deadline, signal) {
+  const segments = [];
+  for (const window of windows) {
+    if (deadline - Date.now() < 1200 || signal?.aborted) break;
+    try {
+      const rows = await getDailyWindow(server, tool, code, window, deadline, signal);
+      if (!rows.length) break;
+      segments.unshift(rows);
+    } catch {
+      // Keep the contiguous recent history. Do not bridge a failed year in the sample.
+      break;
+    }
+  }
+  return segments.flat();
+}
+
+async function getMarket(code, name, window, { timeoutMs, signal } = {}) {
   const [quoteResult, dailyResult] = await Promise.allSettled([
     windCall("index_data", "get_index_quote", { windcode: code }, 0, timeoutMs, signal),
-    windCall("index_data", "get_index_kline", {
-      windcode: code, begin_date: begin, end_date: end, period: "1d", aftype: "0", issusp: "1"
-    }, 0, timeoutMs, signal)
+    getDailyWindow("index_data", "get_index_kline", code, window, Date.now() + timeoutMs, signal)
   ]);
-  const daily = dailyResult.status === "fulfilled" ? parseDaily(cleanDailyRows(table(dailyResult.value))) : [];
+  const daily = dailyResult.status === "fulfilled" ? parseDaily(dailyResult.value) : [];
   const quote = quoteResult.status === "fulfilled"
     ? parseQuote(cleanMinuteRows(table(quoteResult.value))) : [];
   if (daily.length >= 2) return { name, code, pct: round(marketPct(daily)), series: quote.map(row => row.close), quote, daily };
@@ -1668,32 +1742,27 @@ export async function resolveStock(raw, { fresh = false, signal } = {}) {
 export async function analyzeStock(resolved, { signal, timeoutMs = 32_000 } = {}) {
   if (resolved.cached) return resolved.cached;
   const { snapshotRows, code } = resolved;
-  const end = new Date(), begin = new Date(end);
-  begin.setFullYear(begin.getFullYear() - 1);
-  const beginText = dateText(begin), endText = dateText(end);
+  const endText = dateText(new Date());
+  const [recentWindow, ...olderWindows] = dailyWindows(endText);
+  const shortMarketWindow = { begin: isoDay(new Date(Date.parse(endText) - 30 * DAY_MS)), end: endText };
   const deadline = Date.now() + timeoutMs;
   const budget = max => Math.max(1, Math.min(max, deadline - Date.now()));
   const styleCode = /^(300|301)/.test(code) ? ["399006.SZ", "创业板指"]
     : /^(688|689)/.test(code) ? ["000688.SH", "科创50"] : null;
   // Secure the stock's own data before spending queue time on auxiliary indices.
   const [klineResult, quoteResult] = await Promise.allSettled([
-    windCall("stock_data", "get_stock_kline", {
-      windcode: code, begin_date: beginText, end_date: endText,
-      period: "1d", aftype: "0", issusp: "1"
-    }, 0, budget(8_000), signal),
+    getDailyWindow("stock_data", "get_stock_kline", code, recentWindow, Date.now() + budget(8_000), signal),
     windCall("stock_data", "get_stock_quote", { windcode: code }, 0, budget(6_000), signal)
   ]);
-  let klineRows = klineResult.status === "fulfilled" ? cleanDailyRows(table(klineResult.value)) : [];
+  let klineRows = klineResult.status === "fulfilled" ? klineResult.value : [];
+  const hasRecentWindow = klineRows.length >= 120;
   let quoteRows = quoteResult.status === "fulfilled" ? cleanMinuteRows(table(quoteResult.value)) : [];
-  // A rejected wide request gets one bounded, smaller recent window. Do not
-  // keep retrying the same six-year bulk request or discard successful minutes.
+  // Preserve recent candles and minutes if the first year cannot be retrieved.
   if (klineRows.length < 20 && deadline - Date.now() > 9000 && !signal?.aborted) {
-    const shorter = new Date(end); shorter.setDate(shorter.getDate() - 90);
     try {
-      const rows = cleanDailyRows(table(await windCall("stock_data", "get_stock_kline", {
-        windcode: code, begin_date: dateText(shorter), end_date: endText,
-        period: "1d", aftype: "0", issusp: "1"
-      }, 0, budget(4_000), signal)));
+      const rows = await getDailyWindow("stock_data", "get_stock_kline", code,
+        { begin: isoDay(new Date(Date.parse(endText) - 90 * DAY_MS)), end: endText },
+        Date.now() + budget(4_000), signal);
       if (rows.length > klineRows.length) klineRows = rows;
     } catch { /* independent modules can still use successful data */ }
   }
@@ -1706,39 +1775,53 @@ export async function analyzeStock(resolved, { signal, timeoutMs = 32_000 } = {}
     } catch { /* retain the actual daily data */ }
   }
   const name = String(snapshotRows[0]["中文简称"] || code);
-  const marketOptions = { timeoutMs: budget(5_000), signal };
+  const primaryCode = styleCode?.[0] || (/\.SH$/.test(code) ? "000001.SH" : "399001.SZ");
+  const marketOptions = { timeoutMs: budget(10_000), signal };
+  const marketWindow = indexCode => indexCode === primaryCode && hasRecentWindow ? recentWindow : shortMarketWindow;
   const [shResult, szResult, styleResult] = await Promise.allSettled([
-    getMarket("000001.SH", "上证指数", beginText, endText, marketOptions),
-    getMarket("399001.SZ", "深证成指", beginText, endText, marketOptions),
-    styleCode ? getMarket(styleCode[0], styleCode[1], beginText, endText, marketOptions) : null
+    getMarket("000001.SH", "上证指数", marketWindow("000001.SH"), marketOptions),
+    getMarket("399001.SZ", "深证成指", marketWindow("399001.SZ"), marketOptions),
+    styleCode ? getMarket(...styleCode, marketWindow(styleCode[0]), marketOptions) : null
   ]);
   const sh = shResult.status === "fulfilled" ? shResult.value : null;
   const sz = szResult.status === "fulfilled" ? szResult.value : null;
   const style = styleResult.status === "fulfilled" ? styleResult.value : null;
+  const primary = [sh, sz, style].find(market => market?.code === primaryCode);
   const sameBenchmarkDay = benchmark => benchmark?.daily?.at(-1)?.time
     && String(benchmark.daily.at(-1).time).slice(0, 10) === referenceDate;
   // Event lookup may be triggered by an actual one-day move even with no K.
   const profile = klineRows.length >= 10 ? surgeProfile(parseDaily(klineRows), name, code)
     : { trigger: Math.abs(Number(snapshotRows[0]["涨跌幅"])) >= 7, name, code,
-      asOf: String(quoteRows.at(-1)?.TIME || dateText(end)).slice(0, 10), label: "当日显著异动" };
-  let documents = { news: { items: [] }, announcements: { items: [] } };
-  if (profile.trigger && deadline - Date.now() > 3500 && !signal?.aborted) {
-    const cleanName = name.normalize("NFKC").replace(/\s+/g, ""),
-      dateRange = eventQueryRange(profile.asOf, 3),
-      queries = [`${cleanName}${dateRange}新闻资讯`, `${cleanName}${dateRange}经营债务融资行业政策股价异动`],
-      docs = await Promise.allSettled([
-        windCall("financial_docs", "get_financial_news", { query: queries[0], top_k: 15 }, 0, budget(6_000), signal),
-        windCall("financial_docs", "get_financial_news", { query: queries[1], top_k: 15 }, 0, budget(6_000), signal),
-        windCall("financial_docs", "get_company_announcements", { query: `${cleanName}${dateRange}公司公告`, top_k: 15 }, 0, budget(6_000), signal)
-      ]);
-    documents = { news: { items: [] }, announcements: { items: [] }, errors: [] };
-    for (let i = 0; i < 2; i++) {
-      if (docs[i].status === "fulfilled") documents.news.items.push(...(docs[i].value?.items || []));
-      else documents.errors.push(`news${i+1}`);
+      asOf: String(quoteRows.at(-1)?.TIME || endText).slice(0, 10), label: "当日显著异动" };
+  const documentsTask = (async () => {
+    let documents = { news: { items: [] }, announcements: { items: [] } };
+    if (profile.trigger && deadline - Date.now() > 3500 && !signal?.aborted) {
+      const cleanName = name.normalize("NFKC").replace(/\s+/g, ""),
+        dateRange = eventQueryRange(profile.asOf, 3),
+        queries = [`${cleanName}${dateRange}新闻资讯`, `${cleanName}${dateRange}经营债务融资行业政策股价异动`],
+        docs = await Promise.allSettled([
+          windCall("financial_docs", "get_financial_news", { query: queries[0], top_k: 15 }, 0, budget(6_000), signal),
+          windCall("financial_docs", "get_financial_news", { query: queries[1], top_k: 15 }, 0, budget(6_000), signal),
+          windCall("financial_docs", "get_company_announcements", { query: `${cleanName}${dateRange}公司公告`, top_k: 15 }, 0, budget(6_000), signal)
+        ]);
+      documents = { news: { items: [] }, announcements: { items: [] }, errors: [] };
+      for (let i = 0; i < 2; i++) {
+        if (docs[i].status === "fulfilled") documents.news.items.push(...(docs[i].value?.items || []));
+        else documents.errors.push(`news${i+1}`);
+      }
+      if (docs[2].status === "fulfilled") documents.announcements.items.push(...(docs[2].value?.items || []));
+      else documents.errors.push("announcements");
     }
-    if (docs[2].status === "fulfilled") documents.announcements.items.push(...(docs[2].value?.items || []));
-    else documents.errors.push("announcements");
-  }
+    return documents;
+  })();
+  const [olderStockRows, olderMarketRows, documents] = await Promise.all([
+    hasRecentWindow ? extendDailyHistory("stock_data", "get_stock_kline", code, olderWindows, deadline, signal) : [],
+    hasRecentWindow && primary?.daily?.length >= 2
+      ? extendDailyHistory("index_data", "get_index_kline", primaryCode, olderWindows, deadline, signal) : [],
+    documentsTask
+  ]);
+  klineRows = [...olderStockRows, ...klineRows];
+  if (olderMarketRows.length) primary.historyDaily = [...parseDaily(olderMarketRows), ...primary.daily];
   let result;
   const validDailyInputs = klineRows.length >= 120 && klineRows.slice(-120).every(row =>
     Number(row.VOLUME) > 0 && row.VOLUME != null);
@@ -1747,14 +1830,11 @@ export async function analyzeStock(resolved, { signal, timeoutMs = 32_000 } = {}
   if (validDailyInputs && validMinuteInputs && sameReferenceSession(quoteRows, klineRows)
     && sameBenchmarkDay(sh) && sameBenchmarkDay(sz) && (!styleCode || sameBenchmarkDay(style))) {
     result = buildAnalysis(snapshotRows, quoteRows, klineRows, { sh, sz }, style, documents);
-    result.history.scope = `该股可用历史 · ${klineRows.length} 根日 K`;
-    result.supplements = result.supplements.map(item => ({ ...item,
-      note: String(item.note || "").replace("近6年", "可用历史") }));
   } else {
     const base = buildAvailableReport({ stock: { name, code }, snapshot: snapshotRows[0],
       dailyRows: klineRows, minuteRows: quoteRows });
     const historical = klineRows.length >= 120 && klineRows.every(row => Number(row.VOLUME) > 0)
-      ? historicalAnalogs(parseDaily(klineRows), sh?.daily) : null;
+      ? historicalAnalogs(parseDaily(klineRows), primary?.historyDaily || primary?.daily) : null;
     const events = profile.trigger && (documents.news.items.length || documents.announcements.items.length || documents.errors)
       ? catalystAnalysis(profile, documents) : null;
     result = analyzeModules(base, { snapshot: snapshotRows[0], dailyRows: klineRows,

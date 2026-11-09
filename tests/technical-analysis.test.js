@@ -28,15 +28,16 @@ describe("个股技术分析算法（离线样本）", () => {
     expect(() => engine.normalizeInput("")).toThrow("请输入");
   });
 
-  it("主板股票：7 次调用，输出胜率、赔率、历史同类结构与图表数据", async () => {
+  it("主板股票：拉取五年分段历史，输出胜率、赔率与图表", async () => {
     wind.resetWindCallStats();
     const result = await engine.analyze("603936");
-    expect(wind.windCallStats().total).toBe(7);
+    expect(wind.windCallStats().total).toBe(15);
     expect(result).toMatchObject({ name: "样本电子", code: "603936.SH" });
     expect(result.score).toBeGreaterThanOrEqual(0);
     expect(result.score).toBeLessThanOrEqual(100);
     expect(result.finalDecision.winOdds).toMatch(/^胜率.+ · 赔率.+$/);
     expect(result.dims).toHaveLength(7);
+    expect(result.history.scope).toMatch(/可用历史 · 1[23]\d{2} 根日 K/);
     expect(result.history.horizons.map((item) => item.days)).toEqual([5, 10, 20]);
     expect(result.daily).toHaveLength(120);
     expect(result.intraday.length).toBeGreaterThan(0);
@@ -44,12 +45,37 @@ describe("个股技术分析算法（离线样本）", () => {
     expect(result.surge.trigger).toBe(false);
   });
 
-  it("创业板加上创业板指；近期连续大涨时再取新闻与公告（共 12 次）", async () => {
+  it("创业板用创业板指作为历史基准，近期连续大涨时再取新闻与公告", async () => {
     wind.resetWindCallStats();
     const result = await engine.analyze("样本新材");
-    expect(wind.windCallStats().total).toBe(12);
+    expect(wind.windCallStats().total).toBe(20);
     expect(result.market.map((item) => item[0])).toContain("创业板指");
     expect(result.surge.trigger).toBe(true);
+  });
+
+  it("拆分超大日 K 回包，旧区间失败时保留近期完整分析", async () => {
+    const original = wind.callWindTool;
+    const calls = vi.spyOn(wind, "callWindTool").mockImplementation(async (server, tool, params, options) => {
+      if (tool === "get_stock_kline" && params.begin_date === "2025-10-20" && params.end_date === "2026-10-20") {
+        return { content: [{ type: "text", text: " ".repeat(75_000) }] };
+      }
+      if (tool === "get_stock_kline" && params.begin_date === "2024-10-20") {
+        throw new wind.WindError("TIMEOUT", "旧区间超时");
+      }
+      return original(server, tool, params, options);
+    });
+    try {
+      const result = await engine.analyze("603936");
+      const ranges = calls.mock.calls.filter(([, tool]) => tool === "get_stock_kline").map(([, , params]) => params);
+      expect(ranges).toHaveLength(4);
+      expect(ranges[1].end_date).toBe(ranges[0].end_date);
+      expect(ranges[2].begin_date).toBe(ranges[0].begin_date);
+      expect(result.daily).toHaveLength(120);
+      expect(result.history.scope).toMatch(/可用历史 · 2\d{2} 根日 K/);
+      expect(result.score).toBeGreaterThanOrEqual(0);
+    } finally {
+      calls.mockRestore();
+    }
   });
 
   it("输出不标注数据来源", async () => {
