@@ -1,13 +1,13 @@
 import { resolveStock } from '../technical-analysis/engine.js';
 import { getApiKeys, isMockMode } from '../short-emotion/wind-client.js';
-import { DIRECTIONS, HORIZONS, LOGIC_TAGS } from '../../../public/kandian/data.js';
+import { HORIZONS, LOGIC_TAGS } from '../../../public/kandian/data.js';
 const fail = (message, statusCode = 400) => Object.assign(new Error(message), { statusCode });
-const allowedTags = new Set(LOGIC_TAGS);
 export function validateView(body) {
   const q = String(body?.q || '').trim();
   if (!/^[\u4e00-\u9fa5A-Za-z0-9.\-*]{2,30}$/.test(q)) throw fail('请输入完整股票名称或代码');
-  if (!Object.hasOwn(DIRECTIONS, body.direction) || !HORIZONS.includes(body.horizon)) throw fail('请选择判断方向与期限');
-  if (!Array.isArray(body.tags) || !body.tags.length || body.tags.length > 3 || new Set(body.tags).size !== body.tags.length || body.tags.some(t => !allowedTags.has(t))) throw fail('请选择1—3项有效逻辑');
+  if (!Object.hasOwn(LOGIC_TAGS, body.direction) || !HORIZONS.includes(body.horizon)) throw fail('请选择判断方向与期限');
+  const allowedTags = LOGIC_TAGS[body.direction];
+  if (!Array.isArray(body.tags) || !body.tags.length || body.tags.length > 3 || new Set(body.tags).size !== body.tags.length || body.tags.some(t => !allowedTags.includes(t))) throw fail('请选择1—3项有效逻辑');
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.requestId || '')) throw fail('发布请求无效，请重新打开发布窗口');
   return { q, direction: body.direction, horizon: body.horizon, tags: body.tags, note: '', request_id: body.requestId }; // 补充说明已移除（2026-10-23）；数据库 note 栏不能为 NULL，固定写空字符串
 }

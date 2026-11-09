@@ -39,6 +39,22 @@ describe('个股分析观点抽屉', () => {
     click('[data-horizon="20"]'); click('#ta-view-close'); click('#ta-view-open');
     expect($('[data-horizon="20"]').getAttribute('aria-pressed')).toBe('true');
   });
+  it('底部与抽屉均为左看跌右看涨，切换方向清除旧逻辑并保留期限', async () => {
+    const directions = selector => [...root.querySelectorAll(selector)].map(button => button.dataset.direction);
+    expect(directions('#ta-view-bar [data-direction]')).toEqual(['bearish', 'bullish']);
+    expect(directions('form [data-direction]')).toEqual(['bearish', 'bullish']);
+    drawer.setStock(a);
+    fill();
+    expect($('[data-tag="资金流出"]')).toBeNull();
+    click('form [data-direction="bearish"]');
+    expect($('[data-tag="资金流入"]')).toBeNull();
+    expect($('[data-horizon="10"]').getAttribute('aria-pressed')).toBe('true');
+    publish();
+    expect(request).not.toHaveBeenCalled();
+    click('[data-tag="资金流出"]');
+    publish(); await settle();
+    expect(body(0)).toMatchObject({ direction: 'bearish', horizon: 10, tags: ['资金流出'] });
+  });
   it('滚动时收起，连续滚动重置恢复时间，停止后恢复；打开抽屉时不受滚动影响', () => {
     vi.useFakeTimers(); drawer.setStock(a);
     window.dispatchEvent(new window.Event('scroll'));
@@ -57,6 +73,8 @@ describe('个股分析观点抽屉', () => {
     click('#ta-view-open');
     expect($('#ta-view-stock').textContent).toContain(b.name);
     expect($('[data-horizon="10"]').getAttribute('aria-pressed')).toBe('false');
+    expect($('#ta-view-logic').hidden).toBe(true);
+    click('form [data-direction="bullish"]');
     expect($('[data-tag="资金流入"]').getAttribute('aria-pressed')).toBe('false');
     drawer.setBusy(true); expect($('#ta-view-bar').hidden).toBe(true);
     drawer.setBusy(false); expect($('#ta-view-bar').hidden).toBe(false);
@@ -64,11 +82,11 @@ describe('个股分析观点抽屉', () => {
   it('未填完整不发送，逻辑最多三项，成功发布到真实观点接口并提供查看入口', async () => {
     drawer.setStock(a); click('#ta-view-open'); publish();
     expect(request).not.toHaveBeenCalled();
-    fill(); click('[data-tag="题材发酵"]'); click('[data-tag="政策消息"]'); click('[data-tag="公司事件"]');
+    fill(); click('[data-tag="题材发酵"]'); click('[data-tag="政策利好"]'); click('[data-tag="公司利好"]');
     expect($('#ta-view-error').textContent).toContain('最多');
     publish(); await settle();
     expect(request.mock.calls[0][0]).toBe('/api/kandian');
-    expect(body(0)).toMatchObject({ action: 'publish', q: a.code, direction: 'bullish', horizon: 10, tags: ['资金流入', '题材发酵', '政策消息'] });
+    expect(body(0)).toMatchObject({ action: 'publish', q: a.code, direction: 'bullish', horizon: 10, tags: ['资金流入', '题材发酵', '政策利好'] });
     expect(body(0)).not.toHaveProperty('price');
     expect($('#ta-view-status').hidden).toBe(false);
     expect($('#ta-view-status a').getAttribute('href')).toBe('/kandian?tab=views&filter=mine');

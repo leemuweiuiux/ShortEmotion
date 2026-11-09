@@ -3,7 +3,7 @@ import {loadImageExporter} from '/shared/export-loader.js?v=1';
 import { localTimeLabel, emotionTimeLabel } from "/shared/local-time.js?v=1";
 import { updateNavPoints } from "/shared/nav-points.js?v=2";
 import { showPointsShortage } from "/shared/points-shortage.js?v=1";
-import { prepareTimelineForExport } from "./export-svg.js?v=1";
+import { prepareTimelineForExport } from "./export-svg.js?v=2";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -596,13 +596,10 @@ function renderGlobalLinkage() {
     return;
   }
 
-  const flat = shown.flatMap((group) => group.themes.flatMap((theme) => theme.pairs.map((pair) => ({ ...pair, theme: theme.theme, group: group.label }))));
-  const missing = flat.filter((pair) => !Number.isFinite(pair.heat?.average)).length;
-  const snapshotDate = globalLinkage.tradingDate ? `<i class="gl-sep">·</i>${escapeHtml(glDate(globalLinkage.tradingDate))}` : "";
-  $("#gl-summary").innerHTML = `<b>${flat.length} 组配对</b><i class="gl-sep">·</i>按热度降序${missing ? `<i class="gl-sep">·</i>${missing} 组无热度置底` : ""}${snapshotDate}`;
+  $("#gl-summary").innerHTML = glSummary(shown, globalLinkage.tradingDate);
 
   root.innerHTML = shown.map((group) => `
-    <div class="gl-group">
+    <div class="gl-group" data-market="${escapeHtml(group.market)}">
       <div class="gl-group-head"><h3>${escapeHtml(group.label)}</h3><span class="pill">${group.themes.reduce((sum, theme) => sum + theme.pairs.length, 0)} 组</span></div>
       <div class="gl-list">
         ${group.themes.map((theme) => {
@@ -632,28 +629,31 @@ function renderGlobalLinkage() {
   if (note) note.textContent = glNoteText();
 }
 
-function glNoteText() {
+function glSummary(groups, tradingDate) {
+  const pairs = groups.flatMap((group) => group.themes.flatMap((theme) => theme.pairs));
+  const missing = pairs.filter((pair) => !Number.isFinite(pair.heat?.average)).length;
+  const snapshotDate = tradingDate ? `<i class="gl-sep">·</i>${escapeHtml(glDate(tradingDate))}` : "";
+  return `<b>${pairs.length} 组配对</b><i class="gl-sep">·</i>按热度降序${missing ? `<i class="gl-sep">·</i>${missing} 组无热度置底` : ""}${snapshotDate}`;
+}
+
+function glNoteText(market) {
   if (!globalLinkage) return "";
   const heat = globalLinkage.heat || {};
   const coverage = heat.coverage || {};
   const stats = globalLinkage.stats || {};
   const range = heat.range?.start ? `${glDate(heat.range.start)} ~ ${glDate(heat.range.end)}` : "—";
-  const nameOf = new Map();
-  for (const group of globalLinkage.groups || []) {
-    for (const theme of group.themes || []) {
-      for (const pair of theme.pairs || []) nameOf.set(pair.cn?.code, glName(pair.cn?.name));
-    }
-  }
-  // 旧快照可能没写 coverage.missing，就用实际缺热度的个股代码兜底。
+  const groups = (globalLinkage.groups || []).filter((group) => !market || group.market === market);
+  const allPairs = groups.flatMap((group) => group.themes.flatMap((theme) => theme.pairs || []));
+  const nameOf = new Map(allPairs.map((pair) => [pair.cn?.code, glName(pair.cn?.name)]));
+  const stockCodes = new Set(allPairs.flatMap((pair) => [pair.cn?.code, pair.peer?.code]));
+  const belongsToMarket = (code) => !market || stockCodes.has(code);
+  // 旧快照没有 coverage.missing 时，用配对中的数据兜底。
   const missingCodes = coverage.missing?.length
-    ? coverage.missing
-    : [...new Set((globalLinkage.groups || []).flatMap((group) => group.themes.flatMap((theme) => theme.pairs.filter((pair) => pair.heat?.average == null).map((pair) => pair.cn.code))))];
+    ? coverage.missing.filter((code) => !market || nameOf.has(code))
+    : [...new Set(allPairs.filter((pair) => pair.heat?.average == null).map((pair) => pair.cn.code))];
   const missingNames = missingCodes.map((code) => nameOf.get(code) || code);
-  const priceMissing = stats.priceMissing || [];
-  // 完全没有收盘价的代码已经在「收盘价缺失」里，这里只列有价格但算不出日/周的
-  const perfGap = (stats.perfMissing || []).filter((code) => !priceMissing.includes(code));
-  // 卡内不再逐张重复样本说明，这里统一交代一次：样本跨度按全表配对取值。
-  const allPairs = (globalLinkage.groups || []).flatMap((group) => group.themes.flatMap((theme) => theme.pairs || []));
+  const priceMissing = (stats.priceMissing || []).filter(belongsToMarket);
+  const perfGap = (stats.perfMissing || []).filter((code) => belongsToMarket(code) && !priceMissing.includes(code));
   const sampleSpan = (values) => {
     const unique = [...new Set(values.filter((value) => Number.isFinite(value)))].sort((a, b) => a - b);
     return unique.length === 0 ? "" : unique.length === 1 ? `${unique[0]}` : `${unique[0]}–${unique.at(-1)}`;
@@ -661,7 +661,7 @@ function glNoteText() {
   const days = sampleSpan(allPairs.map((pair) => pair.direction?.samples));
   const weeks = sampleSpan(allPairs.map((pair) => pair.weekly?.samples));
   const align = [allPairs.some((pair) => pair.lag === 1) ? "美股 T-1" : "", allPairs.some((pair) => pair.lag === 0) ? "韩股优先同日" : ""].filter(Boolean).join("、");
-  return `${plain(heat.metric, "新闻热度（0–100）")} · 近 ${heat.window || 30} 个交易日（${range}）；美股无该指标，中美配对只统计 A股侧。`
+  return `${plain(heat.metric, "新闻热度（0–100）")} · 近 ${heat.window || 30} 个交易日（${range}）${market === "KR" ? "。" : "；美股无该指标，中美配对只统计 A股侧。"}`
     + `${missingNames.length ? `${missingNames.slice(0, 4).join("、")}${missingNames.length > 4 ? " 等" : ""}无热度。` : ""}`
     + `涨跌幅：日=最近交易日，周=本周至今，日期跟随快照交易日${align ? `（${align}）` : ""}。`
     + `${perfGap.length ? `日/周涨跌幅缺失：${perfGap.slice(0, 6).join("、")}。` : ""}`
@@ -756,7 +756,7 @@ function cloneForExport(node, { openDetails = true } = {}) {
   const clone = node.cloneNode(true);
   clone.removeAttribute("id");
   clone.querySelectorAll("[id]").forEach((item) => item.removeAttribute("id"));
-  prepareTimelineForExport(clone, getComputedStyle(document.documentElement).getPropertyValue("--ink").trim() || "#121417");
+  prepareTimelineForExport(node, clone);
   clone.querySelectorAll("button").forEach((item) => item.remove());
   clone.querySelectorAll("details").forEach((item) => { if (openDetails) item.open = true; else item.remove(); });
   clone.querySelectorAll(".news-list").forEach((item) => { item.style.maxHeight = "none"; item.style.overflow = "visible"; });
@@ -826,7 +826,22 @@ function exportCardSources() {
   add($("#theme-ranking"), "热度排名");
   add($(".catalyst-panel"), "事件催化");
   add($(".timeline-panel"), "情绪路径");
-  if (globalLinkage?.groups?.length) add($("#global-card"), "全球联动");
+  const linkageCard = $("#global-card");
+  if (linkageCard && linkageCard.offsetParent !== null) {
+    for (const group of globalLinkage?.groups || []) {
+      if (!group.themes?.length) continue;
+      const clone = cloneForExport(linkageCard);
+      const marketGroups = [...clone.querySelectorAll(".gl-group[data-market]")];
+      const marketGroup = marketGroups.find((item) => item.dataset.market === group.market);
+      if (!marketGroup) continue;
+      marketGroups.filter((item) => item !== marketGroup).forEach((item) => item.remove());
+      marketGroup.querySelector(".gl-group-head")?.remove();
+      clone.querySelector(".card-title").textContent = group.label;
+      clone.querySelector(".gl-summary").innerHTML = glSummary([group], globalLinkage.tradingDate);
+      clone.querySelector(".gl-note").textContent = glNoteText(group.market);
+      sources.push({ clone, name: group.label });
+    }
+  }
   return sources;
 }
 
@@ -851,7 +866,8 @@ async function exportSmallCards(onProgress) {
   for (let index = 0; index < sources.length; index += 1) {
     const source = sources[index];
     onProgress?.(index + 1, sources.length);
-    const blob = await renderShell([exportHeader(source.name), cloneForExport(source.node, { openDetails: source.openDetails !== false }), exportFooter()], "export-card");
+    const clone = source.clone || cloneForExport(source.node, { openDetails: source.openDetails !== false });
+    const blob = await renderShell([exportHeader(source.name), clone, exportFooter()], "export-card");
     files.push({ blob, name: `AI短线情绪-${CFG.label}-${exportDay()}-${String(index + 1).padStart(2, "0")}.png`, title: source.name });
   }
   return files;

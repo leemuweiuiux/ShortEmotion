@@ -1,18 +1,19 @@
-import { DIRECTIONS, HORIZONS, LOGIC_TAGS, cardHtml, escapeHtml } from "./data.js?v=4";
+import { HORIZONS, LOGIC_TAGS, cardHtml, escapeHtml } from "./data.js?v=5";
 import { toast, goLogin } from "/shared/nav-account.js?v=2";
 import { initLikes } from "/shared/like.js";
 
 initLikes(); // 观点卡片底部的点赞
 
 const $ = (s) => document.querySelector(s);
-// 筛选：最新 / 看涨 / 中性 / 看跌 / 我的（只看本人发布的，个人中心「查看全部」带 ?filter=mine 进来）
-const FILTERS = ["all", "bullish", "neutral", "bearish", "mine"];
+// 筛选：最新 / 看涨 / 看跌 / 我的（只看本人发布的，个人中心「查看全部」带 ?filter=mine 进来）
+const FILTERS = ["all", "bullish", "bearish", "mine"];
 const params = new URLSearchParams(location.search);
 let filter = FILTERS.includes(params.get("filter")) ? params.get("filter") : "all";
 let views = [];
 let next = null;
 let loading = false;
 let requestId = crypto.randomUUID();
+let retryBody = null;
 let searchVersion = 0;
 let searchTimer;
 let direction = null;
@@ -69,7 +70,8 @@ $('#kd-feed').addEventListener('click', async event => {
 });
 
 function renderTags() {
-  $("#kd-tags").innerHTML = LOGIC_TAGS.map((tag) => `<button type="button" data-tag="${tag}" aria-pressed="${tags.has(tag)}">${tag}</button>`).join("");
+  $("#kd-logic").hidden = !direction;
+  $("#kd-tags").innerHTML = (LOGIC_TAGS[direction] || []).map((tag) => `<button type="button" data-tag="${tag}" aria-pressed="${tags.has(tag)}">${tag}</button>`).join("");
   $("#kd-tag-count").textContent = tags.size ? `已选 ${tags.size}/3` : "选择1—3项";
 }
 $("#kd-filter").addEventListener("change", (event) => {
@@ -107,8 +109,11 @@ $('#kd-search').addEventListener('input', event => {
 $("#kd-form").addEventListener("click", (event) => {
   const b = event.target.closest("button");
   if (!b) return;
-  if (b.dataset.direction) {
+  if (b.dataset.direction && direction !== b.dataset.direction) {
     direction = b.dataset.direction;
+    tags.clear();
+    $("#kd-error").textContent = "";
+    renderTags();
     document.querySelectorAll("[data-direction]").forEach((el) => el.setAttribute("aria-pressed", String(el === b)));
   }
   if (b.dataset.horizon) {
@@ -126,7 +131,7 @@ $("#kd-form").addEventListener("click", (event) => {
 });
 $("#kd-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (!stock || !DIRECTIONS[direction] || !HORIZONS.includes(horizon) || !tags.size) {
+  if (!stock || !Object.hasOwn(LOGIC_TAGS, direction) || !HORIZONS.includes(horizon) || !tags.size) {
     $("#kd-error").textContent = "请选择股票、判断方向、期限和至少一项逻辑。";
     return;
   }
@@ -134,10 +139,15 @@ $("#kd-form").addEventListener("submit", async (event) => {
   if (submit.disabled) return;
   submit.disabled = true;
   submit.textContent = '正在发布…';
+  const body = { action: 'publish', q: stock.code, direction, horizon, tags: [...tags] };
+  const fingerprint = JSON.stringify(body);
+  if (retryBody !== null && retryBody !== fingerprint) requestId = crypto.randomUUID();
+  retryBody = fingerprint;
   try {
-    const payload = await api({ action: 'publish', requestId, q: stock.code, direction, horizon, tags: [...tags] });
+    const payload = await api({ ...body, requestId });
     views = [payload.view, ...views.filter(v => v.id !== payload.view.id)];
     requestId = crypto.randomUUID();
+    retryBody = null;
     next = null;
     $("#kd-more").hidden = true;
   } catch (error) { $('#kd-error').textContent = error.message; return; }

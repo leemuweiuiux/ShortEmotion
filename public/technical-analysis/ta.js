@@ -6,7 +6,7 @@ import { updateNavPoints } from "/shared/nav-points.js?v=2";
 import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, takePendingAnalysis, validQuery, renderRecent, readAnalysisResult, shortTime } from "/shared/nav-account.js?v=4";
 import { compositeCharts } from "./chart-export.js?v=1";
 
-import { initViewDrawer } from "./view-drawer.js?v=2";
+import { initViewDrawer } from "./view-drawer.js?v=3";
 
 const viewDrawer = initViewDrawer({ goLogin });
 
