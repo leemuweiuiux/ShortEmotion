@@ -3,8 +3,6 @@
   "framework": null,
   "outputDirectory": "public",
   "functions": {
-    "api/auth.js": { "maxDuration": 60 },
-    "api/cron.js": { "maxDuration": 60 },
     "api/kandian.js": { "maxDuration": 60 },
     "api/short-emotion.js": {
       "maxDuration": 60

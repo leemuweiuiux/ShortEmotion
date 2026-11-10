@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { dailyBars, evaluateStock, pickForecast, quoteFromBars, settle } from "../api/_lib/watchlist/model.js";
-import { enabledOn } from "../api/_lib/watchlist/service.js";
+import { enabledOn, scheduledDashboard } from "../api/_lib/watchlist/service.js";
 
 const bar = (day, close = 10, open = 10, volume = 100) => ({
   day, close, open, volume, high: Math.max(close, open) + 1, low: Math.min(close, open) - 1
@@ -36,6 +36,27 @@ describe("Exp 关注", () => {
     expect(result.up).toBeGreaterThan(90);
     expect(result.down).toBeLessThan(10);
     expect(evaluateStock(bars.slice(0, 26), bars).up).toBeNull();
+  });
+
+  it("读取每日快照、保留回测标签，并按已观察到的交易日跳过休市", () => {
+    const pick = { code: "600519.SH", name: "贵州茅台", probability: 61 };
+    const result = scheduledDashboard({
+      stocks: [{ code: pick.code, name: pick.name }],
+      forecasts: [
+        { source_day: "2026-11-09", picks: { up: pick, daily: {
+          day: "2026-11-10", marketDays: ["2026-11-04", "2026-11-06", "2026-11-09"],
+          benchmark: "中证全指", quotes: [{ code: pick.code, close: 100 }]
+        } } },
+        { source_day: "2026-11-04", picks: { up: pick, daily: { day: "2026-11-05" } } },
+        { source_day: "2026-11-03", picks: { up: pick, backtest: { day: "2026-11-04" } } }
+      ],
+      outcomes: [{ source_day: "2026-11-04", direction: "up", result: { status: "beat" } }]
+    });
+    expect(result.stocks[0].close).toBe(100);
+    expect(result.days.find(({ day }) => day === "2026-11-04").backtest.source).toBe("2026-11-03");
+    expect(result.days.find(({ day }) => day === "2026-11-06").up.status).toBe("beat");
+    expect(result.days.at(-1).daily.provisional).toBe(true);
+    expect(result.days.some(({ day }) => day === "2026-11-05")).toBe(false);
   });
 
   it("关注、看涨、看跌各自排序，生产域名不能访问", () => {

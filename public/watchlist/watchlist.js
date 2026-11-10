@@ -54,7 +54,9 @@ function renderForecast() {
     const { name, reason, level } = current.attention;
     focus.textContent = "重点关注 · " + name + "｜" + reason + (present(level) ? " · 观察位 " + price(level) : "");
   }
-  const replayNote = current?.backtest
+  const replayNote = current?.daily
+    ? `<p class="watch-meta">盘后计算 · ${escape(current.daily.source)} · ${escape(current.daily.benchmark)}${current.daily.provisional ? " · 日期以实际开市为准" : ""}</p>`
+    : current?.backtest
     ? `<p class="watch-meta">历史回测 · 东方财富日线／${escape(current.backtest.benchmark)} · 特征截至 ${escape(current.backtest.source)}</p>` : "";
   $("watch-signals").innerHTML = current ? replayNote + signalRow(current.up, "up") + signalRow(current.down, "down")
     : '<p class="watch-empty">交易日历暂未就绪</p>';
@@ -81,18 +83,18 @@ function renderPool() {
   </tr>`).join("") || `<tr><td class="watch-empty" colspan="${managing ? 4 : 3}">股票池为空，可添加最多 10 只 A 股。</td></tr>`;
 }
 
-async function load({ sync = false } = {}) {
-  if (sync) syncing = true;
+async function load() {
+  syncing = true;
   try {
-    state = await request(sync ? { action: "sync" } : undefined);
+    state = await request();
     renderForecast();
     renderPool();
-    $("watch-status").textContent = state.needsRefresh ? "部分行情待更新。" : "";
+    $("watch-status").textContent = state.needsRefresh ? "股票行情将在交易日 20:00 更新。" : "";
   } catch (error) {
     $("watch-status").textContent = error.message;
     if (!state.days.length) $("watch-signals").innerHTML = '<p class="watch-empty">预测暂未就绪，请稍后重试。</p>';
   } finally {
-    if (sync) syncing = false;
+    syncing = false;
   }
 }
 
@@ -116,7 +118,7 @@ async function mutate(body) {
   try {
     await request(body);
     if (body.action === "add") $("watch-query").value = "";
-    await load({ sync: true });
+    await load();
   } catch (error) {
     $("watch-status").textContent = error.message;
   } finally {
@@ -132,4 +134,4 @@ table.addEventListener("click", (event) => {
   const button = event.target.closest("[data-remove]");
   if (button) void mutate({ action: "remove", code: button.dataset.remove });
 });
-void load({ sync: true });
+void load();
