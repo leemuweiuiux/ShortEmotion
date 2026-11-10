@@ -20,7 +20,7 @@
   </script>
   <link rel="stylesheet" href="/about/about.css?v=13">
   <link rel="stylesheet" href="/shared/primary-tabs.css?v=1">
-  <link rel="stylesheet" href="/watchlist/watchlist.css?v=2">
+  <link rel="stylesheet" href="/watchlist/watchlist.css?v=3">
 </head>
 <body>
   <main class="watch-page">
@@ -28,19 +28,16 @@
       <a href="/home" aria-label="市场"><img src="/short-emotion/logo.svg?v=2" alt="ShortEmotion"></a>
       <h1>关注</h1>
     </header>
-    <section class="watch-card watch-forecast-card" aria-labelledby="watch-forecast">
+    <section class="watch-card" aria-labelledby="watch-forecast">
       <div class="watch-heading">
         <h2 id="watch-forecast">每日预测</h2>
         <span class="watch-meta">近 5 个交易日</span>
       </div>
       <p class="watch-meta">交易日 20:00 更新。预测窗口为适用日开盘至下一交易日收盘。</p>
       <div id="watch-days" class="watch-days" role="group" aria-label="预测日期"></div>
-      <div class="watch-forecast-body">
-        <div class="watch-forecast-content">
-          <div id="watch-focus" class="watch-focus" hidden></div>
-          <div id="watch-signals" aria-live="polite"><p class="watch-empty">正在读取预测…</p></div>
-        </div>
-      </div>
+      <div id="watch-focus" class="watch-focus" hidden></div>
+      <p id="watch-source" class="watch-meta" hidden></p>
+      <div id="watch-signals" class="watch-signals" aria-live="polite"><p class="watch-empty">正在读取预测…</p></div>
     </section>
     <section class="watch-card" aria-labelledby="watch-pool">
       <div class="watch-heading">
@@ -63,6 +60,6 @@
     </section>
   </main>
   <script type="module" src="/shared/primary-tabs.js?v=1"></script>
-  <script type="module" src="/watchlist/watchlist.js?v=4"></script>
+  <script type="module" src="/watchlist/watchlist.js?v=5"></script>
 </body>
 </html>
