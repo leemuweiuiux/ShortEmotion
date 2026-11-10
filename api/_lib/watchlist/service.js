@@ -172,6 +172,18 @@ async function readUser(read, id) {
   return { stocks, forecasts, outcomes };
 }
 
+function backtestDay(forecast, outcomes) {
+  const { picks, source_day: source } = forecast;
+  const { day, exitDay, benchmark } = picks.backtest;
+  const signal = { day, attention: picks.attention, backtest: { source, benchmark } };
+  for (const direction of DIRECTIONS) {
+    const pick = picks[direction];
+    const record = outcomes.find((item) => item.source_day === source && item.direction === direction);
+    signal[direction] = { pick, ...(record?.result ?? { status: pick ? "pending" : "none" }), exitDay };
+  }
+  return signal;
+}
+
 async function dashboard(read, admin, id, calendar, { refresh = false, context } = {}) {
   const { stocks, forecasts, outcomes } = await readUser(read, id);
   const codes = new Set(stocks.map(({ code }) => code));
@@ -204,10 +216,17 @@ async function dashboard(read, admin, id, calendar, { refresh = false, context }
     if (published) forecasts.unshift(published);
   }
   const days = [];
-  for (const day of calendar.visible) {
+  const backtests = new Map(forecasts.filter((entry) => entry.picks?.backtest?.day)
+    .map((entry) => [entry.picks.backtest.day, entry]));
+  const visibleDays = [...new Set([...calendar.visible, ...backtests.keys()])].sort().slice(-5);
+  for (const day of visibleDays) {
     const earlier = calendar.days.filter((date) => date < day).at(-1);
     const next = calendar.days.find((date) => date > day);
     const forecast = forecasts.find((entry) => entry.source_day === earlier);
+    if (backtests.has(day) && (!forecast || forecast.picks.backtest)) {
+      days.push(backtestDay(backtests.get(day), outcomes));
+      continue;
+    }
     if (!forecast || Date.parse(forecast.published_at) >= Date.parse(day + "T09:15:00+08:00")) {
       days.push({ day });
       continue;
@@ -285,8 +304,10 @@ export async function watchlistHandler(req, res) {
       return res.status(200).json(result);
     } catch (error) {
       console.warn("[watchlist] refresh unavailable:", error.message);
-      const stocks = await read(tables.stocks, { user_id: userFilter(session.user.id), order: "slot.asc" });
-      return res.status(200).json({ stocks, days: [], needsRefresh: true });
+      const { stocks, forecasts, outcomes } = await readUser(read, session.user.id);
+      const days = forecasts.filter((entry) => entry.picks?.backtest?.day)
+        .map((entry) => backtestDay(entry, outcomes)).sort((a, b) => a.day.localeCompare(b.day)).slice(-5);
+      return res.status(200).json({ stocks, days, needsRefresh: true });
     }
   } catch (error) {
     const status = error instanceof SyntaxError ? 400 : error.statusCode || 503;

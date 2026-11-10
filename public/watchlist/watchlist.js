@@ -54,7 +54,9 @@ function renderForecast() {
     const { name, reason, level } = current.attention;
     focus.textContent = "重点关注 · " + name + "｜" + reason + (present(level) ? " · 观察位 " + price(level) : "");
   }
-  $("watch-signals").innerHTML = current ? signalRow(current.up, "up") + signalRow(current.down, "down")
+  const replayNote = current?.backtest
+    ? `<p class="watch-meta">历史回测 · 东方财富日线／${escape(current.backtest.benchmark)} · 特征截至 ${escape(current.backtest.source)}</p>` : "";
+  $("watch-signals").innerHTML = current ? replayNote + signalRow(current.up, "up") + signalRow(current.down, "down")
     : '<p class="watch-empty">交易日历暂未就绪</p>';
 }
 
