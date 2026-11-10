@@ -43,11 +43,12 @@ function signalRow(signal, direction) {
 }
 
 function renderForecast() {
-  if (!state.days.some(({ day }) => day === selected)) selected = state.days.at(-1)?.day || "";
-  $("watch-days").innerHTML = state.days.map(({ day }, index) =>
-    `<button type="button" data-day="${escape(day)}" aria-pressed="${day === selected}">${escape(day.slice(5).replace("-", "/"))}<small>${index === state.days.length - 1 ? "最新" : ""}</small></button>`
+  const days = [...state.days].sort((a, b) => b.day.localeCompare(a.day));
+  if (!days.some(({ day }) => day === selected)) selected = days[0]?.day || "";
+  $("watch-days").innerHTML = days.map(({ day }) =>
+    `<button type="button" data-day="${escape(day)}" aria-pressed="${day === selected}">${escape(day.slice(5).replace("-", "/"))}</button>`
   ).join("");
-  const current = state.days.find(({ day }) => day === selected);
+  const current = days.find(({ day }) => day === selected);
   const focus = $("watch-focus");
   focus.hidden = !current?.attention;
   if (current?.attention) {
