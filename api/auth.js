@@ -57,6 +57,7 @@ function send(res, status, body, setCookies = []) {
 async function handler(req, res) {
   const action = String(req.query?.action || "");
   if (action === "ecpay-sandbox") return sandboxCheckout(req, res);
+  if (action === "watchlist") return (await import("./_lib/watchlist/service.js")).watchlistHandler(req, res);
   const config = authConfig();
   const secure = isSecureNodeRequest(req);
 

@@ -38,6 +38,11 @@ export default async function handler(req, res) {
 
   const job = String(req.query?.job || "");
   try {
+    if (job === "watchlist-exp") {
+      const { enabledOn, runWatchlistClose } = await import("./_lib/watchlist/service.js");
+      if (!enabledOn(req.headers?.host)) return res.status(404).json({ error: "Not Found" });
+      return res.status(200).json(await runWatchlistClose({ after: String(req.query?.after || "") }));
+    }
     const result = await dispatchScheduled(job);
     console.log(result.dispatched ? `[cron] dispatched ${result.job} (${result.workflow})` : `[cron] skipped ${result.job}: ${result.reason} (run ${result.run?.id})`);
     res.status(result.dispatched ? 202 : 200).json(result);

@@ -3,6 +3,8 @@
   "framework": null,
   "outputDirectory": "public",
   "functions": {
+    "api/auth.js": { "maxDuration": 60 },
+    "api/cron.js": { "maxDuration": 60 },
     "api/kandian.js": { "maxDuration": 60 },
     "api/short-emotion.js": {
       "maxDuration": 60
@@ -82,6 +84,8 @@
     {"source": "/account/invite/", "destination": "/account/invite/index.html"},
     {"source": "/kandian", "destination": "/kandian/index.html"},
     {"source": "/kandian/", "destination": "/kandian/index.html"},
+    {"source": "/watchlist", "destination": "/watchlist/index.html"},
+    {"source": "/watchlist/", "destination": "/watchlist/index.html"},
     {"source": "/home", "destination": "/home/index.html"},
     {"source": "/home/", "destination": "/home/index.html"},
     {"source": "/technicalanalysis", "destination": "/technical-analysis/index.html"},

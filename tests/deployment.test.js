@@ -159,7 +159,7 @@ describe("页面脚本", () => {
 
   it("中间件只拦介绍页以外的入口：/、/login、首页、看点、个股分析、板块资金、涨停情绪、个人页面、看板、管理后台", async () => {
     const { config } = await import("../middleware.js");
-    expect(config.matcher).toEqual(["/etfflow", "/etfflow/", "/etfflow/:path*", "/", "/login", "/login/", "/home", "/home/", "/kandian", "/kandian/", "/kandian/:path*", "/technicalanalysis", "/technicalanalysis/", "/sectorflow", "/sectorflow/", "/limitup", "/limitup/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]);
+    expect(config.matcher).toEqual(["/watchlist", "/watchlist/:path*", "/etfflow", "/etfflow/", "/etfflow/:path*", "/", "/login", "/login/", "/home", "/home/", "/kandian", "/kandian/", "/kandian/:path*", "/technicalanalysis", "/technicalanalysis/", "/sectorflow", "/sectorflow/", "/limitup", "/limitup/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]);
   });
 });
 

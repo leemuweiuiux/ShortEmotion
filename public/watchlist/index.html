@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>关注 · ShortEmotion</title>
+  <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
+  <script>
+    try {
+      const theme = localStorage.getItem("twsvp_theme");
+      const language = localStorage.getItem("shortemotion:lang");
+      document.documentElement.dataset.theme = theme === "dark" || theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.dataset.lang = language === "hant" || language !== "hans" && /^zh-(tw|hk|mo|hant)/i.test(navigator.language) ? "hant" : "hans";
+      if (localStorage.getItem("twsvp_price_scheme") === "green_up") {
+        document.documentElement.style.setProperty("--price-up", "#32801e");
+        document.documentElement.style.setProperty("--price-down", "#c73e28");
+      }
+    } catch {}
+  </script>
+  <link rel="stylesheet" href="/about/about.css?v=13">
+  <link rel="stylesheet" href="/shared/primary-tabs.css?v=1">
+  <link rel="stylesheet" href="/watchlist/watchlist.css?v=1">
+</head>
+<body>
+  <main class="watch-page">
+    <header class="watch-header">
+      <a href="/home" aria-label="市场"><img src="/short-emotion/logo.svg?v=2" alt="ShortEmotion"></a>
+      <h1>关注</h1>
+    </header>
+    <section class="watch-card" aria-labelledby="watch-forecast">
+      <div class="watch-heading">
+        <h2 id="watch-forecast">每日预测</h2>
+        <span class="watch-meta">近 5 个交易日</span>
+      </div>
+      <p class="watch-meta">预测窗口为适用日开盘至下一交易日收盘。概率根据个股历史相似样本估计。</p>
+      <div id="watch-days" class="watch-days" role="group" aria-label="预测日期"></div>
+      <div id="watch-focus" class="watch-focus" hidden></div>
+      <div id="watch-signals" aria-live="polite"><p class="watch-empty">正在读取预测…</p></div>
+    </section>
+    <section class="watch-card" aria-labelledby="watch-pool">
+      <div class="watch-heading">
+        <h2 id="watch-pool">我的股票池 <span id="watch-count" class="watch-meta">—/10</span></h2>
+        <button id="watch-manage" type="button" aria-expanded="false" aria-controls="watch-form">管理</button>
+      </div>
+      <p id="watch-date" class="watch-meta">正在读取行情…</p>
+      <form id="watch-form" hidden>
+        <label for="watch-query">股票代码或完整名称</label>
+        <div>
+          <input id="watch-query" name="q" type="search" maxlength="30" placeholder="例如 600519" required autocomplete="off">
+          <button type="submit">添加</button>
+        </div>
+      </form>
+      <p id="watch-status" class="watch-meta" role="status"></p>
+      <table class="watch-table" aria-label="自选股票收盘行情">
+        <thead><tr><th scope="col">股票</th><th scope="col">收盘价／涨跌幅</th><th scope="col">成交量／较前 5 日均量</th><th scope="col" class="watch-remove-cell" hidden><span class="watch-sr">操作</span></th></tr></thead>
+        <tbody id="watch-stocks"></tbody>
+      </table>
+    </section>
+  </main>
+  <script type="module" src="/shared/primary-tabs.js?v=1"></script>
+  <script type="module" src="/watchlist/watchlist.js?v=1"></script>
+</body>
+</html>
