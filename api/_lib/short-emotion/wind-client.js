@@ -132,6 +132,39 @@ function parseSSE(text) {
   throw new Error(`响应格式无法识别：${text.slice(0, 200)}`);
 }
 
+// A Streamable HTTP response can remain open after its JSON-RPC reply.
+async function readRpcResponse(response) {
+  if (!response.headers.get("content-type")?.includes("text/event-stream")) {
+    const text = await response.text();
+    return { payload: parseSSE(text), bytes: Buffer.byteLength(text) };
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let pending = "", bytes = 0;
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (value) {
+        bytes += value.byteLength;
+        pending += decoder.decode(value, { stream: !done }).replace(/\r\n/g, "\n");
+      }
+      let boundary;
+      while ((boundary = pending.indexOf("\n\n")) >= 0) {
+        const event = pending.slice(0, boundary);
+        pending = pending.slice(boundary + 2);
+        const data = event.split("\n").filter(line => line.startsWith("data:"))
+          .map(line => line.slice(5).trimStart()).join("\n");
+        if (!data) continue;
+        const payload = JSON.parse(data);
+        if ("result" in payload || "error" in payload) return { payload, bytes };
+      }
+      if (done) return { payload: parseSSE(pending), bytes };
+    }
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+}
+
 // Pace initialize and tools/call together across all servers sharing a key.
 const requestSlots = new Map();
 const timeoutError = () => new WindError("TIMEOUT", "Wind请求超时（包含排队与重试）");
@@ -203,9 +236,9 @@ async function mcpRequestOnce(serverType, method, params, options) {
 
   let payload;
   try {
-    const text = await response.text();
-    if (method === "tools/call") countBytes(serverType, params.name, Buffer.byteLength(text), params.arguments);
-    payload = parseSSE(text);
+    const result = await readRpcResponse(response);
+    if (method === "tools/call") countBytes(serverType, params.name, result.bytes, params.arguments);
+    payload = result.payload;
   } catch (error) {
     if (signal.aborted) throw timeoutError();
     throw new WindError("TOOL_RUNTIME_ERROR", `响应解析失败 (server=${serverType})`);
