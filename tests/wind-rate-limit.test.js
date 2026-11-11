@@ -67,3 +67,28 @@ it('cancels queued requests without issuing more upstream calls', async () => {
   await vi.advanceTimersByTimeAsync(0); controller.abort(); await vi.runAllTimersAsync(); await pending;
   expect(fetch).toHaveBeenCalledTimes(1); // Only the handshake, no tools/call.
 });
+
+it('consumes an SSE reply without waiting for the server to close its stream', async () => {
+  vi.useFakeTimers(); vi.stubEnv('WIND_API_KEY', 'test'); vi.stubEnv('WIND_MOCK', '0');
+  const cancelled = vi.fn();
+  vi.stubGlobal('fetch', vi.fn(async (_url, init) => {
+    const request = JSON.parse(init.body);
+    const payload = { jsonrpc: '2.0', id: request.id, result: request.method === 'initialize'
+      ? {} : { content: [{ text: 'ok' }] } };
+    const text = 'data: ' + JSON.stringify(payload) + '\n\n';
+    const stream = new ReadableStream({
+      start(controller) {
+        const bytes = new TextEncoder().encode(text);
+        controller.enqueue(bytes.slice(0, 9));
+        controller.enqueue(bytes.slice(9));
+      },
+      cancel: cancelled
+    });
+    return new Response(stream, { headers: { 'Content-Type': 'text/event-stream' } });
+  }));
+  const { callWindTool } = await import('../api/_lib/short-emotion/wind-client.js');
+  const pending = callWindTool('stock_data', 'get_stock_quote', { windcode: '600519.SH' });
+  await vi.runAllTimersAsync();
+  expect((await pending).content[0].text).toBe('ok');
+  expect(cancelled).toHaveBeenCalledTimes(2);
+});

@@ -88,6 +88,8 @@
     {"source": "/account/invite/", "destination": "/account/invite/index.html"},
     {"source": "/kandian", "destination": "/kandian/index.html"},
     {"source": "/kandian/", "destination": "/kandian/index.html"},
+    {"source": "/watchlist", "destination": "/watchlist/index.html"},
+    {"source": "/watchlist/", "destination": "/watchlist/index.html"},
     {"source": "/home", "destination": "/home/index.html"},
     {"source": "/home/", "destination": "/home/index.html"},
     {"source": "/technicalanalysis", "destination": "/technical-analysis/index.html"},
