@@ -1,3 +1,6 @@
+import process from "node:process";
+import { Buffer } from "node:buffer";
+
 // Wind AI Fin Market MCP client for Vercel functions (短线情绪工作台).
 //
 // Ported from wind-mcp-skill/scripts/cli.mjs (v1.7.0). The original workbench

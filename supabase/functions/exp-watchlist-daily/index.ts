@@ -1,4 +1,5 @@
-import { evaluateStock, pickForecast, quoteFromBars, settle } from "./model.js";
+import { callWindTool, getApiKeys } from "../../../api/_lib/short-emotion/wind-client.js";
+import { dailyBars, evaluateStock, pickForecast, quoteFromBars, settle } from "./model.js";
 
 const root = Deno.env.get("SUPABASE_URL")!;
 const role = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -7,7 +8,7 @@ const stocksTable = "exp_watchlist_stocks";
 const forecastsTable = "exp_watchlist_forecasts";
 const outcomesTable = "exp_watchlist_outcomes";
 const dateFormat = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" });
-const localHour = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Shanghai", hour: "2-digit", hourCycle: "h23" });
+const localHour = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 const shift = (day: string, n: number) => new Date(Date.parse(day) + n * 86400000).toISOString().slice(0, 10);
 
 async function db(path: string, params: Record<string, string> = {}, body?: unknown) {
@@ -32,35 +33,20 @@ async function all(path: string, params: Record<string, string>) {
   }
 }
 
-async function bars(secid: string, start: string, end: string, adjusted: boolean) {
-  const params = new URLSearchParams({ secid, fields1: "f1,f2,f3,f4,f5,f6", fields2: "f51,f52,f53,f54,f55,f56",
-    klt: "101", fqt: adjusted ? "2" : "0", beg: start.replaceAll("-", ""), end: end.replaceAll("-", "") });
-  for (const host of ["push2his.eastmoney.com", "33.push2his.eastmoney.com"]) {
-    try {
-      const res = await fetch("https://" + host + "/api/qt/stock/kline/get?" + params, {
-        headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(7000)
-      });
-      if (!res.ok) continue;
-      const data = (await res.json())?.data;
-      if (!Array.isArray(data?.klines) || data.code !== secid.split(".")[1]) continue;
-      const rows = data.klines.map((line: string) => {
-        const [day, ...values] = line.split(",");
-        const [open, close, high, low, volume] = values.map(Number);
-        return { day, open, close, high, low, volume: volume * 100 };
-      }).filter(({ day, open, close, high, low, volume }: any) =>
-        /^\d{4}-\d{2}-\d{2}$/.test(day) && day >= start && day <= end &&
-        [open, close, high, low, volume].every((n) => Number.isFinite(n) && n > 0) &&
-        low <= Math.min(open, close) && high >= Math.max(open, close));
-      if (rows.length) return [...new Map<string, any>(rows.map((row: any) => [row.day, row])).values()]
-        .sort((a, b) => a.day.localeCompare(b.day));
-    } catch { /* retry on the alternate host */ }
-  }
-  throw new Error("No usable market bars");
-}
-
-function secid(code: string) {
-  if (!/^\d{6}\.(SH|SZ|BJ)$/.test(code)) throw new Error("Invalid ticker");
-  return (code.endsWith(".SH") ? "1." : "0.") + code.slice(0, 6);
+async function bars(code: string, start: string, end: string, adjusted: boolean) {
+  const index = code === "000985.CSI";
+  const payload = await callWindTool(index ? "index_data" : "stock_data",
+    index ? "get_index_kline" : "get_stock_kline", {
+      windcode: code, begin_date: start, end_date: end, period: "1d",
+      aftype: adjusted ? "2" : "0", issusp: "1"
+    }, { timeoutMs: 45000 });
+  let value = payload;
+  const text = payload?.content?.find((item: any) => item.type === "text")?.text;
+  if (text) value = JSON.parse(text);
+  value = value?.data?.data ?? value?.data ?? value;
+  const rows = dailyBars(value).filter((row: any) => row.day >= start && row.day <= end);
+  if (!rows.length) throw new Error("Wind returned no usable bars for " + code);
+  return rows;
 }
 
 function followingWeekday(day: string) {
@@ -69,20 +55,22 @@ function followingWeekday(day: string) {
   return next;
 }
 
-async function run(mode: string) {
+async function run(mode: string, recompute = false) {
   const now = new Date();
-  const today = dateFormat.format(now);
-  if (mode === "daily" && Number(localHour.format(now)) < 20) throw new Error("Close cutoff has not passed");
-  const end = mode === "probe" ? shift(today, -1) : today;
+  let today = dateFormat.format(now);
+  if (!getApiKeys().length) throw new Error("WIND_CREDENTIALS_MISSING");
+  if (mode === "daily" && !recompute && localHour.format(now) < "20:05") throw new Error("Close cutoff has not passed");
+  const end = mode === "probe" || recompute && localHour.format(now) < "20:05" ? shift(today, -1) : today;
   const start = shift(end, -420);
-  const market = await bars("1.000985", start, end, false);
+  const market = await bars("000985.CSI", start, end, false);
   const marketDays = market.map(({ day }) => day);
   if (mode === "probe") {
-    const rows = await bars("1.600519", start, end, true);
+    const rows = await bars("600519.SH", start, end, true);
     if (rows.at(-1)?.day !== marketDays.at(-1)) throw new Error("Probe series dates differ");
     return { state: "probed", benchmarkBars: market.length, stockBars: rows.length, through: marketDays.at(-1) };
   }
-  const data = { state: "done", through: marketDays.at(-1), forecasts: 0, settled: 0, missing: 0 };
+  if (recompute) today = marketDays.at(-1)!;
+  const data = { source: "Wind MCP", state: "done", through: marketDays.at(-1), forecasts: 0, settled: 0, missing: 0 };
   if (data.through !== today) return { ...data, state: "no-close" };
   const since = shift(today, -21);
   const [pool, history, existingOutcomes] = await Promise.all([
@@ -97,7 +85,7 @@ async function run(mode: string) {
     if (entry < 0 || !marketDays[entry + 1]) continue;
     for (const direction of ["up", "down"]) {
       const pick = row.picks[direction];
-      if (pick && !settledKeys.has([row.user_id, row.source_day, direction].join(":"))) {
+      if (pick && (recompute || !settledKeys.has([row.user_id, row.source_day, direction].join(":")))) {
         due.push({ row, direction, pick, entry: marketDays[entry], exit: marketDays[entry + 1] });
       }
     }
@@ -108,7 +96,7 @@ async function run(mode: string) {
     grouped.get(row.user_id)!.push(row);
   }
   const already = new Set(history.filter((row) => row.source_day === today).map((row) => row.user_id));
-  const newAccounts = [...grouped.entries()].filter(([id]) => !already.has(id));
+  const newAccounts = [...grouped.entries()].filter(([id]) => recompute || !already.has(id));
   const quoteCodes = new Set(newAccounts.flatMap(([, rows]) => rows.map(({ code }) => code)));
   const codes = [...new Set([...quoteCodes, ...due.map(({ pick }) => pick.code)])];
   const series = new Map<string, { adjusted: any[]; raw: any[] | null }>();
@@ -116,8 +104,8 @@ async function run(mode: string) {
     await Promise.all(codes.slice(i, i + 4).map(async (code) => {
       try {
         const [adjusted, raw] = await Promise.all([
-          bars(secid(code), start, today, true),
-          quoteCodes.has(code) ? bars(secid(code), shift(today, -36), today, false).catch(() => null) : null
+          bars(code, start, today, true),
+          quoteCodes.has(code) ? bars(code, shift(today, -36), today, false).catch(() => null) : null
         ]);
         series.set(code, { adjusted, raw });
       } catch { data.missing++; }
@@ -125,21 +113,35 @@ async function run(mode: string) {
   }
   const updatedAt = new Date().toISOString();
   const inserts = [];
+  const recomputedOutcomes = [];
   for (const [id, rows] of newAccounts) {
     if (rows.some(({ code }) => !series.get(code)?.raw)) { data.missing++; continue; }
-    const candidates = rows.map(({ code, name }) => {
-      const { adjusted } = series.get(code)!;
-      return { code, name, analysis: adjusted.at(-1)?.day === today ? evaluateStock(adjusted, market) : null };
-    });
-    const quotes = rows.map(({ code, name }) => {
-      const { raw, adjusted } = series.get(code)!;
-      return { code, name, ...quoteFromBars(raw!, adjusted), updatedAt };
-    });
-    const picks = pickForecast(candidates);
-    for (const pick of Object.values(picks)) if (pick) pick.level = null;
-    inserts.push({ user_id: id, source_day: today, picks: { ...picks, daily: {
-      day: followingWeekday(today), marketDays: marketDays.slice(-10), benchmark, quotes
-    } } });
+    const sourceDays = recompute ? marketDays.slice(-5) : [today];
+    for (const sourceDay of sourceDays) {
+      const candidates = rows.map(({ code, name }) => {
+        const adjusted = series.get(code)!.adjusted.filter((bar) => bar.day <= sourceDay);
+        return { code, name, analysis: adjusted.at(-1)?.day === sourceDay
+          ? evaluateStock(adjusted, market.filter((bar) => bar.day <= sourceDay)) : null };
+      });
+      const quotes = rows.map(({ code, name }) => {
+        const { raw, adjusted } = series.get(code)!;
+        return { code, name, ...quoteFromBars(raw!.filter((bar) => bar.day <= sourceDay),
+          adjusted.filter((bar) => bar.day <= sourceDay)), updatedAt };
+      });
+      if (quotes.some((quote) => quote.day !== sourceDay)) { data.missing++; continue; }
+      const picks = pickForecast(candidates);
+      const entryIndex = marketDays.indexOf(sourceDay) + 1;
+      const day = marketDays[entryIndex] ?? followingWeekday(sourceDay);
+      inserts.push({ user_id: id, source_day: sourceDay, picks: { ...picks, daily: {
+        day, source: "Wind MCP", marketDays: marketDays.slice(-12), benchmark, quotes
+      } } });
+      if (recompute) for (const direction of ["up", "down"]) {
+        const pick = picks[direction];
+        const result = settle(pick, direction, pick ? series.get(pick.code)?.adjusted : null,
+          marketDays[entryIndex], marketDays[entryIndex + 1]);
+        recomputedOutcomes.push({ user_id: id, source_day: sourceDay, direction, result });
+      }
+    }
   }
   const outcomes = [];
   for (const { row, direction, pick, entry, exit } of due) {
@@ -148,13 +150,13 @@ async function run(mode: string) {
     const result = settle(pick, direction, seriesBars, entry, exit);
     outcomes.push({ user_id: row.user_id, source_day: row.source_day, direction, result });
   }
-  for (let i = 0; i < outcomes.length; i += 200) {
-    await db(outcomesTable, { on_conflict: "user_id,source_day,direction" }, outcomes.slice(i, i + 200));
-  }
-  for (let i = 0; i < inserts.length; i += 200) {
-    await db(forecastsTable, { on_conflict: "user_id,source_day" }, inserts.slice(i, i + 200));
-  }
-  return { ...data, state: data.missing ? "partial" : "done", forecasts: inserts.length, settled: outcomes.length };
+  const results = [...outcomes, ...recomputedOutcomes];
+  const uniqueResults = [...new Map(results.map((row) =>
+    [[row.user_id, row.source_day, row.direction].join(":"), row])).values()];
+  await db("rpc/exp_watchlist_publish", {}, {
+    p_forecasts: inserts, p_outcomes: uniqueResults, p_replace: recompute
+  });
+  return { ...data, state: data.missing ? "partial" : "done", forecasts: inserts.length, settled: uniqueResults.length };
 }
 
 Deno.serve(async (req) => {
@@ -166,12 +168,13 @@ Deno.serve(async (req) => {
     const mode = await db("rpc/exp_watchlist_claim_run", {}, { p_nonce: nonce });
     if (mode !== "daily" && mode !== "probe") return Response.json({ error: "unauthorized" }, { status: 401 });
     claimed = true;
-    const result = await run(mode);
+    const body = await req.json().catch(() => ({}));
+    const result = await run(mode, mode === "daily" && body.recompute === true);
     await db("rpc/exp_watchlist_finish_run", {}, { p_nonce: nonce, p_result: result });
     return Response.json(result);
   } catch (error) {
     console.error("[exp-watchlist-daily]", error instanceof Error ? error.message : "unknown error");
-    if (claimed) await db("rpc/exp_watchlist_finish_run", {}, { p_nonce: nonce, p_result: { state: "failed" } }).catch(() => null);
+    if (claimed) await db("rpc/exp_watchlist_finish_run", {}, { p_nonce: nonce, p_result: { state: "failed", code: error instanceof Error && error.message === "WIND_CREDENTIALS_MISSING" ? "wind_credentials_missing" : "calculation_failed" } }).catch(() => null);
     return Response.json({ error: "calculation_failed" }, { status: 503 });
   }
 });

@@ -57,9 +57,9 @@ function renderForecast() {
   }
   const source = $("watch-source");
   source.textContent = current?.daily
-    ? `盘后计算 · ${current.daily.source ?? ""} · ${current.daily.benchmark ?? ""}${current.daily.provisional ? " · 日期以实际开市为准" : ""}`
+    ? `盘后计算 · ${current.daily.sourceName ?? ""} · ${current.daily.benchmark ?? ""}${current.daily.provisional ? " · 日期以实际开市为准" : ""}`
     : current?.backtest
-    ? `历史回测 · 东方财富日线／${current.backtest.benchmark ?? ""} · 特征截至 ${current.backtest.source ?? ""}` : "";
+    ? `历史回测 · ${current.backtest.sourceName ?? "东方财富日线"}／${current.backtest.benchmark ?? ""} · 特征截至 ${current.backtest.source ?? ""}` : "";
   source.hidden = !source.textContent;
   $("watch-signals").innerHTML = current ? signalRow(current.up, "up") + signalRow(current.down, "down")
     : '<p class="watch-empty">交易日历暂未就绪</p>';
@@ -92,7 +92,7 @@ async function load() {
     state = await request();
     renderForecast();
     renderPool();
-    $("watch-status").textContent = state.needsRefresh ? "股票行情将在交易日 20:00 更新。" : "";
+    $("watch-status").textContent = state.needsRefresh ? "股票行情将在交易日 20:05 更新。" : "";
   } catch (error) {
     $("watch-status").textContent = error.message;
     if (!state.days.length) $("watch-signals").innerHTML = '<p class="watch-empty">预测暂未就绪，请稍后重试。</p>';

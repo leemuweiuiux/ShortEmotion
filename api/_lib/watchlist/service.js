@@ -55,8 +55,8 @@ export function scheduledDashboard({ stocks, forecasts, outcomes }) {
     const day = historical?.day ?? observed ?? daily.day;
     if (signals.has(day)) continue;
     const signal = { day, attention: picks.attention };
-    if (historical) signal.backtest = { source, benchmark: historical.benchmark };
-    if (daily) signal.daily = { source, benchmark: daily.benchmark, provisional: !observed };
+    if (historical) signal.backtest = { source, benchmark: historical.benchmark, sourceName: historical.source || "东方财富日线" };
+    if (daily) signal.daily = { source, sourceName: daily.source || "东方财富日线", benchmark: daily.benchmark, provisional: !observed };
     for (const direction of DIRECTIONS) {
       const pick = picks[direction];
       const result = outcomes.find((row) => row.source_day === source && row.direction === direction)?.result;
