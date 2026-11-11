@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>关注 · ShortEmotion</title>
+  <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
+  <script>
+    try {
+      const theme = localStorage.getItem("twsvp_theme");
+      const language = localStorage.getItem("shortemotion:lang");
+      document.documentElement.dataset.theme = theme === "dark" || theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.dataset.lang = language === "hant" || language !== "hans" && /^zh-(tw|hk|mo|hant)/i.test(navigator.language) ? "hant" : "hans";
+      if (localStorage.getItem("twsvp_price_scheme") === "green_up") {
+        document.documentElement.style.setProperty("--price-up", "#32801e");
+        document.documentElement.style.setProperty("--price-down", "#c73e28");
+      }
+    } catch {}
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="/short-emotion/twsvp.css?v=17">
+  <link rel="stylesheet" href="/shared/primary-tabs.css?v=1">
+  <link rel="stylesheet" href="/shared/global-header.css?v=4">
+  <link rel="stylesheet" href="/shared/form.css?v=1">
+  <link rel="stylesheet" href="/watchlist/watchlist.css?v=5">
+  <link rel="stylesheet" href="/shared/wide-layout.css?v=2">
+</head>
+<body class="wide-page wide-watchlist">
+  <div class="app-shell">
+    <nav class="nav" aria-label="页面导航">
+      <a class="nav-logo" href="/home" aria-label="首页"><img src="/short-emotion/logo.svg?v=2" alt="ShortEmotion"></a>
+      <div class="nav-title">关注</div>
+    </nav>
+    <main class="watch-page">
+    <section class="card watch-card" aria-labelledby="watch-forecast">
+      <div class="card-head watch-heading">
+        <h2 class="card-title" id="watch-forecast">每日预测</h2>
+        <span class="watch-meta">近 5 个交易日</span>
+      </div>
+      <p class="watch-meta">交易日 20:05 更新。预测窗口为适用日开盘至下一交易日收盘。</p>
+      <div id="watch-days" class="watch-days" role="group" aria-label="预测日期"></div>
+      <div id="watch-focus" class="watch-focus" hidden></div>
+      <p id="watch-source" class="watch-meta" hidden></p>
+      <div id="watch-signals" class="watch-signals" aria-live="polite"><p class="watch-empty">正在读取预测…</p></div>
+    </section>
+    <section class="card watch-card" aria-labelledby="watch-pool">
+      <div class="card-head watch-heading">
+        <h2 class="card-title" id="watch-pool">我的股票池 <span id="watch-count" class="watch-meta">—/10</span></h2>
+        <button id="watch-manage" class="btn-secondary" type="button" aria-expanded="false" aria-controls="watch-form">管理</button>
+      </div>
+      <p id="watch-date" class="watch-meta">正在读取行情…</p>
+      <form id="watch-form" class="field" hidden>
+        <label for="watch-query">股票代码或完整名称</label>
+        <div class="se-bar">
+          <input id="watch-query" name="q" type="search" maxlength="30" placeholder="例如 600519" required autocomplete="off">
+          <button type="submit">添加</button>
+        </div>
+      </form>
+      <p id="watch-status" class="watch-meta" role="status"></p>
+      <table class="watch-table" aria-label="自选股票收盘行情">
+        <thead><tr><th scope="col">股票</th><th scope="col">收盘价／涨跌幅</th><th scope="col">成交量／较前 5 日均量</th><th scope="col" class="watch-remove-cell" hidden><span class="watch-sr">操作</span></th></tr></thead>
+        <tbody id="watch-stocks"></tbody>
+      </table>
+    </section>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/shared/global-header.js?v=6"></script>
+  <script type="module" src="/shared/primary-tabs.js?v=2"></script>
+  <script type="module" src="/watchlist/watchlist.js?v=7"></script>
+</body>
+</html>
