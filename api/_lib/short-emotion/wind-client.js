@@ -355,7 +355,7 @@ async function callWindToolOnce(serverType, toolName, params, { timeoutMs, signa
           protocolVersion: "2025-03-26",
           capabilities: {},
           clientInfo: { name: CLIENT_NAME, version: SKILL_VERSION }
-        }, { ...options, apiKey: account.key, keyLabel: account.label, deadline: Math.min(deadline, Date.now() + 15_000) });
+        }, { ...options, apiKey: account.key, keyLabel: account.label, deadline: Math.min(deadline, Date.now() + 30_000) });
         initialized.add(session);
       }
       return await mcpRequest(serverType, "tools/call", {

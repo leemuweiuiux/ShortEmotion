@@ -1,18 +1,14 @@
-.watch-page { max-width: 920px; margin: 0 auto; padding: 0 16px 20px; }
-.watch-header { min-height: 68px; display: flex; align-items: center; gap: 12px; padding-top: env(safe-area-inset-top, 0px); }
-.watch-header a { display: grid; width: 34px; height: 34px; place-items: center; }
-.watch-header img { width: 30px; height: 30px; }
-.watch-header h1 { font-size: 24px; margin: 0; }
-.watch-card { padding: 18px; margin-bottom: 14px; border-radius: 15px; }
-.watch-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.watch-heading h2 { font-size: 18px; margin: 0; }
+.watch-page { display: grid; gap: 10px; align-content: start; }
+.watch-heading { min-height: 32px; }
+#watch-manage { min-height: 32px; padding: 0 12px; font-size: 13px; }
+[hidden] { display: none !important; }
 .watch-meta { font-size: 12px; color: var(--muted); margin: 8px 0; }
 .watch-days { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; min-block-size: 40px; margin: 15px 0 12px; }
-.watch-page button { font: inherit; cursor: pointer; color: var(--ink); border: 1px solid var(--border); background: var(--panel); border-radius: 8px; padding: 7px 10px; }
+.watch-days button, .watch-table button { font: inherit; cursor: pointer; color: var(--ink); border: 1px solid var(--border); background: var(--panel); border-radius: 0; padding: 7px 10px; }
 .watch-page button:disabled { opacity: .5; cursor: default; }
 .watch-days button { padding: 6px 2px; min-height: 40px; font-size: 12px; font-variant-numeric: tabular-nums; }
 .watch-days button[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--surface); font-weight: 700; }
-.watch-focus { padding: 10px 12px; margin: 8px 0; background: var(--panel); border-radius: 8px; font-size: 13px; overflow-wrap: anywhere; }
+.watch-focus { padding: 10px 12px; margin: 8px 0; background: var(--panel); border-radius: var(--radius-card); font-size: 13px; overflow-wrap: anywhere; }
 .watch-signals {
   --watch-signal-columns: 44px minmax(0, 1fr) max-content max-content;
   --watch-signal-gap: 10px;
@@ -49,13 +45,9 @@
 .watch-table a { font-weight: 700; color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
 .watch-table .watch-empty { text-align: center; }
 #watch-form { margin: 14px 0; }
-#watch-form label { font-size: 12px; color: var(--muted); }
-#watch-form div { display: flex; gap: 8px; margin-top: 5px; }
-#watch-form input { min-width: 0; flex: 1; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 9px; font: inherit; }
 .watch-table button { font-size: 11px; padding: 6px; }
 .watch-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 @media (max-width: 420px) {
-  .watch-card { padding: 14px; }
   .watch-signals {
     --watch-signal-columns: 38px minmax(0, 1fr) max-content max-content;
     --watch-signal-gap: 6px;

@@ -45,6 +45,7 @@ async function bars(code: string, start: string, end: string, adjusted: boolean)
   if (text) value = JSON.parse(text);
   value = value?.data?.data ?? value?.data ?? value;
   const rows = dailyBars(value).filter((row: any) => row.day >= start && row.day <= end);
+  console.log(JSON.stringify({ event: "wind_bars", code, adjusted, count: rows.length, first: rows[0]?.day, last: rows.at(-1)?.day }));
   if (!rows.length) throw new Error("Wind returned no usable bars for " + code);
   return rows;
 }
@@ -61,12 +62,12 @@ async function run(mode: string, recompute = false) {
   if (!getApiKeys().length) throw new Error("WIND_CREDENTIALS_MISSING");
   if (mode === "daily" && !recompute && localHour.format(now) < "20:05") throw new Error("Close cutoff has not passed");
   const end = mode === "probe" || recompute && localHour.format(now) < "20:05" ? shift(today, -1) : today;
-  const start = shift(end, -420);
+  const start = shift(end, mode === "probe" ? -36 : -420);
   const market = await bars("000985.CSI", start, end, false);
   const marketDays = market.map(({ day }) => day);
   if (mode === "probe") {
     const rows = await bars("600519.SH", start, end, true);
-    if (rows.at(-1)?.day !== marketDays.at(-1)) throw new Error("Probe series dates differ");
+    if (rows.at(-1)?.day !== marketDays.at(-1)) throw new Error("Probe series dates differ: index=" + marketDays.at(-1) + ",stock=" + rows.at(-1)?.day + ",indexCount=" + market.length + ",stockCount=" + rows.length);
     return { state: "probed", benchmarkBars: market.length, stockBars: rows.length, through: marketDays.at(-1) };
   }
   if (recompute) today = marketDays.at(-1)!;
