@@ -1,6 +1,5 @@
 import { authConfig, requireSession } from "../session.js";
-import { isMockMode } from "../short-emotion/wind-client.js";
-import { resolveStock } from "../technical-analysis/engine.js";
+import { resolveStock } from "./eastmoney.js";
 
 const tables = {
   stocks: "exp_watchlist_stocks",
@@ -84,7 +83,6 @@ async function updatePool(read, id, body) {
   if (body.action !== "add" || !/^[\u4e00-\u9fffA-Za-z0-9.\-*]{2,30}$/.test(q)) throw fail("请输入 A 股代码或完整名称", 400);
   const current = await read(tables.stocks, { user_id, select: "code,slot" });
   if (current.length >= 10) throw fail("最多关注 10 只股票", 409);
-  if (isMockMode()) throw fail("真实行情服务暂不可用", 503);
   const resolved = await resolveStock(q);
   const code = String(resolved.code).toUpperCase();
   if (!codePattern.test(code)) throw fail("目前仅支持 A 股", 400);

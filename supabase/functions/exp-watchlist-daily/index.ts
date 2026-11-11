@@ -1,5 +1,5 @@
-import { callWindTool, getApiKeys } from "../../../api/_lib/short-emotion/wind-client.js";
-import { dailyBars, evaluateStock, pickForecast, quoteFromBars, settle } from "./model.js";
+import { fetchDailyBars as bars } from "../../../api/_lib/watchlist/eastmoney.js";
+import { evaluateStock, pickForecast, quoteFromBars, settle } from "./model.js";
 
 const root = Deno.env.get("SUPABASE_URL")!;
 const role = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -33,23 +33,6 @@ async function all(path: string, params: Record<string, string>) {
   }
 }
 
-async function bars(code: string, start: string, end: string, adjusted: boolean) {
-  const index = code === "000985.CSI";
-  const payload = await callWindTool(index ? "index_data" : "stock_data",
-    index ? "get_index_kline" : "get_stock_kline", {
-      windcode: code, begin_date: start, end_date: end, period: "1d",
-      aftype: adjusted ? "2" : "0", issusp: "1"
-    }, { timeoutMs: 45000 });
-  let value = payload;
-  const text = payload?.content?.find((item: any) => item.type === "text")?.text;
-  if (text) value = JSON.parse(text);
-  value = value?.data?.data ?? value?.data ?? value;
-  const rows = dailyBars(value).filter((row: any) => row.day >= start && row.day <= end);
-  console.log(JSON.stringify({ event: "wind_bars", code, adjusted, count: rows.length, first: rows[0]?.day, last: rows.at(-1)?.day }));
-  if (!rows.length) throw new Error("Wind returned no usable bars for " + code);
-  return rows;
-}
-
 function followingWeekday(day: string) {
   let next = shift(day, 1);
   while ([0, 6].includes(new Date(next).getUTCDay())) next = shift(next, 1);
@@ -59,7 +42,6 @@ function followingWeekday(day: string) {
 async function run(mode: string, recompute = false) {
   const now = new Date();
   let today = dateFormat.format(now);
-  if (!getApiKeys().length) throw new Error("WIND_CREDENTIALS_MISSING");
   if (mode === "daily" && !recompute && localHour.format(now) < "20:05") throw new Error("Close cutoff has not passed");
   const end = mode === "probe" || recompute && localHour.format(now) < "20:05" ? shift(today, -1) : today;
   const start = shift(end, mode === "probe" ? -36 : -420);
@@ -71,7 +53,7 @@ async function run(mode: string, recompute = false) {
     return { state: "probed", benchmarkBars: market.length, stockBars: rows.length, through: marketDays.at(-1) };
   }
   if (recompute) today = marketDays.at(-1)!;
-  const data = { source: "Wind MCP", state: "done", through: marketDays.at(-1), forecasts: 0, settled: 0, missing: 0 };
+  const data = { source: "Eastmoney", state: "done", through: marketDays.at(-1), forecasts: 0, settled: 0, missing: 0 };
   if (data.through !== today) return { ...data, state: "no-close" };
   const since = shift(today, -21);
   const [pool, history, existingOutcomes] = await Promise.all([
@@ -106,10 +88,13 @@ async function run(mode: string, recompute = false) {
       try {
         const [adjusted, raw] = await Promise.all([
           bars(code, start, today, true),
-          quoteCodes.has(code) ? bars(code, shift(today, -36), today, false).catch(() => null) : null
+          quoteCodes.has(code) ? bars(code, shift(today, -36), today, false).catch((error) => { if (error.message === "EASTMONEY_RATE_LIMIT") throw error; return null; }) : null
         ]);
         series.set(code, { adjusted, raw });
-      } catch { data.missing++; }
+      } catch (error) {
+        if (error instanceof Error && error.message === "EASTMONEY_RATE_LIMIT") throw error;
+        data.missing++;
+      }
     }));
   }
   const updatedAt = new Date().toISOString();
@@ -134,7 +119,7 @@ async function run(mode: string, recompute = false) {
       const entryIndex = marketDays.indexOf(sourceDay) + 1;
       const day = marketDays[entryIndex] ?? followingWeekday(sourceDay);
       inserts.push({ user_id: id, source_day: sourceDay, picks: { ...picks, daily: {
-        day, source: "Wind MCP", marketDays: marketDays.slice(-12), benchmark, quotes
+        day, source: "Eastmoney", marketDays: marketDays.slice(-12), benchmark, quotes
       } } });
       if (recompute) for (const direction of ["up", "down"]) {
         const pick = picks[direction];
@@ -175,7 +160,7 @@ Deno.serve(async (req) => {
     return Response.json(result);
   } catch (error) {
     console.error("[exp-watchlist-daily]", error instanceof Error ? error.message : "unknown error");
-    if (claimed) await db("rpc/exp_watchlist_finish_run", {}, { p_nonce: nonce, p_result: { state: "failed", code: error instanceof Error && error.message === "WIND_CREDENTIALS_MISSING" ? "wind_credentials_missing" : "calculation_failed" } }).catch(() => null);
+    if (claimed) await db("rpc/exp_watchlist_finish_run", {}, { p_nonce: nonce, p_result: { state: "failed", code: error instanceof Error && error.message === "EASTMONEY_RATE_LIMIT" ? "eastmoney_rate_limit" : "calculation_failed" } }).catch(() => null);
     return Response.json({ error: "calculation_failed" }, { status: 503 });
   }
 });

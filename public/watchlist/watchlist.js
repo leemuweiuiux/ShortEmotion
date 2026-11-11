@@ -57,9 +57,9 @@ function renderForecast() {
   }
   const source = $("watch-source");
   source.textContent = current?.daily
-    ? `盘后计算 · ${current.daily.sourceName ?? ""} · ${current.daily.benchmark ?? ""}${current.daily.provisional ? " · 日期以实际开市为准" : ""}`
+    ? `盘后计算 · ${current.daily.benchmark ?? ""}${current.daily.provisional ? " · 日期以实际开市为准" : ""}`
     : current?.backtest
-    ? `历史回测 · ${current.backtest.sourceName ?? "东方财富日线"}／${current.backtest.benchmark ?? ""} · 特征截至 ${current.backtest.source ?? ""}` : "";
+    ? `历史回测 · ${current.backtest.benchmark ?? ""} · 特征截至 ${current.backtest.source ?? ""}` : "";
   source.hidden = !source.textContent;
   $("watch-signals").innerHTML = current ? signalRow(current.up, "up") + signalRow(current.down, "down")
     : '<p class="watch-empty">交易日历暂未就绪</p>';
