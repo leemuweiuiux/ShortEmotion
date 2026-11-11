@@ -88,7 +88,7 @@ async function run(mode: string, recompute = false) {
       try {
         const [adjusted, raw] = await Promise.all([
           bars(code, start, today, true),
-          quoteCodes.has(code) ? bars(code, shift(today, -36), today, false).catch((error) => { if (error.message === "EASTMONEY_RATE_LIMIT") throw error; return null; }) : null
+          quoteCodes.has(code) ? bars(code, start, today, false).catch((error) => { if (error.message === "EASTMONEY_RATE_LIMIT") throw error; return null; }) : null
         ]);
         series.set(code, { adjusted, raw });
       } catch (error) {
@@ -105,9 +105,10 @@ async function run(mode: string, recompute = false) {
     const sourceDays = recompute ? marketDays.slice(-5) : [today];
     for (const sourceDay of sourceDays) {
       const candidates = rows.map(({ code, name }) => {
-        const adjusted = series.get(code)!.adjusted.filter((bar) => bar.day <= sourceDay);
+        const { raw, adjusted: history } = series.get(code)!;
+        const adjusted = history.filter((bar) => bar.day <= sourceDay);
         return { code, name, analysis: adjusted.at(-1)?.day === sourceDay
-          ? evaluateStock(adjusted, market.filter((bar) => bar.day <= sourceDay)) : null };
+          ? evaluateStock(adjusted, market.filter((bar) => bar.day <= sourceDay), { rawBars: raw }) : null };
       });
       const quotes = rows.map(({ code, name }) => {
         const { raw, adjusted } = series.get(code)!;
