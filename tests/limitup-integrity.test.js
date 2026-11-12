@@ -158,6 +158,15 @@ describe("收盘后补跑", async () => {
     expect(hasCloseSnapshot(close({ detailComplete: true, relayComplete: true }, 86), "20261105")).toBe(true);
     expect(hasCloseSnapshot({ tradingDate: "20261105", quoteTime: "2026-11-05T15:00:02+08:00" }, "20261105")).toBe(true);
   });
+  it("盘中全量补录但缺失行情时间时，保留同日有时间的快照", () => {
+    const known = { tradingDate: "20261112", quoteTime: "2026-11-12T10:32:43+08:00" };
+    const untimed = { ...known, quoteTime: null, dataQuality: { detailComplete: true, sealComplete: false } };
+    expect(shouldKeepPrevious(known, untimed)).toBe(true);
+    expect(shouldKeepPrevious(untimed, known)).toBe(false);
+    expect(shouldKeepPrevious(known, { ...untimed, tradingDate: "20261113" })).toBe(false);
+    expect(shouldKeepPrevious(known, { ...known, quoteTime: "2026-11-12T10:30:00+08:00" })).toBe(true);
+    expect(shouldKeepPrevious(known, { ...known, quoteTime: "2026-11-12T11:02:00+08:00" })).toBe(false);
+  });
   it("补跑结果不如已存快照完整时不覆盖", () => {
     const good = close({ detailComplete: true, relayComplete: true, ladderComplete: true, sealComplete: true }, 86);
     const bad = close({ detailComplete: false }, 14);

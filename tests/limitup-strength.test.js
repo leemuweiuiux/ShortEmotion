@@ -327,6 +327,10 @@ describe("buildHighlights", () => {
     expect(intraday.some((item) => item.title === "接力亏钱")).toBe(false);
     expect(intraday.some((item) => item.title === "封板扎实")).toBe(false);
 
+    const untimed = buildHighlights({ summary, quoteTime: null });
+    expect(untimed.some((item) => item.title === "接力亏钱")).toBe(false);
+    expect(untimed.some((item) => item.title === "封板扎实")).toBe(false);
+
     const closing = buildHighlights({ summary, quoteTime: "2026-10-27T15:00:00+08:00" });
     expect(closing.some((item) => item.title === "接力亏钱")).toBe(true);
     expect(closing.some((item) => item.title === "封板扎实")).toBe(true);

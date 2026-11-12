@@ -52,10 +52,14 @@ export function snapshotCompleteness(board) {
   return gates * 10_000 + (Number(quality.detail?.returned) || (board?.stocks || []).length);
 }
 
-/** 同一交易日收盘后补跑时，新结果不如已存快照完整就不覆盖（Wind 偶发漏数，越跑越差的情况要挡住）。 */
+/** 保留同一交易日行情时间可核对的快照，并防止收盘补跑降低完整度。 */
 export function shouldKeepPrevious(previous, board) {
   if (!previous || !board || previous.tradingDate !== board.tradingDate) return false;
-  if (!isCloseSnapshot(previous, previous.tradingDate) || !isCloseSnapshot(board, board.tradingDate)) return false;
+  const previousTime = Date.parse(previous.quoteTime);
+  const nextTime = Date.parse(board.quoteTime);
+  if (Number.isFinite(previousTime) && !Number.isFinite(nextTime)) return true;
+  const bothClosed = isCloseSnapshot(previous, previous.tradingDate) && isCloseSnapshot(board, board.tradingDate);
+  if (!bothClosed) return nextTime < previousTime;
   return snapshotCompleteness(previous) > snapshotCompleteness(board);
 }
 
@@ -99,7 +103,8 @@ export async function refreshLimitUp(store, { day } = {}) {
     return output;
   }
   if (shouldKeepPrevious(previous, board)) {
-    output.skipped = "本次收盘数据不如已存快照完整，保留已存快照";
+    output.skipped = "本次行情时间未更新或收盘数据不完整，保留已存快照";
+    output.errors.push(...(board.dataQuality?.errors || []));
     return output;
   }
   await store.kvSet(LIMITUP_KEYS.latest, board);
@@ -209,6 +214,9 @@ export async function readLimitUp(store, resource = "full", { unlocked = false }
     updated = true;
     return { ...concept, reviewReasons: concept.reviewReasons.filter(reason => !priorCloseWarning.test(reason)) };
   });
-  const detail = updated ? { concepts, highlights: buildLimitUpHighlights({ ...board, concepts }) } : {};
+  const rebuildHighlights = updated || (!board.quoteTime && board.highlights?.length);
+  const detail = rebuildHighlights
+    ? { concepts, highlights: buildLimitUpHighlights({ ...board, concepts, quoteTime: board.quoteTime ?? null }) }
+    : {};
   return { ...board, ...detail, previous, storedAt: entry.updatedAt || null };
 }

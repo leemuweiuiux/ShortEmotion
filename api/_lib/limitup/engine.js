@@ -1022,7 +1022,7 @@ export function buildLimitUpHighlights({ concepts = [], themeStrength = [], ...b
 }
 
 export function buildHighlights({
-  summary = {}, themeStrength = [], brokenStreaks = null, concepts = [], ladder = [], quoteTime = null, premium = null
+  summary = {}, themeStrength = [], brokenStreaks = null, concepts = [], ladder = [], quoteTime, premium = null
 } = {}) {
   const items = [];
   const add = (priority, item) => items.push({ priority, item });
@@ -1036,7 +1036,7 @@ export function buildHighlights({
     const match = String(quoteTime || "").match(/(\d{2}):(\d{2})/);
     return match ? Number(match[1]) * 60 + Number(match[2]) : null;
   })();
-  const fullDay = quoteMinute == null || quoteMinute >= 840;
+  const fullDay = quoteTime === undefined || (quoteMinute != null && quoteMinute >= 840);
 
   // 主线只在真正的「主升」里选；没有主升时退而取最强「走强」，
   // 避免 2 只涨停的试错题材被当成当日主线。
