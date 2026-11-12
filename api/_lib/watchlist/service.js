@@ -4,7 +4,8 @@ import { resolveStock } from "./eastmoney.js";
 const tables = {
   stocks: "exp_watchlist_stocks",
   forecasts: "exp_watchlist_forecasts",
-  outcomes: "exp_watchlist_outcomes"
+  outcomes: "exp_watchlist_outcomes",
+  market: "exp_watchlist_market"
 };
 const DIRECTIONS = ["up", "down"];
 const fail = (message, statusCode) => Object.assign(new Error(message), { statusCode });
@@ -38,14 +39,21 @@ async function readUser(read, id) {
     read(tables.forecasts, { user_id, order: "source_day.desc", limit: "8" }),
     read(tables.outcomes, { user_id, order: "source_day.desc", limit: "16" })
   ]);
-  return { stocks, forecasts, outcomes };
+  // Shared closing quotes let a stock added after the daily run show up before the next forecast.
+  const list = stocks.map(({ code }) => '"' + code + '"').join(",");
+  const cached = stocks.length ? await read(tables.market, { select: "code,quote", code: "in.(" + list + ")" })
+    .catch(() => []) : [];
+  return { stocks, forecasts, outcomes, cached };
 }
 
-export function scheduledDashboard({ stocks, forecasts, outcomes }) {
+export function scheduledDashboard({ stocks, forecasts, outcomes, cached = [] }) {
   const latest = forecasts.find((row) => row.picks.daily);
   const market = latest?.picks.daily.marketDays ?? [];
   const tradingDay = latest?.source_day;
   const quotes = new Map((latest?.picks.daily.quotes ?? []).map((row) => [row.code, row]));
+  for (const { code, quote } of cached ?? []) {
+    if (quote?.day && !quotes.has(code)) quotes.set(code, quote);
+  }
   const signals = new Map();
   for (const { picks, source_day: source } of forecasts) {
     const historical = picks.backtest;

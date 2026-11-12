@@ -92,7 +92,7 @@ async function load() {
     state = await request();
     renderForecast();
     renderPool();
-    $("watch-status").textContent = state.needsRefresh ? "股票行情将在交易日 20:05 更新。" : "";
+    $("watch-status").textContent = state.needsRefresh ? "新加入的股票将在交易日 20:05 后更新，数据源异常时会自动重试。" : "";
   } catch (error) {
     $("watch-status").textContent = error.message;
     if (!state.days.length) $("watch-signals").innerHTML = '<p class="watch-empty">预测暂未就绪，请稍后重试。</p>';

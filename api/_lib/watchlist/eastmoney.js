@@ -31,7 +31,8 @@ export async function fetchDailyBars(code, start, end, adjusted) {
     beg: start.replaceAll("-", ""), end: end.replaceAll("-", "")
   });
   let lastError;
-  for (const host of ["push2his.eastmoney.com", "33.push2his.eastmoney.com"]) {
+  // Overseas runtimes often see the peer drop TLS mid-handshake; retry each host once before failing over.
+  for (const host of ["push2his.eastmoney.com", "33.push2his.eastmoney.com", "push2his.eastmoney.com", "33.push2his.eastmoney.com"]) {
     try {
       const payload = await request("https://" + host + "/api/qt/stock/kline/get?" + params);
       const data = payload?.data;
@@ -48,6 +49,7 @@ export async function fetchDailyBars(code, start, end, adjusted) {
     } catch (error) {
       if (error.message === "EASTMONEY_RATE_LIMIT") throw error;
       lastError = error;
+      await new Promise(resolve => setTimeout(resolve, 1500));
     }
   }
   throw lastError;
@@ -57,7 +59,18 @@ export async function resolveStock(query) {
   const normalized = query.toUpperCase();
   const input = normalized.replace(/\.(SH|SZ|BJ)$/, "");
   const params = new URLSearchParams({ input, type: "14", count: "20" });
-  const payload = await request("https://searchapi.eastmoney.com/api/suggest/get?" + params);
+  let payload;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      payload = await request("https://searchapi.eastmoney.com/api/suggest/get?" + params);
+      break;
+    } catch (error) {
+      if (attempt >= 1 || error.message === "EASTMONEY_RATE_LIMIT") {
+        throw Object.assign(new Error("股票查询暂时不可用，请稍后重试"), { statusCode: 503 });
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
   const candidates = (payload?.QuotationCodeTable?.Data || []).filter(row =>
     row.Classify === "AStock" && /^(沪A|深A|京A)$/.test(row.SecurityTypeName));
   const match = candidates.find(row => row.Code === input || row.Name === query);

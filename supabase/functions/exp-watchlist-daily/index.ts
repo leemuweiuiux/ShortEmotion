@@ -1,23 +1,31 @@
 import { fetchDailyBars as bars } from "../../../api/_lib/watchlist/eastmoney.js";
-import { evaluateStock, pickForecast, quoteFromBars, settle } from "./model.js";
+import { evaluateStock, mergeSeries, pickForecast, poolKey, quoteFromBars, settle, targetSession } from "./model.js";
 
 const root = Deno.env.get("SUPABASE_URL")!;
 const role = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const benchmark = "中证全指 000985";
+const benchmarkCode = "000985.CSI";
 const stocksTable = "exp_watchlist_stocks";
 const forecastsTable = "exp_watchlist_forecasts";
 const outcomesTable = "exp_watchlist_outcomes";
+const marketTable = "exp_watchlist_market";
+// pg_net waits 120s and the Edge runtime allows 150s; stop fetching early so progress is always saved.
+const BUDGET_MS = 90_000;
 const dateFormat = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" });
 const localHour = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 const shift = (day: string, n: number) => new Date(Date.parse(day) + n * 86400000).toISOString().slice(0, 10);
+const rateLimited = (error: unknown) => error instanceof Error && error.message === "EASTMONEY_RATE_LIMIT";
 
-async function db(path: string, params: Record<string, string> = {}, body?: unknown) {
+type Bar = { day: string; open: number; close: number; high: number; low: number; volume: number };
+type Cached = { through: string; checked: string; adjusted: Bar[]; raw?: Bar[] };
+
+async function db(path: string, params: Record<string, string> = {}, body?: unknown,
+  prefer = "resolution=ignore-duplicates,return=minimal") {
   const res = await fetch(root + "/rest/v1/" + path + "?" + new URLSearchParams(params), {
     method: body === undefined ? "GET" : "POST",
-    headers: { apikey: role, Authorization: "Bearer " + role, "Content-Type": "application/json",
-      Prefer: "resolution=ignore-duplicates,return=minimal" },
+    headers: { apikey: role, Authorization: "Bearer " + role, "Content-Type": "application/json", Prefer: prefer },
     body: body === undefined ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(10000)
+    signal: AbortSignal.timeout(15000)
   });
   if (!res.ok) throw new Error("Database request failed: " + path + " " + res.status);
   const text = await res.text();
@@ -33,36 +41,87 @@ async function all(path: string, params: Record<string, string>) {
   }
 }
 
+/** Shared per-code cache: every user following a code reuses one fetch, and retries resume where they stopped. */
+async function loadCache(codes: string[]) {
+  const cache = new Map<string, Cached>();
+  for (let i = 0; i < codes.length; i += 50) {
+    const list = codes.slice(i, i + 50).map((code) => '"' + code + '"').join(",");
+    for (const row of await db(marketTable, { select: "code,payload", code: "in.(" + list + ")" })) {
+      if (row.payload?.adjusted?.length) cache.set(row.code, row.payload);
+    }
+  }
+  return cache;
+}
+
+async function saveCache(entries: [string, Cached][]) {
+  if (!entries.length) return;
+  await db(marketTable, { on_conflict: "code" }, entries.map(([code, payload]) => ({
+    code, data_day: payload.through, payload, updated_at: new Date().toISOString(),
+    quote: payload.raw ? quoteFromBars(payload.raw, payload.adjusted) : null
+  })), "resolution=merge-duplicates,return=minimal");
+}
+
+/** Fetch only the recent tail when a cache exists; fall back to the full window if history changed. */
+async function refresh(code: string, cached: Cached | undefined, end: string, isStock: boolean): Promise<Cached> {
+  const from = shift(end, -420);
+  const tailFrom = cached ? shift(cached.through, -10) : from;
+  let adjusted = mergeSeries(cached?.adjusted, await bars(code, tailFrom < from ? from : tailFrom, end, isStock), from);
+  if (!adjusted) adjusted = await bars(code, from, end, isStock);
+  const raw = isStock ? await bars(code, shift(end, -36), end, false) : undefined;
+  return { through: adjusted!.at(-1)!.day, checked: end, adjusted: adjusted!, ...(raw ? { raw } : {}) };
+}
+
 function followingWeekday(day: string) {
   let next = shift(day, 1);
   while ([0, 6].includes(new Date(next).getUTCDay())) next = shift(next, 1);
   return next;
 }
 
+/** A published forecast is redone (before the next open) when the pool changed or stocks were missing. */
+function needsRedo(existing: any, codes: string[]) {
+  const daily = existing?.picks?.daily;
+  if (!daily) return false;
+  const pool = daily.pool ?? poolKey((daily.quotes ?? []).map((quote: any) => quote.code));
+  return pool !== poolKey(codes) || (daily.missing?.length ?? 0) > 0;
+}
+
+async function probe(today: string) {
+  const end = shift(today, -1), start = shift(end, -36);
+  const market = await bars(benchmarkCode, start, end, false);
+  const rows = await bars("600519.SH", start, end, true);
+  if (rows.at(-1)?.day !== market.at(-1)?.day) throw new Error("Probe series dates differ");
+  return { state: "probed", benchmarkBars: market.length, stockBars: rows.length, through: market.at(-1)?.day };
+}
+
 async function run(mode: string, recompute = false) {
+  const deadline = Date.now() + BUDGET_MS;
   const now = new Date();
-  let today = dateFormat.format(now);
-  if (mode === "daily" && !recompute && localHour.format(now) < "20:05") throw new Error("Close cutoff has not passed");
-  const end = mode === "probe" || recompute && localHour.format(now) < "20:05" ? shift(today, -1) : today;
-  const start = shift(end, mode === "probe" ? -36 : -420);
-  const market = await bars("000985.CSI", start, end, false);
-  const marketDays = market.map(({ day }) => day);
-  if (mode === "probe") {
-    const rows = await bars("600519.SH", start, end, true);
-    if (rows.at(-1)?.day !== marketDays.at(-1)) throw new Error("Probe series dates differ: index=" + marketDays.at(-1) + ",stock=" + rows.at(-1)?.day + ",indexCount=" + market.length + ",stockCount=" + rows.length);
-    return { state: "probed", benchmarkBars: market.length, stockBars: rows.length, through: marketDays.at(-1) };
+  const today = dateFormat.format(now);
+  const clock = localHour.format(now);
+  if (mode === "probe") return probe(today);
+
+  // Benchmark first: it decides whether there is a finished session to publish.
+  let bench = (await loadCache([benchmarkCode])).get(benchmarkCode);
+  if (recompute || !(clock >= "20:05" && bench?.through === today) && !(clock < "09:00" && bench?.checked === today)) {
+    bench = await refresh(benchmarkCode, bench, today, false);
+    await saveCache([[benchmarkCode, bench]]);
   }
-  if (recompute) today = marketDays.at(-1)!;
-  const data = { source: "Eastmoney", state: "done", through: marketDays.at(-1), forecasts: 0, settled: 0, missing: 0 };
-  if (data.through !== today) return { ...data, state: "no-close" };
-  const since = shift(today, -21);
+  const market = bench!.adjusted;
+  const marketDays = market.map(({ day }) => day);
+  const target = recompute ? { day: marketDays.at(-1)!, final: true } : targetSession(clock, today, marketDays);
+  const data = { source: "Eastmoney", state: "done", through: marketDays.at(-1), target: target?.day ?? null,
+    final: target?.final ?? false, fetched: 0, failed: 0, deferred: 0, forecasts: 0, replaced: 0, settled: 0 };
+  if (!target) return { ...data, state: clock >= "20:05" ? "no-close" : "idle" };
+  const T = target.day;
+
+  const since = shift(T, -21);
   const [pool, history, existingOutcomes] = await Promise.all([
     all(stocksTable, { select: "user_id,code,name", order: "user_id.asc,slot.asc" }),
     all(forecastsTable, { select: "user_id,source_day,picks", source_day: "gte." + since, order: "user_id.asc,source_day.asc" }),
     all(outcomesTable, { select: "user_id,source_day,direction", source_day: "gte." + since, order: "user_id.asc,source_day.asc,direction.asc" })
   ]);
   const settledKeys = new Set(existingOutcomes.map((row) => [row.user_id, row.source_day, row.direction].join(":")));
-  const due = [];
+  const due: any[] = [];
   for (const row of history) {
     const entry = marketDays.findIndex((date) => date > row.source_day);
     if (entry < 0 || !marketDays[entry + 1]) continue;
@@ -78,71 +137,86 @@ async function run(mode: string, recompute = false) {
     if (!grouped.has(row.user_id)) grouped.set(row.user_id, []);
     grouped.get(row.user_id)!.push(row);
   }
-  const already = new Set(history.filter((row) => row.source_day === today).map((row) => row.user_id));
-  const newAccounts = [...grouped.entries()].filter(([id]) => recompute || !already.has(id));
-  const quoteCodes = new Set(newAccounts.flatMap(([, rows]) => rows.map(({ code }) => code)));
-  const codes = [...new Set([...quoteCodes, ...due.map(({ pick }) => pick.code)])];
-  const series = new Map<string, { adjusted: any[]; raw: any[] | null }>();
-  for (let i = 0; i < codes.length; i += 4) {
-    await Promise.all(codes.slice(i, i + 4).map(async (code) => {
+  const published = new Map(history.filter((row) => row.source_day === T).map((row) => [row.user_id, row]));
+  const todo = [...grouped.entries()].filter(([id, rows]) => recompute || !published.has(id) ||
+    needsRedo(published.get(id), rows.map(({ code }) => code)));
+
+  // Fetch what is not yet fresh for T, users' pools first, and persist after every batch.
+  const codes = [...new Set([...todo.flatMap(([, rows]) => rows.map(({ code }) => code)), ...due.map(({ pick }) => pick.code)])];
+  const cache = await loadCache(codes);
+  const fresh = (code: string) => (cache.get(code)?.checked ?? "") >= T && !!cache.get(code)?.raw;
+  const stale = codes.filter((code) => recompute || !fresh(code));
+  let stopped = false;
+  for (let i = 0; i < stale.length && !stopped; i += 4) {
+    if (Date.now() > deadline) break;
+    const batch: [string, Cached][] = [];
+    await Promise.all(stale.slice(i, i + 4).map(async (code) => {
       try {
-        const [adjusted, raw] = await Promise.all([
-          bars(code, start, today, true),
-          quoteCodes.has(code) ? bars(code, shift(today, -36), today, false).catch((error) => { if (error.message === "EASTMONEY_RATE_LIMIT") throw error; return null; }) : null
-        ]);
-        series.set(code, { adjusted, raw });
+        const entry = await refresh(code, recompute ? undefined : cache.get(code), T, true);
+        cache.set(code, entry);
+        batch.push([code, entry]);
+        data.fetched++;
       } catch (error) {
-        if (error instanceof Error && error.message === "EASTMONEY_RATE_LIMIT") throw error;
-        data.missing++;
+        if (rateLimited(error)) stopped = true;
+        data.failed++;
       }
     }));
+    await saveCache(batch);
   }
+
   const updatedAt = new Date().toISOString();
-  const inserts = [];
-  const recomputedOutcomes = [];
-  for (const [id, rows] of newAccounts) {
-    if (rows.some(({ code }) => !series.get(code)?.raw)) { data.missing++; continue; }
-    const sourceDays = recompute ? marketDays.slice(-5) : [today];
+  const inserts: any[] = [], replacements: any[] = [], recomputedOutcomes: any[] = [];
+  for (const [id, rows] of todo) {
+    const available = rows.filter(({ code }) => fresh(code));
+    const missing = rows.filter(({ code }) => !fresh(code)).map(({ code }) => code);
+    if (missing.length && !target.final || !available.length) { data.deferred++; continue; }
+    const sourceDays = recompute ? marketDays.slice(-5) : [T];
     for (const sourceDay of sourceDays) {
-      const candidates = rows.map(({ code, name }) => {
-        const adjusted = series.get(code)!.adjusted.filter((bar) => bar.day <= sourceDay);
+      const candidates = available.map(({ code, name }) => {
+        const adjusted = cache.get(code)!.adjusted.filter((bar) => bar.day <= sourceDay);
         return { code, name, analysis: adjusted.at(-1)?.day === sourceDay
           ? evaluateStock(adjusted, market.filter((bar) => bar.day <= sourceDay)) : null };
       });
-      const quotes = rows.map(({ code, name }) => {
-        const { raw, adjusted } = series.get(code)!;
+      // A suspended stock keeps its last quote instead of blocking everyone else's forecast.
+      const quotes = available.map(({ code, name }) => {
+        const { raw, adjusted } = cache.get(code)!;
         return { code, name, ...quoteFromBars(raw!.filter((bar) => bar.day <= sourceDay),
           adjusted.filter((bar) => bar.day <= sourceDay)), updatedAt };
       });
-      if (quotes.some((quote) => quote.day !== sourceDay)) { data.missing++; continue; }
       const picks = pickForecast(candidates);
       const entryIndex = marketDays.indexOf(sourceDay) + 1;
       const day = marketDays[entryIndex] ?? followingWeekday(sourceDay);
-      inserts.push({ user_id: id, source_day: sourceDay, picks: { ...picks, daily: {
-        day, source: "Eastmoney", marketDays: marketDays.slice(-12), benchmark, quotes
-      } } });
-      if (recompute) for (const direction of ["up", "down"]) {
+      const row = { user_id: id, source_day: sourceDay, picks: { ...picks, daily: {
+        day, source: "Eastmoney", marketDays: marketDays.slice(-12), benchmark, quotes,
+        pool: poolKey(rows.map(({ code }) => code)), ...(missing.length ? { missing } : {})
+      } } };
+      (published.has(id) && sourceDay === T && !recompute ? replacements : inserts).push(row);
+      if (recompute) for (const direction of ["up", "down"] as const) {
         const pick = picks[direction];
-        const result = settle(pick, direction, pick ? series.get(pick.code)?.adjusted : null,
+        const result = settle(pick, direction, pick ? cache.get(pick.code)?.adjusted : null,
           marketDays[entryIndex], marketDays[entryIndex + 1]);
         recomputedOutcomes.push({ user_id: id, source_day: sourceDay, direction, result });
       }
     }
   }
-  const outcomes = [];
+  const outcomes: any[] = [];
   for (const { row, direction, pick, entry, exit } of due) {
-    const seriesBars = series.get(pick.code)?.adjusted;
-    if (!seriesBars) continue;
-    const result = settle(pick, direction, seriesBars, entry, exit);
+    if ((cache.get(pick.code)?.checked ?? "") < exit) continue;
+    const result = settle(pick, direction, cache.get(pick.code)!.adjusted, entry, exit);
     outcomes.push({ user_id: row.user_id, source_day: row.source_day, direction, result });
   }
   const results = [...outcomes, ...recomputedOutcomes];
   const uniqueResults = [...new Map(results.map((row) =>
     [[row.user_id, row.source_day, row.direction].join(":"), row])).values()];
-  await db("rpc/exp_watchlist_publish", {}, {
-    p_forecasts: inserts, p_outcomes: uniqueResults, p_replace: recompute
-  });
-  return { ...data, state: data.missing ? "partial" : "done", forecasts: inserts.length, settled: uniqueResults.length };
+  if (inserts.length || uniqueResults.length) {
+    await db("rpc/exp_watchlist_publish", {}, { p_forecasts: inserts, p_outcomes: uniqueResults, p_replace: recompute });
+  }
+  if (replacements.length) {
+    await db("rpc/exp_watchlist_publish", {}, { p_forecasts: replacements, p_outcomes: [], p_replace: true });
+  }
+  const unfinished = data.deferred || stale.some((code) => !fresh(code));
+  return { ...data, state: stopped ? "rate-limited" : unfinished ? "partial" : "done",
+    forecasts: inserts.length, replaced: replacements.length, settled: uniqueResults.length };
 }
 
 Deno.serve(async (req) => {
@@ -159,8 +233,12 @@ Deno.serve(async (req) => {
     await db("rpc/exp_watchlist_finish_run", {}, { p_nonce: nonce, p_result: result });
     return Response.json(result);
   } catch (error) {
-    console.error("[exp-watchlist-daily]", error instanceof Error ? error.message : "unknown error");
-    if (claimed) await db("rpc/exp_watchlist_finish_run", {}, { p_nonce: nonce, p_result: { state: "failed", code: error instanceof Error && error.message === "EASTMONEY_RATE_LIMIT" ? "eastmoney_rate_limit" : "calculation_failed" } }).catch(() => null);
+    const message = error instanceof Error ? error.message : "unknown error";
+    console.error("[exp-watchlist-daily]", message);
+    if (claimed) await db("rpc/exp_watchlist_finish_run", {}, { p_nonce: nonce, p_result: {
+      state: "failed", code: rateLimited(error) ? "eastmoney_rate_limit" : "calculation_failed",
+      detail: message.slice(0, 200)
+    } }).catch(() => null);
     return Response.json({ error: "calculation_failed" }, { status: 503 });
   }
 });
