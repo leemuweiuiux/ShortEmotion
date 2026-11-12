@@ -1,5 +1,22 @@
 import { authConfig, requireSession } from "../session.js";
-import { resolveStock } from "./eastmoney.js";
+import { InputError, StockNotFoundError, resolveStock as resolveWind } from "../technical-analysis/engine.js";
+
+/** Resolve a code or full name through Wind; only an exact A-share match is accepted. */
+async function resolveStock(query) {
+  let found;
+  try {
+    found = await resolveWind(query, { fresh: true });
+  } catch (error) {
+    if (error instanceof InputError || error instanceof StockNotFoundError) {
+      throw fail("未找到股票，请输入六位代码或完整名称", 400);
+    }
+    throw fail("股票查询暂时不可用，请稍后重试", 503);
+  }
+  const code = String(found.code || "").toUpperCase();
+  const typed = String(query).toUpperCase();
+  if (/\.(SH|SZ|BJ)$/.test(typed) && typed !== code) throw fail("股票代码与交易所不匹配", 400);
+  return { code, name: found.name };
+}
 
 const tables = {
   stocks: "exp_watchlist_stocks",
@@ -63,8 +80,8 @@ export function scheduledDashboard({ stocks, forecasts, outcomes, cached = [] })
     const day = historical?.day ?? observed ?? daily.day;
     if (signals.has(day)) continue;
     const signal = { day, attention: picks.attention };
-    if (historical) signal.backtest = { source, benchmark: historical.benchmark, sourceName: historical.source || "东方财富日线" };
-    if (daily) signal.daily = { source, sourceName: daily.source || "东方财富日线", benchmark: daily.benchmark, provisional: !observed };
+    if (historical) signal.backtest = { source, benchmark: historical.benchmark, sourceName: historical.source || "日线" };
+    if (daily) signal.daily = { source, sourceName: daily.source || "日线", benchmark: daily.benchmark, provisional: !observed };
     for (const direction of DIRECTIONS) {
       const pick = picks[direction];
       const result = outcomes.find((row) => row.source_day === source && row.direction === direction)?.result;

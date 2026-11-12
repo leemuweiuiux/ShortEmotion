@@ -1,10 +1,10 @@
-import { fetchDailyBars as bars } from "../../../api/_lib/watchlist/eastmoney.js";
+import { getApiKeys } from "../../../api/_lib/short-emotion/wind-client.js";
+import { BENCHMARK_CODE as benchmarkCode, fetchDailyBars as bars, isStopError } from "./wind.js";
 import { evaluateStock, mergeSeries, pickForecast, poolKey, quoteFromBars, settle, targetSession } from "./model.js";
 
 const root = Deno.env.get("SUPABASE_URL")!;
 const role = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const benchmark = "中证全指 000985";
-const benchmarkCode = "000985.CSI";
 const stocksTable = "exp_watchlist_stocks";
 const forecastsTable = "exp_watchlist_forecasts";
 const outcomesTable = "exp_watchlist_outcomes";
@@ -14,10 +14,11 @@ const BUDGET_MS = 90_000;
 const dateFormat = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" });
 const localHour = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 const shift = (day: string, n: number) => new Date(Date.parse(day) + n * 86400000).toISOString().slice(0, 10);
-const rateLimited = (error: unknown) => error instanceof Error && error.message === "EASTMONEY_RATE_LIMIT";
+// Unadjusted bars back far enough for the 20-session observation level, holidays included.
+const RAW_DAYS = 60;
 
 type Bar = { day: string; open: number; close: number; high: number; low: number; volume: number };
-type Cached = { through: string; checked: string; adjusted: Bar[]; raw?: Bar[] };
+type Cached = { through: string; checked: string; adjusted: Bar[]; raw?: Bar[] | null };
 
 async function db(path: string, params: Record<string, string> = {}, body?: unknown,
   prefer = "resolution=ignore-duplicates,return=minimal") {
@@ -67,7 +68,13 @@ async function refresh(code: string, cached: Cached | undefined, end: string, is
   const tailFrom = cached ? shift(cached.through, -10) : from;
   let adjusted = mergeSeries(cached?.adjusted, await bars(code, tailFrom < from ? from : tailFrom, end, isStock), from);
   if (!adjusted) adjusted = await bars(code, from, end, isStock);
-  const raw = isStock ? await bars(code, shift(end, -36), end, false) : undefined;
+  let raw: Bar[] | null | undefined;
+  if (isStock) {
+    const rawFrom = shift(end, -RAW_DAYS);
+    const rawTail = cached?.raw?.length ? shift(cached.through, -10) : rawFrom;
+    raw = mergeSeries(cached?.raw, await bars(code, rawTail < rawFrom ? rawFrom : rawTail, end, false), rawFrom);
+    if (!raw) raw = await bars(code, rawFrom, end, false);
+  }
   return { through: adjusted!.at(-1)!.day, checked: end, adjusted: adjusted!, ...(raw ? { raw } : {}) };
 }
 
@@ -86,11 +93,11 @@ function needsRedo(existing: any, codes: string[]) {
 }
 
 async function probe(today: string) {
-  const end = shift(today, -1), start = shift(end, -36);
-  const market = await bars(benchmarkCode, start, end, false);
-  const rows = await bars("600519.SH", start, end, true);
-  if (rows.at(-1)?.day !== market.at(-1)?.day) throw new Error("Probe series dates differ");
-  return { state: "probed", benchmarkBars: market.length, stockBars: rows.length, through: market.at(-1)?.day };
+  const start = shift(today, -20);
+  const market = await bars(benchmarkCode, start, today, false);
+  const rows = await bars("600519.SH", start, today, true);
+  return { state: "probed", source: "Wind MCP", benchmarkBars: market.length, stockBars: rows.length,
+    benchmarkThrough: market.at(-1)?.day, stockThrough: rows.at(-1)?.day };
 }
 
 async function run(mode: string, recompute = false) {
@@ -98,6 +105,7 @@ async function run(mode: string, recompute = false) {
   const now = new Date();
   const today = dateFormat.format(now);
   const clock = localHour.format(now);
+  if (!getApiKeys().length) throw new Error("WIND_CREDENTIALS_MISSING");
   if (mode === "probe") return probe(today);
 
   // Benchmark first: it decides whether there is a finished session to publish.
@@ -109,7 +117,7 @@ async function run(mode: string, recompute = false) {
   const market = bench!.adjusted;
   const marketDays = market.map(({ day }) => day);
   const target = recompute ? { day: marketDays.at(-1)!, final: true } : targetSession(clock, today, marketDays);
-  const data = { source: "Eastmoney", state: "done", through: marketDays.at(-1), target: target?.day ?? null,
+  const data = { source: "Wind MCP", state: "done", through: marketDays.at(-1), target: target?.day ?? null,
     final: target?.final ?? false, fetched: 0, failed: 0, deferred: 0, forecasts: 0, replaced: 0, settled: 0 };
   if (!target) return { ...data, state: clock >= "20:05" ? "no-close" : "idle" };
   const T = target.day;
@@ -157,7 +165,8 @@ async function run(mode: string, recompute = false) {
         batch.push([code, entry]);
         data.fetched++;
       } catch (error) {
-        if (rateLimited(error)) stopped = true;
+        if (isStopError(error)) stopped = true;
+        console.error("[exp-watchlist-daily] " + code + " " + (error instanceof Error ? error.message : "failed"));
         data.failed++;
       }
     }));
@@ -175,7 +184,7 @@ async function run(mode: string, recompute = false) {
       const candidates = available.map(({ code, name }) => {
         const adjusted = cache.get(code)!.adjusted.filter((bar) => bar.day <= sourceDay);
         return { code, name, analysis: adjusted.at(-1)?.day === sourceDay
-          ? evaluateStock(adjusted, market.filter((bar) => bar.day <= sourceDay)) : null };
+          ? evaluateStock(adjusted, market.filter((bar) => bar.day <= sourceDay), { rawBars: cache.get(code)!.raw }) : null };
       });
       // A suspended stock keeps its last quote instead of blocking everyone else's forecast.
       const quotes = available.map(({ code, name }) => {
@@ -187,7 +196,7 @@ async function run(mode: string, recompute = false) {
       const entryIndex = marketDays.indexOf(sourceDay) + 1;
       const day = marketDays[entryIndex] ?? followingWeekday(sourceDay);
       const row = { user_id: id, source_day: sourceDay, picks: { ...picks, daily: {
-        day, source: "Eastmoney", marketDays: marketDays.slice(-12), benchmark, quotes,
+        day, source: "Wind", marketDays: marketDays.slice(-12), benchmark, quotes,
         pool: poolKey(rows.map(({ code }) => code)), ...(missing.length ? { missing } : {})
       } } };
       (published.has(id) && sourceDay === T && !recompute ? replacements : inserts).push(row);
@@ -215,7 +224,7 @@ async function run(mode: string, recompute = false) {
     await db("rpc/exp_watchlist_publish", {}, { p_forecasts: replacements, p_outcomes: [], p_replace: true });
   }
   const unfinished = data.deferred || stale.some((code) => !fresh(code));
-  return { ...data, state: stopped ? "rate-limited" : unfinished ? "partial" : "done",
+  return { ...data, state: stopped ? "wind-limited" : unfinished ? "partial" : "done",
     forecasts: inserts.length, replaced: replacements.length, settled: uniqueResults.length };
 }
 
@@ -236,7 +245,8 @@ Deno.serve(async (req) => {
     const message = error instanceof Error ? error.message : "unknown error";
     console.error("[exp-watchlist-daily]", message);
     if (claimed) await db("rpc/exp_watchlist_finish_run", {}, { p_nonce: nonce, p_result: {
-      state: "failed", code: rateLimited(error) ? "eastmoney_rate_limit" : "calculation_failed",
+      state: "failed", code: message === "WIND_CREDENTIALS_MISSING" ? "wind_credentials_missing"
+        : isStopError(error) ? "wind_limited" : "calculation_failed",
       detail: message.slice(0, 200)
     } }).catch(() => null);
     return Response.json({ error: "calculation_failed" }, { status: 503 });
