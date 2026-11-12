@@ -1,10 +1,28 @@
 import { authConfig, requireSession } from "../session.js";
-import { resolveStock } from "./eastmoney.js";
+import { InputError, StockNotFoundError, resolveStock as resolveWind } from "../technical-analysis/engine.js";
+
+/** Resolve a code or full name through Wind; only an exact A-share match is accepted. */
+async function resolveStock(query) {
+  let found;
+  try {
+    found = await resolveWind(query, { fresh: true });
+  } catch (error) {
+    if (error instanceof InputError || error instanceof StockNotFoundError) {
+      throw fail("未找到股票，请输入六位代码或完整名称", 400);
+    }
+    throw fail("股票查询暂时不可用，请稍后重试", 503);
+  }
+  const code = String(found.code || "").toUpperCase();
+  const typed = String(query).toUpperCase();
+  if (/\.(SH|SZ|BJ)$/.test(typed) && typed !== code) throw fail("股票代码与交易所不匹配", 400);
+  return { code, name: found.name };
+}
 
 const tables = {
   stocks: "exp_watchlist_stocks",
   forecasts: "exp_watchlist_forecasts",
-  outcomes: "exp_watchlist_outcomes"
+  outcomes: "exp_watchlist_outcomes",
+  market: "exp_watchlist_market"
 };
 const DIRECTIONS = ["up", "down"];
 const fail = (message, statusCode) => Object.assign(new Error(message), { statusCode });
@@ -38,14 +56,21 @@ async function readUser(read, id) {
     read(tables.forecasts, { user_id, order: "source_day.desc", limit: "8" }),
     read(tables.outcomes, { user_id, order: "source_day.desc", limit: "16" })
   ]);
-  return { stocks, forecasts, outcomes };
+  // Shared closing quotes let a stock added after the daily run show up before the next forecast.
+  const list = stocks.map(({ code }) => '"' + code + '"').join(",");
+  const cached = stocks.length ? await read(tables.market, { select: "code,quote", code: "in.(" + list + ")" })
+    .catch(() => []) : [];
+  return { stocks, forecasts, outcomes, cached };
 }
 
-export function scheduledDashboard({ stocks, forecasts, outcomes }) {
+export function scheduledDashboard({ stocks, forecasts, outcomes, cached = [] }) {
   const latest = forecasts.find((row) => row.picks.daily);
   const market = latest?.picks.daily.marketDays ?? [];
   const tradingDay = latest?.source_day;
   const quotes = new Map((latest?.picks.daily.quotes ?? []).map((row) => [row.code, row]));
+  for (const { code, quote } of cached ?? []) {
+    if (quote?.day && !quotes.has(code)) quotes.set(code, quote);
+  }
   const signals = new Map();
   for (const { picks, source_day: source } of forecasts) {
     const historical = picks.backtest;
@@ -55,8 +80,8 @@ export function scheduledDashboard({ stocks, forecasts, outcomes }) {
     const day = historical?.day ?? observed ?? daily.day;
     if (signals.has(day)) continue;
     const signal = { day, attention: picks.attention };
-    if (historical) signal.backtest = { source, benchmark: historical.benchmark, sourceName: historical.source || "东方财富日线" };
-    if (daily) signal.daily = { source, sourceName: daily.source || "东方财富日线", benchmark: daily.benchmark, provisional: !observed };
+    if (historical) signal.backtest = { source, benchmark: historical.benchmark, sourceName: historical.source || "日线" };
+    if (daily) signal.daily = { source, sourceName: daily.source || "日线", benchmark: daily.benchmark, provisional: !observed };
     for (const direction of DIRECTIONS) {
       const pick = picks[direction];
       const result = outcomes.find((row) => row.source_day === source && row.direction === direction)?.result;
