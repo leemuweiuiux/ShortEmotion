@@ -120,6 +120,28 @@
         <p id="codes-total" class="admin-muted"></p>
       </section>
 
+      <section class="sub-card">
+        <div class="card-row"><div class="section-title">关注</div><span id="watch-latest" class="admin-muted">—</span></div>
+        <div class="admin-stats three">
+          <div class="wide"><span>关注用户</span><strong id="watch-users">—</strong></div>
+          <div><span>关注股票（去重）</span><strong id="watch-codes">—</strong></div>
+          <div><span>人均关注</span><strong id="watch-avg">—</strong></div>
+          <div><span>今日新增关注</span><strong id="watch-added-today">—</strong></div>
+          <div><span>近 7 日新增</span><strong id="watch-added-7d">—</strong></div>
+        </div>
+        <p id="watch-summary" class="admin-muted"></p>
+        <details class="admin-details"><summary>热门股票与每日任务</summary>
+          <div class="admin-table-wrap"><table class="admin-table">
+            <thead><tr><th scope="col">股票</th><th scope="col">关注人数</th></tr></thead>
+            <tbody id="watch-top"><tr><td colspan="2" class="admin-empty">读取中…</td></tr></tbody>
+          </table></div>
+          <div class="admin-table-wrap"><table class="admin-table">
+            <thead><tr><th scope="col">时间</th><th scope="col">状态</th><th scope="col">取数 / 失败</th><th scope="col">发布 / 重算 / 结算</th></tr></thead>
+            <tbody id="watch-runs"><tr><td colspan="4" class="admin-empty">读取中…</td></tr></tbody>
+          </table></div>
+        </details>
+      </section>
+
       <details class="sub-card admin-details usage-details"><summary>全站功能使用 · 用户路径</summary>
         <div class="usage-heading"><div class="section-title">全站功能使用 · 用户路径</div><div class="usage-controls"><button id="usage-expand" type="button" class="btn-secondary">全部展开</button><button id="usage-collapse" type="button" class="btn-secondary">收起</button></div></div>
         <p class="usage-path">About 产品介绍 <span aria-hidden="true">→</span> 登录 <span aria-hidden="true">→</span> Home 首页 <span aria-hidden="true">→</span> 看板 / 个人中心 <span aria-hidden="true">→</span> 具体操作</p>
@@ -260,6 +282,6 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="/short-emotion/vendor/qrcode-generator.js" defer></script>
   <script src="/short-emotion/vendor/html-to-image.js" defer></script>
-  <script type="module" src="/admin/admin.js?v=8"></script>
+  <script type="module" src="/admin/admin.js?v=9"></script>
 </body>
 </html>

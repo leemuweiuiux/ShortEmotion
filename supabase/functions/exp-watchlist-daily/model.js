@@ -101,12 +101,15 @@ export function evaluateStock(bars, marketRows, context = {}) {
   const labels = { breakout: "收盘突破近20日高点", breakdown: "收盘跌破近20日低点", rejected: "冲高回落至平台内", recovered: "下探后收回平台", range: "量价变化" };
   const structure = current.structure === "range" ? 0 : current.structure === "breakout" || current.structure === "breakdown" ? 50 : 40;
   const activity = 15 * clamp(current.vr - 1, 0, 2) / 2 + 15 * clamp(current.rangeRatio - 1, 0, 2) / 2;
+  const side = ["breakdown", "recovered"].includes(current.structure) ? "low" : "high";
+  const pivot = current.structure === "range" ? null
+    : bars.slice(i - 20, i).find((bar) => bar[side] === current[side]);
+  const rawPivot = pivot && context.rawBars?.find((bar) => bar.day === pivot.day);
   return {
     up: direction(1), down: direction(-1), sampleSize,
     attention: rounded(structure + activity + (context.bonus || 0), 1),
     reason: [labels[current.structure], ...((context.reasons || []).slice(0, 2))].join(" · "),
-    level: current.structure === "range" ? null : rounded(
-      ["breakdown", "recovered"].includes(current.structure) ? current.low : current.high)
+    level: rawPivot ? rounded(rawPivot[side]) : null
   };
 }
 
@@ -151,3 +154,28 @@ export function settle(pick, direction, bars, entryDay, exitDay) {
   return { status: direction === "up" && ret > 0 || direction === "down" && ret < 0 ? "beat" : "miss",
     returnPct: rounded(ret) };
 }
+
+/** Merge a cached series with a freshly fetched tail. A changed overlapping close means the cache is stale. */
+export function mergeSeries(cached, fresh, from) {
+  if (!cached?.length) return fresh;
+  const byDay = new Map(cached.map((bar) => [bar.day, bar]));
+  for (const bar of fresh) {
+    const old = byDay.get(bar.day);
+    if (old && bar.day < fresh.at(-1).day && Math.abs(old.close / bar.close - 1) > 1e-4) return null;
+    byDay.set(bar.day, bar);
+  }
+  return [...byDay.values()].filter((bar) => bar.day >= from).sort((a, b) => a.day.localeCompare(b.day));
+}
+
+/**
+ * Which close the job should publish for. Evening runs (20:05+) publish today's close; morning catch-up
+ * runs (before 09:00) publish the previous session. The last run of each window publishes what it has.
+ */
+export function targetSession(clock, today, marketDays) {
+  const last = marketDays.at(-1);
+  if (clock >= "20:05") return last === today ? { day: today, final: clock >= "23:35" } : null;
+  if (clock < "09:00") return last && last < today ? { day: last, final: clock >= "08:35" } : null;
+  return null;
+}
+
+export const poolKey = (codes) => [...codes].sort().join(",");

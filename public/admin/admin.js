@@ -164,11 +164,42 @@ function renderOverview(data) {
   $("#invites-rate").textContent = percent(data.invites?.rewarded, data.invites?.bound);
 
   $("#paid-features").innerHTML = paidCardsHtml(data.paidFeatures);
+  renderWatchlist(data.watchlist);
 
   renderUsage(data.usage);
   renderGrantRules(data.grants?.myToday);
   const select = $("#ledger-kind");
   if (select.options.length <= 1) for (const kind of sortKinds(Object.keys(kinds))) select.append(new Option(kinds[kind], kind));
+}
+
+const RUN_STATES = { done: "完成", partial: "部分完成，待重试", "wind-limited": "数据额度或频率受限", "no-close": "非交易日", idle: "无需运行",
+  failed: "失败", running: "运行中", unclaimed: "未启动", probed: "连通测试" };
+function renderWatchlist(watch) {
+  if (!watch) {
+    $("#watch-summary").textContent = "关注数据暂时无法读取。";
+    return;
+  }
+  const pool = watch.pool || {};
+  $("#watch-users").textContent = number(pool.users);
+  $("#watch-codes").textContent = number(pool.codes);
+  $("#watch-avg").textContent = Number(pool.users) ? (Number(pool.stocks) / Number(pool.users)).toFixed(1) : "—";
+  $("#watch-added-today").textContent = number(pool.addedToday);
+  $("#watch-added-7d").textContent = number(pool.added7d);
+  const f = watch.forecasts || {};
+  $("#watch-latest").textContent = f.latestDay ? `最新预测 ${f.latestDay} · ${number(f.latestUsers)} 人` : "暂无预测";
+  const h = watch.hits || {};
+  const rate = (beat, miss) => Number(beat) + Number(miss) ? `${Math.round(100 * Number(beat) / (Number(beat) + Number(miss)))}%（${number(beat)}/${number(Number(beat) + Number(miss))}）` : "—";
+  $("#watch-summary").textContent = `已满 10 只 ${number(pool.fullUsers)} 人；近 7 日新增关注 ${number(pool.usersAdded7d)} 人；` +
+    `最新一期缺股发布 ${number(f.partialLatest)} 人。近 30 天命中率：看涨 ${rate(h.upBeat, h.upMiss)}，看跌 ${rate(h.downBeat, h.downMiss)}。`;
+  $("#watch-top").innerHTML = (watch.top || []).map((row) =>
+    `<tr><th scope="row">${esc(row.name)}<small> ${esc(row.code)}</small></th><td>${number(row.followers)}</td></tr>`).join("")
+    || '<tr><td colspan="2" class="admin-empty">暂无关注</td></tr>';
+  const n = (value) => value == null ? "—" : number(value);
+  $("#watch-runs").innerHTML = (watch.runs || []).map((run) =>
+    `<tr><th scope="row">${esc(run.at)}${run.target ? `<small> 目标 ${esc(run.target.slice(5))}</small>` : ""}</th>` +
+    `<td>${esc(RUN_STATES[run.state] || run.state)}${run.code ? `<small> ${esc(run.code)}</small>` : ""}</td>` +
+    `<td>${n(run.fetched)} / ${n(run.failed)}</td><td>${n(run.forecasts)} / ${n(run.replaced)} / ${n(run.settled)}</td></tr>`).join("")
+    || '<tr><td colspan="4" class="admin-empty">暂无记录</td></tr>';
 }
 
 let usageTree = [];
