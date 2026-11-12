@@ -21,6 +21,19 @@ describe('ETF flow financial calculations',()=>{
   expect(parseHistory(history('份',8),'510300.SH')).toEqual([]);
   expect(parseHistory(history(),'510330.SH')).toEqual([]);
  });
+ it('accepts the daily 基金规模 alias only when it reconciles and matches the observation date',()=>{
+  const payload=history();
+  const table=payload.data.data[0];
+  const alias='2026年10月9日到2026年11月12日每日的基金规模';
+  table.columns[4].name=alias;
+  expect(parseHistory(payload,'510300.SH')[0]).toMatchObject({shares:32729887700,shareScale:10000});
+  table.columns.push({name:alias+'时间'});
+  table.rows[0].push('2026-10-21');
+  expect(parseHistory(payload,'510300.SH')).toEqual([]);
+  table.rows[0][5]='2026-10-22';
+  table.rows[0][4]=8;
+  expect(parseHistory(payload,'510300.SH')).toEqual([]);
+ });
  it('never bridges a missing trading observation or interprets a split as a capital inflow',()=>{
   const q=[{date:'1',shares:100,nav:10},{date:'3',shares:110,nav:10}];expect(fundPoints(q,['1','2','3']).every(p=>p.amount===null)).toBe(true);
   expect(fundPoints([{date:'1',shares:100,nav:10},{date:'2',shares:200,nav:5}],['1','2'])[0].amount).toBeNull();

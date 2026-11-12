@@ -33,7 +33,11 @@ const MONEY={'元':1,'万元':1e4,'亿元':1e8,'千元':1e3,'百万元':1e6};
 export function parseHistory(payload, code) {
  const found=new Map();
  for(const t of tableList(payload)) {
-  const cols=t.columns,c=col(cols,/^(Wind代码|基金代码|证券代码)$/i),share=col(cols,/(?:基金总份额|基金份额|总份额)(?!.*(?:时间|日期|比例|变动))/),nav=col(cols,/(?:单位净值)(?!.*(?:时间|日期|币种|增长|累计))/),asset=col(cols,/(?:基金资产净值|资产净值)(?!.*(?:时间|日期|单位|增长))/);
+  const cols=t.columns,c=col(cols,/^(Wind代码|基金代码|证券代码)$/i),share=col(cols,/(?:基金总份额|基金份额|总份额)(?!.*(?:时间|日期|比例|变动))/),nav=col(cols,/(?:单位净值)(?!.*(?:时间|日期|币种|增长|累计))/);
+  const netAssets=col(cols,/(?:基金资产净值|资产净值)(?!.*(?:时间|日期|单位|增长))/);
+  // Wind's analytics fallback may label the daily net asset value as 基金规模.
+  // Still require currency units and reconciliation with that day's shares and NAV.
+  const asset=netAssets>=0 ? netAssets : col(cols,/^(?:.*每日的?)?基金规模$/);
   let date=col(cols,/^(日期|交易日期|交易时间|TIME)$/i);if(date<0)date=col(cols,/基金份额时间/);
   if(share<0||nav<0||asset<0||date<0)continue;
   const assetScale=MONEY[cols[asset].unit],navScale=MONEY[cols[nav].unit];
@@ -97,7 +101,18 @@ export async function collectSnapshot(call, previous=null, now=new Date(), {requ
     const from=hasGaps ? (required[0]||begin) : old?.quotes?.length?old.quotes.at(-Math.min(7,old.quotes.length)).date:begin;
     let payload=await call('fund_data','get_fund_financials',{question:`${f.code}从${humanDate(from)}至${humanDate(end)}每个交易日的基金总份额、基金单位净值、基金资产净值，按日期逐日返回，每行包含交易日期，使用各指标原始单位并返回单位`});
     let quotes=parseHistory(payload,f.code);
-    if(!quotes.length){payload=await call('analytics_data','get_financial_data',{question:`${f.code}从${humanDate(from)}至${humanDate(end)}每个交易日的基金总份额、基金单位净值、基金资产净值，按日期逐日返回，每行包含交易日期，使用各指标原始单位并返回单位`});quotes=parseHistory(payload,f.code);}
+    const targetIndex=requiredDate ? calendar.indexOf(requiredDate) : -1;
+    const targetDays=targetIndex>0 ? calendar.slice(targetIndex-1,targetIndex+1).filter(d=>!f.listed||f.listed<=d) : [];
+    const missingTarget=targetDays.filter(d=>!quotes.some(q=>q.date===d)&&!old?.quotes?.some(q=>q.date===d));
+    if(!quotes.length || missingTarget.length){
+     const fallbackFrom=quotes.length ? missingTarget[0] : from;
+     const fallbackEnd=quotes.length ? requiredDate : end;
+     try{
+      payload=await call('analytics_data','get_financial_data',{question:`${f.code}从${humanDate(fallbackFrom)}至${humanDate(fallbackEnd)}每个交易日的基金总份额、基金单位净值、基金资产净值，按日期逐日返回，每行包含交易日期，使用各指标原始单位并返回单位`});
+      const fallback=parseHistory(payload,f.code).filter(q=>q.date>=fallbackFrom&&q.date<=fallbackEnd);
+      quotes=[...new Map([...fallback,...quotes].map(q=>[q.date,q])).values()];
+     }catch(error){if(!quotes.length)throw error;}
+    }
     if(!quotes.length){console.log(JSON.stringify({unverified:f.code,tables:tableList(payload).map(t=>({columns:t.columns,sample:t.rows.slice(0,2)}))}));throw new Error('份额、净值或资产净值校验未通过');}
     f.quotes=[...new Map([...(old?.quotes||[]),...quotes].map(q=>[q.date,q])).values()].filter(q=>q.date>=begin).sort((a,b)=>a.date.localeCompare(b.date));
    }catch(e){f.quotes=old?.quotes||[];issues.push({code:f.code,group:f.group,reason:e.message});}

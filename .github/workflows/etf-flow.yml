@@ -1,7 +1,7 @@
 name: ETF flow data
 on:
   push:
-    branches: [develop]
+    branches: [main, develop]
     paths: [api/_lib/etf-flow/source.js, api/_lib/etf-flow/catalog.json, scripts/etf-flow/refresh.mjs, scripts/etf-flow/repair.mjs]
   workflow_dispatch:
   schedule:
@@ -35,7 +35,7 @@ jobs:
           fi
       - name: Refresh verified ETF flows
         id: refresh
-        run: node scripts/etf-flow/${{ github.event_name == 'push' && 'repair' || 'refresh' }}.mjs
+        run: node scripts/etf-flow/${{ github.event_name == 'push' && github.ref_name == 'develop' && 'repair' || 'refresh' }}.mjs
         env:
           WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
       - name: Publish ETF data

@@ -17,4 +17,14 @@ catch(error) {
 const dashboard=buildDashboard(snapshot);
 if(!dashboard.ready)throw new Error('没有通过校验的资金记录，不覆盖上一版');
 await writeFile(`${dir}/snapshot.json`,JSON.stringify(snapshot));
-console.log(JSON.stringify({date:dashboard.date,funds:snapshot.funds.length,groups:dashboard.series.filter(g=>g.fundCount).length,issues:snapshot.issues}));
+const targetDate=requiredDate||dashboard.date;
+const targetFunds=snapshot.funds.filter(f=>!f.inactive&&(!f.listed||f.listed<targetDate));
+const validAtTarget=f=>Number.isFinite(f.points.find(p=>p.date===targetDate)?.amount);
+const completeGroups=dashboard.series.filter(group=>{
+ const funds=targetFunds.filter(f=>f.group===group.id);
+ return funds.length&&funds.every(validAtTarget);
+}).length;
+const covered=targetFunds.filter(validAtTarget).length;
+const expected=targetFunds.length;
+if(completeGroups!==dashboard.series.length)console.warn(`::warning::ETF ${targetDate} 覆盖未齐，完整组 ${completeGroups}/${dashboard.series.length}，有效只数 ${covered}/${expected}，快照日期 ${dashboard.date}`);
+console.log(JSON.stringify({date:dashboard.date,targetDate,funds:snapshot.funds.length,completeGroups,covered,expected,issues:snapshot.issues}));

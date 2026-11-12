@@ -1,8 +1,11 @@
 name: Global linkage preview
 
 on:
+  schedule:
+    - cron: '10 0 * * 1-5' # 北京时间 08:10
+  workflow_dispatch:
   push:
-    branches: [exp]
+    branches: [main, exp]
     paths:
       - .github/workflows/global-linkage-exp.yml
       - api/_lib/short-emotion/global-linkage.js
