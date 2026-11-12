@@ -101,12 +101,15 @@ export function evaluateStock(bars, marketRows, context = {}) {
   const labels = { breakout: "收盘突破近20日高点", breakdown: "收盘跌破近20日低点", rejected: "冲高回落至平台内", recovered: "下探后收回平台", range: "量价变化" };
   const structure = current.structure === "range" ? 0 : current.structure === "breakout" || current.structure === "breakdown" ? 50 : 40;
   const activity = 15 * clamp(current.vr - 1, 0, 2) / 2 + 15 * clamp(current.rangeRatio - 1, 0, 2) / 2;
+  const side = ["breakdown", "recovered"].includes(current.structure) ? "low" : "high";
+  const pivot = current.structure === "range" ? null
+    : bars.slice(i - 20, i).find((bar) => bar[side] === current[side]);
+  const rawPivot = pivot && context.rawBars?.find((bar) => bar.day === pivot.day);
   return {
     up: direction(1), down: direction(-1), sampleSize,
     attention: rounded(structure + activity + (context.bonus || 0), 1),
     reason: [labels[current.structure], ...((context.reasons || []).slice(0, 2))].join(" · "),
-    level: current.structure === "range" ? null : rounded(
-      ["breakdown", "recovered"].includes(current.structure) ? current.low : current.high)
+    level: rawPivot ? rounded(rawPivot[side]) : null
   };
 }
 

@@ -27,6 +27,20 @@ describe("关注", () => {
     expect(quoteFromBars(raw, adjusted)).toEqual({ day: "2026-11-06", close: 10, change: 10, volume: 200, volumeRatio: 2 });
   });
 
+  it("用复权行情识别信号，观察位展示同一交易日的不复权价格", () => {
+    const raw = Array.from({ length: 21 }, (_, i) => bar(
+      new Date(Date.UTC(2026, 9, i + 1)).toISOString().slice(0, 10),
+      i === 20 ? 73.21 : 80, i === 3 ? 77.30 : 80
+    ));
+    const adjusted = raw.map((item) => ({ ...item,
+      open: item.open * 2, close: item.close * 2, high: item.high * 2, low: item.low * 2
+    }));
+    const result = evaluateStock(adjusted, adjusted, { rawBars: raw });
+    expect(result.reason).toBe("收盘跌破近20日低点");
+    expect(result.level).toBe(76.30);
+    expect(evaluateStock(adjusted, adjusted, { rawBars: raw.filter((_, i) => i !== 3) }).level).toBeNull();
+  });
+
   it("只使用已完成的两日样本，样本不足时不给概率", () => {
     const bars = Array.from({ length: 150 }, (_, i) => bar(
       new Date(Date.UTC(2026, 0, i + 1)).toISOString().slice(0, 10), 10.1, 10
