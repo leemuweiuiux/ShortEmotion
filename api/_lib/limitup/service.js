@@ -6,7 +6,7 @@
 //   limitup:latest             最新快照（盘中每 30 分钟覆盖）
 //   limitup:day:<YYYYMMDD>     每个交易日最后一份快照（「较上日」用上一交易日这份）
 //   limitup:news-cache:<日期>  资讯复核结果 { entries: { 代码: [题材…] } }：同一只股票当天只查一次资讯
-import { loadLimitUpBoard, exportNewsReviewCache, importNewsReviewCache, quoteDayOf } from "./engine.js";
+import { buildLimitUpHighlights, loadLimitUpBoard, exportNewsReviewCache, importNewsReviewCache, quoteDayOf } from "./engine.js";
 
 export const LIMITUP_KEYS = {
   latest: "limitup:latest",
@@ -201,5 +201,14 @@ export async function readLimitUp(store, resource = "full", { unlocked = false }
   const board = entry.value;
   const previous = await resolvePrevious(store, board);
   if (resource === "summary") return summarizeLimitUp(board, previous, { unlocked, storedAt: entry.updatedAt || null });
-  return { ...board, previous, storedAt: entry.updatedAt || null };
+  // 已存快照可能把较昨收的波动记作待核实。只移除这条旧规则产生的原因。
+  const priorCloseWarning = /^较上日 \d+ → \d+ 家，变化较大，需结合行情核实$/;
+  let updated = false;
+  const concepts = (board.concepts || []).map((concept) => {
+    if (!concept.reviewReasons?.some(reason => priorCloseWarning.test(reason))) return concept;
+    updated = true;
+    return { ...concept, reviewReasons: concept.reviewReasons.filter(reason => !priorCloseWarning.test(reason)) };
+  });
+  const detail = updated ? { concepts, highlights: buildLimitUpHighlights({ ...board, concepts }) } : {};
+  return { ...board, ...detail, previous, storedAt: entry.updatedAt || null };
 }

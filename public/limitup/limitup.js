@@ -358,7 +358,7 @@ function renderConcepts(data) {
       concept.downOnly ? null : `首封 ${esc(shortClock(concept.firstSealTime))}`,
       concept.downCount ? `<span class="is-down">跌停 ${concept.downCount}</span>` : null,
       concept.brokenCount ? `<span class="is-broken">断板/未晋级 ${concept.brokenCount}</span>` : null,
-      delta != null ? `较昨日 ${signed(delta)}` : null,
+      delta != null ? `较昨收 ${signed(delta)} 家` : null,
       ...(concept.reviewReasons || []).map(reason => esc(`待核实：${reason}`))
     ].filter(Boolean).join(" · ");
     // 右侧主数字：有涨停就报涨停家数；没有涨停的弱方向改报跌停/断板，避免出现「0 涨停」
