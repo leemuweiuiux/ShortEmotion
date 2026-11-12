@@ -37,8 +37,8 @@ begin
       'downBeat', count(*) filter (where direction = 'down' and result->>'status' = 'beat'),
       'downMiss', count(*) filter (where direction = 'down' and result->>'status' = 'miss'))
       from public.exp_watchlist_outcomes where source_day >= since),
-    'runs', coalesce((select jsonb_agg(r order by r.at desc) from (
-      select to_char(created_at at time zone 'Asia/Shanghai', 'MM-DD HH24:MI') as at, mode,
+    'runs', coalesce((select jsonb_agg(to_jsonb(r) - 'ts' order by r.ts desc) from (
+      select created_at as ts, to_char(created_at at time zone 'Asia/Shanghai', 'MM-DD HH24:MI') as at, mode,
         coalesce(result->>'state', case when claimed_at is null then 'unclaimed' else 'running' end) as state,
         result->>'target' as target, result->>'code' as code,
         (result->>'fetched')::int as fetched, (result->>'failed')::int as failed, (result->>'deferred')::int as deferred,
