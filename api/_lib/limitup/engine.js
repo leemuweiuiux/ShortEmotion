@@ -1012,8 +1012,17 @@ function topThemeCoverage(concepts, upCount) {
   return { ratio: Math.min(1, codes.size / upCount), names: top.map((concept) => concept.name) };
 }
 
+export function buildLimitUpHighlights({ concepts = [], themeStrength = [], ...board }) {
+  const reviewNames = new Set(concepts.filter(item => item.reviewReasons?.length).map(item => item.name));
+  return buildHighlights({
+    ...board,
+    themeStrength: themeStrength.filter(item => !reviewNames.has(item.name)),
+    concepts: concepts.filter(item => !reviewNames.has(item.name))
+  });
+}
+
 export function buildHighlights({
-  summary = {}, themeStrength = [], brokenStreaks = null, concepts = [], ladder = [], quoteTime = null, premium = null
+  summary = {}, themeStrength = [], brokenStreaks = null, concepts = [], ladder = [], quoteTime, premium = null
 } = {}) {
   const items = [];
   const add = (priority, item) => items.push({ priority, item });
@@ -1027,7 +1036,7 @@ export function buildHighlights({
     const match = String(quoteTime || "").match(/(\d{2}):(\d{2})/);
     return match ? Number(match[1]) * 60 + Number(match[2]) : null;
   })();
-  const fullDay = quoteMinute == null || quoteMinute >= 840;
+  const fullDay = quoteTime === undefined || (quoteMinute != null && quoteMinute >= 840);
 
   // 主线只在真正的「主升」里选；没有主升时退而取最强「走强」，
   // 避免 2 只涨停的试错题材被当成当日主线。
@@ -1565,15 +1574,6 @@ export async function loadLimitUpBoard(day = localDate(), { loadStoredDay = null
   });
   // 概念聚合不再只讲涨停：涨跌强弱状态直接挂在同一行，页面只保留一个题材模块
   const conceptBoard = !quality.detailComplete ? [] : mergeThemeBoard({ concepts: aggregateConcepts(stocks), themeStrength }).slice(0, 30);
-  // 变化仅是排查线索：完整历史且昨日有一定样本时才提示，不认定为错误或行情原因。
-  if (historyResult.complete) for (const concept of conceptBoard) {
-    const prior = previousThemes.find(item => item.name === concept.name)?.count || 0;
-    const current = concept.limitCount || 0;
-    if (prior >= 3 && Math.abs(current - prior) >= 3 && (current >= prior * 2 || current * 2 <= prior)) {
-      (concept.reviewReasons ||= []).push(`较上日 ${prior} → ${current} 家，变化较大，需结合行情核实`);
-    }
-  }
-
   // 晋级成功的个股按题材归类：只看晋级率不够，还要知道"分子"落在哪些题材上
   const promotedCodes = new Set(promotion.promoted.map((item) => item.code));
   const promotedStocks = stocks.filter((stock) => promotedCodes.has(stock.code));
@@ -1629,10 +1629,8 @@ export async function loadLimitUpBoard(day = localDate(), { loadStoredDay = null
   };
   // 顶部亮点：把「主线 / 赚钱效应 / 竞价 / 接力 / 高度 / 封板 / 集中度 / 负反馈 / 冰点 / 断板」
   // 压缩成几句话，先看结论再看明细。结构类维度依赖 ladder 与 concepts，必须传原始天梯与合并后的题材行。
-  const reviewNames = new Set(conceptBoard.filter(item => item.reviewReasons?.length).map(item => item.name));
-  const highlights = !quality.detailComplete ? [] : buildHighlights({
-    summary, themeStrength: themeStrength.filter(item => !reviewNames.has(item.name)), brokenStreaks,
-    concepts: conceptBoard.filter(item => !reviewNames.has(item.name)), ladder, quoteTime, premium
+  const highlights = !quality.detailComplete ? [] : buildLimitUpHighlights({
+    summary, themeStrength, brokenStreaks, concepts: conceptBoard, ladder, quoteTime, premium
   });
 
   return {

@@ -358,7 +358,7 @@ function renderConcepts(data) {
       concept.downOnly ? null : `首封 ${esc(shortClock(concept.firstSealTime))}`,
       concept.downCount ? `<span class="is-down">跌停 ${concept.downCount}</span>` : null,
       concept.brokenCount ? `<span class="is-broken">断板/未晋级 ${concept.brokenCount}</span>` : null,
-      delta != null ? `较昨日 ${signed(delta)}` : null,
+      delta != null ? `较昨收 ${signed(delta)} 家` : null,
       ...(concept.reviewReasons || []).map(reason => esc(`待核实：${reason}`))
     ].filter(Boolean).join(" · ");
     // 右侧主数字：有涨停就报涨停家数；没有涨停的弱方向改报跌停/断板，避免出现「0 涨停」
@@ -431,12 +431,14 @@ function untilLabel(value) {
 
 function renderHeader() {
   if (refreshRun.active || !current) return;
-  const degraded = Boolean(current.degraded);
+  const quote = quoteLabel(current.quoteTime);
+  const degraded = Boolean(current.degraded || !quote);
   $("#connection-dot").className = `status-dot${degraded ? "" : " ok"}`;
   const closed = /[T\s](1[5-9]|2\d):\d{2}/.test(String(current.quoteTime || ""));
   setText("#connection", current.locked ? "未解锁" : degraded ? "部分数据未更新" : closed ? "已收盘" : "盘中");
   const until = !current.locked && !current.unlimited && current.unlockUntil ? `有效至 ${untilLabel(current.unlockUntil)}` : null;
-  setText("#quote-time", [quoteLabel(current.quoteTime) || "未返回行情时间", until].filter(Boolean).join(" · "));
+  const snapshot = shanghaiTimeLabel(current.storedAt);
+  setText("#quote-time", [quote || "行情时间待补齐", !quote && snapshot ? `快照生成于 ${snapshot}` : null, until].filter(Boolean).join(" · "));
 }
 
 function setBalance(payload) {
@@ -546,7 +548,7 @@ const REFRESH_STEPS = {
   submitted: "已提交更新请求，等待任务启动…",
   queued: "排队中，即将开始获取数据…",
   in_progress: "正在获取最新数据…",
-  reading: "数据已写入，正在读取新快照…"
+  reading: "正在检查快照是否更新…"
 };
 
 function shanghaiNow(date = new Date()) {
@@ -647,12 +649,17 @@ async function finishRefresh(success) {
     await load({ fresh: true });
   } catch (error) {
     toast(error.message || "读取失败", true);
+    return;
   } finally {
     stopRefresh();
   }
   const after = current?.storedAt || null;
   const label = shanghaiTimeLabel(after)?.split(" ").at(-1);
-  toast(after && after !== before ? `已更新：快照 ${label}` : label ? `已是最新快照（${label}）` : "已读取最新快照");
+  if (!after || after === before) {
+    toast(label ? `暂无新快照，仍显示 ${label} 的数据` : "暂无新快照", true);
+    return;
+  }
+  toast(quoteLabel(current.quoteTime) ? `已更新：快照 ${label}` : "已更新部分数据，行情时间待补齐");
 }
 
 async function pollRefresh() {

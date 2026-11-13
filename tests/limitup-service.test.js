@@ -76,6 +76,32 @@ describe("涨停情绪取数与落库", () => {
     expect(summary.metrics.limitUpCount).toBe(board.summary.limitUpCount);
   });
 
+  it("读旧快照时恢复因较昨收变化被排除的主线，保留归属审核", async () => {
+    const { readLimitUp } = await import("../api/_lib/limitup/service.js");
+    const changeWarning = "较上日 19 → 4 家，变化较大，需结合行情核实";
+    const attributionWarning = "归并存在多个候选题材，保留原概念";
+    const concepts = [
+      { name: "算力与通信", limitCount: 4, reviewReasons: [changeWarning] },
+      { name: "机器人", limitCount: 5, reviewReasons: [changeWarning, attributionWarning] }
+    ];
+    const board = {
+      quoteTime: "2026-11-12T10:32:43+08:00",
+      summary: { limitUpCount: 40 },
+      concepts,
+      themeStrength: concepts.map(concept => ({
+        name: concept.name, upCount: concept.limitCount, status: "主升", maxUpStreak: 3
+      })),
+      highlights: []
+    };
+    const store = { kvGet: async () => ({ value: board }) };
+
+    const result = await readLimitUp(store);
+    expect(result.concepts[0].reviewReasons).toEqual([]);
+    expect(result.concepts[1].reviewReasons).toEqual([attributionWarning]);
+    expect(result.highlights[0].title).toBe("主线 · 算力与通信");
+    expect(board.concepts[0].reviewReasons).toEqual([changeWarning]);
+  });
+
   it("收盘后：当日已有涨停收盘快照就不再重算；快照还停在盘中则补一次", async () => {
     useDataDir();
     vi.setSystemTime(bj("2026-10-21", "15:20"));
