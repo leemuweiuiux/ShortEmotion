@@ -1746,7 +1746,7 @@ async function loadEmotion(force = false, continuity = null) {
 
 // 消息（2026-11-13 合并）：题材异动的消息催化与「事件催化」卡共用同一句、同一次调用（同一轮内按参数去重）。
 // 旧的两句：题材利好 top_k=30（约 55KB，11/12 返回 20 篇里 16 篇过期）＋ 市场热点 top_k=5；探针中新句 12 篇全部当日、约 34KB。
-export const NEWS_TOP_K = 12;
+export const NEWS_TOP_K = 8;
 function newsParams(day = localDate()) {
   return { query: `${day.slice(0, 4)}年${Number(day.slice(4, 6))}月${Number(day.slice(6, 8))}日A股盘中题材异动与热点消息`, top_k: NEWS_TOP_K };
 }
