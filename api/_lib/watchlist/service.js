@@ -87,7 +87,8 @@ export function scheduledDashboard({ stocks, forecasts, outcomes, cached = [] })
     for (const direction of DIRECTIONS) {
       const pick = picks[direction];
       const result = outcomes.find((row) => row.source_day === source && row.direction === direction)?.result;
-      signal[direction] = { pick, ...(result ?? { status: pick ? "pending" : "none" }) };
+      const current = result?.returnPct != null && result.priceBasis !== "unadjusted" ? null : result;
+      signal[direction] = { pick, ...(current ?? { status: pick ? "pending" : "none" }) };
     }
     signals.set(day, signal);
   }
