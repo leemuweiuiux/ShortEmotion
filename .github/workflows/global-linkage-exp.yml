@@ -1,9 +1,16 @@
 name: Global linkage preview
 
 on:
+  # 准点触发（2026-11-13）：Supabase Cron 北京时间 08:10 主取、08:40 备援；GitHub 自带定时只作后备
   schedule:
     - cron: '10 0 * * 1-5' # 北京时间 08:10
   workflow_dispatch:
+    inputs:
+      slot:
+        description: "primary（08:10）/ backup（08:40）"
+        type: choice
+        options: [primary, backup]
+        default: primary
   push:
     branches: [main, exp]
     paths:

@@ -165,4 +165,34 @@ describe("收盘后补跑", async () => {
     expect(shouldKeepPrevious(bad, good)).toBe(false);
     expect(shouldKeepPrevious({ ...good, tradingDate: "20261104", quoteTime: "2026-11-04T15:00:02+08:00" }, bad)).toBe(false);
   });
+
+  it("收盘后事件表少回、封板时间查不回时，沿用当日更早一轮取到的封板时间（2026-11-13）", async () => {
+    scenario.sealLookup = false; // 事后补查封板时间无结果（11/13 探针：历史日问不回当日封板时刻）
+    const previousBoard = { tradingDate: "20261105", stocks: scenario.today.map((c) => ({ code: c, sealTime: "10:05", rawConcepts: ["固态电池"], concepts: ["固态电池"] })) };
+    const board = await loadLimitUpBoard("20261105", { previousBoard });
+    expect(board.dataQuality.detail.carried).toBe(72);
+    expect(board.dataQuality.sealComplete).toBe(true);
+    // 前一天的快照不沿用
+    const other = await loadLimitUpBoard("20261105", { previousBoard: { ...previousBoard, tradingDate: "20261104" } });
+    expect(other.dataQuality.detail.carried).toBe(0);
+    expect(other.dataQuality.sealComplete).toBe(false);
+  });
+
+  it("近 5 日收盘涨停名单存入跨天缓存后，下一轮不再现取（2026-11-13）", async () => {
+    await loadLimitUpBoard("20261105");
+    const { closeLimitListCache, marketKlineCache } = await import("../api/_lib/short-emotion/persistent-cache.js");
+    const savedLists = closeLimitListCache.export("20261105");
+    const savedKline = marketKlineCache.export("20261105");
+    expect(Object.keys(savedLists.entries)).toEqual(expect.arrayContaining(["20261104", "20261103"]));
+    vi.resetModules();
+    const fresh = await import("../api/_lib/short-emotion/persistent-cache.js");
+    fresh.closeLimitListCache.import(savedLists, "20261105");
+    fresh.marketKlineCache.import(savedKline, "20261105");
+    ({ loadLimitUpBoard } = await import("../api/_lib/limitup/engine.js"));
+    calls.length = 0;
+    await loadLimitUpBoard("20261105");
+    // 前几日的名单全部命中缓存；上一交易日（11/04）只剩断板简称那一次按需查询（无已存快照时）
+    expect(calls.filter((q) => /^筛选(2026110[1-3]|202610)/.test(q) && /收盘价等于当日涨停价/.test(q))).toEqual([]);
+    expect(calls.filter((q) => /^筛选20261104收盘价等于当日涨停价的(上海|深圳|主板|创业板|科创板|北交所)/.test(q))).toEqual([]);
+  });
 });

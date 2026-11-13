@@ -268,7 +268,9 @@ let mockModulePromise = null;
 // 计费按返回数据量（2026-11-06）：另记每次返回的字节数，接近单次 80KB 上限的调用单独列出。
 export const WIND_RESPONSE_LIMIT_BYTES = 80 * 1024;
 export const WIND_RESPONSE_SOFT_LIMIT_BYTES = Math.floor(WIND_RESPONSE_LIMIT_BYTES * 0.9);
-const emptyStats = () => ({ total: 0, failed: 0, byTool: {}, byKey: {}, bytes: 0, bytesByTool: {}, maxBytes: null, nearLimit: [], reused: 0, reusedBytes: 0 });
+// Wind 单次返回上限 100KB（2026-11-13 确认）；80KB 起拆分重查，留出余量。
+export const WIND_HARD_LIMIT_BYTES = 100 * 1024;
+const emptyStats = () => ({ total: 0, failed: 0, byTool: {}, byKey: {}, bytes: 0, bytesByTool: {}, maxBytes: null, topCalls: [], nearLimit: [], reused: 0, reusedBytes: 0 });
 let callStats = emptyStats();
 export function resetWindCallStats() {
   callStats = emptyStats();
@@ -282,6 +284,10 @@ function countBytes(serverType, toolName, bytes, params) {
   callStats.bytes += bytes;
   callStats.bytesByTool[tool] = (callStats.bytesByTool[tool] || 0) + bytes;
   if (!callStats.maxBytes || bytes > callStats.maxBytes.bytes) callStats.maxBytes = { tool, bytes, params: paramsLabel(params) };
+  // 每轮返回量最大的 5 次调用（问句、字节），用来找哪一句接近上限
+  callStats.topCalls.push({ tool, bytes, params: paramsLabel(params) });
+  callStats.topCalls.sort((a, b) => b.bytes - a.bytes);
+  if (callStats.topCalls.length > 5) callStats.topCalls.length = 5;
   if (bytes >= WIND_RESPONSE_SOFT_LIMIT_BYTES && callStats.nearLimit.length < 20) callStats.nearLimit.push({ tool, bytes, params: paramsLabel(params) });
 }
 export function windCallStats() {
