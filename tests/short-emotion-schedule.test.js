@@ -5,17 +5,14 @@ import { duePlan, needsCloseCatchUp } from "../api/_lib/short-emotion/schedule.j
 const bj = (date, time) => new Date(`${date}T${time}:00+08:00`);
 const due = (date, time) => Object.entries(duePlan(bj(date, time)).jobs).filter(([, on]) => on).map(([name]) => name).sort();
 
-describe("短线情绪 schedule (A股 every 30 min in session, news hourly; 涨停情绪同节奏)", () => {
+describe("短线情绪 schedule (A股 every 30 min in session, news every 30 min; 涨停情绪同节奏)", () => {
   it("09:00 pre-open refreshes news only", () => {
     expect(due("2026-10-12", "09:00")).toEqual(["news"]);
   });
 
-  it("session slots refresh market data; news only on the hour", () => {
-    for (const time of ["10:00", "11:00", "13:00", "14:00"]) {
+  it("session slots refresh market data and news every 30 minutes", () => {
+    for (const time of ["09:30", "10:00", "10:30", "11:00", "11:30", "13:00", "13:30", "14:00", "14:30"]) {
       expect(due("2026-10-12", time)).toEqual(["anomalies", "emotion", "limitup", "news"]);
-    }
-    for (const time of ["09:30", "10:30", "11:30", "13:30", "14:30"]) {
-      expect(due("2026-10-12", time)).toEqual(["anomalies", "emotion", "limitup"]);
     }
   });
 
@@ -31,21 +28,31 @@ describe("短线情绪 schedule (A股 every 30 min in session, news hourly; 涨�
 
   it("15:35 final refresh has a separate slot, including delayed backups", () => {
     expect(due("2026-10-12", "15:34")).toEqual([]);
-    for (const time of ["15:35", "15:37", "16:37"]) {
+    for (const time of ["15:35", "15:37", "16:29"]) {
       expect(duePlan(bj("2026-10-12", time))).toMatchObject({ finalRefresh: true, slot: 935 });
       expect(due("2026-10-12", time)).toEqual(["anomalies", "cleanup", "emotion", "limitup", "news"]);
     }
     expect(due("2026-10-17", "15:35")).toEqual([]);
   });
 
+  it("16:35 close backup re-fetches only the limit-up close detail, in its own slot", () => {
+    for (const time of ["16:35", "16:37", "17:29"]) {
+      expect(duePlan(bj("2026-10-12", time))).toMatchObject({ closeBackup: true, slot: 990 });
+      expect(due("2026-10-12", time)).toEqual(["limitup"]);
+    }
+    expect(due("2026-10-12", "17:30")).toEqual([]);
+    expect(due("2026-10-17", "16:35")).toEqual([]);
+  });
+
   it("a delayed GitHub run stays in its 30-minute slot", () => {
     expect(duePlan(bj("2026-10-12", "10:17")).slot).toBe(600);
-    expect(due("2026-10-12", "10:47")).toEqual(["anomalies", "emotion", "limitup"]);
+    expect(due("2026-10-12", "10:47")).toEqual(["anomalies", "emotion", "limitup", "news"]);
   });
 
   it("runs delayed past a close are flagged for catch-up (11:30 lunch, 15:00 close)", () => {
     expect(duePlan(bj("2026-10-12", "15:34")).close).toMatchObject({ at: 900 });
-    expect(duePlan(bj("2026-10-12", "16:40")).finalRefresh).toBe(true);
+    expect(duePlan(bj("2026-10-12", "16:20")).finalRefresh).toBe(true);
+    expect(duePlan(bj("2026-10-12", "16:40")).closeBackup).toBe(true);
     expect(duePlan(bj("2026-10-12", "12:05")).close).toMatchObject({ at: 690, jobs: ["emotion", "anomalies", "limitup"] });
     // 窗口内照常按时段跑，不需要补抓
     expect(duePlan(bj("2026-10-12", "15:10")).close).toBeNull();
@@ -120,7 +127,8 @@ describe("runScheduledRefresh (mock Wind, memory store)", () => {
     // Future weekday: mock quotes carry today's date, so the market looks closed for that day.
     const first = await runScheduledRefresh({ now: bj("2030-01-07", "09:00") });
     const second = await runScheduledRefresh({ now: bj("2030-01-07", "09:10") });
-    expect(first.ran).toEqual(["news"]);
+    expect(first.ran).toEqual(expect.arrayContaining(["news"]));
+    expect(first.ran.filter((job) => job !== "daily-warmup")).toEqual(["news"]);
     expect(second.status).toBe("duplicate");
   });
 
@@ -224,10 +232,15 @@ describe("15:35 最终重算", () => {
       await getStore("cn").kvSet("emotion:latest", { quoteTime: "20261105 15:00:00", scoreVersion: 3 });
       const first = await runScheduledRefresh();
       expect(first.ran).toEqual(expect.arrayContaining(["emotion", "anomalies", "limitup"]));
-      vi.setSystemTime(bj("2026-11-05", "16:37"));
+      vi.setSystemTime(bj("2026-11-05", "16:20"));
       const second = await runScheduledRefresh();
       expect(second.status).toBe("duplicate");
       expect(second.ran).toEqual([]);
+      // 16:35 备援只看涨停收盘明细，不再重算情绪与题材
+      vi.setSystemTime(bj("2026-11-05", "16:37"));
+      const backup = await runScheduledRefresh();
+      expect(backup.ran).not.toContain("emotion");
+      expect(backup.ran).not.toContain("anomalies");
     } finally {
       vi.useRealTimers();
     }

@@ -35,7 +35,7 @@ describe("收盘补抓（mock Wind，内存存储）", () => {
 
     const later = await runAt("2026-10-21", "16:07");
     expect(later.ran).toContain("emotion");
-    expect((await runAt("2026-10-21", "16:37")).status).toBe("duplicate");
+    expect((await runAt("2026-10-21", "16:25")).status).toBe("duplicate");
   });
 
   it("同一时段只补抓一次", async () => {

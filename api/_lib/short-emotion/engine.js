@@ -9,7 +9,7 @@
 //   * per-day caches (concept membership, limit-up history, previous trading date)
 //     can be exported/imported so cron runs on cold instances don't refetch them.
 import { callWindTool } from "./wind-client.js";
-import { conceptCache, loadStockProfileText } from "./persistent-cache.js";
+import { conceptCache, loadStockProfileText, closeLimitListCache, marketKlineCache } from "./persistent-cache.js";
 import { loadMarketLimitCounts } from "./market-limit-counts.js";
 
 const cacheTtlMs = 60_000;
@@ -710,6 +710,55 @@ function quoteDateKey(value) {
   return matched ? `${matched[1]}${matched[2]}${matched[3]}` : null;
 }
 
+// 5 分钟动能（2026-11-13 改为固定参数）：概念指数池按 50 个一批查 get_index_price_indicators，
+// 字段「5分钟涨跌幅」由 Wind 直接给出。原自然语言问句（get_index_technicals）在 11/06–11/12 有 3 天整天只回约 200 字节，
+// 11/13 探针里返回的是单一指数的分钟线而非排名。池子由 service.js 从板块资金的概念代码池挑选后注入。
+export const THEME_MOMENTUM_BATCH = 50;
+let themeMomentumPool = [];
+function setThemeMomentumPool(codes) {
+  themeMomentumPool = [...new Set((codes || []).filter((code) => /^\d{6,7}\.WI$/.test(code)))];
+}
+function fixedThemeMomentumRows(payloads, day) {
+  const rawRows = payloads.flatMap((payload) => tables(payload).flatMap(objects));
+  noteConcepts(rawRows);
+  const parsed = rawRows.map((row) => {
+    const tradeTime = row["交易时间"] || null;
+    const shortMove = Number(row["5分钟涨跌幅"]);
+    const dayChange = Number(row["涨跌幅"]);
+    return {
+      code: row["Wind代码"],
+      name: anomalyThemeName(row["中文简称"] || row["证券简称"]),
+      dayChange: Number.isFinite(dayChange) ? dayChange : null,
+      shortMove: Number.isFinite(shortMove) ? shortMove : null,
+      tradeTime,
+      tradeDay: quoteDateKey(tradeTime),
+      momentumSource: "index_price_indicators.5m_change"
+    };
+  }).filter((item) => item.code && item.name && item.shortMove != null);
+  const sameDay = parsed.filter((item) => !day || item.tradeDay === day);
+  // 收盘后 Wind 的「5分钟涨跌幅」可能与日涨跌幅相同（11/13 盘前探针：15:00 快照两列完全一致），这时不能当 5 分钟动能用
+  const equalsDay = sameDay.filter((item) => item.dayChange != null && Math.abs(item.shortMove - item.dayChange) < 1e-9).length;
+  const degenerate = sameDay.length >= 10 && equalsDay / sameDay.length >= 0.8;
+  const seen = new Set();
+  const rows = degenerate ? [] : sameDay
+    .filter((item) => !seen.has(item.code) && seen.add(item.code) && !NON_NARRATIVE_ANOMALY_PATTERN.test(item.name))
+    .sort((a, b) => b.shortMove - a.shortMove).slice(0, 50)
+    .map(({ tradeDay, ...item }) => item);
+  return { rows, diagnostics: { source: "index_price_indicators.5m_change", poolSize: themeMomentumPool.length, rawCount: rawRows.length, sameDayCount: sameDay.length, equalsDayChangeCount: equalsDay, degenerate } };
+}
+async function loadFixedThemeMomentum(day) {
+  const pool = themeMomentumPool.slice(0, 100);
+  if (!pool.length) return null;
+  const batches = [];
+  for (let i = 0; i < pool.length; i += THEME_MOMENTUM_BATCH) batches.push(pool.slice(i, i + THEME_MOMENTUM_BATCH));
+  const results = await runWindTasks(batches.map((codes) => () => windCall("index_data", "get_index_price_indicators", {
+    windcode: codes.join(","), indexes: "中文简称,涨跌幅,5分钟涨跌幅,交易时间"
+  }, 20_000)));
+  const payloads = results.map(fulfilled).filter(Boolean);
+  const errors = results.map(reason).filter(Boolean);
+  if (!payloads.length) return { rows: [], diagnostics: { source: "index_price_indicators.5m_change", poolSize: pool.length, rawCount: 0 }, errors };
+  return { ...fixedThemeMomentumRows(payloads, day), errors };
+}
 function localThemeMomentumRows(payload) {
   const seen = new Set();
   const rawRows = tables(payload).flatMap(objects);
@@ -851,23 +900,110 @@ export async function fetchLimitList(date, { latest = false, includeBj = false, 
   return { codes: new Set(names.keys()), names, complete, capped, errors };
 }
 
+// ── 全A 日 K：交易日历与日成交额共用一次调用（2026-11-13，原来三处各取一次 −15/−60 自然日）──
+// 收盘后（15:30 起）取到的「含当日」日 K 存入跨天缓存，下一交易日直接用；不确定时（如节假日）重取一次。
+let cachedMarketKline = null;
+const DAILY_CLOSE_READY_MINUTE = 15 * 60 + 30;
+function beijingMinute(date = new Date()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+    .formatToParts(date).map((part) => [part.type, part.value]));
+  return Number(parts.hour) * 60 + Number(parts.minute);
+}
+function previousWeekday(day) {
+  let offset = -1;
+  while ([0, 6].includes(new Date(Date.UTC(Number(day.slice(0, 4)), Number(day.slice(4, 6)) - 1, Number(day.slice(6, 8)) + offset)).getUTCDay())) offset -= 1;
+  return calendarOffset(day, offset);
+}
+function klineRows(payload) {
+  return tables(payload).flatMap(objects).map((row) => ({
+    date: String(row.TIME || row["日期"] || "").replace(/\D/g, "").slice(0, 8),
+    amount: Number(row.TURNOVER ?? row["成交额"] ?? row.Amount ?? row.amount)
+  })).filter((row) => row.date.length === 8);
+}
+async function loadMarketKline(day, { fetchedAt = new Date() } = {}) {
+  if (cachedMarketKline?.day === day) return cachedMarketKline;
+  const saved = marketKlineCache.get("latest", day);
+  if (saved?.asOf && saved.asOf >= previousWeekday(day) && saved.asOf < day && Array.isArray(saved.rows) && saved.rows.length >= 20) {
+    cachedMarketKline = { day, rows: saved.rows.filter((row) => row.date < day), source: "cache" };
+    return cachedMarketKline;
+  }
+  const payload = await windCall("index_data", "get_index_kline", { windcode: "881001.WI", begin_date: calendarOffset(day, -60), end_date: day });
+  const rows = klineRows(payload);
+  const history = rows.filter((row) => row.date < day);
+  if (history.length >= 10) {
+    cachedMarketKline = { day, rows: history, source: "wind" };
+    // 当日收盘后的数据才算完整：下一交易日可以直接用
+    const todayComplete = rows.some((row) => row.date === day && Number.isFinite(row.amount) && row.amount > 0) && beijingMinute(fetchedAt) >= DAILY_CLOSE_READY_MINUTE;
+    const complete = todayComplete ? rows.filter((row) => row.date <= day) : history;
+    marketKlineCache.set("latest", { asOf: complete.at(-1)?.date || null, rows: complete.slice(-45) }, day);
+  }
+  return cachedMarketKline || { day, rows: history, source: "wind" };
+}
+
+// 某日收盘涨停名单：先查跨天缓存（只存完整名单），没有才现取
+async function loadCloseLimitList(date, { includeBj = false, today = localDate() } = {}) {
+  const saved = closeLimitListCache.get(date, today);
+  if (saved?.complete && (!includeBj || saved.bj)) {
+    return { codes: new Set(saved.codes), names: new Map(saved.names), complete: true, capped: [], errors: [], cached: true };
+  }
+  const list = await fetchLimitList(date, { includeBj });
+  if (list.complete && !list.errors.length) {
+    closeLimitListCache.set(date, { complete: true, bj: includeBj, codes: [...list.codes], names: [...list.names] }, today);
+  }
+  return list;
+}
+
+/**
+ * 日频数据主取（收盘后 15:35）/ 备援（次日 09:02）：收盘涨停名单与含当日的日 K 写入跨天缓存。
+ * 盘中第一轮因此不必现取 5 天名单（以前 09:32 要跑 6–8.5 分钟）。返回 { listComplete, klineAsOf, errors }。
+ */
+async function prefetchDailyClose(day, { now = new Date() } = {}) {
+  const errors = [];
+  let listComplete = false;
+  let klineAsOf = null;
+  const afterClose = beijingMinute(now) >= DAILY_CLOSE_READY_MINUTE;
+  if (afterClose) {
+    // 主取：当日收盘名单（含北交所，供次日晋级率核对）
+    const list = await loadCloseLimitList(day, { includeBj: true, today: day }).catch((error) => ({ complete: false, errors: [String(error?.message || error)] }));
+    listComplete = Boolean(list.complete && !list.errors?.length);
+    errors.push(...(list.errors || []));
+    try {
+      const payload = await windCall("index_data", "get_index_kline", { windcode: "881001.WI", begin_date: calendarOffset(day, -60), end_date: day });
+      const rows = klineRows(payload).filter((row) => row.date <= day);
+      if (rows.some((row) => row.date === day && row.amount > 0)) {
+        marketKlineCache.set("latest", { asOf: day, rows: rows.slice(-45) }, day);
+        klineAsOf = day;
+      } else errors.push("日K未含当日收盘");
+    } catch (error) {
+      errors.push(`日K: ${String(error?.message || error)}`);
+    }
+  } else {
+    // 备援：开盘前把近 5 日名单与日历备好（缓存命中则不调用 Wind）
+    const history = await loadLimitHistory(day).catch((error) => ({ complete: false, errors: [String(error?.message || error)] }));
+    listComplete = Boolean(history.complete);
+    errors.push(...(history.errors || []));
+    klineAsOf = (await loadMarketKline(day).catch(() => null))?.rows?.at(-1)?.date || null;
+  }
+  return { listComplete, klineAsOf, errors };
+}
+
 async function loadLimitHistory(day) {
   if (cachedLimitHistory?.day === day) return cachedLimitHistory;
   const errors = [];
-  let calendarPayload = null;
+  let kline = null;
   try {
-    calendarPayload = await windCall("index_data", "get_index_kline", { windcode: "881001.WI", begin_date: calendarOffset(day, -15), end_date: day });
+    kline = await loadMarketKline(day);
   } catch (error) {
     errors.push(`交易日历: ${String(error?.message || error)}`);
   }
-  const dates = recentTradingDates(calendarPayload, day, 5);
+  const dates = [...new Set((kline?.rows || []).map((row) => row.date).filter((date) => date < day))].sort().slice(-5).reverse();
   if (dates.length < 5) errors.push(`交易日历仅返回${dates.length}个历史交易日`);
   const sets = [];
   const names = [];
   const completeByDate = [];
   for (const [index, date] of dates.entries()) {
     // 上一交易日的名单要和全市场家数（含北交所）核对，晋级率才可信
-    const list = await fetchLimitList(date, { includeBj: index === 0 });
+    const list = await loadCloseLimitList(date, { includeBj: index === 0, today: day });
     errors.push(...list.errors);
     if (!list.complete && !list.errors.length) errors.push(`${date}涨停名单可能不完整`);
     sets.push(list.codes);
@@ -886,30 +1022,18 @@ async function previousTradingDate(day) {
     cachedPreviousTradingDate = { day, date: historyDate };
     return historyDate;
   }
-  const payload = await windCall("index_data", "get_index_kline", {
-    windcode: "881001.WI",
-    begin_date: calendarOffset(day, -15),
-    end_date: day
-  });
-  const date = recentTradingDates(payload, day, 1)[0] || null;
+  const kline = await loadMarketKline(day);
+  const date = (kline.rows || []).map((row) => row.date).filter((value) => value < day).sort().at(-1) || null;
   cachedPreviousTradingDate = { day, date };
   return date;
 }
 async function loadLiquidityHistory(day) {
   if (cachedLiquidityHistory?.day === day && cachedLiquidityHistory.turnovers.length >= 10) return cachedLiquidityHistory;
   try {
-    const payload = await windCall("index_data", "get_index_kline", {
-      windcode: "881001.WI",
-      begin_date: calendarOffset(day, -60),
-      end_date: calendarOffset(day, -1)
-    });
-    const turnovers = tables(payload).flatMap(objects)
-      .map((row) => {
-        const date = String(row.TIME || "").replace(/\D/g, "").slice(0, 8);
-        const amount = Number(row.TURNOVER ?? row["成交额"] ?? row.Amount ?? row.amount);
-        return { date, amount };
-      })
-      .filter((x) => x.date && x.date.length === 8 && Number.isFinite(x.amount) && x.amount > 0 && x.date < day);
+    const kline = await loadMarketKline(day);
+    const turnovers = (kline.rows || [])
+      .filter((x) => x.date && x.date.length === 8 && Number.isFinite(x.amount) && x.amount > 0 && x.date < day)
+      .map(({ date, amount }) => ({ date, amount }));
     const output = { day, turnovers };
     if (turnovers.length >= 10) cachedLiquidityHistory = output;
     return output;
@@ -1288,15 +1412,19 @@ async function loadThemeAnomalies(force = false) {
   if (anomalyInflight) return anomalyInflight;
   anomalyInflight = (async () => {
     const day = localDate();
+    const fixedMomentum = await loadFixedThemeMomentum(day).catch((error) => ({ rows: [], diagnostics: { source: "index_price_indicators.5m_change", error: String(error?.message || error) }, errors: [] }));
+    const useFixedMomentum = Boolean(fixedMomentum && fixedMomentum.rows.length);
     const [results, newsPayload] = await Promise.all([
       runWindTasks([
-        () => windCall("index_data", "get_index_technicals", { question: "A股Wind概念指数按最近5分钟涨幅排名前五十，返回Wind代码、证券简称、当前刷新时点的最新成交价和交易时间、当前时间往前推5分钟时点的成交价和交易时间；不要返回日涨跌幅，不要把今日涨跌幅当作5分钟涨跌幅" }),
+        // 固定参数取到 5 分钟动能时不再问旧的自然语言问句（只在池子为空或全部无效时作后备）
+        () => useFixedMomentum ? null : windCall("index_data", "get_index_technicals", { question: "A股Wind概念指数按最近5分钟涨幅排名前五十，返回Wind代码、证券简称、当前刷新时点的最新成交价和交易时间、当前时间往前推5分钟时点的成交价和交易时间；不要返回日涨跌幅，不要把今日涨跌幅当作5分钟涨跌幅" }),
         () => windCall("analytics_data", "get_financial_data", { question: "A股Wind概念指数最新5分钟涨跌幅排名前五十" }),
         () => windCall("stock_data", "search_stocks", { question: "筛选当前最新成交价等于涨停价的沪深A股" })
       ].filter((_, index) => index !== 1)),
-      windCall("financial_docs", "get_financial_news", { query: `${day}当日最新A股题材利好消息催化`, top_k: 30 }).catch(() => null)
+      windCall("financial_docs", "get_financial_news", newsParams(day)).catch(() => null)
     ]);
-    const momentum = localThemeMomentumRows(fulfilled(results[0]));
+    const momentum = useFixedMomentum ? fixedMomentum : localThemeMomentumRows(fulfilled(results[0]));
+    if (!useFixedMomentum && fixedMomentum) momentum.diagnostics = { ...momentum.diagnostics, fixed: fixedMomentum.diagnostics };
     const shorts = momentum.rows;
     const rawLimitStocks = anomalyRows(fulfilled(results[1]), "limit");
     const streakResult = await loadLimitHistory(day);
@@ -1444,7 +1572,7 @@ async function loadThemeAnomalies(force = false) {
       summary: { total: items.length, rawTotal: rawItems.length, mergedTotal: mergedItems.length, filteredOut: mergedItems.length - items.length, minScore, limitThemes: items.filter((x) => x.signals.includes("limit")).length, batchThemes: items.filter((x) => x.signals.includes("batch")).length, newsThemes: items.filter((x) => x.signals.includes("news")).length, verifiedCandidates: verifiedCandidateCodes.size, rejectedCandidates: rejectedCandidateCount },
       limitData: { source: limitDataSource, stockCount: limitStocks.length, complete: !limitDataIncomplete, streakSource: "current_limits_intersect_consecutive_historical_close_limits", streakTradingDates: streakResult.dates, streakCounts },
       newsDiagnostics: { sourceArticles: news.length, windowStart: newsWindowStart, windowEnd: day, excludedStaleArticles: excludedStaleNewsArticles, excludedUndatedArticles: excludedUndatedNewsArticles, excludedRecapArticles: excludedNewsArticles, matchedArticles: matchedNewsArticles, maxThemesPerArticle: 2 },
-      momentumDiagnostics: { source: "wind_current_price_vs_5m_ago_price", field: "(current_price/price_5m_ago-1)*100", validatedCount: shorts.length, strictField: true, requestCacheSeconds: cacheTtlMs / 1000, ...momentum.diagnostics },
+      momentumDiagnostics: { source: useFixedMomentum ? "index_price_indicators.5m_change" : "wind_current_price_vs_5m_ago_price", field: useFixedMomentum ? "5分钟涨跌幅" : "(current_price/price_5m_ago-1)*100", validatedCount: shorts.length, strictField: true, requestCacheSeconds: cacheTtlMs / 1000, ...momentum.diagnostics },
       source: "Wind概念指数分钟行情、全量涨停明细、完整个股概念归属、财经新闻", partial: errors.length > 0 || !newsPayload, errors };
     cachedAnomalies = output; anomalyCachedAt = Date.now(); return output;
   })().finally(() => { anomalyInflight = null; });
@@ -1514,7 +1642,7 @@ async function loadEmotion(force = false, continuity = null) {
     const calls = await runWindTasks([
       () => windCall("index_data", "get_index_price_indicators", { windcode: "881001.WI", indexes: "最新成交价,涨跌幅,成交额,上涨家数,下跌家数,平盘家数,交易时间" }),
       () => windCall("stock_data", "search_stocks", { question: "筛选当前最新成交价等于涨停价的沪深A股" }),
-      () => windCall("stock_data", "search_stocks", { question: "筛选当前最新成交价等于跌停价的沪深A股" }),
+      // 当前跌停名单（2026-11-13 删除）：跌停家数取自全市场家数（market-limit-counts.js），名单结果从未被使用
       () => windCall("analytics_data", "get_financial_data", { question: "当前沪深A股涨幅大于5%的股票家数" }),
       () => windCall("analytics_data", "get_financial_data", { question: "当前沪深A股跌幅大于5%的股票家数" }),
       () => {
@@ -1530,11 +1658,11 @@ async function loadEmotion(force = false, continuity = null) {
     const marketCounts = await loadMarketLimitCounts(quoteDay);
     const limitUp = marketCounts.limitUp;
     const limitDown = marketCounts.limitDown;
-    const bigUp = aggregatedStockCount(fulfilled(calls[3]), /涨幅大于5%.*家数$/);
-    const bigDown = aggregatedStockCount(fulfilled(calls[4]), /跌幅大于5%.*家数$/);
-    const premiumDetail = percentileColumn(fulfilled(calls[5]), /^(?:(?:最新|今日|当日).*|\d{8}|\d{4}年\d{1,2}月\d{1,2}日)涨跌幅$/);
+    const bigUp = aggregatedStockCount(fulfilled(calls[2]), /涨幅大于5%.*家数$/);
+    const bigDown = aggregatedStockCount(fulfilled(calls[3]), /跌幅大于5%.*家数$/);
+    const premiumDetail = percentileColumn(fulfilled(calls[4]), /^(?:(?:最新|今日|当日).*|\d{8}|\d{4}年\d{1,2}月\d{1,2}日)涨跌幅$/);
     const premium = premiumDetail.value;
-    const themes = normalizeThemes(fulfilled(calls[6]));
+    const themes = normalizeThemes(fulfilled(calls[5]));
     const up = Number(indexRow["上涨家数"]);
     const down = Number(indexRow["下跌家数"]);
     const flat = Number(indexRow["平盘家数"]);
@@ -1610,9 +1738,19 @@ async function loadEmotion(force = false, continuity = null) {
   return inflight;
 }
 
+// 消息（2026-11-13 合并）：题材异动的消息催化与「事件催化」卡共用同一句、同一次调用（同一轮内按参数去重）。
+// 旧的两句：题材利好 top_k=30（约 55KB，11/12 返回 20 篇里 16 篇过期）＋ 市场热点 top_k=5；探针中新句 12 篇全部当日、约 34KB。
+export const NEWS_TOP_K = 12;
+function newsParams(day = localDate()) {
+  return { query: `${day.slice(0, 4)}年${Number(day.slice(4, 6))}月${Number(day.slice(6, 8))}日A股盘中题材异动与热点消息`, top_k: NEWS_TOP_K };
+}
 async function loadNews() {
-  const payload = await windCall("financial_docs", "get_financial_news", { query: `${localDate()}A股市场热点催化`, top_k: 5 });
-  return payload?.data?.items || payload?.data?.data?.items || [];
+  const day = localDate();
+  const payload = await windCall("financial_docs", "get_financial_news", newsParams(day));
+  const items = payload?.data?.items || payload?.data?.data?.items || [];
+  // 卡片只放 5 条：当日的排前面
+  const today = `${day.slice(0, 4)}-${day.slice(4, 6)}-${day.slice(6, 8)}`;
+  return [...items.filter((item) => String(item?.date || "").startsWith(today)), ...items.filter((item) => !String(item?.date || "").startsWith(today))].slice(0, 5);
 }
 
 function historyRecord(snapshot) {
@@ -1668,6 +1806,9 @@ export {
 export { scoreLiquidity, predictFullDayAmount, limitLadderMetrics, uniqueWindCodeCount, scoreLadder, scoreTheme, stockRoleLayers };
 
 export {
+  setThemeMomentumPool,
+  prefetchDailyClose,
+  loadMarketKline,
   takeSeenConcepts,
   loadEmotion,
   loadThemeAnomalies,

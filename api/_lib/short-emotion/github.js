@@ -86,11 +86,18 @@ export async function requestRefresh(market, { charge } = {}) {
 // 改由外部定时器按时调用本站接口，再走手动运行（workflow_dispatch，触发后立即排队）。
 // short-emotion 用 force=false：与 GitHub 定时任务同一套逻辑，按 schedule.js 判断本时段跑什么，
 // 同一个 30 分钟时段只调用一次 Wind，所以 GitHub 自带的定时任务可以留作备用，不会重复花额度。
+const SEPARATE_WORKFLOWS = new Set(["etf-flow.yml", "global-linkage-exp.yml"]);
 export const SCHEDULED_JOBS = {
   "short-emotion": { workflow: WORKFLOW, inputs: { target: "short-emotion", force: "false", market: "all" } },
   "morning-report": { workflow: "morning-report.yml", inputs: { edition: "morning" } },
   "noon-report": { workflow: "morning-report.yml", inputs: { edition: "noon" } },
-  "evening-report": { workflow: "morning-report.yml", inputs: { edition: "evening" } }
+  "evening-report": { workflow: "morning-report.yml", inputs: { edition: "evening" } },
+  // 日频数据主取 / 备援（2026-11-13）：全部改由 Supabase 准点触发，GitHub 自带定时只作最后后备
+  "sectorflow-history": { workflow: WORKFLOW, inputs: { target: "sectorflow-history", force: "false", market: "all" } },
+  "etf-flow-primary": { workflow: "etf-flow.yml", inputs: { slot: "primary" } },
+  "etf-flow-backup": { workflow: "etf-flow.yml", inputs: { slot: "backup" } },
+  "global-linkage": { workflow: "global-linkage-exp.yml", inputs: { slot: "primary" } },
+  "global-linkage-backup": { workflow: "global-linkage-exp.yml", inputs: { slot: "backup" } }
 };
 
 // 排队中（还没开始跑）的状态。正在跑的（in_progress）不算：新任务排在它后面不会挤掉任何人。
@@ -111,7 +118,8 @@ export async function waitingDataRun() {
 export async function dispatchScheduled(job) {
   if (!Object.hasOwn(SCHEDULED_JOBS, job)) throw Object.assign(new Error(`未知任务：${job}`), { code: "unknown_job", statusCode: 404 });
   const { workflow, inputs } = SCHEDULED_JOBS[job];
-  const waiting = await waitingDataRun().catch(() => null);
+  // 短线情绪与看点共用数据分支的并发组；ETF、全球联动各有自己的并发组，不用看短线情绪排没排队
+  const waiting = SEPARATE_WORKFLOWS.has(workflow) ? null : await waitingDataRun().catch(() => null);
   if (waiting) return { job, workflow, dispatched: false, reason: "busy", run: waiting };
   await github(`/repos/${REPO}/actions/workflows/${workflow}/dispatches`, {
     method: "POST",

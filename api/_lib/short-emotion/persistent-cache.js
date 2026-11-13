@@ -60,11 +60,19 @@ export const stockProfileCache = new PersistentCache({ ttlDays: 30, maxEntries: 
 // 个股所属概念板块：7 天有效（新概念上线时最多晚一周反映；当天新涨停的股票照常现取）。
 export const conceptCache = new PersistentCache({ ttlDays: 7, maxEntries: 1500 });
 
+// 日频数据（2026-11-13）：收盘后取一次、次日盘前备援，盘中不再重取。
+// 某日收盘涨停名单（只在名单完整时写入）：连板与晋级率要用近 5 个交易日，以前每天开盘第一轮要现取 5 天。
+export const closeLimitListCache = new PersistentCache({ ttlDays: 12, maxEntries: 15 });
+// 全A 日 K（交易日历 + 日成交额，近 60 自然日）：一份同时供前一交易日、近 5 日名单、成交环境分位使用。
+export const marketKlineCache = new PersistentCache({ ttlDays: 5, maxEntries: 3 });
+
 export const PERSISTENT_CACHE_KEYS = {
   stockProfile: "cache:stock-profile",
-  concepts: "cache:concepts"
+  concepts: "cache:concepts",
+  closeLimitLists: "cache:close-limit-lists",
+  marketKline: "cache:market-kline"
 };
-const CACHES = { stockProfile: stockProfileCache, concepts: conceptCache };
+const CACHES = { stockProfile: stockProfileCache, concepts: conceptCache, closeLimitLists: closeLimitListCache, marketKline: marketKlineCache };
 
 export async function loadPersistentCaches(store, today) {
   for (const [name, cache] of Object.entries(CACHES)) {

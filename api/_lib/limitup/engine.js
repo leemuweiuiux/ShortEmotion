@@ -1234,7 +1234,7 @@ export function snapshotDayMismatch(quoteTime, expectedDay) {
  * 历史日只能用「收盘价等于涨停价」取名单，涨停多的日子 Wind 会少回（11/04 实际 123 家只回 100 家，
  * 按板块拆分也没补回来）；而前一天收盘时的快照已经把明细补齐过，直接并进昨日名单。
  */
-export async function loadLimitUpBoard(day = localDate(), { loadStoredDay = null } = {}) {
+export async function loadLimitUpBoard(day = localDate(), { loadStoredDay = null, previousBoard = null } = {}) {
   const errors = [];
   const [eventResult, historyResult] = await Promise.all([
     fetchLimitEventRows(day),
@@ -1302,6 +1302,29 @@ export async function loadLimitUpBoard(day = localDate(), { loadStoredDay = null
     };
   }).filter((stock) => stock.code && stock.name);
 
+  // 同日沿用（2026-11-13）：首次封板时间封板后就不会变，收盘后的事件查询又常只回几行（11/05、11/09、11/10、11/12），
+  // 而事后用任何问句都查不回当天的封板时刻。所以本次缺封板时间或概念的股票，沿用当日更早一轮已取到的值。
+  let carried = 0;
+  if (previousBoard?.tradingDate === dataDay && Array.isArray(previousBoard.stocks)) {
+    const earlier = new Map(previousBoard.stocks.map((stock) => [String(stock.code || "").toUpperCase(), stock]));
+    for (const stock of allStocks) {
+      const before = earlier.get(stock.code);
+      if (!before) continue;
+      let used = false;
+      if (!stock.sealTime && before.sealTime) {
+        stock.sealTime = before.sealTime;
+        stock.bucket = sealBucketLabel(before.sealTime);
+        used = true;
+      }
+      if (!stock.rawConcepts.length && before.rawConcepts?.length) {
+        stock.rawConcepts = [...before.rawConcepts];
+        stock.concepts = [...(before.concepts || [])];
+        used = true;
+      }
+      if (used) { stock.carriedFromEarlier = true; carried += 1; }
+    }
+  }
+
   // 数据门槛：明细与全市场家数一致才输出由明细推导的指标（天梯、题材、早盘封板）；
   // 昨日名单与上一交易日家数一致才输出晋级率、断板、昨日溢价；五日名单都完整才输出连板高度。
   // 不一致时这些指标不给数字，页面显示「数据待补齐」，而不是给出错误结论（如 11/05 晋级率 1%）。
@@ -1325,7 +1348,7 @@ export async function loadLimitUpBoard(day = localDate(), { loadStoredDay = null
   }
   const yesterdaySize = Math.max(sets[0]?.size || 0, storedYesterdayCount);
   const quality = {
-    detail: { returned: allStocks.length, total: marketCounts.limitUp ?? null, eventReturned: eventCount, backfilled },
+    detail: { returned: allStocks.length, total: marketCounts.limitUp ?? null, eventReturned: eventCount, backfilled, carried },
     detailComplete: detailMatches(allStocks.length, marketCounts.limitUp, { intraday: liveSession }),
     sealComplete: false,
     // 逐日核对：上一交易日若已由收盘快照补齐，就不因当天名单查询少回而判不完整
@@ -1369,9 +1392,23 @@ export async function loadLimitUpBoard(day = localDate(), { loadStoredDay = null
 
   // 昨日名单（简称 + 概念）：断板、未晋级、以及题材强弱里「昨日涨停家数」都要用。
   // 即便今天全部晋级也要取一次，否则无法判断前期主线是否出现负反馈。
-  const yesterday = baseTradingDate && quality.relayComplete
-    ? await fetchYesterdayNames(baseTradingDate)
-    : { names: new Map(), concepts: new Map() };
+  // 2026-11-13：先用上一交易日存下的收盘快照（简称、概念当天不会再变），覆盖不到九成时才现取
+  let yesterday = { names: new Map(), concepts: new Map() };
+  if (baseTradingDate && quality.relayComplete) {
+    const stored = loadStoredDay ? await Promise.resolve(loadStoredDay(baseTradingDate)).catch(() => null) : null;
+    const storedStocks = stored?.tradingDate === baseTradingDate ? (stored.stocks || []) : [];
+    const wanted = [...(yesterdayCodes || [])].filter((code) => !stored?.stCodes?.includes(code));
+    const covered = wanted.filter((code) => storedStocks.some((stock) => stock.code === code && stock.name)).length;
+    if (wanted.length && covered / wanted.length >= 0.9) {
+      for (const stock of storedStocks) {
+        if (stock.code && stock.name) yesterday.names.set(stock.code, stock.name);
+        if (stock.code && stock.concepts?.length) yesterday.concepts.set(stock.code, [...stock.concepts]);
+      }
+      yesterday.fromSnapshot = true;
+    } else {
+      yesterday = await fetchYesterdayNames(baseTradingDate);
+    }
+  }
   const nameByCode = yesterday.names;
   const brokenConceptMap = yesterday.concepts;
   if (brokenCodes.length && !nameByCode.size) {

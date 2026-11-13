@@ -43,6 +43,19 @@ export function selectBoards(conceptCodes, day, { limit = BOARD_LIMIT, windowDay
     .map(([code, item]) => ({ code, name: displayName(item.name) }));
 }
 
+/**
+ * 题材异动 5 分钟动能的概念指数池（2026-11-13）：当日题材温度前十 + 近 28 天出现过的非交易/风格类概念，
+ * 按出现天数、次数排序取前 limit 个（固定参数一次最多 50 个代码，100 个即两次调用）。
+ */
+export function selectMomentumPool(conceptCodes, day, { extraCodes = [], limit = 100, windowDays = WINDOW_CALENDAR_DAYS } = {}) {
+  const since = shiftDay(day, windowDays);
+  const ranked = Object.entries(conceptCodes?.codes || {})
+    .filter(([, item]) => item.lastSeen >= since && !isExcludedBoard(item.name))
+    .sort(([codeA, a], [codeB, b]) => b.days - a.days || b.hits - a.hits || b.lastSeen.localeCompare(a.lastSeen) || codeA.localeCompare(codeB))
+    .map(([code]) => code);
+  return [...new Set([...extraCodes, ...ranked])].slice(0, limit);
+}
+
 // 本地预览（scripts/sectorflow/seed-mock.mjs）用的模拟板块
 export const MOCK_BOARDS = [
   { code: "8841416.WI", name: "人形机器人" },

@@ -3,10 +3,18 @@ on:
   push:
     branches: [main, develop]
     paths: [api/_lib/etf-flow/source.js, api/_lib/etf-flow/catalog.json, scripts/etf-flow/refresh.mjs, scripts/etf-flow/repair.mjs]
+  # 准点触发（2026-11-13）：Supabase Cron 北京时间 21:00 主取（slot=primary）、次日 08:30 备援（slot=backup）
   workflow_dispatch:
+    inputs:
+      slot:
+        description: "primary（当日 21:00）/ backup（次日 08:30）；留空为手动补采"
+        type: choice
+        options: ['', primary, backup]
+        default: ''
   schedule:
-    - cron: '35 12 * * 1-5' # 北京时间交易日20:35
-    - cron: '50 0 * * 2-6'   # 次日08:50，周五的数据在周六补采
+    # GitHub 自带定时只作后备（实测常晚约 1 小时）；目标日已完整发布时直接跳过
+    - cron: '0 13 * * 1-5'   # 北京时间交易日21:00
+    - cron: '30 0 * * 2-6'   # 次日08:30，周五的数据在周六补采
 permissions:
   contents: read
 jobs:
@@ -19,7 +27,8 @@ jobs:
     permissions:
       contents: write
     env:
-      ETF_FLOW_SCHEDULE: ${{ github.event_name == 'schedule' && github.event.schedule || '' }}
+      ETF_FLOW_SCHEDULE: ${{ github.event_name == 'schedule' && github.event.schedule || inputs.slot || '' }}
+      ETF_FLOW_TRIGGER: ${{ github.event_name == 'schedule' && 'github-schedule' || github.event_name }}
       ETF_FLOW_DATA_DIR: ${{ github.workspace }}/../etf-flow-data
     steps:
       - uses: actions/checkout@v4
