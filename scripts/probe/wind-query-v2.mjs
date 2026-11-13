@@ -105,4 +105,13 @@ await probe("P12", "new-etf-batch40-analytics", "analytics_data", "get_financial
 await probe("P12", "new-etf-batch10-fund", "fund_data", "get_fund_financials", { question: etfQ(funds.slice(40, 50)) });
 await probe("P12", "old-etf-single", "fund_data", "get_fund_financials", { question: `${funds[0]}从${human(prev)}至${human(day)}每个交易日的基金总份额、基金单位净值、基金资产净值，按日期逐日返回，每行包含交易日期，使用各指标原始单位并返回单位` });
 
+
+// P13 封板时间替代问句（历史日）
+const sealCodes = (await readKv("limitup_latest").catch(() => ({ stocks: [] }))).stocks?.map((s) => s.code).slice(0, 10) || [];
+await probe("P13", "seal-search-allA-first-limit-time", "stock_data", "search_stocks", { question: `筛选${day}涨停的沪深A股并返回Wind代码、证券简称、首次涨停时间` });
+await probe("P13", "seal-search-human-date", "stock_data", "search_stocks", { question: `筛选${human(day)}涨停的主板A股并返回Wind代码、证券简称、首次封板时间` });
+await probe("P13", "seal-analytics-codes", "analytics_data", "get_financial_data", { question: `${sealCodes.join(",")}在${human(day)}的首次涨停时间、最后涨停时间和涨停打开次数` });
+await probe("P13", "seal-fixed-indicators", "stock_data", "get_stock_price_indicators", { windcode: sealCodes.join(","), indexes: "中文简称,首次涨停时间,最后涨停时间,涨停打开次数,交易时间" });
+await probe("P13", "seal-search-codes", "stock_data", "search_stocks", { question: `筛选${sealCodes.join("、")}并返回Wind代码、证券简称、${day}首次封板时间` });
+
 console.log(`PROBE_SUMMARY ${JSON.stringify(results.map((r) => ({ id: r.id, label: r.label, ok: r.ok, bytes: r.bytes, rows: r.tables?.map((t) => t.rows), items: r.items?.count, ms: r.ms })))}`);

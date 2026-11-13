@@ -3,7 +3,7 @@ name: Wind query probe
 on:
   push:
     branches: ['probe/wind-query-v2']
-    paths: [scripts/probe/wind-query-v2.mjs, .github/workflows/wind-query-probe.yml, scripts/probe/run-at]
+    paths: [scripts/probe/**, .github/workflows/wind-query-probe.yml]
   workflow_dispatch:
 permissions:
   contents: read
