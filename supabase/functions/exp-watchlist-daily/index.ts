@@ -1,6 +1,6 @@
 import { getApiKeys } from "../../../api/_lib/short-emotion/wind-client.js";
 import { BENCHMARK_CODE as benchmarkCode, fetchDailyBars as bars, isStopError } from "./wind.js";
-import { evaluateStock, mergeSeries, pickForecast, poolKey, quoteFromBars, settle, targetSession } from "./model.js";
+import { evaluateStock, mergeSeries, pickForecast, poolKey, quoteFromBars, settle, SETTLEMENT_PRICE_BASIS, targetSession } from "./model.js";
 
 const root = Deno.env.get("SUPABASE_URL")!;
 const role = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -126,9 +126,11 @@ async function run(mode: string, recompute = false) {
   const [pool, history, existingOutcomes] = await Promise.all([
     all(stocksTable, { select: "user_id,code,name", order: "user_id.asc,slot.asc" }),
     all(forecastsTable, { select: "user_id,source_day,picks", source_day: "gte." + since, order: "user_id.asc,source_day.asc" }),
-    all(outcomesTable, { select: "user_id,source_day,direction", source_day: "gte." + since, order: "user_id.asc,source_day.asc,direction.asc" })
+    all(outcomesTable, { select: "user_id,source_day,direction,result", source_day: "gte." + since, order: "user_id.asc,source_day.asc,direction.asc" })
   ]);
-  const settledKeys = new Set(existingOutcomes.map((row) => [row.user_id, row.source_day, row.direction].join(":")));
+  const settledKeys = new Set(existingOutcomes
+    .filter((row) => row.result?.priceBasis === SETTLEMENT_PRICE_BASIS)
+    .map((row) => [row.user_id, row.source_day, row.direction].join(":")));
   const due: any[] = [];
   for (const row of history) {
     const entry = marketDays.findIndex((date) => date > row.source_day);
@@ -152,7 +154,7 @@ async function run(mode: string, recompute = false) {
   // Fetch what is not yet fresh for T, users' pools first, and persist after every batch.
   const codes = [...new Set([...todo.flatMap(([, rows]) => rows.map(({ code }) => code)), ...due.map(({ pick }) => pick.code)])];
   const cache = await loadCache(codes);
-  const fresh = (code: string) => (cache.get(code)?.checked ?? "") >= T && !!cache.get(code)?.raw;
+  const fresh = (code: string) => (cache.get(code)?.checked ?? "") >= T && !!cache.get(code)?.raw?.length;
   const stale = codes.filter((code) => recompute || !fresh(code));
   let stopped = false;
   for (let i = 0; i < stale.length && !stopped; i += 4) {
@@ -202,7 +204,7 @@ async function run(mode: string, recompute = false) {
       (published.has(id) && sourceDay === T && !recompute ? replacements : inserts).push(row);
       if (recompute) for (const direction of ["up", "down"] as const) {
         const pick = picks[direction];
-        const result = settle(pick, direction, pick ? cache.get(pick.code)?.adjusted : null,
+        const result = settle(pick, direction, pick ? cache.get(pick.code)?.raw : null,
           marketDays[entryIndex], marketDays[entryIndex + 1]);
         recomputedOutcomes.push({ user_id: id, source_day: sourceDay, direction, result });
       }
@@ -210,15 +212,21 @@ async function run(mode: string, recompute = false) {
   }
   const outcomes: any[] = [];
   for (const { row, direction, pick, entry, exit } of due) {
-    if ((cache.get(pick.code)?.checked ?? "") < exit) continue;
-    const result = settle(pick, direction, cache.get(pick.code)!.adjusted, entry, exit);
+    const cached = cache.get(pick.code);
+    if (!cached?.raw?.length || cached.checked < exit) continue;
+    const result = settle(pick, direction, cached.raw, entry, exit);
     outcomes.push({ user_id: row.user_id, source_day: row.source_day, direction, result });
   }
   const results = [...outcomes, ...recomputedOutcomes];
   const uniqueResults = [...new Map(results.map((row) =>
     [[row.user_id, row.source_day, row.direction].join(":"), row])).values()];
-  if (inserts.length || uniqueResults.length) {
-    await db("rpc/exp_watchlist_publish", {}, { p_forecasts: inserts, p_outcomes: uniqueResults, p_replace: recompute });
+  if (inserts.length || (recompute && uniqueResults.length)) {
+    await db("rpc/exp_watchlist_publish", {}, {
+      p_forecasts: inserts, p_outcomes: recompute ? uniqueResults : [], p_replace: recompute
+    });
+  }
+  if (!recompute && uniqueResults.length) {
+    await db("rpc/exp_watchlist_publish", {}, { p_forecasts: [], p_outcomes: uniqueResults, p_replace: true });
   }
   if (replacements.length) {
     await db("rpc/exp_watchlist_publish", {}, { p_forecasts: replacements, p_outcomes: [], p_replace: true });
