@@ -24,7 +24,7 @@ function summarize(result) {
   const items = inner?.data?.items || inner?.data?.data?.items || null;
   return {
     bytes: Buffer.byteLength(text || JSON.stringify(result)),
-    tables: tables.map((t) => ({ cols: t.columns.map((c) => c.name + (c.unit ? `(${c.unit})` : "")), rows: t.rows.length, sample: t.rows.slice(0, 2) })),
+    tables: tables.map((t) => ({ cols: t.columns.map((c) => c.name + (c.unit ? `(${c.unit})` : "")), rows: t.rows.length, sample: t.rows.slice(0, 2), name: t.name })),
     items: items ? { count: items.length, dates: items.map((i) => String(i.date || i.publish_time || i.time || "").slice(0, 10)).slice(0, 30) } : undefined,
     text: tables.length || items ? undefined : text.slice(0, 300)
   };
@@ -113,5 +113,12 @@ await probe("P13", "seal-search-human-date", "stock_data", "search_stocks", { qu
 await probe("P13", "seal-analytics-codes", "analytics_data", "get_financial_data", { question: `${sealCodes.join(",")}在${human(day)}的首次涨停时间、最后涨停时间和涨停打开次数` });
 await probe("P13", "seal-fixed-indicators", "stock_data", "get_stock_price_indicators", { windcode: sealCodes.join(","), indexes: "中文简称,首次涨停时间,最后涨停时间,涨停打开次数,交易时间" });
 await probe("P13", "seal-search-codes", "stock_data", "search_stocks", { question: `筛选${sealCodes.join("、")}并返回Wind代码、证券简称、${day}首次封板时间` });
+
+
+// P14 ETF 第二批（11/13 正式运行时这一批未解析）
+const batch2 = funds.slice(40, 80);
+await probe("P14", "etf-batch2-fund", "fund_data", "get_fund_financials", { question: etfQ(batch2) });
+await probe("P14", "etf-batch2-analytics", "analytics_data", "get_financial_data", { question: etfQ(batch2) });
+await probe("P14", "etf-batch2-fund-first20", "fund_data", "get_fund_financials", { question: etfQ(batch2.slice(0, 20)) });
 
 console.log(`PROBE_SUMMARY ${JSON.stringify(results.map((r) => ({ id: r.id, label: r.label, ok: r.ok, bytes: r.bytes, rows: r.tables?.map((t) => t.rows), items: r.items?.count, ms: r.ms })))}`);
