@@ -25,6 +25,8 @@ const tables = {
   market: "exp_watchlist_market"
 };
 const DIRECTIONS = ["up", "down"];
+const FORECAST_DAYS = 10;
+const FORECAST_READ_LIMIT = FORECAST_DAYS + 3;
 const fail = (message, statusCode) => Object.assign(new Error(message), { statusCode });
 const codePattern = /^(?:6\d{5}\.SH|[03]\d{5}\.SZ|[489]\d{5}\.BJ)$/;
 const userFilter = (id) => "eq." + id;
@@ -53,8 +55,8 @@ async function readUser(read, id) {
   const user_id = userFilter(id);
   const [stocks, forecasts, outcomes] = await Promise.all([
     read(tables.stocks, { user_id, order: "slot.asc" }),
-    read(tables.forecasts, { user_id, order: "source_day.desc", limit: "8" }),
-    read(tables.outcomes, { user_id, order: "source_day.desc", limit: "16" })
+    read(tables.forecasts, { user_id, order: "source_day.desc", limit: String(FORECAST_READ_LIMIT) }),
+    read(tables.outcomes, { user_id, order: "source_day.desc", limit: String(FORECAST_READ_LIMIT * DIRECTIONS.length) })
   ]);
   // Shared closing quotes let a stock added after the daily run show up before the next forecast.
   const list = stocks.map(({ code }) => '"' + code + '"').join(",");
@@ -89,7 +91,7 @@ export function scheduledDashboard({ stocks, forecasts, outcomes, cached = [] })
     }
     signals.set(day, signal);
   }
-  const dates = [...new Set([...market, ...signals.keys()])].sort().slice(-5);
+  const dates = [...new Set([...market, ...signals.keys()])].sort().slice(-FORECAST_DAYS);
   return {
     stocks: stocks.map(({ code, name }) => ({ ...quotes.get(code), code, name })),
     days: dates.map((day) => signals.get(day) ?? { day }),

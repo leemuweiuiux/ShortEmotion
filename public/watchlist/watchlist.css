@@ -4,7 +4,7 @@
 .watch-action { white-space: nowrap; min-height: 32px; padding: 0 12px; font-size: 13px; }
 [hidden] { display: none !important; }
 .watch-meta { font-size: 12px; color: var(--muted); margin: 8px 0; }
-.watch-days { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; min-block-size: 40px; margin: 15px 0 12px; }
+.watch-days { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(48px, 1fr); overflow-x: auto; gap: 5px; min-block-size: 40px; margin: 15px 0 12px; }
 .watch-days button, .watch-table button { font: inherit; cursor: pointer; color: var(--ink); border: 1px solid var(--border); background: var(--panel); border-radius: 0; padding: 7px 10px; }
 .watch-page button:disabled { opacity: .5; cursor: default; }
 .watch-days button { padding: 6px 2px; min-height: 40px; font-size: 12px; font-variant-numeric: tabular-nums; }

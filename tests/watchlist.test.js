@@ -73,6 +73,24 @@ describe("关注", () => {
     expect(result.days.some(({ day }) => day === "2026-11-05")).toBe(false);
   });
 
+  it("保留最近十个交易日，以及最早一日的结算结果", () => {
+    const marketDays = ["02", "03", "04", "05", "06", "09", "10", "11", "12", "13", "16", "17"]
+      .map((date) => "2026-11-" + date);
+    const pick = { code: "600519.SH", name: "贵州茅台", probability: 61 };
+    const forecasts = marketDays.map((source_day, i) => ({
+      source_day,
+      picks: { up: pick, daily: { day: marketDays[i + 1] ?? "2026-11-18", marketDays } }
+    })).reverse();
+    const result = scheduledDashboard({
+      stocks: [],
+      forecasts,
+      outcomes: [{ source_day: marketDays[2], direction: "up", result: { status: "beat" } }]
+    });
+    expect(result.days.map(({ day }) => day)).toEqual([...marketDays.slice(3), "2026-11-18"]);
+    expect(result.days[0].up.status).toBe("beat");
+    expect(result.days.at(-1).daily.provisional).toBe(true);
+  });
+
   it("关注、看涨、看跌各自排序", () => {
     const stock = (code, analysis) => ({ code, name: code, analysis });
     const result = pickForecast([

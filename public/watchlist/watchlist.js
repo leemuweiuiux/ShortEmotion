@@ -48,7 +48,7 @@ function signalRow(signal, direction) {
 }
 
 function forecastDays() {
-  return [...state.days].sort((a, b) => b.day.localeCompare(a.day)).slice(0, 5);
+  return [...state.days].sort((a, b) => b.day.localeCompare(a.day));
 }
 
 function focusText(attention) {
