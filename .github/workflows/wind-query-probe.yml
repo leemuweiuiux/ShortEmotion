@@ -1,0 +1,27 @@
+name: Wind query probe
+# 新旧问句对照：只打印结果，不写数据分支。推送 probe/* 分支或手动运行时执行。
+on:
+  push:
+    branches: ['probe/wind-query-v2']
+    paths: [scripts/probe/wind-query-v2.mjs, .github/workflows/wind-query-probe.yml, scripts/probe/run-at]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Load data branch
+        run: |
+          mkdir -p "$RUNNER_TEMP/data"
+          git fetch --depth=1 origin short-emotion-data
+          git archive FETCH_HEAD | tar -x -C "$RUNNER_TEMP/data"
+      - name: Probe
+        run: node scripts/probe/wind-query-v2.mjs --data="$RUNNER_TEMP/data" $(cat scripts/probe/args 2>/dev/null || true)
+        env:
+          WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
