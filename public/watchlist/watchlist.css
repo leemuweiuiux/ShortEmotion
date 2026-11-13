@@ -1,6 +1,7 @@
 .watch-page { display: grid; gap: 10px; align-content: start; }
 .watch-heading { min-height: 32px; }
-#watch-manage { min-height: 32px; padding: 0 12px; font-size: 13px; }
+.watch-actions { display: flex; gap: 6px; }
+.watch-action { white-space: nowrap; min-height: 32px; padding: 0 12px; font-size: 13px; }
 [hidden] { display: none !important; }
 .watch-meta { font-size: 12px; color: var(--muted); margin: 8px 0; }
 .watch-days { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; min-block-size: 40px; margin: 15px 0 12px; }
@@ -54,3 +55,16 @@
   }
   .watch-signal { font-size: 12px; }
 }
+
+.watch-export .watch-export-day { margin: 0; font-size: 16px; }
+.watch-export .watch-signals {
+  --watch-signal-columns: 48px minmax(0, 1fr) 104px 100px;
+  --watch-signal-gap: 10px;
+  grid-template-rows: repeat(2, minmax(46px, auto));
+}
+.watch-export .watch-signal { font-size: 14px; }
+.watch-export .watch-table { margin-top: 0; font-size: 14px; }
+.watch-export .watch-table td:first-child { overflow-wrap: anywhere; }
+.watch-export > .card + .card { margin-top: 8px; }
+.watch-export .watch-result small.watch-up, .watch-export .watch-table small.watch-up { color: var(--price-up, #c4382b); }
+.watch-export .watch-result small.watch-down, .watch-export .watch-table small.watch-down { color: var(--price-down, #257842); }

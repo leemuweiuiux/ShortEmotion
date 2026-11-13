@@ -24,7 +24,7 @@
   <link rel="stylesheet" href="/shared/primary-tabs.css?v=1">
   <link rel="stylesheet" href="/shared/global-header.css?v=4">
   <link rel="stylesheet" href="/shared/form.css?v=1">
-  <link rel="stylesheet" href="/watchlist/watchlist.css?v=5">
+  <link rel="stylesheet" href="/watchlist/watchlist.css?v=6">
   <link rel="stylesheet" href="/shared/wide-layout.css?v=2">
 </head>
 <body class="wide-page wide-watchlist">
@@ -37,7 +37,7 @@
     <section class="card watch-card" aria-labelledby="watch-forecast">
       <div class="card-head watch-heading">
         <h2 class="card-title" id="watch-forecast">每日预测</h2>
-        <span class="watch-meta">近 5 个交易日</span>
+        <button id="watch-export-forecast" class="btn-secondary watch-action" type="button" aria-label="导出每日预测小卡" disabled>导出小卡</button>
       </div>
       <p class="watch-meta">交易日 20:05 更新。预测窗口为适用日开盘至下一交易日收盘。</p>
       <div id="watch-days" class="watch-days" role="group" aria-label="预测日期"></div>
@@ -48,7 +48,10 @@
     <section class="card watch-card" aria-labelledby="watch-pool">
       <div class="card-head watch-heading">
         <h2 class="card-title" id="watch-pool">我的股票池 <span id="watch-count" class="watch-meta">—/10</span></h2>
-        <button id="watch-manage" class="btn-secondary" type="button" aria-expanded="false" aria-controls="watch-form">管理</button>
+        <div class="watch-actions">
+          <button id="watch-export-pool" class="btn-secondary watch-action" type="button" aria-label="导出我的股票池小卡" disabled>导出小卡</button>
+          <button id="watch-manage" class="btn-secondary watch-action" type="button" aria-expanded="false" aria-controls="watch-form">管理</button>
+        </div>
       </div>
       <p id="watch-date" class="watch-meta">正在读取行情…</p>
       <form id="watch-form" class="field" hidden>
@@ -69,6 +72,6 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script type="module" src="/shared/global-header.js?v=6"></script>
   <script type="module" src="/shared/primary-tabs.js?v=2"></script>
-  <script type="module" src="/watchlist/watchlist.js?v=7"></script>
+  <script type="module" src="/watchlist/watchlist.js?v=8"></script>
 </body>
 </html>
