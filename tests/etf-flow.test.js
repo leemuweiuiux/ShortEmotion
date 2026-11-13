@@ -99,7 +99,7 @@ describe('ETF batch collection (2026-11-13)', () => {
    if(tool==='get_fund_financials'&&params.question.includes(',')){
     const cols=[{name:'Wind代码'}];const rows=[['510300.SH'],['510310.SH']];
     for(const d of [d1,d2]){cols.push({name:`${human(d)}基金份额`,unit:'份'},{name:`${human(d)}单位净值`,unit:'元'},{name:`${human(d)}基金资产净值`,unit:'元'});
-     rows[0].push(2e8,1,2e8);rows[1].push(...(d===d2?[null,null,null]:[3e8,1,3e8]));}
+     {const v=d===d2?2.1e8:2e8;rows[0].push(v,1,v);}rows[1].push(...(d===d2?[null,null,null]:[3e8,1,3e8]));}
     return {data:{data:[{columns:cols,rows}]}};
    }
    return {data:{data:[]}};
@@ -127,7 +127,7 @@ describe('ETF batch collection (2026-11-13)', () => {
     if(tool==='get_fund_financials')batchSizes.push(asked.length);
     if(asked.length===8)return {data:{data:[]}};
     const cols=[{name:'Wind代码'}];const rows=asked.map(c=>[c]);
-    for(const d of [d1,d2]){cols.push({name:`${human(d)}基金份额`,unit:'份'},{name:`${human(d)}单位净值`,unit:'元'},{name:`${human(d)}基金资产净值`,unit:'元'});rows.forEach(r=>r.push(2e8,1,2e8));}
+    for(const d of [d1,d2]){cols.push({name:`${human(d)}基金份额`,unit:'份'},{name:`${human(d)}单位净值`,unit:'元'},{name:`${human(d)}基金资产净值`,unit:'元'});{const v=d===d2?2.1e8:2e8;rows.forEach(r=>r.push(v,1,v));}}
     return {data:{data:[{columns:cols,rows}]}};
    }
    throw new Error('per-fund call not expected');
@@ -136,5 +136,12 @@ describe('ETF batch collection (2026-11-13)', () => {
   const snapshot=await collectSnapshot(call,previous,now,{catalog});
   expect(batchSizes).toEqual([8,4,4]);
   expect(snapshot.funds.every(f=>f.quotes.some(q=>q.date===d2))).toBe(true);
+ });
+});
+describe('ETF stale carry-forward (2026-11-13)', () => {
+ it('drops a day whose shares, nav and assets equal the previous day', async () => {
+  const {dropStale}=await import('../api/_lib/etf-flow/source.js');
+  const q=(date,v)=>({date,shares:v,nav:1,assets:v});
+  expect(dropStale([q('20261111',1),q('20261112',2),q('20261113',2)]).map(x=>x.date)).toEqual(['20261111','20261112']);
  });
 });

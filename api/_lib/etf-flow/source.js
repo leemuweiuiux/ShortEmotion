@@ -114,12 +114,21 @@ export function fundPoints(quotes, dates) {
 export function tradingDates(payload) {
  return [...new Set(tableList(payload).flatMap(t=>{const i=col(t.columns,/^(TIME|日期|交易日期|交易时间)$/i);return i<0?[]:t.rows.map(r=>day(r[i])).filter(Boolean);} ))].sort();
 }
+// Wind 在当日净值公布前会把上一日的份额/净值/资产原样带到今天（11/13 午间一次推送触发的运行就发布了全为 0 的当日）
+export function dropStale(quotes){
+ const out=[];
+ for(const q of [...(quotes||[])].sort((a,b)=>a.date.localeCompare(b.date))){const p=out.at(-1);if(p&&p.shares===q.shares&&p.nav===q.nav&&p.assets===q.assets)continue;out.push(q);}
+ return out;
+}
 export async function collectSnapshot(call, previous=null, now=new Date(), {requiredDate=null,catalog=CATALOG}={}) {
+ if(previous?.funds)previous={...previous,funds:previous.funds.map(f=>({...f,quotes:dropStale(f.quotes)}))};
  const upstream=call;
  call=async(...args)=>{for(let attempt=0;;attempt++){try{return await upstream(...args);}catch(error){if(attempt>=2||!/NETWORK_ERROR|TIMEOUT|RATE_LIMIT|ECONNRESET|fetch failed/.test(error.message))throw error;}}};
  const end=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(now).replace(/-/g,'');
  const start=new Date(now);start.setUTCDate(start.getUTCDate()-60);const begin=start.toISOString().slice(0,10).replace(/-/g,'');
- const calendar=tradingDates(await call('index_data','get_index_kline',{windcode:'000300.SH',begin_date:begin,end_date:end})).filter(d=>d<=end);
+ const beijingHour=Number(new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Shanghai',hour:'2-digit',hour12:false}).format(now));
+ // 当日 19:00 前净值未出，不把今天当作可取数的交易日
+ const calendar=tradingDates(await call('index_data','get_index_kline',{windcode:'000300.SH',begin_date:begin,end_date:end})).filter(d=>d<end||(d===end&&(beijingHour>=19||requiredDate===end)));
  if(calendar.length<23)throw new Error('ETF交易日历不足，保留上一版');
  if(requiredDate&&!calendar.includes(requiredDate))throw Object.assign(new Error('目标日期无交易行情，跳过本轮ETF采集'),{code:'ETF_NO_TRADING_SESSION'});
  const issues=[];const groups=GROUPS.filter(g=>g.index);
@@ -172,7 +181,7 @@ export async function collectSnapshot(call, previous=null, now=new Date(), {requ
     const needed=batchDates.filter(d=>(!f.listed||f.listed<=d)&&!old?.quotes?.some(q=>q.date===d));
     if(fromBatch.length&&needed.every(d=>fromBatch.some(q=>q.date===d))){
      f.quotes=[...new Map([...(old?.quotes||[]),...fromBatch].map(q=>[q.date,q])).values()].filter(q=>q.date>=begin).sort((a,b)=>a.date.localeCompare(b.date));
-     f.points=fundPoints(f.quotes,calendar);console.log(`${f.code}: ${f.quotes.length} verified observations (batch)`);
+     f.quotes=dropStale(f.quotes);f.points=fundPoints(f.quotes,calendar);console.log(`${f.code}: ${f.quotes.length} verified observations (batch)`);
      continue;
     }
     const required=calendar.slice(-25,-1).filter(d=>!f.listed||f.listed<=d);
@@ -195,7 +204,7 @@ export async function collectSnapshot(call, previous=null, now=new Date(), {requ
     if(!quotes.length){console.log(JSON.stringify({unverified:f.code,tables:tableList(payload).map(t=>({columns:t.columns,sample:t.rows.slice(0,2)}))}));throw new Error('份额、净值或资产净值校验未通过');}
     f.quotes=[...new Map([...(old?.quotes||[]),...(batchQuotes.get(f.code)||[]),...quotes].map(q=>[q.date,q])).values()].filter(q=>q.date>=begin).sort((a,b)=>a.date.localeCompare(b.date));
    }catch(e){f.quotes=[...new Map([...(old?.quotes||[]),...(batchQuotes.get(f.code)||[])].map(q=>[q.date,q])).values()].sort((a,b)=>a.date.localeCompare(b.date));issues.push({code:f.code,group:f.group,reason:e.message});}
-   f.points=fundPoints(f.quotes,calendar);console.log(`${f.code}: ${f.quotes.length} verified observations`);
+   f.quotes=dropStale(f.quotes);f.points=fundPoints(f.quotes,calendar);console.log(`${f.code}: ${f.quotes.length} verified observations`);
   }
  }
  await Promise.all([worker(),worker(),worker()]);
