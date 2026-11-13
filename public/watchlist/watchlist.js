@@ -114,60 +114,70 @@ function exportSection(markup) {
   return section;
 }
 
-function updateExportButtons() {
-  $("watch-export-forecast").disabled = syncing || busy || exporting || !state.days.length;
-  $("watch-export-pool").disabled = syncing || busy || exporting || !state.stocks.length;
+function updateExportButton() {
+  $("watch-export").disabled = syncing || busy || exporting || (!state.days.length && !state.stocks.length);
 }
 
-async function exportCard(kind) {
-  if (exporting) return;
-  const forecast = kind === "forecast";
-  const day = forecast ? state.days.find(({ day }) => day === selected) : null;
-  if (forecast && !day) return;
-  const title = forecast ? "每日预测" : "我的股票池";
+async function exportCards() {
+  if ($("watch-export").disabled) return;
+  const day = state.days.find(({ day }) => day === selected);
   exporting = true;
-  updateExportButtons();
+  updateExportButton();
   try {
-    const date = day?.day ?? state.tradingDay;
-    const source = sourceText(day);
-    const section = day ? exportSection(`
-      <h2 class="watch-export-day">${escape(day.day)}</h2>
-      ${source ? `<p class="watch-meta">${escape(source)}</p>` : ""}
-      ${day.attention ? `<div class="watch-focus">${escape(focusText(day.attention))}</div>` : ""}
-      <div class="watch-signals">${signalRow(day.up, "up")}${signalRow(day.down, "down")}</div>
-    `) : exportSection(`
-      <table class="watch-table">
-        <thead><tr><th>股票</th><th>收盘价／涨跌幅</th><th>成交量／较前 5 日均量</th></tr></thead>
-        <tbody>${state.stocks.map((stock) => stockRow(stock, true)).join("")}</tbody>
-      </table>
-    `);
-    const subtitle = forecast ? "" : $("watch-date").textContent;
-    const line = forecast ? "预测窗口为适用日开盘至下一交易日收盘。" : `自选股票 ${state.stocks.length} 只`;
+    const cards = [];
+    if (day) {
+      const source = sourceText(day);
+      cards.push({
+        title: "每日预测", date: day.day,
+        line: "预测窗口为适用日开盘至下一交易日收盘。",
+        section: exportSection(`
+          <h2 class="watch-export-day">${escape(day.day)}</h2>
+          ${source ? `<p class="watch-meta">${escape(source)}</p>` : ""}
+          ${day.attention ? `<div class="watch-focus">${escape(focusText(day.attention))}</div>` : ""}
+          <div class="watch-signals">${signalRow(day.up, "up")}${signalRow(day.down, "down")}</div>
+        `)
+      });
+    }
+    if (state.stocks.length) {
+      cards.push({
+        title: "我的股票池", date: state.tradingDay, subtitle: $("watch-date").textContent,
+        line: `自选股票 ${state.stocks.length} 只`,
+        section: exportSection(`
+          <table class="watch-table">
+            <thead><tr><th>股票</th><th>收盘价／涨跌幅</th><th>成交量／较前 5 日均量</th></tr></thead>
+            <tbody>${state.stocks.map((stock) => stockRow(stock, true)).join("")}</tbody>
+          </table>
+        `)
+      });
+    }
     toast("正在生成小卡…");
     await loadImageExporter();
     await withTimeout(prepareExportAssets(), 8000).catch(() => {});
-    const blob = await renderImage([
-      exportHeader(title, subtitle),
-      section,
-      exportFooter({ title: "ShortEmotion", line, note: "仅供研究参考。" }),
-    ], { extraClass: "watch-export" });
-    showGallery([{ blob, title, name: `${title}${date ? "-" + date : ""}.png` }], {
-      heading: title, shareTitle: title, onError: (error) => toast(`保存失败：${error.message}`, true),
+    const files = [];
+    for (const { title, date, subtitle, section, line } of cards) {
+      const blob = await renderImage([
+        exportHeader(title, subtitle),
+        section,
+        exportFooter({ title: "ShortEmotion", line, note: "仅供研究参考。" }),
+      ], { extraClass: "watch-export" });
+      files.push({ blob, title, name: `${title}${date ? "-" + date : ""}.png` });
+    }
+    showGallery(files, {
+      heading: "导出小卡", shareTitle: "关注", onError: (error) => toast(`保存失败：${error.message}`, true),
     });
   } catch (error) {
     toast(`导出失败：${error.message}`, true);
   } finally {
     exporting = false;
-    updateExportButtons();
+    updateExportButton();
   }
 }
 
-$("watch-export-forecast").addEventListener("click", () => void exportCard("forecast"));
-$("watch-export-pool").addEventListener("click", () => void exportCard("pool"));
+$("watch-export").addEventListener("click", () => void exportCards());
 
 async function load() {
   syncing = true;
-  updateExportButtons();
+  updateExportButton();
   try {
     state = await request();
     renderForecast();
@@ -178,7 +188,7 @@ async function load() {
     if (!state.days.length) $("watch-signals").innerHTML = '<p class="watch-empty">预测暂未就绪，请稍后重试。</p>';
   } finally {
     syncing = false;
-    updateExportButtons();
+    updateExportButton();
   }
 }
 
@@ -197,7 +207,7 @@ $("watch-manage").addEventListener("click", () => {
 async function mutate(body) {
   if (busy || syncing) return;
   busy = true;
-  updateExportButtons();
+  updateExportButton();
   renderPool();
   $("watch-status").textContent = body.action === "add" ? "正在添加股票…" : "正在移除股票…";
   try {
@@ -208,7 +218,7 @@ async function mutate(body) {
     $("watch-status").textContent = error.message;
   } finally {
     busy = false;
-    updateExportButtons();
+    updateExportButton();
     renderPool();
   }
 }
