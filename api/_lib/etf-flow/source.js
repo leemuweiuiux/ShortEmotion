@@ -145,11 +145,25 @@ export async function collectSnapshot(call, previous=null, now=new Date(), {requ
  const batchable=unique.filter(f=>{const old=previous?.funds?.find(x=>x.code===f.code);return old?.quotes?.length&&!calendar.slice(-25,-2).filter(d=>!f.listed||f.listed<=d).some(d=>!old.quotes.some(q=>q.date===d));});
  for(let i=0;i<batchable.length&&batchDates.length===2;i+=ETF_BATCH_SIZE){
   const codes=batchable.slice(i,i+ETF_BATCH_SIZE).map(f=>f.code);
+  await fetchBatch(codes,`${i/ETF_BATCH_SIZE+1}`,true);
+ }
+ // 单批取数：覆盖率不足 80% 时记录表结构，并把缺的代码拆半重试一次（2026-11-13 线上有一批 40 只整批落空）
+ async function fetchBatch(codes,label,allowSplit){
+  let parsed=new Map(),payload=null;
   try{
-   let parsed=parseWideHistory(await call('fund_data','get_fund_financials',{question:batchQuestion(codes,batchDates)}));
-   if(!parsed.size)parsed=parseWideHistory(await call('analytics_data','get_financial_data',{question:batchQuestion(codes,batchDates)}));
-   for(const [code,quotes] of parsed)if(codes.includes(code))batchQuotes.set(code,quotes);
-  }catch(error){console.log(`ETF batch ${i/ETF_BATCH_SIZE+1}: ${error.code||error.message}`);}
+   payload=await call('fund_data','get_fund_financials',{question:batchQuestion(codes,batchDates)});
+   parsed=parseWideHistory(payload);
+   if(!parsed.size){payload=await call('analytics_data','get_financial_data',{question:batchQuestion(codes,batchDates)});parsed=parseWideHistory(payload);}
+  }catch(error){console.log(`ETF batch ${label}: ${error.code||error.message}`);}
+  let hit=0;
+  for(const [code,quotes] of parsed)if(codes.includes(code)){batchQuotes.set(code,quotes);if(batchDates.every(d=>quotes.some(q=>q.date===d)))hit++;}
+  if(hit>=codes.length*0.8)return;
+  console.log(JSON.stringify({etfBatch:label,requested:codes.length,hit,tables:tableList(payload).map(t=>({columns:t.columns.map(c=>c.name+(c.unit?`(${c.unit})`:'')),rows:t.rows.length}))}));
+  const missing=codes.filter(code=>!batchDates.every(d=>batchQuotes.get(code)?.some(q=>q.date===d)));
+  if(!allowSplit||missing.length<4)return;
+  const half=Math.ceil(missing.length/2);
+  await fetchBatch(missing.slice(0,half),`${label}a`,false);
+  await fetchBatch(missing.slice(half),`${label}b`,false);
  }
  async function worker(){
   while(next<unique.length){const f=unique[next++],old=previous?.funds?.find(x=>x.code===f.code);

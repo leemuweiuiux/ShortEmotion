@@ -327,14 +327,16 @@ export function summarizePremium({ values = new Map(), codes = [], streakOf = ()
   };
 }
 
-async function fetchPremium({ baseDay, day, codes = [], streakOf = () => 1 }) {
+async function fetchPremium({ baseDay, day, codes = [], streakOf = () => 1, earlierAuction = null }) {
   // 盘前构建时行情还停在上一交易日（baseDay === day），此时「今日涨跌幅」就是昨天的，没有意义
   if (!baseDay || !day || baseDay === day || !codes.length) return null;
   const codeSet = new Set(codes);
 
+  // 竞价涨幅 9:25 后就定格（2026-11-13）：同日更早一轮已取到且样本够（≥5）时直接沿用，不再每 30 分钟问一次
+  const reuseAuction = earlierAuction?.sampleSize >= 5 ? earlierAuction : null;
   const [trendResult, auctionResult] = await Promise.all([
     askAnalytics(`${baseDay}涨停股票在${day}的最新涨跌幅排名`),
-    askAnalytics(`${baseDay}涨停股票在${day}的开盘涨幅`)
+    reuseAuction ? Promise.resolve({ rows: [], reused: true }) : askAnalytics(`${baseDay}涨停股票在${day}的开盘涨幅`)
   ]);
 
   const trend = premiumValues(trendResult.rows, PREMIUM_COLUMN_PATTERN, codeSet);
@@ -348,10 +350,10 @@ async function fetchPremium({ baseDay, day, codes = [], streakOf = () => 1 }) {
     precision: round2(trend.precision),
     ...summarizePremium({ values: trend.values, codes, streakOf }),
     // 竞价溢价：取不到就 null，不参与结论
-    auction: auctionSummary.sampleSize
-      ? { sampleSize: auctionSummary.sampleSize, median: auctionSummary.median }
-      : null,
-    auctionError: auction.values.size ? null : (auctionResult.error || "未识别到开盘涨幅列（措辞待验证）"),
+    auction: reuseAuction
+      ? { sampleSize: reuseAuction.sampleSize, median: reuseAuction.median }
+      : auctionSummary.sampleSize ? { sampleSize: auctionSummary.sampleSize, median: auctionSummary.median } : null,
+    auctionError: reuseAuction || auction.values.size ? null : (auctionResult.error || "未识别到开盘涨幅列（措辞待验证）"),
     error: trend.values.size ? null : (trendResult.error || "返回结果未通过口径护栏（疑似名单漂移）")
   };
 }
@@ -1425,7 +1427,12 @@ export async function loadLimitUpBoard(day = localDate(), { loadStoredDay = null
       baseDay: baseTradingDate,
       day: dataDay,
       codes: [...(yesterdayCodes || [])],
-      streakOf: (code) => streakAgainst(sets.slice(1), code)
+      streakOf: (code) => streakAgainst(sets.slice(1), code),
+      // 同日更早一轮的竞价样本覆盖昨日涨停 ≥ 80% 才沿用，否则这一轮当作备援再取一次
+      earlierAuction: previousBoard?.tradingDate === dataDay && previousBoard?.premium?.day === dataDay
+        && previousBoard.premium.baseDay === baseTradingDate
+        && previousBoard.premium.auction?.sampleSize >= Math.ceil(0.8 * (yesterdayCodes?.size || 0))
+        ? previousBoard.premium.auction : null
     })
   ]);
   errors.push(...downResult.errors);
