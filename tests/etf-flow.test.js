@@ -111,4 +111,30 @@ describe('ETF batch collection (2026-11-13)', () => {
   // 510310 的最后一天没有值：最后一天不发布
   expect(snapshot.dates.at(-1)).toBe(d1);
  });
+ it('splits a failed batch into halves and retries once', async () => {
+  const {collectSnapshot}=await import('../api/_lib/etf-flow/source.js');
+  const codes=Array.from({length:8},(_,i)=>`51030${i}.SH`);
+  const catalog={groups:{hs300:{funds:codes.map(code=>({code,name:code}))}}};
+  const calendar=[];for(let d=new Date(Date.UTC(2026,8,20));calendar.length<30;d.setUTCDate(d.getUTCDate()+1)){if([0,6].includes(d.getUTCDay()))continue;calendar.push(d.toISOString().slice(0,10).replace(/-/g,''));}
+  const previous={funds:codes.map(code=>({code,quotes:calendar.slice(0,-2).map((d,i)=>({date:d,shares:1e8+i,nav:1,assets:1e8+i,shareScale:1}))}))};
+  const [d1,d2]=calendar.slice(-2);
+  const human=d=>`${d.slice(0,4)}年${Number(d.slice(4,6))}月${Number(d.slice(6))}日`;
+  const batchSizes=[];
+  const call=async(server,tool,params)=>{
+   if(tool==='get_index_kline')return {data:{columns:[{name:'TIME'}],rows:calendar.map(d=>[d])}};
+   if(params.question.includes(',')){
+    const asked=codes.filter(c=>params.question.includes(c));
+    if(tool==='get_fund_financials')batchSizes.push(asked.length);
+    if(asked.length===8)return {data:{data:[]}};
+    const cols=[{name:'Wind代码'}];const rows=asked.map(c=>[c]);
+    for(const d of [d1,d2]){cols.push({name:`${human(d)}基金份额`,unit:'份'},{name:`${human(d)}单位净值`,unit:'元'},{name:`${human(d)}基金资产净值`,unit:'元'});rows.forEach(r=>r.push(2e8,1,2e8));}
+    return {data:{data:[{columns:cols,rows}]}};
+   }
+   throw new Error('per-fund call not expected');
+  };
+  const now=new Date(Date.parse(`${d2.slice(0,4)}-${d2.slice(4,6)}-${d2.slice(6)}T13:00:00Z`));
+  const snapshot=await collectSnapshot(call,previous,now,{catalog});
+  expect(batchSizes).toEqual([8,4,4]);
+  expect(snapshot.funds.every(f=>f.quotes.some(q=>q.date===d2))).toBe(true);
+ });
 });

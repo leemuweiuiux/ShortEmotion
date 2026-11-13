@@ -736,6 +736,12 @@ function fixedThemeMomentumRows(payloads, day) {
     };
   }).filter((item) => item.code && item.name && item.shortMove != null);
   const sameDay = parsed.filter((item) => !day || item.tradeDay === day);
+  // 开盘首轮（行情时间 09:35 前）：5 分钟窗口跨进集合竞价，11/13 09:32 出现日涨 +2.88%、5 分钟 −4.97% 的情况，这一轮不用 5 分钟信号
+  const quoteMinutes = sameDay.map((item) => { const m = String(item.tradeTime || "").match(/(?:T|\s)(\d{1,2}):(\d{2})/); return m ? Number(m[1]) * 60 + Number(m[2]) : null; }).filter((v) => v != null);
+  const latestMinute = quoteMinutes.length ? Math.max(...quoteMinutes) : null;
+  if (latestMinute != null && latestMinute < 9 * 60 + 35) {
+    return { rows: [], skipFallback: true, diagnostics: { source: "index_price_indicators.5m_change", poolSize: themeMomentumPool.length, rawCount: rawRows.length, sameDayCount: sameDay.length, openingWindow: true } };
+  }
   // 收盘后 Wind 的「5分钟涨跌幅」可能与日涨跌幅相同（11/13 盘前探针：15:00 快照两列完全一致），这时不能当 5 分钟动能用
   const equalsDay = sameDay.filter((item) => item.dayChange != null && Math.abs(item.shortMove - item.dayChange) < 1e-9).length;
   const degenerate = sameDay.length >= 10 && equalsDay / sameDay.length >= 0.8;
@@ -1413,7 +1419,7 @@ async function loadThemeAnomalies(force = false) {
   anomalyInflight = (async () => {
     const day = localDate();
     const fixedMomentum = await loadFixedThemeMomentum(day).catch((error) => ({ rows: [], diagnostics: { source: "index_price_indicators.5m_change", error: String(error?.message || error) }, errors: [] }));
-    const useFixedMomentum = Boolean(fixedMomentum && fixedMomentum.rows.length);
+    const useFixedMomentum = Boolean(fixedMomentum && (fixedMomentum.rows.length || fixedMomentum.skipFallback));
     const [results, newsPayload] = await Promise.all([
       runWindTasks([
         // 固定参数取到 5 分钟动能时不再问旧的自然语言问句（只在池子为空或全部无效时作后备）
@@ -1807,6 +1813,7 @@ export { scoreLiquidity, predictFullDayAmount, limitLadderMetrics, uniqueWindCod
 
 export {
   setThemeMomentumPool,
+  fixedThemeMomentumRows,
   prefetchDailyClose,
   loadMarketKline,
   takeSeenConcepts,
