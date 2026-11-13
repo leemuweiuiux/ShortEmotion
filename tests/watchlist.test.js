@@ -11,12 +11,14 @@ describe("关注", () => {
     const days = ["2026-11-06", "2026-11-09"];
     const pick = { code: "600519.SH" };
     const bars = [bar(days[0], 11, 10), bar(days[1], 9, 12)];
-    expect(settle(pick, "down", bars, ...days)).toEqual({ status: "beat", returnPct: -10 });
-    expect(settle(pick, "up", bars, ...days)).toEqual({ status: "miss", returnPct: -10 });
-    expect(settle(pick, "up", [bars[0], bar(days[1])], ...days)).toEqual({ status: "miss", returnPct: 0 });
+    expect(settle(pick, "down", bars, ...days)).toEqual({ status: "beat", returnPct: -10, priceBasis: "unadjusted" });
+    expect(settle(pick, "up", bars, ...days)).toEqual({ status: "miss", returnPct: -10, priceBasis: "unadjusted" });
+    expect(settle(pick, "up", [bars[0], bar(days[1])], ...days)).toEqual({ status: "miss", returnPct: 0, priceBasis: "unadjusted" });
     expect(settle(pick, "up", bars, days[0]).status).toBe("pending");
-    expect(settle(pick, "up", [], ...days).status).toBe("unavailable");
+    expect(settle(pick, "up", [bars[0]], ...days).status).toBe("unavailable");
     expect(settle(pick, "up", null, ...days).status).toBe("awaiting-data");
+    expect(settle(pick, "down", [bars[0], { ...bar(days[1], 9, 9), high: 9, low: 9 }], ...days))
+      .toEqual({ status: "beat", returnPct: -10, priceBasis: "unadjusted" });
   });
 
   it("以未复权收盘价展示，均量排除本日，过滤停牌和空行情", () => {
@@ -84,10 +86,15 @@ describe("关注", () => {
     const result = scheduledDashboard({
       stocks: [],
       forecasts,
-      outcomes: [{ source_day: marketDays[2], direction: "up", result: { status: "beat" } }]
+      outcomes: [
+        { source_day: marketDays[2], direction: "up", result: { status: "beat", returnPct: 5, priceBasis: "unadjusted" } },
+        { source_day: marketDays[3], direction: "up", result: { status: "beat", returnPct: 5 } }
+      ]
     });
     expect(result.days.map(({ day }) => day)).toEqual([...marketDays.slice(3), "2026-11-18"]);
-    expect(result.days[0].up.status).toBe("beat");
+    expect(result.days[0].up).toMatchObject({ status: "beat", returnPct: 5 });
+    expect(result.days[1].up).toMatchObject({ status: "pending" });
+    expect(result.days[1].up).not.toHaveProperty("returnPct");
     expect(result.days.at(-1).daily.provisional).toBe(true);
   });
 
