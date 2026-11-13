@@ -24,7 +24,7 @@ function summarize(result) {
   const items = inner?.data?.items || inner?.data?.data?.items || null;
   return {
     bytes: Buffer.byteLength(text || JSON.stringify(result)),
-    tables: tables.map((t) => ({ cols: t.columns.map((c) => c.name + (c.unit ? `(${c.unit})` : "")), rows: t.rows.length, sample: t.rows.slice(0, 2), name: t.name })),
+    tables: tables.map((t) => ({ cols: t.columns.map((c) => c.name + (c.unit ? `(${c.unit})` : "")), rows: t.rows.length, sample: t.rows.slice(0, 40), name: t.name })),
     items: items ? { count: items.length, dates: items.map((i) => String(i.date || i.publish_time || i.time || "").slice(0, 10)).slice(0, 30) } : undefined,
     text: tables.length || items ? undefined : text.slice(0, 300)
   };
@@ -120,5 +120,10 @@ const batch2 = funds.slice(40, 80);
 await probe("P14", "etf-batch2-fund", "fund_data", "get_fund_financials", { question: etfQ(batch2) });
 await probe("P14", "etf-batch2-analytics", "analytics_data", "get_financial_data", { question: etfQ(batch2) });
 await probe("P14", "etf-batch2-fund-first20", "fund_data", "get_fund_financials", { question: etfQ(batch2.slice(0, 20)) });
+
+
+// P15 11/13 正式运行时未走批量的 40 只
+const failed = "510190.SH 510680.SH 510710.SH 510600.SH 510800.SH 510850.SH 510950.SH 530000.SH 530050.SH 159298.SZ 159369.SZ 159370.SZ 159367.SZ 159371.SZ 159372.SZ 159373.SZ 159375.SZ 159383.SZ 159681.SZ 159682.SZ 159949.SZ 159012.SZ 159603.SZ 159780.SZ 159781.SZ 159782.SZ 159783.SZ 588300.SH 588310.SH 588330.SH 588350.SH 588360.SH 588380.SH 588390.SH 588400.SH 588660.SH 159531.SZ 159532.SZ 159533.SZ 159535.SZ".split(" ");
+await probe("P15", "etf-failed40-fund", "fund_data", "get_fund_financials", { question: etfQ(failed) });
 
 console.log(`PROBE_SUMMARY ${JSON.stringify(results.map((r) => ({ id: r.id, label: r.label, ok: r.ok, bytes: r.bytes, rows: r.tables?.map((t) => t.rows), items: r.items?.count, ms: r.ms })))}`);
