@@ -122,34 +122,33 @@ function updateExportButtons() {
 async function exportCard(kind) {
   if (exporting) return;
   const forecast = kind === "forecast";
+  const day = forecast ? state.days.find(({ day }) => day === selected) : null;
+  if (forecast && !day) return;
   const title = forecast ? "每日预测" : "我的股票池";
   exporting = true;
   updateExportButtons();
   try {
-    const days = forecast ? forecastDays() : [];
-    const date = forecast ? days[0]?.day : state.tradingDay;
-    const sections = forecast ? days.map((day) => {
-      const source = sourceText(day);
-      return exportSection(`
-        <h2 class="watch-export-day">${escape(day.day)}</h2>
-        ${source ? `<p class="watch-meta">${escape(source)}</p>` : ""}
-        ${day.attention ? `<div class="watch-focus">${escape(focusText(day.attention))}</div>` : ""}
-        <div class="watch-signals">${signalRow(day.up, "up")}${signalRow(day.down, "down")}</div>
-      `);
-    }) : [exportSection(`
+    const date = day?.day ?? state.tradingDay;
+    const source = sourceText(day);
+    const section = day ? exportSection(`
+      <h2 class="watch-export-day">${escape(day.day)}</h2>
+      ${source ? `<p class="watch-meta">${escape(source)}</p>` : ""}
+      ${day.attention ? `<div class="watch-focus">${escape(focusText(day.attention))}</div>` : ""}
+      <div class="watch-signals">${signalRow(day.up, "up")}${signalRow(day.down, "down")}</div>
+    `) : exportSection(`
       <table class="watch-table">
         <thead><tr><th>股票</th><th>收盘价／涨跌幅</th><th>成交量／较前 5 日均量</th></tr></thead>
         <tbody>${state.stocks.map((stock) => stockRow(stock, true)).join("")}</tbody>
       </table>
-    `)];
-    const subtitle = forecast ? `最近 ${days.length} 个交易日` : $("watch-date").textContent;
+    `);
+    const subtitle = forecast ? "" : $("watch-date").textContent;
     const line = forecast ? "预测窗口为适用日开盘至下一交易日收盘。" : `自选股票 ${state.stocks.length} 只`;
     toast("正在生成小卡…");
     await loadImageExporter();
     await withTimeout(prepareExportAssets(), 8000).catch(() => {});
     const blob = await renderImage([
       exportHeader(title, subtitle),
-      ...sections,
+      section,
       exportFooter({ title: "ShortEmotion", line, note: "仅供研究参考。" }),
     ], { extraClass: "watch-export" });
     showGallery([{ blob, title, name: `${title}${date ? "-" + date : ""}.png` }], {
