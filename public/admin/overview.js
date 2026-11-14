@@ -1,4 +1,4 @@
-const FEATURES = [["refresh","刷新行情"],["unlock","题材异动"],["analysis","个股分析"],["unlock_limitup","涨停情绪"],["unlock_sectorflow","板块资金"],["unlock_etfflow","宽基 ETF"]];
+const FEATURES = [["refresh","刷新行情"],["unlock","题材异动"],["analysis","个股分析"],["unlock_limitup","涨停情绪"],["unlock_sectorflow","资金流向"],["unlock_etfflow","宽基ETF"]];
 const number = n => n == null ? "—" : Number(n).toLocaleString("zh-CN");
 export function paidCardsHtml(rows) {
  const by = new Map((rows || []).map(r => [r.key,r]));

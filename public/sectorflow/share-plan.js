@@ -4,7 +4,7 @@
 export const CHART_WIDTH = 600 - 32 - 24 - 2;
 
 export const SHARE_FOOTER = {
-  title: "ShortEmotion · 资金流向",
+  title: "Market Emotion · 资金流向",
   line: "扫码查看概念板块主力资金流向",
   note: "lfjmwl.com · 仅用于研究，不构成投资建议"
 };

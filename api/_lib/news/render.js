@@ -9,7 +9,7 @@ import { listReports, readReports, isReportId } from "../morning-report/service.
 
 export const SITE = "https://www.lfjmwl.com";
 export const PAGE_SIZE = 20;
-const SITE_NAME = "ShortEmotion";
+const SITE_NAME = "Market Emotion";
 const OG_IMAGE = `${SITE}/about/img/pulse-light.webp`;
 const LOGO = `${SITE}/apple-touch-icon.png`;
 const ASSETS = {
@@ -24,7 +24,7 @@ const ASSETS = {
 // 与看板共用外观设置：深浅色跟随系统（或 twsvp_theme）
 const THEME_SCRIPT = `<script>(function(){var t=null;try{t=localStorage.getItem('twsvp_theme')}catch(e){}document.documentElement.dataset.theme=t==='light'||t==='dark'?t:matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';})();</script>`;
 const LIST_TITLE = "每日看点：A股短线情绪复盘";
-const LIST_INTRO = "每个交易日三篇 A 股短线复盘：开盘前的看点早报、午间看点与收盘后的看点收评。每篇基于 ShortEmotion 的短线情绪分、涨跌停与连板梯队、题材异动和公开资讯，由 AI 编辑 Komidomi 生成，并附可回看验证的观点卡。";
+const LIST_INTRO = `每个交易日三篇 A 股短线复盘：开盘前的看点早报、午间看点与收盘后的看点收评。每篇基于 ${SITE_NAME} 的短线情绪分、涨跌停与连板梯队、题材异动和公开资讯，由 AI 编辑 Komidomi 生成，并附可回看验证的观点卡。`;
 const DIMENSIONS = "市场广度、极端反馈、连板梯队、赚钱效应、题材聚焦、成交环境";
 
 // ── 繁体：opencc cn→tw 逐字，再套站内统一的用语修正（与介绍页「繁体」切换一致） ──
@@ -128,7 +128,7 @@ function document_({ lang, headHtml, navHtml, main, reading = false }) {
 }
 
 const organization = { "@type": "Organization", name: SITE_NAME, url: `${SITE}/about`, logo: { "@type": "ImageObject", url: LOGO } };
-const authorEntity = { "@type": "Organization", name: AUTHOR, description: "ShortEmotion 的 AI 编辑", url: `${SITE}/about` };
+const authorEntity = { "@type": "Organization", name: AUTHOR, description: `${SITE_NAME} 的 AI 编辑`, url: `${SITE}/about` };
 const crumbs = (lang, tail = []) => ({
   "@context": "https://schema.org",
   "@type": "BreadcrumbList",
