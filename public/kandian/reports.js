@@ -23,7 +23,7 @@ if(feed){
 }
 const article = document.querySelector('#morning-report-article');
 if(article)get(`id=${encodeURIComponent(new URLSearchParams(location.search).get('id')||'')}`).then(({article:a})=>{
- if(!a)throw new Error('文章不存在');document.title=`${a.title} · ${editionName(a)}`;const navTitle=document.querySelector('.nav-title');if(navTitle)navTitle.textContent=editionName(a);
+ if(!a)throw new Error('文章不存在');document.title=`${a.title} · ${editionName(a)} · Market Emotion`;const navTitle=document.querySelector('.nav-title');if(navTitle)navTitle.textContent=editionName(a);
  article.innerHTML=articleHtml(a,{like:a.like?likeHtml('report', a.id, a.like, { large: true }):''});
  // 分享全文 / 小卡（只在详情页加载）
  import('/kandian/share.js?v=7').then(m=>m.setupShare(a,article)).catch(()=>{});

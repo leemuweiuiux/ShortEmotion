@@ -134,7 +134,7 @@ function prepareCard() {
   cardPromise.catch(() => {});
 }
 
-const fileName = () => `ShortEmotion-邀请卡-${invite.code}.png`;
+const fileName = () => `MarketEmotion-邀请卡-${invite.code}.png`;
 
 function downloadBlob(blob) {
   const anchor = document.createElement("a");
@@ -189,7 +189,7 @@ shareButton.addEventListener("click", async () => {
   const file = new File([cardBlob], fileName(), { type: "image/png" });
   if (navigator.canShare?.({ files: [file] })) {
     try {
-      await navigator.share({ files: [file], title: "邀请你加入 ShortEmotion" });
+      await navigator.share({ files: [file], title: "邀请你加入 Market Emotion" });
       return;
     } catch (error) {
       if (error?.name === "AbortError") return; // 用户取消

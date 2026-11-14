@@ -43,7 +43,7 @@ const asset = (key) => assetCache[key] || ASSETS[key];
 export function exportHeader(title, subtitle = "") {
   const head = document.createElement("div");
   head.className = "export-head";
-  head.innerHTML = `<img src="${asset("logo")}" alt="ShortEmotion"><div><b>${esc(title)}</b>${subtitle ? `<small>${esc(subtitle)}</small>` : ""}</div>`;
+  head.innerHTML = `<img src="${asset("logo")}" alt="Market Emotion"><div><b>${esc(title)}</b>${subtitle ? `<small>${esc(subtitle)}</small>` : ""}</div>`;
   return head;
 }
 

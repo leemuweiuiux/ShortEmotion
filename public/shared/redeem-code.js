@@ -70,7 +70,7 @@ export function ruleChips(code) {
 export function shareText(code) {
   const rules = ruleChips(code).join(" · ");
   return [
-    `【ShortEmotion】送你 ${code.amount} 积分 · ${code.name}`,
+    `【Market Emotion】送你 ${code.amount} 积分 · ${code.name}`,
     `点击领取：${redeemLink(code.code)}`,
     `或在「个人中心 › 积分兑换」输入 ${displayCode(code.code)}`,
     rules
