@@ -1,4 +1,4 @@
-# ShortEmotion：介绍页与每日看点（简体 / 繁体）对搜索引擎和 AI 公开；看板与个人页面需登录，不收录。
+# Market Emotion：介绍页与每日看点（简体 / 繁体）对搜索引擎和 AI 公开；看板与个人页面需登录，不收录。
 User-agent: *
 Allow: /
 Allow: /api/news

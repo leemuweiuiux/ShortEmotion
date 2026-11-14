@@ -1,6 +1,6 @@
-# ShortEmotion · 短線情緒
+# Market Emotion
 
-A股短線情緒看板與個股技術分析：**https://lfjmwl.com**（Vercel 預設網址 stockmarketshortemotion.vercel.app 也可用）。
+A股短線情緒看板與個股技術分析：**https://www.lfjmwl.com**（Vercel 預設網址 stockmarketshortemotion.vercel.app 也可用）。
 
 由 [twsvp-frontend](https://github.com/MuWeiLee/twsvp-frontend) 的「短線情緒」原樣遷出（來源 `69593b1`，PR #126），獨立部署。twsvp.com 保留自己的短線情緒頁面，兩站各自取數、互不依賴。
 
@@ -10,10 +10,14 @@ A股短線情緒看板與個股技術分析：**https://lfjmwl.com**（Vercel �
 | `/login` | 登入頁：輸入郵箱 → 同一頁填驗證碼，免費註冊 |
 | `/news`、`/news/<id>` | 每日看點（公開，不需登入）：服務端直接輸出全文；`/zh-hant/news/...` 為繁體版 |
 | `/sitemap.xml`、`/news/feed.xml`、`/robots.txt`、`/llms.txt` | 站點地圖、RSS（簡繁各一）、爬蟲規則、給 AI 的網站說明 |
-| `/home` | 首頁（**需登入**）：積分與簽到、個股技術分析輸入框、今日短線情緒（分數、階段、市場概況）、當日題材異動（可直接解鎖） |
-| `/technicalanalysis` | 個股技術分析（**需登入**，每次分析扣 10 積分） |
-| `/shortemotion/cn` | 短線情緒 · A股（**需登入**） |
-| `/limitup` | 漲停情緒（**需登入**，整頁須解鎖：10 積分 / 12 小時）：漲停天梯、跌停股、晉級率、題材強弱與今日亮點 |
+| `/home` | 首頁（home）（**需登入**）：積分與簽到、個股技術分析輸入框、今日短線情緒（分數、階段、市場概況）、當日題材異動（可直接解鎖） |
+| `/technicalanalysis` | 個股分析（TechnicalAnalysis）（**需登入**，每次分析扣 10 積分） |
+| `/shortemotion/cn` | 短線情緒（ShortEmotion）（**需登入**） |
+| `/limitup` | 漲停情緒（LimitUp）（**需登入**，整頁須解鎖：10 積分 / 12 小時）：漲停天梯、跌停股、晉級率、題材強弱與今日亮點 |
+| `/sectorflow` | 資金流向（SectorFlow） |
+| `/etfflow` | 寬基ETF（ETFFlow） |
+| `/kandian` | 看點（Opinion） |
+| `/watchlist` | 關注（WatchList） |
 | `/` | 已登入 → `/home`；未登入 → `/about` |
 | `/cn`、`/cn-short-emotion`、`/short-emotion` | 舊網址，轉到上面的新網址 |
 | `/tw`、`/tw-short-emotion`、`/shortemotion/tw`、`/shortemotion/hk` | 已下線的台股、港股看板，轉到 A股看板 |

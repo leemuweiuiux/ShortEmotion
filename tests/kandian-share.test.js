@@ -42,7 +42,7 @@ describe("看点早报分享：内容规划", () => {
     expect(editionTitle(noon)).toBe("午间看点");
     expect(editionTitle({ id: "20261023-noon" })).toBe("午间看点");
     expect(editionTitle(article)).toBe("看点早报");
-    expect(shareFooter(noon).title).toBe("ShortEmotion · 午间看点");
+    expect(shareFooter(noon).title).toBe("Market Emotion · 午间看点");
     expect(cardFileName(noon, 1)).toBe("午间看点-20261023-noon-02.png");
   });
 });

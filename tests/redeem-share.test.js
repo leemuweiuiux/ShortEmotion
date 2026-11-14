@@ -29,7 +29,7 @@ describe("兑换码格式与找码", () => {
     expect(redeemLink("hf7k-m2qx")).toBe("https://www.lfjmwl.com/redeem?code=HF7KM2QX");
     const text = shareText({ code: "HF7KM2QX", name: "体验奖励", amount: 50, mode: "limited", max_claims: 100, expires_at: null, audience: "new" });
     const lines = text.split("\n");
-    expect(lines[0]).toBe("【ShortEmotion】送你 50 积分 · 体验奖励");
+    expect(lines[0]).toBe("【Market Emotion】送你 50 积分 · 体验奖励");
     expect(lines[1]).toBe("点击领取：https://www.lfjmwl.com/redeem?code=HF7KM2QX");
     expect(lines[2]).toContain("HF7K-M2QX");
     expect(lines[3]).toBe("限前 100 名 · 新用户专享 · 长期有效 · 每人限领一次");

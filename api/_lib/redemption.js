@@ -37,8 +37,8 @@ export function cleanCode(code) {
 export const POINT_USES = [
   { key: "unlock", label: "解锁题材异动", note: `${POINTS.unlockHours} 小时内有效`, cost: POINTS.unlock, href: "/shortemotion/cn" },
   { key: "limitup", label: "解锁涨停情绪", note: `${POINTS.unlockHours} 小时内有效`, cost: POINTS.unlockLimitup, href: "/limitup" },
-  { key: "analysis", label: "个股技术分析", note: "每次分析", cost: POINTS.analysis, href: "/technicalanalysis" },
-  { key: "sectorflow", label: "解锁板块资金", note: `${POINTS.unlockHours} 小时内有效`, cost: POINTS.unlockSectorflow, href: "/sectorflow" }
+  { key: "analysis", label: "个股分析", note: "每次分析", cost: POINTS.analysis, href: "/technicalanalysis" },
+  { key: "sectorflow", label: "解锁资金流向", note: `${POINTS.unlockHours} 小时内有效`, cost: POINTS.unlockSectorflow, href: "/sectorflow" }
 ];
 
 export async function redeemPoints(config, token, code, claim) {

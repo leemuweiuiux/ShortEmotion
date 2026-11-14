@@ -4,7 +4,7 @@ import { exportHeader, exportFooter, renderImage, prepareExportAssets, shareOrDo
 import { toast } from "/shared/nav-account.js?v=4";
 
 const $ = (selector) => document.querySelector(selector);
-const footer = () => exportFooter({ title: "ShortEmotion · 涨停情绪", line: "查看市场情绪与涨停结构", note: "仅用于研究与情绪观察，不构成投资建议" });
+const footer = () => exportFooter({ title: "Market Emotion · 涨停情绪", line: "查看市场情绪与涨停结构", note: "仅用于研究与情绪观察，不构成投资建议" });
 function subtitle() { return $("#quote-time")?.textContent?.trim() || "行情时间以页面为准"; }
 function sections() { return [...document.querySelectorAll("#lu-content > .section")]; }
 function cloneSection(node) {

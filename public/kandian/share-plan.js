@@ -13,7 +13,7 @@ export function editionTitle(article) {
 /** 底部说明：标题随这一期。 */
 export function shareFooter(article) {
   return {
-    title: `ShortEmotion · ${editionTitle(article)}`,
+    title: `Market Emotion · ${editionTitle(article)}`,
     line: "扫码查看每日看点与短线情绪",
     note: "lfjmwl.com · 仅用于研究与市场观察，不构成投资建议"
   };

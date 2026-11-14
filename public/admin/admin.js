@@ -106,7 +106,7 @@ function showTab(name) {
   for (const item of TABS) $(`#tab-${item}`).hidden = item !== tab;
   menu.querySelectorAll("[data-tab]").forEach((link) => { if (link.dataset.tab === tab) link.setAttribute("aria-current", "page"); else link.removeAttribute("aria-current"); });
   $("#page-title").textContent = TITLES[tab];
-  document.title = `${TITLES[tab]} · 管理后台 · ShortEmotion`;
+  document.title = `${TITLES[tab]} · 管理后台 · Market Emotion`;
   if (tab === "ledger" && !ledgerLoaded) loadLedger(false);
   if (tab === "redemption") redemption.load();
   if (location.hash.slice(1) !== tab) history.replaceState(null, "", tab === "overview" ? location.pathname : `#${tab}`);
