@@ -164,7 +164,7 @@ function render() {
   viewDrawer.setBusy(busy);
   const decision = data.finalDecision || {};
   $("#ta-result").hidden = false;
-  document.title = `${data.name} · 个股技术分析`;
+  document.title = `${data.name} · 个股分析 · Market Emotion`;
 
   setText("#ta-name", data.name);
   setText("#ta-code", data.code);
@@ -544,7 +544,7 @@ let exporting = false;
 
 function exportBase() {
   const day = String(current?.asOf || "").slice(0, 10).replaceAll("-", "");
-  return `个股技术分析-${current?.name || ""}-${String(current?.code || "").split(".")[0]}-${day}`;
+  return `个股分析-${current?.name || ""}-${String(current?.code || "").split(".")[0]}-${day}`;
 }
 
 // Logo、二维码先转成内嵌图片：导出时不用等图片加载（iPhone Safari 对画面外的图片有时不触发加载完成）
@@ -571,14 +571,14 @@ const asset = (key) => assetCache[key] || EXPORT_ASSETS[key];
 function exportHeader(subtitle = "") {
   const head = document.createElement("div");
   head.className = "export-head";
-  head.innerHTML = `<img src="${asset("logo")}" alt="ShortEmotion"><div><b>${esc(`${current.name} ${current.code}`)}${subtitle ? ` · ${esc(subtitle)}` : ""}</b><small>${esc(current.date)}</small></div>`;
+  head.innerHTML = `<img src="${asset("logo")}" alt="Market Emotion"><div><b>${esc(`${current.name} ${current.code}`)}${subtitle ? ` · ${esc(subtitle)}` : ""}</b><small>${esc(current.date)}</small></div>`;
   return head;
 }
 
 function exportFooter() {
   const footer = document.createElement("div");
   footer.className = "export-footer";
-  footer.innerHTML = `<div class="export-footer-text"><b>ShortEmotion · 个股技术分析</b><span>扫码查看个股技术分析与每日短线情绪</span><small>lfjmwl.com · 仅用于研究与技术观察，不构成投资建议</small></div><img class="export-qr" src="${asset("qr")}" alt="lfjmwl.com">`;
+  footer.innerHTML = `<div class="export-footer-text"><b>Market Emotion · 个股分析</b><span>扫码查看个股分析与每日短线情绪</span><small>lfjmwl.com · 仅用于研究与技术观察，不构成投资建议</small></div><img class="export-qr" src="${asset("qr")}" alt="lfjmwl.com">`;
   return footer;
 }
 
@@ -692,7 +692,7 @@ function downloadBlob(blob, name) {
 async function shareOrDownload(files) {
   const asFiles = typeof File === "function" ? files.map((item) => new File([item.blob], item.name, { type: "image/png" })) : [];
   if (asFiles.length && window.matchMedia("(pointer: coarse)").matches && navigator.canShare?.({ files: asFiles })) {
-    await navigator.share({ files: asFiles, title: "个股技术分析" }).catch((error) => { if (error?.name !== "AbortError") throw error; });
+    await navigator.share({ files: asFiles, title: "个股分析" }).catch((error) => { if (error?.name !== "AbortError") throw error; });
     return;
   }
   for (const item of files) {

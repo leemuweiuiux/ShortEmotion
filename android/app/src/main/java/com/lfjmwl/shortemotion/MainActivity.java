@@ -246,7 +246,7 @@ public class MainActivity extends Activity {
         try {
             try (OutputStream output = getContentResolver().openOutputStream(uri)) { if (output == null) throw new java.io.IOException(); output.write(image.bytes()); }
             values.clear(); values.put(MediaStore.Images.Media.IS_PENDING, 0); getContentResolver().update(uri, values, null, null);
-            toast("已保存到相册 · ShortEmotion");
+            toast("已保存到相册 · Market Emotion");
         } catch (Exception e) { getContentResolver().delete(uri,null,null); throw e; }
     }
     private void nextSave() {

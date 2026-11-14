@@ -5,7 +5,7 @@ const labels={amount:'当日净流入（亿元）',day:'较昨日',week:'较近�
 const valid=n=>n!==null&&n!==undefined&&Number.isFinite(Number(n));
 const date=d=>`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`;
 const node=(title,html)=>{const e=document.createElement('section');e.className='card ef-export-card';e.innerHTML=`<h2 class="card-title">${esc(title)}</h2>${html}`;return e;};
-const footer=()=>exportFooter({title:'ShortEmotion · 宽基ETF资金',line:'观察宽基ETF申购赎回与资金变化',note:'净流入为份额变动×单位净值估算；仅供研究，不构成投资建议。'});
+const footer=()=>exportFooter({title:'Market Emotion · 宽基ETF',line:'观察宽基ETF申购赎回与资金变化',note:'净流入为份额变动×单位净值估算；仅供研究，不构成投资建议。'});
 function metricValue(g,data,metric){
  if(metric==='amount'){const amount=g.points.find(p=>p.date===data.date)?.amount;return {text:etfNumber(amount),color:etfColor(amount),coverage:''};}
  const c=g.comparison[metric];return {text:c?.state==='missing'?'—':c.pct!=null?`${etfNumber(c.pct,1)}%`:`${etfNumber(c.delta)} 亿`,color:etfColor(c?.delta),coverage:c?.covered<c?.expected?`有效样本 ${c.covered}/${c.expected}只`:''};
@@ -24,7 +24,7 @@ export function heatmapPanels(data){
 }
 export function buildEtfExport(data,{kind='card',selected='hs300',metric='amount'}={}){
  if(!data?.ready||data.locked||!data.series?.length)throw new Error('请先解锁并加载宽基ETF数据');
- const parts=[exportHeader('宽基 ETF 资金',`数据日期 ${date(data.date)}`),node('资金概览',etfOverviewMarkup(data)),groups(data,metric,kind==='long')];
+ const parts=[exportHeader('宽基ETF',`数据日期 ${date(data.date)}`),node('资金概览',etfOverviewMarkup(data)),groups(data,metric,kind==='long')];
  if(kind==='long'){
   parts.push(...heatmapPanels(data));
   const group=data.series.find(g=>g.id===selected),funds=data.funds.filter(f=>f.group===selected).map(f=>({...f,amount:f.points.find(p=>p.date===data.date)?.amount})).sort((a,b)=>(b.amount??-Infinity)-(a.amount??-Infinity));
@@ -45,7 +45,7 @@ export function setupEtfShare(button,{data,selected,metric,toast}){
    await loadImageExporter();
    await withTimeout(prepareExportAssets(),8000).catch(()=>{});
    const blob=await renderImage(buildEtfExport(snapshot,{kind,selected:selected(),metric:metric()}),{extraClass:'ef-export'});
-   const title=`宽基ETF资金-${kind==='long'?'长图':'小卡'}`;
+   const title=`宽基ETF-${kind==='long'?'长图':'小卡'}`;
    showGallery([{blob,name:`${title}-${snapshot.date}.png`,title}],{heading:title,shareTitle:title,onError:e=>toast(`保存失败：${e.message}`,true)});
    toast(kind==='long'?'长图已生成':'小卡已生成');
   }catch(e){toast(`导出失败：${e.message||String(e)}`,true);}finally{busy=false;button.disabled=Boolean(data()?.locked)||!data()?.ready;button.removeAttribute('aria-busy');}

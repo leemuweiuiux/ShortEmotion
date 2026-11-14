@@ -53,7 +53,7 @@ describe("每日看点：文章页", () => {
     expect(out.cache).toMatch(/s-maxage=\d+/);
     const html = out.body;
     expect(html).toContain('<html lang="zh-CN">');
-    expect(html).toContain("<title>10月30日午间看点｜医药产业链接棒点火 20261030-noon · ShortEmotion</title>");
+    expect(html).toContain("<title>10月30日午间看点｜医药产业链接棒点火 20261030-noon · Market Emotion</title>");
     expect(html).toContain("<h1>午间看点｜医药产业链接棒点火 20261030-noon</h1>");
     expect(html).toContain("第1段&lt;标题&gt;"); // 转义
     expect(html).toContain("正文第4段：资金流入与连板梯队。");
@@ -87,12 +87,12 @@ describe("每日看点：文章页", () => {
       inLanguage: "zh-Hans",
       url: `${SITE}/news/20261030-noon`,
       author: [expect.objectContaining({ name: "Komidomi" })],
-      publisher: expect.objectContaining({ name: "ShortEmotion" }),
+      publisher: expect.objectContaining({ name: "Market Emotion" }),
       isAccessibleForFree: true
     });
     expect(Date.parse(news.dateModified)).toBeGreaterThanOrEqual(Date.parse(news.datePublished));
     expect(crumbs["@type"]).toBe("BreadcrumbList");
-    expect(crumbs.itemListElement.map((i) => i.name)).toEqual(["ShortEmotion", "每日看点", news.headline]);
+    expect(crumbs.itemListElement.map((i) => i.name)).toEqual(["Market Emotion", "每日看点", news.headline]);
   });
 
   it("繁体：/zh-hant/news/<id> 全页转换，网址与语言标记对应", async () => {

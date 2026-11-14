@@ -158,7 +158,7 @@ async function exportCards() {
       const blob = await renderImage([
         exportHeader(title, subtitle),
         section,
-        exportFooter({ title: "ShortEmotion", line, note: "仅供研究参考。" }),
+        exportFooter({ title: "Market Emotion", line, note: "仅供研究参考。" }),
       ], { extraClass: "watch-export" });
       files.push({ blob, title, name: `${title}${date ? "-" + date : ""}.png` });
     }

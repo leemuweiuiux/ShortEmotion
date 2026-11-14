@@ -1,4 +1,4 @@
-# ShortEmotion Android 1.0.0
+# Market Emotion Android
 
 Package: `com.lfjmwl.shortemotion`; Android 8.0+; target SDK 35; Java 17.
 

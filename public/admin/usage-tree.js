@@ -2,7 +2,7 @@
 const FEATURES = {
   about: ['About · 产品介绍', '/about'], login: ['登录', '/login'], home: ['Home · 首页', '/home'],
   shortemotion: ['短线情绪', '/shortemotion/cn'], anomalies: ['题材异动', '短线情绪内解锁'],
-  technicalanalysis: ['个股分析', '/technicalanalysis'], sectorflow: ['板块资金', '/sectorflow'], etfflow: ['宽基 ETF', '/etfflow'], redemption: ['积分兑换', '/account/redeem'],
+  technicalanalysis: ['个股分析', '/technicalanalysis'], sectorflow: ['资金流向', '/sectorflow'], etfflow: ['宽基ETF', '/etfflow'], redemption: ['积分兑换', '/account/redeem'],
   limitup: ['涨停情绪', '/limitup'], kandian: ['看点', '/kandian'], article: ['文章详情', '/kandian/article · /news/文章'],
   account: ['个人中心', '/account'], signin: ['每日签到', '/account/signin'], points: ['积分流水', '/account/points'],
   settings: ['设置', '/account/settings'], profile: ['编辑资料', '/account/edit'], invite: ['邀请', '/account/invite'], legal: ['条款与隐私', '/terms · /privacy']

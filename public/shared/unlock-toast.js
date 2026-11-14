@@ -2,7 +2,7 @@ const features = {
   anomalies: '题材异动',
   limitup: '涨停情绪',
   sectorflow: '资金流向',
-  etfflow: '宽基ETF资金'
+  etfflow: '宽基ETF'
 };
 
 export function showUnlockSuccess(toast, feature, payload) {
