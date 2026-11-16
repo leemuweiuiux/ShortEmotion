@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildSnapshot } from "../scripts/qdii/build-snapshot.mjs";
-import { horizonRows } from "../public/qdii/board.js";
+import { horizonRows, isHit } from "../public/qdii/board.js";
 
 const seed = JSON.parse(readFileSync(new URL("../scripts/qdii/curated.json", import.meta.url), "utf8"));
 const bundled = JSON.parse(readFileSync(new URL("../public/qdii/snapshot.json", import.meta.url), "utf8"));
@@ -18,16 +18,19 @@ describe("QDII 日频快照", () => {
     expect(bundled.funds.map((item) => item.announcedAge)).toEqual([23, 167, 39]);
   });
 
-  it("看板按交易日汇总上涨概率、平均涨跌、Beat/Miss 与本次实绩", () => {
+  it("收紧看跌、放宽看涨：按交易日汇总命中率、命中绩效、累计涨跌与本次是否命中", () => {
     const [fund] = bundled.funds;
-    const [t5] = horizonRows(bundled, fund, "tighten");
-    expect(t5.stat).toMatchObject({ total: 10, up: 3 });
-    expect(t5.scores).toEqual({ beat: 5, miss: 2, tie: 0 });
-    expect(t5.mean).toBeCloseTo(-0.006, 3);
-    expect(t5.current.audit.result).toBe("beat");
+    const [t5, , t20] = horizonRows(bundled, fund, "tighten");
+    expect(t5).toMatchObject({ settled: 10, hits: 7 });
+    expect(t5.hitRate).toBeCloseTo(0.7, 5);
+    expect(t5.hitPerf).toBeCloseTo(0.139, 3);
+    expect(t5.netPerf).toBeCloseTo(0.063, 3);
+    expect(Math.round(t5.baseRate * 100)).toBe(42);
+    expect(t20).toMatchObject({ settled: 10, hits: 4 });
+    expect(isHit("tighten", t5.current.return)).toBe(true);
+    expect(isHit("ease", 0.01)).toBe(true);
+    expect(isHit("tighten", 0)).toBe(false);
     expect(horizonRows(bundled, fund, "ease")[0].current).toBeNull();
-    expect(t5.lean).toBe("bear");
-    expect(Math.round(t5.base.up / t5.base.total * 100)).toBe(58);
   });
 
   it("QDII 不在底部主导航，改为首页模块", () => {
@@ -62,6 +65,6 @@ describe("QDII 日频快照", () => {
     expect(snapshot.funds[0].current).toMatchObject({ effective: "2026-10-15", cap: 0 });
     expect(snapshot.funds[0].age).toBe(32);
     expect(snapshot.funds[0].announcedAge).toBe(3);
-    expect(snapshot.funds[0].current.horizons[5]).toEqual({ end: null, return: null, audit: null });
+    expect(snapshot.funds[0].current.horizons[5]).toEqual({ end: null, return: null });
   });
 });
