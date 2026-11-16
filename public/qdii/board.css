@@ -20,7 +20,7 @@
 .qdii-table-wrap { min-width: 0; overflow-x: auto; }
 .qdii-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
 .qdii-table th, .qdii-table td { padding: 8px 4px; border-top: 1px solid var(--border); text-align: right; vertical-align: top; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.qdii-col-day { width: 18%; }
+.qdii-col-day { width: 16%; }
 /* 详情页：点选交易日行 */
 .qdii-table.is-pickable tbody tr[data-horizon] { cursor: pointer; }
 .qdii-table.is-pickable tbody tr[data-horizon]:hover > * { background: var(--panel); }
@@ -34,7 +34,7 @@
 .qdii-table b { font-family: "Manrope", sans-serif; font-weight: 700; }
 .qdii-table small { display: block; margin-top: 1px; color: var(--muted); font-size: 11px; }
 .qdii-muted { color: var(--muted); font-weight: 500; }
-.qdii-score[data-score="beat"] { color: var(--ink) !important; font-weight: 600; }
+.qdii-score[data-hit="true"] { color: var(--ink) !important; font-weight: 600; }
 /* 今天所在位置：本次公告已走到的美股交易日 */
 .qdii-table .qdii-now td { padding: 0; border-top: 2px solid var(--negative); text-align: left; }
 .qdii-now span { display: inline-block; padding: 2px 0 4px; color: var(--negative); font-size: 11px; font-weight: 600; }
@@ -60,4 +60,3 @@
 .qdii-board :is(button, a):focus { outline: none; }
 .qdii-board :is(button, a):focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .qdii-fund-pick { -webkit-tap-highlight-color: transparent; }
-.qdii-lean { margin-left: 2px; font-family: "Manrope", sans-serif; font-size: 12px; font-style: normal; font-weight: 700; }

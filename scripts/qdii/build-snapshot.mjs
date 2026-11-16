@@ -4,7 +4,6 @@ import { pathToFileURL } from "node:url";
 
 const HORIZONS = [5, 10, 20, 40, 60, 90, 120, 180, 250];
 const DAY = 86_400_000;
-const MIN_TRAINING = 3;
 const SHANGHAI_DAY = /^\d{4}-\d{2}-\d{2}$/;
 const capValue = (cap) => cap === "unlimited" ? Infinity : cap;
 
@@ -36,18 +35,6 @@ function summary(rows) {
     if (row.change > 0) up++;
   }
   return { total: rows.length, down, up, flat: rows.length - down - up, from: rows[0]?.date || null, to: rows.at(-1)?.date || null };
-}
-
-function scoring(signal, baseline, outcome) {
-  if (signal.total < MIN_TRAINING || !baseline.total) return null;
-  const estimate = signal.down / signal.total;
-  const reference = baseline.down / baseline.total;
-  const scored = outcome != null;
-  const target = scored && outcome < 0 ? 1 : 0;
-  const score = scored ? (estimate - target) ** 2 : null;
-  const benchmarkScore = scored ? (reference - target) ** 2 : null;
-  return { estimate, reference, samples: signal.total, score, benchmarkScore,
-    result: !scored ? null : Math.abs(score - benchmarkScore) <= 1e-12 ? "tie" : score < benchmarkScore ? "beat" : "miss" };
 }
 
 export function buildSnapshot(curated, data) {
@@ -94,15 +81,11 @@ export function buildSnapshot(curated, data) {
         };
       }
     }
+    // 每笔公告各观察期的实际涨跌；命中（收紧看跌、放宽看涨）在前端按方向判断
     const results = activeEvents.map(({ anchor, effectiveAnchor, ...event }) => {
-      const prior = activeEvents.filter((item) => item.anchor < anchor && item.direction === event.direction);
-      const trainingStarts = prior.map((point) => [point.anchor, point.announced]);
       const horizons = Object.fromEntries(HORIZONS.map((horizon) => {
         const [actual] = observations([[anchor, event.announced]], horizon, marketEnd, market);
-        const signal = summary(observations(trainingStarts, horizon, anchor, market));
-        const benchmark = summary(observations(referenceStarts, horizon, anchor, market));
-        const audit = scoring(signal, benchmark, actual?.change);
-        return [horizon, { end: actual ? days[actual.end] : null, return: actual?.change ?? null, audit }];
+        return [horizon, { end: actual ? days[actual.end] : null, return: actual?.change ?? null }];
       }));
       return { ...event, anchorDate: days[anchor] || null, horizons };
     });
@@ -110,7 +93,7 @@ export function buildSnapshot(curated, data) {
       checkedThrough: fund.checkedThrough || curated.verifiedOn, review: fund.review || [],
       current: results.at(-1), events: results.slice().reverse() };
   });
-  return { verifiedOn: curated.verifiedOn, indexThrough: days.at(-1), horizons: HORIZONS, minimumTraining: MIN_TRAINING, reference, funds };
+  return { verifiedOn: curated.verifiedOn, indexThrough: days.at(-1), horizons: HORIZONS, reference, funds };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

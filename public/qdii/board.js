@@ -1,12 +1,13 @@
-// QDII 限额看板：顶部选基金（申购状态），下方按交易日看历史上涨概率（对比平时）、平均涨跌、猜中/猜错与本次实绩。
+// QDII 限额看板：顶部选基金（申购状态），下方按交易日看命中率（对比平时）、命中绩效、累计涨跌与本次实绩。
+// 假设：收紧看跌、放宽看涨；T+N 收盘相对公告前最后一个纳指收盘的涨跌符合预期即命中（平盘不算）。
 // 首页模块与 /qdii 详情页共用。
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const number = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 });
 export const directionLabel = { tighten: "收紧", ease: "放宽" };
-export const scoreLabel = { beat: "猜中", miss: "猜错", tie: "持平" };
-// 与平时（2020 年起任意时点同期限纳指）相比：下跌比例更高为偏空，更低为偏多。猜中/猜错即偏空遇跌、偏多遇涨。
-export const leanOf = (down, baseDown) => down > baseDown ? "bear" : down < baseDown ? "bull" : "even";
-export const leanLabel = { bear: "偏空", bull: "偏多", even: "持平" };
+// 收紧预期下跌（-1）、放宽预期上涨（+1）；按信号方向计的绩效 = 方向 × 纳指涨跌
+export const expectedSign = { tighten: -1, ease: 1 };
+export const isHit = (direction, change) => expectedSign[direction] * change > 0;
+export const hitLabel = (hit) => hit ? "命中" : "未命中";
 
 export const percent = (ratio, signed = false) =>
   `${signed && ratio > 0 ? "+" : ""}${ratio < 0 ? "−" : ""}${Math.abs(ratio * 100).toFixed(1)}%`;
@@ -41,18 +42,24 @@ function announcedAge(fund) {
 
 export function horizonRows(snapshot, fund, direction) {
   const isCurrent = direction === fund.current.direction;
+  const sign = expectedSign[direction];
   return snapshot.horizons.map((horizon) => {
-    const stat = fund.history[direction][horizon].announced;
-    const settled = fund.events.filter((event) => event.direction === direction && event.horizons[horizon].return !== null);
-    const mean = settled.length ? settled.reduce((sum, event) => sum + event.horizons[horizon].return, 0) / settled.length : null;
-    const scores = { beat: 0, miss: 0, tie: 0 };
-    for (const event of settled) {
-      const result = event.horizons[horizon].audit?.result;
-      if (result) scores[result]++;
-    }
+    const changes = fund.events
+      .filter((event) => event.direction === direction && event.horizons[horizon].return !== null)
+      .map((event) => event.horizons[horizon].return);
+    const hits = changes.filter((change) => sign * change > 0);
     const base = snapshot.reference[horizon];
-    const lean = stat.total ? leanOf(stat.down / stat.total, base.down / base.total) : null;
-    return { horizon, stat, mean, scores, base, lean, current: isCurrent ? fund.current.horizons[horizon] : null };
+    return {
+      horizon,
+      settled: changes.length,
+      hits: hits.length,
+      hitRate: changes.length ? hits.length / changes.length : null,
+      hitPerf: hits.reduce((sum, change) => sum + sign * change, 0),
+      netPerf: changes.length ? changes.reduce((sum, change) => sum + sign * change, 0) : null,
+      // 平时：2020 年起任意时点同期限纳指，收紧看下跌比例、放宽看上涨比例
+      baseRate: (sign < 0 ? base.down : base.up) / base.total,
+      current: isCurrent ? fund.current.horizons[horizon] : null
+    };
   });
 }
 
@@ -89,26 +96,25 @@ function tableMarkup(snapshot, fund, direction, picked = null) {
   const body = rows.map((row) => {
     let html = "";
     if (!placed && age < row.horizon) { html += now; placed = true; }
-    const { stat, mean, scores, base, lean, current } = row;
-    const arrow = lean === "bear" ? '<i class="qdii-lean down-text" aria-label="偏空">↓</i>' : lean === "bull" ? '<i class="qdii-lean up-text" aria-label="偏多">↑</i>' : "";
-    const probability = `${stat.total ? `<b>${(stat.up / stat.total * 100).toFixed(0)}%</b>${arrow}` : '<b class="qdii-muted">—</b>'}<small>平时 ${(base.up / base.total * 100).toFixed(0)}%</small>`;
-    const average = mean === null ? '<span class="qdii-muted">—</span>' : `<b class="${trendClass(mean)}">${percent(mean, true)}</b>`;
-    const scored = scores.beat + scores.miss + scores.tie;
-    const score = `${scored ? `<b>${scores.beat}</b><span class="qdii-muted"> / ${scores.miss}</span>` : '<span class="qdii-muted">—</span>'}<small>${stat.total} 次</small>`;
+    const { settled, hits, hitRate, hitPerf, netPerf, baseRate, current } = row;
+    const baseText = `平时${direction === "tighten" ? "跌" : "涨"} ${(baseRate * 100).toFixed(0)}%`;
+    const rate = `${hitRate === null ? '<b class="qdii-muted">—</b>' : `<b>${(hitRate * 100).toFixed(0)}%</b>`}<small>${hits}/${settled}</small><small>${baseText}</small>`;
+    const gained = settled ? `<b class="${trendClass(hitPerf)}">${percent(hitPerf, true)}</b>` : '<span class="qdii-muted">—</span>';
+    const net = netPerf === null ? '<span class="qdii-muted">—</span>' : `<b class="${trendClass(netPerf)}">${percent(netPerf, true)}</b>`;
     let latest = '<span class="qdii-muted">—</span>';
     if (current) {
       latest = current.return === null ? '<span class="qdii-muted">未到期</span>'
-        : `<b class="${trendClass(current.return)}">${percent(current.return, true)}</b>${current.audit?.result ? `<small class="qdii-score" data-score="${current.audit.result}">${scoreLabel[current.audit.result]}</small>` : ""}`;
+        : `<b class="${trendClass(current.return)}">${percent(current.return, true)}</b><small class="qdii-score" data-hit="${isHit(direction, current.return)}">${hitLabel(isHit(direction, current.return))}</small>`;
     }
     const head = picked === null ? `T+${row.horizon}`
       : `<button type="button" class="qdii-row-pick" data-horizon="${row.horizon}" aria-pressed="${row.horizon === picked}">T+${row.horizon}</button>`;
     const active = row.horizon === picked ? ' class="is-picked"' : "";
-    return html + `<tr${active}${picked === null ? "" : ` data-horizon="${row.horizon}"`}><th scope="row">${head}</th><td>${probability}</td><td>${average}</td><td>${score}</td><td>${latest}</td></tr>`;
+    return html + `<tr${active}${picked === null ? "" : ` data-horizon="${row.horizon}"`}><th scope="row">${head}</th><td>${rate}</td><td>${gained}</td><td>${net}</td><td>${latest}</td></tr>`;
   }).join("");
   // 固定栏宽：切换收紧／放宽时各栏不跳动
   return `<table class="qdii-table${picked === null ? "" : " is-pickable"}">
     <colgroup><col class="qdii-col-day"><col><col><col><col></colgroup>
-    <thead><tr><th scope="col">交易日</th><th scope="col">上涨概率</th><th scope="col">平均涨跌</th><th scope="col">猜中/猜错</th><th scope="col">本次</th></tr></thead>
+    <thead><tr><th scope="col">交易日</th><th scope="col">命中率</th><th scope="col">命中绩效</th><th scope="col">累计涨跌</th><th scope="col">本次</th></tr></thead>
     <tbody>${body}${placed ? "" : now}</tbody>
   </table>`;
 }
@@ -127,7 +133,7 @@ export function mountQdiiBoard(root, snapshot, { onChange, pickHorizon = null } 
       </div>
     </div>
     <div class="qdii-table-wrap" aria-live="polite"></div>
-    <p class="qdii-time">↓偏空 ↑偏多（与平时比）· 偏空遇跌、偏多遇涨算猜中 · T+N 为美股交易日</p>`;
+    <p class="qdii-time">收紧看跌、放宽看涨，方向对了算命中；命中绩效与累计涨跌按信号方向计 · T+N 为美股交易日</p>`;
   const funds = root.querySelector(".qdii-funds");
   const seg = root.querySelector(".qdii-seg");
 
