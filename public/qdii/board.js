@@ -66,6 +66,15 @@ function fundCard(fund, selected, through) {
   </article>`;
 }
 
+// 首页用：只展示申购状态，不可点选（操作在 /qdiitrend 详情页）
+export function staticFundCards(snapshot) {
+  return snapshot.funds.map(({ name, current }) => `<article class="qdii-fund">
+    <span class="qdii-fund-name">${esc(name)}</span>
+    <span class="qdii-fund-date">${esc(shortDate(current.announced, snapshot.indexThrough))} 公告</span>
+    <span class="qdii-fund-change"><span class="pill">${directionLabel[current.direction]}</span><b>${capLabel(current.previous)} → ${capLabel(current.cap)}</b></span>
+  </article>`).join("");
+}
+
 function tableMarkup(snapshot, fund, direction) {
   const age = announcedAge(fund);
   const isCurrent = direction === fund.current.direction;
