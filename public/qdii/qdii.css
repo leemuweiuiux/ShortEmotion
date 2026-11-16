@@ -16,7 +16,6 @@
 .qdii-event b { font-family: "Manrope", sans-serif; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .qdii-event-result { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .qdii-event-result b { min-width: 52px; text-align: right; }
-.qdii-event-lean { color: var(--muted); font-size: 12px; white-space: nowrap; }
 .qdii-event-result .pill { min-width: 48px; text-align: center; }
 .qdii-more { justify-self: start; min-height: 32px; margin-top: 4px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
 .qdii-method summary { cursor: pointer; }
