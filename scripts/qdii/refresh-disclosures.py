@@ -14,7 +14,7 @@ from pypdf import PdfReader
 
 HEADERS = {"User-Agent": "Mozilla/5.0", "Referer": "https://fundf10.eastmoney.com/"}
 CN_DATE = r"(20\d{2})年(\d{1,2})月(\d{1,2})日"
-AMOUNT = r"([\d,]+(?:\.\d+)?)(万)?元"
+AMOUNT = r"([\d,]+(?:\.\d+)?)(万)?(?:元|人民币)"
 HOLIDAY = re.compile(r"(?:节假日|假期|圣诞节|春节|劳动节|国庆节|中秋节|端午节|清明节|非港股通|非交易日|海外休市)")
 CAP_TITLE = re.compile(r"(?:申购|定期定额).*(?:业务|金额|调整|上限|限制|公告)|(?:调整|暂停|恢复|限制).*(?:申购|定期定额)")
 REPORT_TITLE = re.compile(r"20\d{2}年(?:第[一二三四1234]季度|中期|年度|半年度)报告$")
@@ -33,26 +33,36 @@ def to_date(groups):
     return date(*map(int, groups)).isoformat()
 
 
+def limit_amounts(text, code):
+    amounts = {"agency": set(), "direct": set(), "any": set()}
+    for match in re.finditer(r"(?:业务限额为|申购限额为|单日限额为|申购上限为|限制金额为|不超过|不得超过|超过)(?:人民币)?" + AMOUNT, text):
+        preceding = text[max(0, match.start() - 80):match.start()]
+        if "美元" in preceding[-30:] or not re.search(r"申购|定期定额|转换转入|限制金额", preceding):
+            continue
+        if re.search(r"[EI]类", preceding[-60:]) and not re.search(r"A类|" + code, preceding[-60:]):
+            continue
+        channel = "agency" if re.search(r"代销|直销(?:渠道|机构)?以外", preceding) else "direct" if "直销" in preceding else "any"
+        number, unit = match.groups()
+        amounts[channel].add(float(number.replace(",", "")) * (10_000 if unit else 1))
+    return amounts["agency"] or amounts["any"] or amounts["direct"]
+
+
 def parse_limit(title, text, code, published):
     if "继续暂停" in title or HOLIDAY.search(title) or "销售机构" in title or "转换业务" in title:
         return None
-    if ("美元份额" in title or "美元现汇" in title or "C类份额" in title) and "人民币" not in title and "A类" not in title:
+    if ("美元份额" in title or "美元现汇" in title or re.search(r"[CEI]类(?:基金)?份额", title)) and "人民币" not in title and "A类" not in title:
         return None
     if code not in text:
         raise ValueError("正文未找到对应基金代码")
-    found = re.search(r"(?:暂停申购起始日|恢复申购日|限制大额申购起始日|恢复大额申购日|自)" + CN_DATE, text)
+    found = re.search(r"(?:暂停申购起始日|恢复申购日|(?:限制|暂停|调整)大额申购(?:业务金额限制)?起始日|恢复大额申购(?:起始)?日|自)" + CN_DATE, text)
     if not found:
         raise ValueError("缺少限额生效日")
     effective = to_date(found.groups())
     if effective < published:
         raise ValueError("限额生效日早于公告日")
     details = re.split(r"(?:2[.．、]其他需要提示的事项|其他需要提示的事项)", text, maxsplit=1)[-1]
-    amounts = set()
-    for match in re.finditer(r"(?:业务限额为|申购限额为|单日限额为|申购上限为|不超过|不得超过|超过)" + AMOUNT, details):
-        preceding = details[max(0, match.start() - 65):match.start()]
-        if "美元" not in preceding[-30:] and re.search(r"申购|定期定额|转换转入", preceding):
-            number, unit = match.groups()
-            amounts.add(float(number.replace(",", "")) * (10_000 if unit else 1))
+    # 直销、代销限额不同时取代销（大多数人通过代销平台申购，2026-11-16）；只针对 E/I 类份额的金额不计入 A 类
+    amounts = limit_amounts(details, code) or limit_amounts(text, code)  # 金额只写在第 1 节「注」里时退回全文
     if "暂停申购" in title and "大额" not in title and "恢复" not in title:
         return effective, 0
     if len(amounts) == 1:
