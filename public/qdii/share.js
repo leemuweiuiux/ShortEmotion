@@ -2,7 +2,7 @@
 // 做法同宽基 ETF：克隆进屏幕外 600px 容器，用 html-to-image 截成 PNG（/shared/export-image.js）。
 import { loadImageExporter } from "/shared/export-loader.js?v=1";
 import { exportHeader, exportFooter, renderImage, prepareExportAssets, showGallery, withTimeout, esc } from "/shared/export-image.js?v=2";
-import { NOTE, directionLabel, indexGroups, staticCard, staticFundCards, tableMarkup } from "/qdii/board.js?v=7";
+import { NOTE, directionLabel, indexGroups, staticCard, staticFundCards, tableMarkup } from "/qdii/board.js?v=8";
 
 export function datesLine(snapshot) {
   const checked = snapshot.funds.map((fund) => fund.checkedThrough || snapshot.verifiedOn).sort()[0];
