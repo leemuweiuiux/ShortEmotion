@@ -60,11 +60,34 @@ describe("QDII 日频快照", () => {
         ["2026-11-16", 97, 0, 0]
       ]
     };
-    const snapshot = buildSnapshot({ ...seed, funds: [fund] }, data);
+    const snapshot = buildSnapshot({ ...seed, indices: seed.indices.slice(0, 1), funds: [fund] }, data);
     expect(snapshot.indexThrough).toBe("2026-11-13");
     expect(snapshot.funds[0].current).toMatchObject({ effective: "2026-10-15", cap: 0 });
     expect(snapshot.funds[0].age).toBe(32);
     expect(snapshot.funds[0].announcedAge).toBe(3);
     expect(snapshot.funds[0].current.horizons[5]).toEqual({ end: null, return: null });
+  });
+
+  it("纳指100、标普500 两组：各基金按所属指数结算，「平时」也用各自指数", () => {
+    expect(seed.indices.map((index) => [index.id, index.windcode])).toEqual([["ndx", "NDX.GI"], ["spx", "SPX.GI"]]);
+    const columns = ["TIME", "MATCH", "TURNOVER", "VOLUME"].map((name) => ({ name }));
+    const days = Array.from({ length: 40 }, (_, i) => new Date(Date.UTC(2026, 8, 1 + i)).toISOString().slice(0, 10));
+    const ndx = { columns, rows: days.map((day, i) => [day, 100 + i, 1, 1]) }; // 一路上涨
+    const spx = { columns, rows: days.map((day, i) => [day, 100 - i, 1, 1]) }; // 一路下跌
+    const source = "https://example.com/a.pdf";
+    const funds = [
+      { code: "N", name: "纳指基金", index: "ndx", shares: {}, events: [["2026-09-01", "2026-09-01", 1000, source], ["2026-09-05", "2026-09-05", 100, source]] },
+      { code: "S", name: "标普基金", index: "spx", shares: {}, events: [["2026-09-01", "2026-09-01", 1000, source], ["2026-09-05", "2026-09-05", 100, source]] }
+    ];
+    const snapshot = buildSnapshot({ ...seed, verifiedOn: "2026-10-10", referenceFrom: "2026-09-01", funds }, { ndx, spx });
+    expect(snapshot.indices.map((index) => index.id)).toEqual(["ndx", "spx"]);
+    expect(snapshot.funds.map((fund) => fund.index)).toEqual(["ndx", "spx"]);
+    expect(snapshot.funds[0].current.horizons[5].return).toBeGreaterThan(0);
+    expect(snapshot.funds[1].current.horizons[5].return).toBeLessThan(0);
+    const [nRow] = horizonRows(snapshot, snapshot.funds[0], "tighten");
+    const [sRow] = horizonRows(snapshot, snapshot.funds[1], "tighten");
+    expect([nRow.hits, nRow.baseRate]).toEqual([0, 0]);
+    expect([sRow.hits, sRow.baseRate]).toEqual([1, 1]);
+    expect(() => buildSnapshot({ ...seed, funds }, { ndx })).toThrow("缺少标普500日线");
   });
 });
