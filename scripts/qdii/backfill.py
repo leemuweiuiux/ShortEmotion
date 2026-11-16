@@ -61,6 +61,7 @@ def main():
             try:
                 body = rd.compact("".join(page.extract_text() or "" for page in PdfReader(BytesIO(rd.download(source))).pages))
                 entry["snippet"] = snippet(body)
+                entry["body"] = body[:6000]
                 parsed = rd.parse_limit(title, body, code, published)
                 entry["parsed"] = list(parsed) if parsed else None
             except Exception as error:
