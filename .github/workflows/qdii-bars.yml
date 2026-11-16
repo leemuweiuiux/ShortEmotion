@@ -1,0 +1,22 @@
+name: QDII bars (temporary)
+on:
+  push:
+    branches: [backfill/qdii-bars]
+permissions:
+  contents: write
+jobs:
+  bars:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/qdii/bars.mjs
+        env:
+          WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
+      - run: |
+          git add scripts/qdii/bars-output.json
+          git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -qm "QDII bars output"
+          git push origin HEAD:backfill/qdii-bars
