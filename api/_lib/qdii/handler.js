@@ -1,7 +1,7 @@
 import { DATA_RAW_BASE, githubToken } from "../short-emotion/github.js";
 import { requireSession } from "../session.js";
 
-const dataBranch = "qdii-data"; // 2026-11-16 起纳指100 + 标普500 两组（新格式，与旧的 qdii-exp-data 分开）
+const dataBranch = "qdii-thermo"; // 2026-11-17 起美股 QDII 温度计（全部基金家族），与主站旧格式的 qdii-data 分开
 const snapshotUrl = `${DATA_RAW_BASE}/${dataBranch}/snapshot.json`;
 const repoPath = new URL(DATA_RAW_BASE).pathname;
 const apiUrl = `https://api.github.com/repos${repoPath}/contents/snapshot.json?ref=${dataBranch}`;
