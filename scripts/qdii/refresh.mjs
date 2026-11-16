@@ -43,6 +43,7 @@ for (let year = 2020; year <= cutoff.getUTCFullYear(); year++) {
     throw new Error(`Wind 纳指日线字段发生变化（${year}）`);
   }
   data.rows.push(...block.rows);
+  if (year === cutoff.getUTCFullYear()) console.log("DEBUG", year, "rows", block.rows.length, "bytes", result._bytes, "nearLimit", result._nearLimit, JSON.stringify(block.columns.map(({ name }) => name)), JSON.stringify(block.rows.slice(-12)));
 }
 const snapshot = buildSnapshot(curated, data);
 if (snapshot.indexThrough > end ||
