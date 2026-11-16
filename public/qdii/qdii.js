@@ -1,5 +1,5 @@
 // /qdiitrend 详情页：看板（可点选交易日行）+ 份额变动 + 历次调整（跟随所选交易日）+ 口径说明。
-import { capLabel, directionLabel, esc, external, loadQdiiSnapshot, mountQdiiBoard, percent, scoreLabel, trendClass } from "/qdii/board.js?v=3";
+import { capLabel, directionLabel, esc, external, loadQdiiSnapshot, mountQdiiBoard, percent, scoreLabel, trendClass } from "/qdii/board.js?v=4";
 
 const $ = (id) => document.getElementById(id);
 const number = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 });
@@ -60,7 +60,7 @@ $("qdii-events").addEventListener("click", (event) => {
   if (!event.target.closest("#qdii-more")) return;
   showAll = !showAll;
   renderEvents();
-  $("qdii-more")?.focus();
+  if (event.detail === 0) $("qdii-more")?.focus();
 });
 
 try {

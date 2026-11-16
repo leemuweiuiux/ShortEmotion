@@ -57,3 +57,6 @@
 .home-qdii .qdii-fund { align-content: start; gap: 5px; }
 .home-qdii .qdii-funds > .loading, .home-qdii .qdii-funds > .empty { grid-column: 1 / -1; }
 @media (max-width: 420px) { .qdii-fund-change b { font-size: 12px; } }
+.qdii-board :is(button, a):focus { outline: none; }
+.qdii-board :is(button, a):focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.qdii-fund-pick { -webkit-tap-highlight-color: transparent; }

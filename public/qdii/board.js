@@ -144,14 +144,15 @@ export function mountQdiiBoard(root, snapshot, { onChange, pickHorizon = null } 
     fund = next;
     direction = fund.current.direction;
     render();
-    funds.querySelector('[aria-pressed="true"]')?.focus();
+    // 重绘后只为键盘操作补回焦点（event.detail === 0）；触屏/鼠标点按不聚焦，避免 iOS 出现蓝色焦点框
+    if (event.detail === 0) funds.querySelector('[aria-pressed="true"]')?.focus();
   });
   root.querySelector(".qdii-table-wrap").addEventListener("click", (event) => {
     const value = Number(event.target.closest("tr[data-horizon]")?.dataset.horizon);
     if (horizon === null || !snapshot.horizons.includes(value) || value === horizon) return;
     horizon = value;
     render();
-    root.querySelector(`.qdii-row-pick[data-horizon="${value}"]`)?.focus();
+    if (event.detail === 0) root.querySelector(`.qdii-row-pick[data-horizon="${value}"]`)?.focus();
   });
   seg.addEventListener("click", (event) => {
     const value = event.target.closest("button")?.value;
