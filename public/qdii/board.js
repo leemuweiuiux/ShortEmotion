@@ -46,17 +46,58 @@ export const ageLine = (signal, horizons) => {
     : `上次${signal.label}：${event.date} 进入，已过 T+${max} 观察期`;
 };
 
-// 温度状态：五段温度条（不可点）+ 指针标出当前等级
+// 五段温度条（不可点）+ 指针标出当前等级
+export const scaleMarkup = (snapshot) => `<div class="qdii-scale" role="img" aria-label="当前温度：${esc(signalOf(snapshot, snapshot.now.state).label)}">${snapshot.signals.map((item) =>
+  `<div class="qdii-scale-cell${item.id === snapshot.now.state ? " is-current" : ""}" data-level="${esc(item.id)}"><i></i><span>${esc(item.label)}</span></div>`).join("")}</div>`;
+
+// 温度状态：温度条 + 等级说明 + 进入日期与今天 T+N
 export function thermoMarkup(snapshot) {
   const { now } = snapshot;
   const current = signalOf(snapshot, now.state);
   const entry = currentEntry(snapshot);
   return `<div class="qdii-thermo" data-state="${esc(now.state)}">
-    <div class="qdii-scale" role="img" aria-label="当前温度：${esc(current.label)}">${snapshot.signals.map((item) =>
-      `<div class="qdii-scale-cell${item.id === now.state ? " is-current" : ""}" data-level="${esc(item.id)}"><i></i><span>${esc(item.label)}</span></div>`).join("")}</div>
+    ${scaleMarkup(snapshot)}
     <p class="qdii-state"><b>${esc(current.label)}</b><span>${esc(current.line)}</span></p>
     ${entry ? `<p class="qdii-time">${esc(entry.event.date)} 进入，今天 T+${entry.event.age}</p>` : ""}
   </div>`;
+}
+
+// 温度走势：指数周线，背景色带标出每段时间所处的等级（不显示占比与门槛）；from 起截取
+// 导出截图时 SVG 里的 CSS 变量不会被解析，改为直接写入颜色
+const LEVEL_VAR = { overheat: ["--negative", 0.3], warm: ["--warn", 0.3], normal: ["--muted", 0.18], layout: ["--positive", 0.15], enter: ["--positive", 0.35] };
+function chartColors() {
+  const style = getComputedStyle(document.documentElement);
+  const read = (name) => style.getPropertyValue(name).trim();
+  return { ink: read("--ink"), muted: read("--muted"), levels: Object.fromEntries(Object.entries(LEVEL_VAR).map(([id, [name, alpha]]) => [id, [read(name), alpha]])) };
+}
+
+export function chartMarkup(snapshot, { from = null, height = 200, inline = false } = {}) {
+  const colors = inline ? chartColors() : null;
+  const width = 600;
+  const pad = { left: 6, right: 6, top: 8, bottom: 20 };
+  const prices = from ? snapshot.prices.filter(([date]) => date >= from) : snapshot.prices;
+  const { bands } = snapshot;
+  const first = prices[0][0];
+  const lastDate = prices.at(-1)[0];
+  const span = Date.parse(lastDate) - Date.parse(first);
+  const x = (date) => pad.left + (Date.parse(date < first ? first : date) - Date.parse(first)) / span * (width - pad.left - pad.right);
+  const values = prices.map(([, close]) => close);
+  const low = Math.min(...values);
+  const high = Math.max(...values);
+  const y = (v) => pad.top + (1 - (v - low) / (high - low)) * (height - pad.top - pad.bottom);
+  const rects = bands.map(([date, level], i) => {
+    const end = bands[i + 1]?.[0] || lastDate;
+    if (end < first) return "";
+    const paint = colors ? ` fill="${colors.levels[level][0]}" fill-opacity="${colors.levels[level][1]}"` : "";
+    return `<rect class="qdii-band" data-level="${esc(level)}"${paint} x="${x(date).toFixed(1)}" y="${pad.top}" width="${Math.max(0.5, x(end) - x(date)).toFixed(1)}" height="${height - pad.top - pad.bottom}"/>`;
+  }).join("");
+  const years = prices.flatMap(([date], i) => i && date.slice(0, 4) !== prices[i - 1][0].slice(0, 4) ? [date] : []);
+  return `<svg class="qdii-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(snapshot.indices[0].short)}走势与温度等级">
+    ${rects}
+    ${years.map((date) => `<text class="qdii-axis"${colors ? ` fill="${colors.muted}" font-size="10"` : ""} x="${x(date)}" y="${height - 6}" text-anchor="middle">${date.slice(0, 4)}</text>`).join("")}
+    <polyline class="qdii-line"${colors ? ` fill="none" stroke="${colors.ink}" stroke-width="1.6"` : ""} points="${prices.map(([date, close]) => `${x(date).toFixed(1)},${y(close).toFixed(1)}`).join(" ")}"/>
+  </svg>
+  <p class="qdii-legend">${snapshot.signals.map((signal) => `<span data-level="${esc(signal.id)}">${esc(signal.label)}</span>`).join("")}<span class="is-line">${esc(snapshot.indices[0].short)}（周线）</span></p>`;
 }
 
 export function noticeCard(notice, through) {

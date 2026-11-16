@@ -126,6 +126,8 @@ export function buildSnapshot(curated, datasets) {
       lastAt = i;
       events.push({
         date: calendar[i], anchorDate: days[i - 1], age: last - (i - 1),
+        // 进入以来到最新收盘的涨跌（「本次至今」）
+        sinceEntry: Object.fromEntries(indexList.map((index) => [index.id, i >= 1 && i - 1 < last ? price(index.id, last) / price(index.id, i - 1) - 1 : null])),
         returns: Object.fromEntries(indexList.map((index) => [index.id, Object.fromEntries(HORIZONS.map((h) => [h, fwd(index.id, i, h)]))]))
       });
     }
