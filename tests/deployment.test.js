@@ -89,7 +89,8 @@ describe("网址：介绍页、登录页与看板", () => {
   });
 
   it("QDII 页面与日频数据走各自入口", () => {
-    expect(rewrites["/qdii"]).toBe("/qdii/index.html");
+    expect(rewrites["/qdiitrend"]).toBe("/qdii/index.html");
+    expect(redirects["/qdii"]).toBe("/qdiitrend");
     expect(rewrites["/qdii/data.json"]).toBe("/api/market-data?__se_board=qdii");
   });
 
@@ -164,7 +165,7 @@ describe("页面脚本", () => {
 
   it("中间件只拦介绍页以外的入口：/、/login、首页、看点、个股分析、板块资金、涨停情绪、个人页面、看板、管理后台", async () => {
     const { config } = await import("../middleware.js");
-    expect(config.matcher).toEqual(["/zh-hant/news/:path*", "/qdii/:path*", "/watchlist", "/watchlist/:path*", "/etfflow", "/etfflow/", "/etfflow/:path*", "/", "/login", "/login/", "/home", "/home/", "/kandian", "/kandian/", "/kandian/:path*", "/technicalanalysis", "/technicalanalysis/", "/sectorflow", "/sectorflow/", "/limitup", "/limitup/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]);
+    expect(config.matcher).toEqual(["/zh-hant/news/:path*", "/qdii/:path*", "/qdiitrend", "/qdiitrend/", "/watchlist", "/watchlist/:path*", "/etfflow", "/etfflow/", "/etfflow/:path*", "/", "/login", "/login/", "/home", "/home/", "/kandian", "/kandian/", "/kandian/:path*", "/technicalanalysis", "/technicalanalysis/", "/sectorflow", "/sectorflow/", "/limitup", "/limitup/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]);
   });
 });
 
