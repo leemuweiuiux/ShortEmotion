@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="robots" content="noindex">
-  <title>QDII 限额 · Market Emotion</title>
+  <title>美股 QDII 限额 · Market Emotion</title>
   <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
   <script>
     (() => {
@@ -20,18 +20,19 @@
   <link rel="stylesheet" href="/shared/global-header.css?v=4">
   <script defer src="/shared/usage.js?v=3"></script>
   <link rel="stylesheet" href="/shared/wide-layout.css?v=4">
-  <link rel="stylesheet" href="/qdii/board.css?v=6">
-  <link rel="stylesheet" href="/qdii/qdii.css?v=5">
+  <link rel="stylesheet" href="/qdii/board.css?v=7">
+  <link rel="stylesheet" href="/qdii/qdii.css?v=6">
 </head>
 <body class="wide-page wide-qdii">
   <div class="app-shell">
     <nav class="nav" aria-label="页面导航">
       <a class="nav-logo" href="/home" aria-label="首页"><img src="/short-emotion/logo.svg?v=2" alt="Market Emotion"></a>
-      <div class="nav-title">纳指 QDII 限额</div>
+      <div class="nav-title">美股 QDII 限额</div>
     </nav>
     <main class="qdii-page">
       <section class="card qdii-board-card" aria-labelledby="qdii-title">
-        <div class="card-head"><h1 id="qdii-title" class="card-title">纳指 QDII 限额</h1><span id="qdii-dates" class="qdii-time"></span></div>
+        <div class="card-head"><h1 id="qdii-title" class="card-title">美股 QDII 限额</h1><div class="qdii-share-wrap"><button id="qdii-share" class="nav-btn" type="button" aria-label="导出分享" aria-haspopup="menu" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 4v11M7.5 8.5 12 4l4.5 4.5M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
+        <p id="qdii-dates" class="qdii-time"></p>
         <p id="qdii-status" class="loading" role="status">正在读取限额快照…</p>
         <div id="qdii-board" class="qdii-board"></div>
       </section>
@@ -48,11 +49,11 @@
         <details class="qdii-method">
           <summary class="card-title">数据口径与回测规则</summary>
           <ul>
-            <li>限额取基金公司公告规定的人民币场外单账户日限额，保存公告日和生效日。</li>
-            <li>T+N 为美股交易日，起点是公告日前最后一个纳指收盘；「今天」红线标出本次公告已走到的交易日。</li>
+            <li>限额取基金公司公告规定的人民币场外单账户日限额（A 类人民币份额；直销、代销限额不同时取代销），保存公告日和生效日。纳指100 跟踪广发、国泰、嘉实，标普500 跟踪华夏、国泰、博时。</li>
+            <li>T+N 为美股交易日，起点是公告日前最后一个指数收盘；「今天」红线标出本次公告已走到的交易日。</li>
             <li>假设收紧看跌、放宽看涨：T+N 收盘相对起点的涨跌方向符合预期即命中，平盘不算。命中率 = 命中次数 ÷ 已到期次数，只统计同一基金、同一调整方向的历史公告。</li>
             <li>命中绩效：命中各次按信号方向计的涨跌之和（收紧取跌幅）。累计涨跌：全部已到期次数按信号方向计的涨跌之和，命中为正、未命中为负。各次区间可能重叠，累计数字需结合次数看。</li>
-            <li>「平时」为 2020 年起任意时点同期限纳指的下跌（收紧）或上涨（放宽）比例，用来对照命中率。</li>
+            <li>「平时」为 2020 年起任意时点同期限同一指数（纳指100 或标普500）的下跌（收紧）或上涨（放宽）比例，用来对照命中率。</li>
             <li>份额以季报披露区间为准。份额区间早于调整时，调整后的份额标为待披露。</li>
           </ul>
         </details>
@@ -61,6 +62,6 @@
   </div>
   <div id="toast" class="toast" role="status"></div>
   <script type="module" src="/shared/global-header.js?v=7"></script>
-  <script type="module" src="/qdii/qdii.js?v=8"></script>
+  <script type="module" src="/qdii/qdii.js?v=10"></script>
 </body>
 </html>

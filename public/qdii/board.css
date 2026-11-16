@@ -55,8 +55,13 @@
 }
 /* 首页模块：只展示三张状态卡，不可交互（操作在 /qdiitrend） */
 .home-qdii .qdii-fund { align-content: start; gap: 5px; }
-.home-qdii .qdii-funds > .loading, .home-qdii .qdii-funds > .empty { grid-column: 1 / -1; }
+
 @media (max-width: 420px) { .qdii-fund-change b { font-size: 12px; } }
 .qdii-board :is(button, a):focus { outline: none; }
 .qdii-board :is(button, a):focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .qdii-fund-pick { -webkit-tap-highlight-color: transparent; }
+/* 指数分组：纳指100 / 标普500 */
+.qdii-index-seg { margin-bottom: 2px; }
+.qdii-group { display: grid; gap: 8px; min-width: 0; }
+.qdii-group + .qdii-group { margin-top: 4px; }
+.qdii-group-title { margin: 0; color: var(--muted); font-size: 13px; font-weight: 600; }

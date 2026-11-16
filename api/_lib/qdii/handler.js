@@ -1,7 +1,7 @@
 import { DATA_RAW_BASE, githubToken } from "../short-emotion/github.js";
 import { requireSession } from "../session.js";
 
-const dataBranch = "qdii-exp-data";
+const dataBranch = "qdii-data"; // 2026-11-16 起纳指100 + 标普500 两组（新格式；主站与 Exp 共用）
 const snapshotUrl = `${DATA_RAW_BASE}/${dataBranch}/snapshot.json`;
 const repoPath = new URL(DATA_RAW_BASE).pathname;
 const apiUrl = `https://api.github.com/repos${repoPath}/contents/snapshot.json?ref=${dataBranch}`;
