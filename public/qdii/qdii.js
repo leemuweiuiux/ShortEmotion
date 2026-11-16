@@ -1,5 +1,5 @@
 // /qdiitrend 详情页：看板（可点选交易日行）+ 份额变动 + 历次调整（跟随所选交易日）+ 口径说明。
-import { capLabel, directionLabel, esc, external, loadQdiiSnapshot, mountQdiiBoard, percent, scoreLabel, trendClass } from "/qdii/board.js?v=4";
+import { capLabel, directionLabel, esc, external, leanLabel, leanOf, loadQdiiSnapshot, mountQdiiBoard, percent, scoreLabel, trendClass } from "/qdii/board.js?v=5";
 
 const $ = (id) => document.getElementById(id);
 const number = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 });
@@ -24,31 +24,20 @@ function renderShares() {
     <p class="qdii-shares-links">${external(shares.source, "份额报告")}${fund.review?.length ? `<span class="qdii-time">公告核实至 ${esc(fund.checkedThrough)}</span>${external(fund.review[0].source, "有新公告待核对")}` : ""}</p>`;
 }
 
-const whole = (ratio) => `${Math.round(ratio * 100)}%`;
-const moveLabel = (change) => change < 0 ? "下跌" : change > 0 ? "上涨" : "持平";
-const verdict = { beat: "判断比平时准", miss: "判断不如平时", tie: "与平时一样" };
-
-// 白话解释每笔 Beat／Miss：当时同方向历史样本的看跌比例 vs 平时（同期纳指基准）的下跌比例
-function explain(outcome) {
-  if (outcome.return === null) return "尚未走满这段交易日";
-  const { audit } = outcome;
-  if (!audit) return `实际${moveLabel(outcome.return)}；当时同方向样本不足 3 笔，不评分`;
-  return `当时看跌 ${whole(audit.estimate)}，平时 ${whole(audit.reference)}；实际${moveLabel(outcome.return)}，${verdict[audit.result]}`;
-}
-
 function renderEvents() {
   const rows = fund.events.filter((event) => event.direction === direction);
   $("qdii-events-pill").textContent = `${directionLabel[direction]} ${rows.length} 笔 · T+${windowDays}`;
   const visible = showAll ? rows : rows.slice(0, 6);
   const list = visible.map((event) => {
     const outcome = event.horizons[windowDays];
-    const result = outcome.audit?.result;
+    const { audit } = outcome;
+    const result = audit?.result;
     const tag = result ? `<span class="pill${result === "beat" ? " pill-solid" : ""}">${scoreLabel[result]}</span>`
       : `<span class="pill qdii-muted">${outcome.return === null ? "未到期" : "不评分"}</span>`;
+    const lean = audit ? `<span class="qdii-event-lean">${leanLabel[leanOf(audit.estimate, audit.reference)]} →</span>` : "";
     return `<article class="qdii-event">
       <div class="qdii-event-main"><span class="qdii-event-date">${esc(event.announced)}</span><b>${capLabel(event.previous)} → ${capLabel(event.cap)}</b>${external(event.source, "公告")}</div>
-      <div class="qdii-event-result">${outcome.return === null ? '<b class="qdii-muted">—</b>' : `<b class="${trendClass(outcome.return)}">${percent(outcome.return, true)}</b>`}${tag}</div>
-      <p class="qdii-time">${explain(outcome)}</p>
+      <div class="qdii-event-result">${lean}${outcome.return === null ? '<b class="qdii-muted">—</b>' : `<b class="${trendClass(outcome.return)}">${percent(outcome.return, true)}</b>`}${tag}</div>
     </article>`;
   }).join("");
   $("qdii-events").innerHTML = list || '<div class="empty">暂无相应的限额变动。</div>';

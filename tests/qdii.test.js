@@ -26,6 +26,8 @@ describe("QDII 日频快照", () => {
     expect(t5.mean).toBeCloseTo(-0.006, 3);
     expect(t5.current.audit.result).toBe("beat");
     expect(horizonRows(bundled, fund, "ease")[0].current).toBeNull();
+    expect(t5.lean).toBe("bear");
+    expect(Math.round(t5.base.up / t5.base.total * 100)).toBe(58);
   });
 
   it("QDII 不在底部主导航，改为首页模块", () => {

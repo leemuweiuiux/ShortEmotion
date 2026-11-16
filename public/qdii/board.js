@@ -1,9 +1,12 @@
-// QDII 限额看板：顶部选基金（申购状态），下方按交易日看历史涨跌概率、平均涨跌、Beat/Miss 与本次实绩。
+// QDII 限额看板：顶部选基金（申购状态），下方按交易日看历史上涨概率（对比平时）、平均涨跌、猜中/猜错与本次实绩。
 // 首页模块与 /qdii 详情页共用。
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const number = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 });
 export const directionLabel = { tighten: "收紧", ease: "放宽" };
-export const scoreLabel = { beat: "Beat", miss: "Miss", tie: "持平" };
+export const scoreLabel = { beat: "猜中", miss: "猜错", tie: "持平" };
+// 与平时（2020 年起任意时点同期限纳指）相比：下跌比例更高为偏空，更低为偏多。猜中/猜错即偏空遇跌、偏多遇涨。
+export const leanOf = (down, baseDown) => down > baseDown ? "bear" : down < baseDown ? "bull" : "even";
+export const leanLabel = { bear: "偏空", bull: "偏多", even: "持平" };
 
 export const percent = (ratio, signed = false) =>
   `${signed && ratio > 0 ? "+" : ""}${ratio < 0 ? "−" : ""}${Math.abs(ratio * 100).toFixed(1)}%`;
@@ -47,7 +50,9 @@ export function horizonRows(snapshot, fund, direction) {
       const result = event.horizons[horizon].audit?.result;
       if (result) scores[result]++;
     }
-    return { horizon, stat, mean, scores, current: isCurrent ? fund.current.horizons[horizon] : null };
+    const base = snapshot.reference[horizon];
+    const lean = stat.total ? leanOf(stat.down / stat.total, base.down / base.total) : null;
+    return { horizon, stat, mean, scores, base, lean, current: isCurrent ? fund.current.horizons[horizon] : null };
   });
 }
 
@@ -84,11 +89,12 @@ function tableMarkup(snapshot, fund, direction, picked = null) {
   const body = rows.map((row) => {
     let html = "";
     if (!placed && age < row.horizon) { html += now; placed = true; }
-    const { stat, mean, scores, current } = row;
-    const probability = stat.total ? `<b>${(stat.up / stat.total * 100).toFixed(0)}%</b><small>${stat.total} 次</small>` : '<b class="qdii-muted">—</b><small>0 次</small>';
+    const { stat, mean, scores, base, lean, current } = row;
+    const arrow = lean === "bear" ? '<i class="qdii-lean down-text" aria-label="偏空">↓</i>' : lean === "bull" ? '<i class="qdii-lean up-text" aria-label="偏多">↑</i>' : "";
+    const probability = `${stat.total ? `<b>${(stat.up / stat.total * 100).toFixed(0)}%</b>${arrow}` : '<b class="qdii-muted">—</b>'}<small>平时 ${(base.up / base.total * 100).toFixed(0)}%</small>`;
     const average = mean === null ? '<span class="qdii-muted">—</span>' : `<b class="${trendClass(mean)}">${percent(mean, true)}</b>`;
     const scored = scores.beat + scores.miss + scores.tie;
-    const score = scored ? `<b>${scores.beat}</b><span class="qdii-muted"> / ${scores.miss}</span>${scores.tie ? `<small>持平 ${scores.tie}</small>` : ""}` : '<span class="qdii-muted">—</span>';
+    const score = `${scored ? `<b>${scores.beat}</b><span class="qdii-muted"> / ${scores.miss}</span>` : '<span class="qdii-muted">—</span>'}<small>${stat.total} 次</small>`;
     let latest = '<span class="qdii-muted">—</span>';
     if (current) {
       latest = current.return === null ? '<span class="qdii-muted">未到期</span>'
@@ -102,7 +108,7 @@ function tableMarkup(snapshot, fund, direction, picked = null) {
   // 固定栏宽：切换收紧／放宽时各栏不跳动
   return `<table class="qdii-table${picked === null ? "" : " is-pickable"}">
     <colgroup><col class="qdii-col-day"><col><col><col><col></colgroup>
-    <thead><tr><th scope="col">交易日</th><th scope="col">上涨概率</th><th scope="col">平均涨跌</th><th scope="col">Beat/Miss</th><th scope="col">本次</th></tr></thead>
+    <thead><tr><th scope="col">交易日</th><th scope="col">上涨概率</th><th scope="col">平均涨跌</th><th scope="col">猜中/猜错</th><th scope="col">本次</th></tr></thead>
     <tbody>${body}${placed ? "" : now}</tbody>
   </table>`;
 }
@@ -121,7 +127,7 @@ export function mountQdiiBoard(root, snapshot, { onChange, pickHorizon = null } 
       </div>
     </div>
     <div class="qdii-table-wrap" aria-live="polite"></div>
-    <p class="qdii-time">T+N 为美股交易日，自公告前最后一个纳指收盘起算；Beat / Miss 为历史回测，限额信号比同期基准更准地猜中涨跌记 Beat · 纳指收盘至 ${esc(snapshot.indexThrough)}</p>`;
+    <p class="qdii-time">↓偏空 ↑偏多（与平时比）· 偏空遇跌、偏多遇涨算猜中 · T+N 为美股交易日</p>`;
   const funds = root.querySelector(".qdii-funds");
   const seg = root.querySelector(".qdii-seg");
 

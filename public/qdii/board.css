@@ -60,3 +60,4 @@
 .qdii-board :is(button, a):focus { outline: none; }
 .qdii-board :is(button, a):focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .qdii-fund-pick { -webkit-tap-highlight-color: transparent; }
+.qdii-lean { margin-left: 2px; font-family: "Manrope", sans-serif; font-size: 12px; font-style: normal; font-weight: 700; }
