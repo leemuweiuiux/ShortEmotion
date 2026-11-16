@@ -32,9 +32,10 @@
 <link rel="stylesheet" href="/kandian/reports.css?v=5">
 <link rel="stylesheet" href="/shared/like.css?v=1">
 <link rel="stylesheet" href="/shared/etf-overview.css?v=1">
-<link rel="stylesheet" href="/home/home.css?v=18">  <link rel="stylesheet" href="/shared/global-header.css?v=4">
+<link rel="stylesheet" href="/home/home.css?v=18">
+<link rel="stylesheet" href="/qdii/board.css?v=5">  <link rel="stylesheet" href="/shared/global-header.css?v=4">
   <script defer src="/shared/usage.js?v=3"></script>
-  <link rel="stylesheet" href="/shared/wide-layout.css?v=3">
+  <link rel="stylesheet" href="/shared/wide-layout.css?v=4">
   <link rel="stylesheet" href="/shared/primary-tabs.css?v=1">
 </head>
 <body class="wide-page wide-home">
@@ -100,6 +101,11 @@
         </div>
       </section>
 
+      <section id="qdii-card" class="card home-card home-qdii" aria-labelledby="home-qdii-title" hidden>
+        <div class="card-head"><h2 id="home-qdii-title" class="card-title"><a href="/qdiitrend">纳指 QDII 限额</a></h2><a class="home-more" href="/qdiitrend" aria-label="查看更多纳指 QDII 限额">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+        <div id="qdii-home-body" class="home-card-body qdii-funds" aria-live="polite"><div class="loading">正在读取限额快照…</div></div>
+      </section>
+
       <section id="anomaly-card" class="card home-card home-anomaly">
         <div class="card-head"><h2 class="card-title"><a href="/shortemotion/cn#themes">当日题材异动</a></h2><a class="home-more" href="/shortemotion/cn#themes" aria-label="查看更多当日题材异动">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
         <div class="home-card-body"><div class="home-card-meta"><span id="anomaly-pill" class="pill">读取中</span></div>
@@ -140,8 +146,9 @@
 <script type="module" src="/kandian/reports.js?v=9"></script>
 
   <script type="module" src="/shared/nav-points.js?v=2"></script>
-  <script type="module" src="/shared/global-header.js?v=6"></script>
+  <script type="module" src="/shared/global-header.js?v=7"></script>
   <script type="module" src="/shared/primary-tabs.js?v=2"></script>
+  <script type="module" src="/qdii/home-card.js?v=5"></script>
 </body>
 </html>
 

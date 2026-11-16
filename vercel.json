@@ -12,6 +12,8 @@
     }
   },
   "redirects": [
+    {"source": "/qdii", "destination": "/qdiitrend", "permanent": false},
+    {"source": "/qdii/", "destination": "/qdiitrend", "permanent": false},
     {"source": "/", "missing": [{"type": "host", "value": "demo.lfjmwl.com"}], "destination": "/about", "permanent": false},
     {"source": "/like", "has": [{"type": "host", "value": "demo.lfjmwl.com"}], "destination": "/study1", "permanent": false},
     {"source": "/like/", "has": [{"type": "host", "value": "demo.lfjmwl.com"}], "destination": "/study1", "permanent": false},
@@ -88,6 +90,9 @@
     {"source": "/account/invite/", "destination": "/account/invite/index.html"},
     {"source": "/kandian", "destination": "/kandian/index.html"},
     {"source": "/kandian/", "destination": "/kandian/index.html"},
+    {"source": "/qdii/data.json", "destination": "/api/market-data?__se_board=qdii"},
+    {"source": "/qdiitrend", "destination": "/qdii/index.html"},
+    {"source": "/qdiitrend/", "destination": "/qdii/index.html"},
     {"source": "/watchlist", "destination": "/watchlist/index.html"},
     {"source": "/watchlist/", "destination": "/watchlist/index.html"},
     {"source": "/home", "destination": "/home/index.html"},

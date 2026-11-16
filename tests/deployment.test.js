@@ -86,6 +86,9 @@ describe("网址：介绍页、登录页与看板", () => {
   it("短线情绪看板在 /shortemotion/cn", () => {
     for (const path of ["/shortemotion/cn", "/shortemotion/cn/"]) expect(rewrites[path]).toBe(PAGE);
     expect(redirects["/shortemotion"]).toBe("/shortemotion/cn");
+    expect(rewrites["/qdiitrend"]).toBe("/qdii/index.html");
+    expect(rewrites["/qdii/data.json"]).toBe("/api/market-data?__se_board=qdii");
+    expect(redirects["/qdii"]).toBe("/qdiitrend");
   });
 
   it("旧网址都跳到新网址（不经过二次跳转）", () => {
@@ -159,7 +162,7 @@ describe("页面脚本", () => {
 
   it("中间件只拦介绍页以外的入口：/、/login、首页、看点、个股分析、板块资金、涨停情绪、个人页面、看板、管理后台", async () => {
     const { config } = await import("../middleware.js");
-    expect(config.matcher).toEqual(["/watchlist", "/watchlist/:path*", "/etfflow", "/etfflow/", "/etfflow/:path*", "/", "/login", "/login/", "/home", "/home/", "/kandian", "/kandian/", "/kandian/:path*", "/technicalanalysis", "/technicalanalysis/", "/sectorflow", "/sectorflow/", "/limitup", "/limitup/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]);
+    expect(config.matcher).toEqual(["/qdii/:path*", "/qdiitrend", "/qdiitrend/", "/watchlist", "/watchlist/:path*", "/etfflow", "/etfflow/", "/etfflow/:path*", "/", "/login", "/login/", "/home", "/home/", "/kandian", "/kandian/", "/kandian/:path*", "/technicalanalysis", "/technicalanalysis/", "/sectorflow", "/sectorflow/", "/limitup", "/limitup/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]);
   });
 });
 
