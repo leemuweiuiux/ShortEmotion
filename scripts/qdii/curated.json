@@ -17,32 +17,57 @@
   }
  ],
  "signals": {
+  "window": 20,
   "cooldown": 20,
-  "list": [
+  "minimumFamilies": 5,
+  "levels": [
+   {
+    "id": "overheat",
+    "label": "过热",
+    "rule": "paused",
+    "threshold": 0.5,
+    "expect": null,
+    "line": "大面积暂停申购"
+   },
    {
     "id": "warm",
     "label": "偏热",
-    "kind": "tighten",
-    "window": 10,
+    "rule": "tighten",
     "threshold": 0.15,
-    "expect": null
+    "expect": null,
+    "line": "有基金收紧限额"
    },
    {
-    "id": "hot",
-    "label": "过热",
-    "kind": "tighten",
-    "window": 10,
-    "threshold": 0.4,
-    "expect": "down"
+    "id": "normal",
+    "label": "正常",
+    "rule": null,
+    "threshold": null,
+    "expect": null,
+    "line": "限额调整零散"
    },
    {
-    "id": "ease",
-    "label": "放宽潮",
-    "kind": "ease",
-    "window": 20,
+    "id": "layout",
+    "label": "布局",
+    "rule": "ease",
+    "threshold": 0.15,
+    "expect": "up",
+    "line": "部分基金解除限购"
+   },
+   {
+    "id": "enter",
+    "label": "进场",
+    "rule": "ease",
     "threshold": 0.3,
-    "expect": "up"
+    "expect": "up",
+    "line": "大面积放宽"
    }
+  ],
+  "priority": [
+   "overheat",
+   "enter",
+   "warm",
+   "layout",
+   "normal"
   ]
  },
  "excluded": [
