@@ -8,14 +8,16 @@ const bundled = JSON.parse(readFileSync(new URL("../public/qdii/snapshot.json", 
 
 describe("QDII 日频快照", () => {
   it("首批产品保留最新实际限额、份额日期和已结算的指数结果", () => {
-    expect(bundled.funds.map((fund) => fund.code)).toEqual(["270042", "161130", "160213"]);
+    expect(bundled.funds.map((fund) => fund.code)).toEqual(["270042", "160213", "016532", "018064", "017028", "050025"]);
+    expect(bundled.funds.map((fund) => fund.index)).toEqual(["ndx", "ndx", "ndx", "spx", "spx", "spx"]);
+    expect(bundled.indices.map((index) => index.id)).toEqual(["ndx", "spx"]);
     expect(bundled.horizons).toEqual([5, 10, 20, 40, 60, 90, 120, 180, 250]);
     const [fund] = bundled.funds;
     expect(fund.current).toMatchObject({ effective: "2026-10-15", previous: 10, cap: 0, direction: "tighten" });
     expect(fund.shares.endDate).toBe("2026-09-30");
     expect(fund.current.horizons[20].return).toBeCloseTo(-0.0925, 4);
     expect(fund.current.horizons[60].return).toBeNull();
-    expect(bundled.funds.map((item) => item.announcedAge)).toEqual([23, 167, 39]);
+    expect(bundled.funds.slice(0, 2).map((item) => item.announcedAge)).toEqual([23, 39]);
   });
 
   it("收紧看跌、放宽看涨：按交易日汇总命中率、命中绩效、累计涨跌与本次是否命中", () => {

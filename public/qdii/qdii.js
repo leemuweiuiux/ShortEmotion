@@ -1,6 +1,6 @@
 // /qdiitrend 详情页：看板（纳指100/标普500、可点选交易日行）+ 份额变动 + 历次调整（跟随所选交易日）+ 口径说明 + 导出小卡/长图。
-import { capLabel, directionLabel, esc, external, hitLabel, isHit, loadQdiiSnapshot, mountQdiiBoard, percent, trendClass } from "/qdii/board.js?v=7";
-import { datesLine, setupQdiiShare } from "/qdii/share.js?v=1";
+import { capLabel, directionLabel, esc, external, hitLabel, isHit, loadQdiiSnapshot, mountQdiiBoard, percent, trendClass } from "/qdii/board.js?v=8";
+import { datesLine, setupQdiiShare } from "/qdii/share.js?v=2";
 
 const $ = (id) => document.getElementById(id);
 const number = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 });

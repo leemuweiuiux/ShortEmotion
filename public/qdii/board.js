@@ -72,8 +72,8 @@ export function horizonRows(snapshot, fund, direction) {
   });
 }
 
-// 与纳指最新收盘同年时省略年份，避免三列卡片里日期折行
-const shortDate = (date, through) => date.slice(0, 4) === through.slice(0, 4) ? date.slice(5) : date;
+// 与指数最新收盘同年时省略年份，往年只写两位年份，避免三列卡片里日期折行
+const shortDate = (date, through) => date.slice(0, 4) === through.slice(0, 4) ? date.slice(5) : date.slice(2);
 
 function fundCard(fund, selected, through) {
   const { current } = fund;
