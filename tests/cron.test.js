@@ -8,7 +8,7 @@ import { duePlan } from "../api/_lib/short-emotion/schedule.js";
 
 const root = resolve(import.meta.dirname, "..");
 // 准点定时分散在几个迁移文件里（短线情绪与早报、午间看点），合起来看
-const migration = ["20261023033000_cron_dispatch.sql", "20261023070000_noon_report_cron.sql", "20261023073220_evening_report_cron.sql", "20261105115544_short_emotion_final_close.sql", "20261113030000_daily_primary_backup_cron.sql"]
+const migration = ["20261023033000_cron_dispatch.sql", "20261023070000_noon_report_cron.sql", "20261023073220_evening_report_cron.sql", "20261105115544_short_emotion_final_close.sql", "20261113030000_daily_primary_backup_cron.sql", "20261116080000_qdii_daily_cron.sql"]
   .map((name) => readFileSync(resolve(root, "supabase/migrations", name), "utf8")).join("\n");
 const SECRET = "test-cron-secret";
 
@@ -217,6 +217,13 @@ describe("Supabase 准点定时表", () => {
     expect(triggersFor("etf-flow-backup")).toEqual(["Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => `${day} 08:30`).sort());
     expect(triggersFor("global-linkage")).toEqual(WEEKDAYS.map((day) => `${day} 08:10`).sort());
     expect(triggersFor("global-linkage-backup")).toEqual(WEEKDAYS.map((day) => `${day} 08:40`).sort());
+  });
+
+  it("QDII 限额：北京时间周一至周六 08:20 主取、09:00 备援", () => {
+    const days = [...WEEKDAYS, "Sat"];
+    expect(triggersFor("qdii-primary")).toEqual(days.map((day) => `${day} 08:20`).sort());
+    expect(triggersFor("qdii-backup")).toEqual(days.map((day) => `${day} 09:00`).sort());
+    expect(SCHEDULED_JOBS["qdii-backup"]).toEqual({ workflow: "qdii.yml", inputs: { slot: "backup" } });
   });
 
   it("调用正式网址的 /api/cron，密钥从 Vault 读取、不写进仓库", () => {
