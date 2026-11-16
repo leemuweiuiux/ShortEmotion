@@ -23,3 +23,14 @@
 .qdii-notice-name { font-size: 13px; font-weight: 600; }
 .qdii-event-result .qdii-link { min-width: 28px; }
 #qdii-notices .qdii-event-result .pill { min-width: 0; }
+/* 导出小卡：当前温度大字 */
+.qdii-export .qdii-export-card { gap: 12px; }
+.qdii-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.qdii-hero-main, .qdii-hero-age { display: grid; gap: 2px; }
+.qdii-hero-age { text-align: right; }
+.qdii-hero small, .qdii-hero span { color: var(--muted); font-size: 13px; }
+.qdii-hero-main b { color: var(--level); font-size: 40px; font-weight: 800; line-height: 1.15; }
+.qdii-hero-age b { font-family: "Manrope", sans-serif; font-size: 34px; font-weight: 800; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.qdii-hero-since { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; margin: 0; font-size: 14px; }
+.qdii-hero-since small { color: var(--muted); font-size: 13px; }
+.qdii-hero-since b { font-family: "Manrope", sans-serif; font-size: 18px; font-variant-numeric: tabular-nums; }
