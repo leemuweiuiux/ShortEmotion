@@ -194,7 +194,7 @@ def notice_rows(code, since):
     return sorted(rows, key=lambda row: (row["PUBLISHDATEDesc"], row["ID"]))
 
 
-SKIP_TITLE = re.compile(r"继续暂停|销售机构|转换业务|借记卡|通联支付|直联|费率|快付")
+SKIP_TITLE = re.compile(r"继续暂停|销售机构|转换业务|借记卡|通联支付|直联|费率|快付|渠道|新增.{0,20}销售|开通|首次公开发行|不开放|起点|最低")
 
 
 def refresh_family(family, since, today):
