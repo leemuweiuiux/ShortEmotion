@@ -20,9 +20,9 @@ on:
 permissions:
   contents: write
 
-# 与 Exp 的 qdii-exp.yml 共用数据分支，并发组也共用，避免同时推送
+# 与 Exp 的 qdii-exp.yml 共用数据分支 qdii-data（2026-11-16 起纳指100 + 标普500），并发组也共用，避免同时推送
 concurrency:
-  group: qdii-exp-data
+  group: qdii-data
   cancel-in-progress: false
 
 jobs:
@@ -30,8 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     env:
-      DATA_BRANCH: qdii-exp-data
-      DATA_DIR: ${{ github.workspace }}/../qdii-exp-data
+      DATA_BRANCH: qdii-data
+      DATA_DIR: ${{ github.workspace }}/../qdii-data
       SKIP_FLAG: ${{ (github.event_name == 'schedule' || inputs.slot == 'backup') && '--skip-if-fresh' || '' }}
     steps:
       - uses: actions/checkout@v4
@@ -63,7 +63,7 @@ jobs:
         run: |
           cd "$DATA_DIR"
           printf '%s\n' '{"git":{"deploymentEnabled":false}}' > vercel.json
-          git add curated.json snapshot.json vercel.json
+          git add curated.json snapshot.json vercel.json history-*.json
           if git diff --cached --quiet; then exit 0; fi
           git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -qm "Update QDII data"
           snapshot_commit=$(git rev-parse HEAD)
