@@ -17,9 +17,9 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install 'pypdf==6.14.2'
-      - run: python scripts/qdii/backfill.py scripts/qdii/backfill-output.json 016532:2022-09-01 018064:2023-05-01 017028:2022-10-15 050025:2019-06-01
+      - run: python scripts/qdii/scan.py scripts/qdii/scan-output.json 2023-01-01
       - name: Commit output
         run: |
-          git add scripts/qdii/backfill-output.json
-          git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -qm "QDII backfill output"
+          git add scripts/qdii/scan-output.json
+          git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -qm "QDII scan output"
           git push origin HEAD:backfill/qdii-funds
