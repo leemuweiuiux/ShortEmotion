@@ -44,9 +44,13 @@ function announcedAge(fund) {
 export function indexGroups(snapshot) {
   const list = snapshot.indices?.length ? snapshot.indices
     : [{ id: "ndx", name: "纳斯达克100", short: "纳指100", indexThrough: snapshot.indexThrough, reference: snapshot.reference }];
-  return list.map((index) => ({ ...index, funds: snapshot.funds.filter((fund) => (fund.index || list[0].id) === index.id) }))
-    .filter((group) => group.funds.length);
+  return list.map((index) => ({ ...index, funds: snapshot.funds.filter((fund) => (fund.index || list[0].id) === index.id).sort(byLatest) }))
+    .filter((group) => group.funds.length)
+    .sort((a, b) => byLatest(a.funds[0], b.funds[0]));
 }
+// 最近发公告的排最左（组内基金、指数分组都按此排）；同一天再看生效日
+const latestKey = (fund) => `${fund.current.announced}|${fund.current.effective || ""}`;
+const byLatest = (a, b) => latestKey(b).localeCompare(latestKey(a));
 export const indexOf = (snapshot, fund) => indexGroups(snapshot).find((group) => group.funds.includes(fund));
 
 export function horizonRows(snapshot, fund, direction) {
