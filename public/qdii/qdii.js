@@ -1,5 +1,5 @@
-// /qdii 详情页：同首页模块的看板，加份额变动、单笔调整记录与口径说明。
-import { capLabel, directionLabel, esc, external, loadQdiiSnapshot, mountQdiiBoard, percent, scoreLabel, trendClass } from "/qdii/board.js?v=2";
+// /qdiitrend 详情页：看板（可点选交易日行）+ 份额变动 + 历次调整（跟随所选交易日）+ 口径说明。
+import { capLabel, directionLabel, esc, external, loadQdiiSnapshot, mountQdiiBoard, percent, scoreLabel, trendClass } from "/qdii/board.js?v=3";
 
 const $ = (id) => document.getElementById(id);
 const number = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 });
@@ -24,37 +24,37 @@ function renderShares() {
     <p class="qdii-shares-links">${external(shares.source, "份额报告")}${fund.review?.length ? `<span class="qdii-time">公告核实至 ${esc(fund.checkedThrough)}</span>${external(fund.review[0].source, "有新公告待核对")}` : ""}</p>`;
 }
 
+const whole = (ratio) => `${Math.round(ratio * 100)}%`;
+const moveLabel = (change) => change < 0 ? "下跌" : change > 0 ? "上涨" : "持平";
+const verdict = { beat: "判断比平时准", miss: "判断不如平时", tie: "与平时一样" };
+
+// 白话解释每笔 Beat／Miss：当时同方向历史样本的看跌比例 vs 平时（同期纳指基准）的下跌比例
+function explain(outcome) {
+  if (outcome.return === null) return "尚未走满这段交易日";
+  const { audit } = outcome;
+  if (!audit) return `实际${moveLabel(outcome.return)}；当时同方向样本不足 3 笔，不评分`;
+  return `当时看跌 ${whole(audit.estimate)}，平时 ${whole(audit.reference)}；实际${moveLabel(outcome.return)}，${verdict[audit.result]}`;
+}
+
 function renderEvents() {
-  $("qdii-windows").innerHTML = snapshot.horizons.map((days) =>
-    `<button type="button" value="${days}" class="${days === windowDays ? "active" : ""}" aria-pressed="${days === windowDays}">T+${days}</button>`).join("");
   const rows = fund.events.filter((event) => event.direction === direction);
-  $("qdii-events-pill").textContent = `${directionLabel[direction]} ${rows.length} 笔`;
+  $("qdii-events-pill").textContent = `${directionLabel[direction]} ${rows.length} 笔 · T+${windowDays}`;
   const visible = showAll ? rows : rows.slice(0, 6);
   const list = visible.map((event) => {
     const outcome = event.horizons[windowDays];
-    const audit = outcome.audit;
-    const result = audit?.result;
+    const result = outcome.audit?.result;
+    const tag = result ? `<span class="pill${result === "beat" ? " pill-solid" : ""}">${scoreLabel[result]}</span>`
+      : `<span class="pill qdii-muted">${outcome.return === null ? "未到期" : "不评分"}</span>`;
     return `<article class="qdii-event">
-      <div><span class="qdii-time">${esc(event.announced)} 公告</span><b>${capLabel(event.previous)} → ${capLabel(event.cap)}</b>
-        <small>${esc(event.effective)} 生效 · ${external(event.source, "公告")}</small></div>
-      <div><span class="qdii-time">T+${windowDays} 涨跌</span>${outcome.return === null ? '<b class="qdii-muted">未到期</b>' : `<b class="${trendClass(outcome.return)}">${percent(outcome.return, true)}</b>`}
-        <small>${outcome.end ? `${esc(event.anchorDate)} 至 ${esc(outcome.end)}` : `起点 ${esc(event.anchorDate)}`}</small></div>
-      <div><span class="pill${result === "beat" ? " pill-solid" : ""}">${result ? scoreLabel[result] : outcome.end ? "无回测读数" : "未到期"}</span>
-        <small>${audit ? `事前跌率 ${percent(audit.estimate)} · 基准 ${percent(audit.reference)} · ${audit.samples} 笔` : "历史样本不足以评分"}</small></div>
+      <div class="qdii-event-main"><span class="qdii-event-date">${esc(event.announced)}</span><b>${capLabel(event.previous)} → ${capLabel(event.cap)}</b>${external(event.source, "公告")}</div>
+      <div class="qdii-event-result">${outcome.return === null ? '<b class="qdii-muted">—</b>' : `<b class="${trendClass(outcome.return)}">${percent(outcome.return, true)}</b>`}${tag}</div>
+      <p class="qdii-time">${explain(outcome)}</p>
     </article>`;
   }).join("");
   $("qdii-events").innerHTML = list || '<div class="empty">暂无相应的限额变动。</div>';
   if (rows.length > 6) $("qdii-events").insertAdjacentHTML("beforeend",
     `<button type="button" id="qdii-more" class="qdii-more" aria-expanded="${showAll}">${showAll ? "收起记录" : `查看全部 ${rows.length} 笔`}</button>`);
 }
-
-$("qdii-windows").addEventListener("click", (event) => {
-  const value = Number(event.target.closest("button")?.value);
-  if (!snapshot?.horizons.includes(value) || value === windowDays) return;
-  windowDays = value;
-  renderEvents();
-  $("qdii-windows").querySelector('[aria-pressed="true"]')?.focus();
-});
 
 $("qdii-events").addEventListener("click", (event) => {
   if (!event.target.closest("#qdii-more")) return;
@@ -70,10 +70,12 @@ try {
   $("qdii-status").hidden = true;
   for (const id of ["qdii-shares-card", "qdii-events-card", "qdii-method-card"]) $(id).hidden = false;
   mountQdiiBoard($("qdii-board"), snapshot, {
-    onChange(nextFund, nextDirection) {
+    pickHorizon: windowDays,
+    onChange(nextFund, nextDirection, nextHorizon) {
       if (nextFund !== fund || nextDirection !== direction) showAll = false;
       fund = nextFund;
       direction = nextDirection;
+      windowDays = nextHorizon;
       renderShares();
       renderEvents();
     }

@@ -18,9 +18,16 @@
 .qdii-seg button { min-height: 30px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
 .qdii-seg button.active { border-color: var(--ink); background: var(--ink); color: var(--surface); font-weight: 600; }
 .qdii-table-wrap { min-width: 0; overflow-x: auto; }
-.qdii-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
-.qdii-table th, .qdii-table td { padding: 8px 4px; border-top: 1px solid var(--border); text-align: right; vertical-align: top; white-space: nowrap; }
-.qdii-table thead th { padding-top: 0; border-top: 0; color: var(--muted); font-size: 12px; font-weight: 500; }
+.qdii-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.qdii-table th, .qdii-table td { padding: 8px 4px; border-top: 1px solid var(--border); text-align: right; vertical-align: top; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qdii-col-day { width: 18%; }
+/* 详情页：点选交易日行 */
+.qdii-table.is-pickable tbody tr[data-horizon] { cursor: pointer; }
+.qdii-table.is-pickable tbody tr[data-horizon]:hover > * { background: var(--panel); }
+.qdii-table tr.is-picked > * { background: var(--panel); }
+.qdii-table tr.is-picked th { box-shadow: inset 3px 0 0 var(--ink); }
+.qdii-row-pick { padding: 0 0 0 8px; border: 0; background: transparent; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.qdii-table thead th { padding-top: 0; border-top: 0; white-space: normal; color: var(--muted); font-size: 12px; font-weight: 500; }
 .qdii-table th:first-child { padding-left: 0; text-align: left; }
 .qdii-table td:last-child, .qdii-table th:last-child { padding-right: 0; }
 .qdii-table tbody th { font-family: "Manrope", sans-serif; font-weight: 600; }
