@@ -75,7 +75,7 @@ export function staticFundCards(snapshot) {
   </article>`).join("");
 }
 
-function tableMarkup(snapshot, fund, direction) {
+function tableMarkup(snapshot, fund, direction, picked = null) {
   const age = announcedAge(fund);
   const isCurrent = direction === fund.current.direction;
   const rows = horizonRows(snapshot, fund, direction);
@@ -94,16 +94,23 @@ function tableMarkup(snapshot, fund, direction) {
       latest = current.return === null ? '<span class="qdii-muted">未到期</span>'
         : `<b class="${trendClass(current.return)}">${percent(current.return, true)}</b>${current.audit?.result ? `<small class="qdii-score" data-score="${current.audit.result}">${scoreLabel[current.audit.result]}</small>` : ""}`;
     }
-    return html + `<tr><th scope="row">T+${row.horizon}</th><td>${probability}</td><td>${average}</td><td>${score}</td><td>${latest}</td></tr>`;
+    const head = picked === null ? `T+${row.horizon}`
+      : `<button type="button" class="qdii-row-pick" data-horizon="${row.horizon}" aria-pressed="${row.horizon === picked}">T+${row.horizon}</button>`;
+    const active = row.horizon === picked ? ' class="is-picked"' : "";
+    return html + `<tr${active}${picked === null ? "" : ` data-horizon="${row.horizon}"`}><th scope="row">${head}</th><td>${probability}</td><td>${average}</td><td>${score}</td><td>${latest}</td></tr>`;
   }).join("");
-  return `<table class="qdii-table">
-    <thead><tr><th scope="col">交易日</th><th scope="col">上涨概率</th><th scope="col">平均涨跌</th><th scope="col">Beat / Miss</th><th scope="col">本次</th></tr></thead>
+  // 固定栏宽：切换收紧／放宽时各栏不跳动
+  return `<table class="qdii-table${picked === null ? "" : " is-pickable"}">
+    <colgroup><col class="qdii-col-day"><col><col><col><col></colgroup>
+    <thead><tr><th scope="col">交易日</th><th scope="col">上涨概率</th><th scope="col">平均涨跌</th><th scope="col">Beat/Miss</th><th scope="col">本次</th></tr></thead>
     <tbody>${body}${placed ? "" : now}</tbody>
   </table>`;
 }
 
-// root 内渲染整个看板；onChange(fund, direction) 供详情页同步其他区块
-export function mountQdiiBoard(root, snapshot, { onChange } = {}) {
+// root 内渲染整个看板；onChange(fund, direction, horizon) 供详情页同步其他区块。
+// pickHorizon：详情页可点选交易日行（默认 T+20），下方历次调整跟着切换
+export function mountQdiiBoard(root, snapshot, { onChange, pickHorizon = null } = {}) {
+  let horizon = pickHorizon;
   let fund = snapshot.funds[0];
   let direction = fund.current.direction;
   root.innerHTML = `<div class="qdii-funds" role="group" aria-label="选择基金"></div>
@@ -126,8 +133,8 @@ export function mountQdiiBoard(root, snapshot, { onChange } = {}) {
       button.setAttribute("aria-pressed", String(active));
     }
     root.querySelector(".qdii-board-title").textContent = `${fund.name} · ${directionLabel[direction]}后纳指 100 涨跌`;
-    root.querySelector(".qdii-table-wrap").innerHTML = tableMarkup(snapshot, fund, direction);
-    onChange?.(fund, direction);
+    root.querySelector(".qdii-table-wrap").innerHTML = tableMarkup(snapshot, fund, direction, horizon);
+    onChange?.(fund, direction, horizon);
   }
 
   funds.addEventListener("click", (event) => {
@@ -138,6 +145,13 @@ export function mountQdiiBoard(root, snapshot, { onChange } = {}) {
     direction = fund.current.direction;
     render();
     funds.querySelector('[aria-pressed="true"]')?.focus();
+  });
+  root.querySelector(".qdii-table-wrap").addEventListener("click", (event) => {
+    const value = Number(event.target.closest("tr[data-horizon]")?.dataset.horizon);
+    if (horizon === null || !snapshot.horizons.includes(value) || value === horizon) return;
+    horizon = value;
+    render();
+    root.querySelector(`.qdii-row-pick[data-horizon="${value}"]`)?.focus();
   });
   seg.addEventListener("click", (event) => {
     const value = event.target.closest("button")?.value;

@@ -17,8 +17,8 @@
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=18">
   <link rel="stylesheet" href="/shared/global-header.css?v=5">
   <link rel="stylesheet" href="/shared/wide-layout.css?v=4">
-  <link rel="stylesheet" href="/qdii/board.css?v=2">
-  <link rel="stylesheet" href="/qdii/qdii.css?v=2">
+  <link rel="stylesheet" href="/qdii/board.css?v=3">
+  <link rel="stylesheet" href="/qdii/qdii.css?v=3">
 </head>
 <body class="wide-page wide-qdii">
   <div class="app-shell">
@@ -37,8 +37,8 @@
         <div id="qdii-shares" class="qdii-shares"></div>
       </section>
       <section id="qdii-events-card" class="card" aria-labelledby="qdii-events-title" hidden>
-        <div class="card-head"><h2 id="qdii-events-title" class="card-title">调整记录</h2><span id="qdii-events-pill" class="pill"></span></div>
-        <div id="qdii-windows" class="qdii-seg qdii-windows" role="group" aria-label="观察期（美股交易日）"></div>
+        <div class="card-head"><h2 id="qdii-events-title" class="card-title">历次调整</h2><span id="qdii-events-pill" class="pill"></span></div>
+        <p class="qdii-time">点上方表格的交易日行切换观察期</p>
         <div id="qdii-events" aria-live="polite"></div>
       </section>
       <section id="qdii-method-card" class="card" hidden>
@@ -48,7 +48,7 @@
             <li>限额取基金公司公告规定的人民币场外单账户日限额，保存公告日和生效日。</li>
             <li>T+N 为美股交易日，起点是公告日前最后一个纳指收盘；「今天」红线标出本次公告已走到的交易日。</li>
             <li>上涨概率与平均涨跌只统计同一基金、同一调整方向、已到期的历史公告。</li>
-            <li>Beat / Miss：每笔公告只用当时已到期的同方向样本（至少三笔）估计跌率，与 2020 年起同期限的纳指基准跌率比较；谁更接近实际涨跌结果，信号更准记 Beat，更差记 Miss，相同记持平。未到期暂不结算。</li>
+            <li>Beat / Miss：每笔公告只用当时已到期的同方向历史公告（至少三笔）算出「当时看跌」比例，与 2020 年起任意时点同期限纳指的「平时」下跌比例比较；哪个更接近实际涨跌，限额信号更准记 Beat，不如平时记 Miss，一样记持平。未走满的交易日暂不结算。</li>
             <li>份额以季报披露区间为准。份额区间早于调整时，调整后的份额标为待披露。</li>
           </ul>
         </details>
@@ -57,6 +57,6 @@
   </div>
   <div id="toast" class="toast" role="status"></div>
   <script type="module" src="/shared/global-header.js?v=8"></script>
-  <script type="module" src="/qdii/qdii.js?v=4"></script>
+  <script type="module" src="/qdii/qdii.js?v=5"></script>
 </body>
 </html>
