@@ -16,65 +16,47 @@
   </script>
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=18">
   <link rel="stylesheet" href="/shared/global-header.css?v=5">
-  <link rel="stylesheet" href="/shared/wide-layout.css?v=2">
-  <link rel="stylesheet" href="/shared/primary-tabs.css?v=2">
-  <link rel="stylesheet" href="/qdii/qdii.css?v=1">
+  <link rel="stylesheet" href="/shared/wide-layout.css?v=4">
+  <link rel="stylesheet" href="/qdii/board.css?v=1">
+  <link rel="stylesheet" href="/qdii/qdii.css?v=2">
 </head>
 <body class="wide-page wide-qdii">
   <div class="app-shell">
     <nav class="nav" aria-label="页面导航">
       <a class="nav-logo" href="/home" aria-label="首页"><img src="/short-emotion/logo.svg?v=2" alt="Market Emotion"></a>
-      <div class="nav-title">QDII 限额</div>
+      <div class="nav-title">纳指 QDII 限额</div>
     </nav>
-    <main class="qdii">
-      <header class="qdii-heading">
-        <div>
-          <h1>纳指 QDII 限额</h1>
-          <p>纳斯达克 100 · 人民币场外申购</p>
-        </div>
-        <div id="qdii-dates" class="qdii-dates"></div>
-      </header>
-      <p id="qdii-status" class="qdii-message" role="status">正在读取已核实的快照…</p>
-      <div id="qdii-content" hidden>
-        <section aria-labelledby="qdii-funds-title">
-          <div class="qdii-section-head">
-            <h2 id="qdii-funds-title">当前申购状态</h2>
-            <p id="qdii-breadth"></p>
-          </div>
-          <div id="qdii-funds" class="qdii-funds" role="group" aria-label="选择基金"></div>
-        </section>
-        <section class="card qdii-panel" aria-labelledby="qdii-history-title">
-          <div class="qdii-section-head">
-            <div><h2 id="qdii-history-title">纳指历史涨跌</h2><p id="qdii-selection"></p></div>
-            <div id="qdii-direction" class="qdii-switch" role="group" aria-label="限额调整方向">
-              <button type="button" value="tighten" aria-pressed="true">收紧</button>
-              <button type="button" value="ease" aria-pressed="false">放宽</button>
-            </div>
-          </div>
-          <div id="qdii-windows" class="qdii-windows" role="group" aria-label="观察期（美股交易日）"></div>
-          <div id="qdii-history" class="qdii-stats" aria-live="polite"></div>
-        </section>
-        <section class="card qdii-panel" aria-labelledby="qdii-audit-title">
-          <div class="qdii-section-head">
-            <div><h2 id="qdii-audit-title">实绩与 Beat／Miss</h2><p id="qdii-audit-meta"></p></div>
-          </div>
-          <div id="qdii-audit"></div>
-          <details class="qdii-method">
-            <summary>数据口径与回测规则</summary>
-            <ul>
-              <li>限额取基金公司公告规定的人民币场外单账户日限额，保存公告日和生效日。维持天数按快照日期与生效日的自然日差显示。</li>
-              <li>份额以季报披露区间为准。份额区间早于调整时，调整后的对应份额标为待披露。</li>
-              <li>公告后涨跌相对公告日前最后一个美股收盘。延续样本按距生效的美股交易日对齐，持有状态在历史观察点须仍有效。同期基准以 2020 年起的可到期交易窗口计算。</li>
-              <li>历史回测对每笔事件只使用当时已到期的同方向样本，至少三笔。若信号给实际涨跌结果的概率比当时基准高，记 Beat；低则记 Miss，相同为持平。未到期暂不结算。</li>
-            </ul>
-          </details>
-        </section>
-      </div>
+    <main class="qdii-page">
+      <section class="card qdii-board-card" aria-labelledby="qdii-title">
+        <div class="card-head"><h1 id="qdii-title" class="card-title">纳指 QDII 限额</h1><span id="qdii-dates" class="qdii-time"></span></div>
+        <p id="qdii-status" class="loading" role="status">正在读取限额快照…</p>
+        <div id="qdii-board" class="qdii-board"></div>
+      </section>
+      <section id="qdii-shares-card" class="card" aria-labelledby="qdii-shares-title" hidden>
+        <div class="card-head"><h2 id="qdii-shares-title" class="card-title">份额变动</h2><span id="qdii-shares-pill" class="pill"></span></div>
+        <div id="qdii-shares" class="qdii-shares"></div>
+      </section>
+      <section id="qdii-events-card" class="card" aria-labelledby="qdii-events-title" hidden>
+        <div class="card-head"><h2 id="qdii-events-title" class="card-title">调整记录</h2><span id="qdii-events-pill" class="pill"></span></div>
+        <div id="qdii-windows" class="qdii-seg qdii-windows" role="group" aria-label="观察期（美股交易日）"></div>
+        <div id="qdii-events" aria-live="polite"></div>
+      </section>
+      <section id="qdii-method-card" class="card" hidden>
+        <details class="qdii-method">
+          <summary class="card-title">数据口径与回测规则</summary>
+          <ul>
+            <li>限额取基金公司公告规定的人民币场外单账户日限额，保存公告日和生效日。</li>
+            <li>T+N 为美股交易日，起点是公告日前最后一个纳指收盘；「今天」红线标出本次公告已走到的交易日。</li>
+            <li>上涨概率与平均涨跌只统计同一基金、同一调整方向、已到期的历史公告。</li>
+            <li>Beat / Miss：每笔公告只用当时已到期的同方向样本（至少三笔）估计跌率，与 2020 年起同期限的纳指基准跌率比较；谁更接近实际涨跌结果，信号更准记 Beat，更差记 Miss，相同记持平。未到期暂不结算。</li>
+            <li>份额以季报披露区间为准。份额区间早于调整时，调整后的份额标为待披露。</li>
+          </ul>
+        </details>
+      </section>
     </main>
   </div>
   <div id="toast" class="toast" role="status"></div>
-  <script type="module" src="/shared/global-header.js?v=7"></script>
-  <script type="module" src="/shared/primary-tabs.js?v=2"></script>
-  <script type="module" src="/qdii/qdii.js?v=2"></script>
+  <script type="module" src="/shared/global-header.js?v=8"></script>
+  <script type="module" src="/qdii/qdii.js?v=3"></script>
 </body>
 </html>

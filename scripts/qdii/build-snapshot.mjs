@@ -76,6 +76,7 @@ export function buildSnapshot(curated, data) {
     const current = activeEvents.at(-1);
     if (!current) throw new Error(`${fund.code} 缺少有效限额变动`);
     const marketAge = Math.max(0, marketEnd - current.effectiveAnchor);
+    const announcedAge = Math.max(0, marketEnd - current.anchor);
     const age = (Date.parse(curated.verifiedOn) - Date.parse(current.effective)) / DAY;
     const history = { tighten: {}, ease: {} };
     for (const direction of Object.keys(history)) {
@@ -105,7 +106,7 @@ export function buildSnapshot(curated, data) {
       }));
       return { ...event, anchorDate: days[anchor] || null, horizons };
     });
-    return { code: fund.code, name: fund.name, scope: fund.scope, shares: fund.shares, age, marketAge, history,
+    return { code: fund.code, name: fund.name, scope: fund.scope, shares: fund.shares, age, marketAge, announcedAge, history,
       checkedThrough: fund.checkedThrough || curated.verifiedOn, review: fund.review || [],
       current: results.at(-1), events: results.slice().reverse() };
   });
