@@ -37,20 +37,27 @@ AGENCY = re.compile(r"代销|非直销|直销(?:渠道|机构|平台)?以外")
 
 
 def limit_amounts(text, code):
-    """限额金额按渠道分组：代销优先，其次未分渠道，最后直销。只针对 E/I 类或美元份额的金额不计入。"""
-    amounts = {"agency": set(), "direct": set(), "any": set()}
+    """限额金额按渠道分组：代销优先，其次未分渠道，最后直销。返回 [(渠道, 金额, 所在句)]；只针对 C/D/E/I 类或美元份额的金额不计入。"""
+    found = []
     for match in re.finditer(r"(?:业务限额为|申购限额为|单日限额为|申购上限为|限制金额为|不超过|不得超过|超过)(?:人民币)?" + AMOUNT, text):
         # 只看金额所在的这一句（上一个；或。之后），避免长句里的渠道、份额类别看不到或看串
         start = max(text.rfind(mark, 0, match.start()) for mark in "；。;") + 1
         sentence = text[max(start, match.start() - 260):match.start()]
+        clause = sentence[max(sentence.rfind(mark) for mark in "，,") + 1:]
         if "美元" in sentence[-30:] or not re.search(r"申购|定期定额|转换转入|限制金额", sentence):
             continue
-        if re.search(r"[EI]类", sentence) and not re.search(r"A类|" + code, sentence):
+        if re.search(r"[DEI]类", sentence) and not re.search(r"A类|" + code, sentence):
             continue
+        if re.search(r"[CDEI]类", clause) and not re.search(r"A类|" + code, clause):
+            continue  # 同一句里分别写 A、C 类时，只取 A 类那一段
         channel = "agency" if AGENCY.search(sentence) else "direct" if "直销" in sentence else "any"
         number, unit = match.groups()
-        amounts[channel].add(float(number.replace(",", "")) * (10_000 if unit else 1))
-    return amounts["agency"] or amounts["any"] or amounts["direct"]
+        found.append((channel, float(number.replace(",", "")) * (10_000 if unit else 1), text[max(start, match.start() - 260):match.end()]))
+    for channel in ("agency", "any", "direct"):
+        picked = [item for item in found if item[0] == channel]
+        if picked:
+            return picked
+    return []
 
 
 def parse_limit(title, text, code, published):
@@ -69,7 +76,7 @@ def parse_limit(title, text, code, published):
         return None
     if code not in text:
         raise ValueError("正文未找到对应基金代码")
-    found = re.search(r"(?:暂停申购(?:业务)?起始日|恢复申购(?:业务)?(?:起始)?日|(?:限制|暂停|调整)大额申购(?:业务金额限制)?起始日|恢复大额申购(?:起始)?日|自)" + CN_DATE, text)
+    found = re.search(r"(?:暂停申购(?:业务)?起始日|恢复申购(?:业务)?(?:起始)?日|(?:恢复/)?限制申购(?:业务)?起始日|(?:限制|暂停|调整)大额申购(?:业务金额限制)?起始日|恢复大额申购(?:起始)?日|自)" + CN_DATE, text)
     if not found:
         raise ValueError("缺少限额生效日")
     effective = to_date(found.groups())
@@ -77,7 +84,13 @@ def parse_limit(title, text, code, published):
         raise ValueError("限额生效日早于公告日")
     details = re.split(r"(?:2[.．、]其他需要提示的事项|其他需要提示的事项)", text, maxsplit=1)[-1]
     # 直销、代销限额不同时取代销（大多数人通过代销平台申购，2026-11-16）
-    amounts = limit_amounts(details, code) or limit_amounts(text, code)  # 金额只写在第 1 节「注」里时退回全文
+    candidates = limit_amounts(details, code) or limit_amounts(text, code)  # 金额只写在第 1 节「注」里时退回全文
+    amounts = {amount for _, amount, _ in candidates}
+    if len(amounts) > 1:
+        # 正文同时提到旧、新金额时，取写明本次生效日的那一句
+        y, m, d = effective.split("-")
+        dated = {amount for _, amount, sentence in candidates if re.search(f"{y}年0?{int(m)}月0?{int(d)}日", sentence)}
+        amounts = dated or amounts
     if "暂停申购" in title and "大额" not in title and "恢复" not in title:
         return effective, 0
     # 恢复大额申购 / 取消限制：不再限额（正文里提到的旧金额不算）
@@ -86,6 +99,8 @@ def parse_limit(title, text, code, published):
     if len(amounts) == 1:
         return effective, amounts.pop()
     if not amounts and re.search(r"(?:取消|解除).{0,30}(?:申购金额限制|大额申购限制|限额)", details):
+        return effective, "unlimited"
+    if not amounts and "恢复大额" in title:
         return effective, "unlimited"
     if not amounts and "恢复" in title and not re.search(r"限制|大额", title):
         return effective, "unlimited"

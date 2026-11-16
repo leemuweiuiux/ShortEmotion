@@ -49,8 +49,9 @@ describe("QDII 日频快照", () => {
   });
 
   it("同额度延续不重置日期，未生效调整暂不改变当前状态", () => {
-    const fund = structuredClone(seed.funds[0]);
-    const source = fund.events.at(-1)[3];
+    const source = "https://example.com/a.pdf";
+    // 固定样例：10 元 → 2026-10-14 公告、10-15 起暂停
+    const fund = { code: "T", name: "样例基金", index: "ndx", shares: {}, events: [["2026-09-01", "2026-09-01", 10, source], ["2026-10-14", "2026-10-15", 0, source]] };
     fund.events.push(["2026-11-12", "2026-11-12", 0, source], ["2026-11-16", "2026-11-17", 100, source]);
     const data = {
       columns: ["TIME", "MATCH", "TURNOVER", "VOLUME"].map((name) => ({ name })),
