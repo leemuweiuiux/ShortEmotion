@@ -2,7 +2,7 @@
 // 做法同宽基 ETF：克隆进屏幕外 600px 容器，用 html-to-image 截成 PNG（/shared/export-image.js）。
 import { loadImageExporter } from "/shared/export-loader.js?v=1";
 import { exportHeader, exportFooter, renderImage, prepareExportAssets, showGallery, withTimeout, esc } from "/shared/export-image.js?v=2";
-import { ageLine, eventsMarkup, latestCards, noticesMarkup, signalNote, tableMarkup, thermoMarkup } from "/qdii/board.js?v=10";
+import { ageLine, eventsMarkup, latestCards, noticesMarkup, signalNote, tableMarkup, thermoMarkup } from "/qdii/board.js?v=11";
 
 export function datesLine(snapshot) {
   const pending = snapshot.families.reduce((sum, family) => sum + family.review.length, 0);
@@ -24,7 +24,7 @@ export function buildQdiiExport(snapshot, { signal, index, horizon }, { kind = "
   if (kind === "long") {
     parts.push(section(`历次${signal.label} · ${index.short} T+${horizon}`, eventsMarkup(signal, index.id, horizon) || '<p class="qdii-time">尚未触发过。</p>'));
     parts.push(section("最新公告", `${latestCards(snapshot, 3)}${noticesMarkup(snapshot.notices.slice(3, 10), false)}`));
-    parts.push(section("口径", '<p class="qdii-time">追踪场外纳指100 / 标普500 QDII 全部基金家族（A/C 等份额合并），限额取人民币场外单账户日限额（直销、代销不同时取代销）。每天计算暂停中、近 20 个美股交易日有收紧公告、有放宽公告的家族占比，分为过热（暂停 ≥50%）、偏热（收紧 ≥15%）、正常、布局（放宽 ≥15%）、进场（放宽 ≥30%）五级；进入某一级的那天算一次，20 个交易日内不重复。T+N 为美股交易日，起点是触发前最后一个指数收盘；「平时」为 2018 年起任意时点同期限的同一指数。</p>'));
+    parts.push(section("口径", '<p class="qdii-time">追踪场外纳指100 / 标普500 QDII 全部基金，依暂停申购、收紧与放宽限额的集中程度分为过热、偏热、正常、布局、进场五级；进入某一级的那天算一次。T+N 为美股交易日，起点是进入前最后一个指数收盘；「平时」为 2018 年起任意时点同期限的同一指数。</p>'));
   }
   parts.push(exportFooter({ title: "Market Emotion · 美股 QDII 温度计", line: "QDII 限额集中收紧或放宽后，美股指数怎么走", note: "仅供研究，不构成投资建议。" }));
   return parts;

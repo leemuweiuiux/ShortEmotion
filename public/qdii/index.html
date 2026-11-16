@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="/shared/global-header.css?v=4">
   <script defer src="/shared/usage.js?v=3"></script>
   <link rel="stylesheet" href="/shared/wide-layout.css?v=4">
-  <link rel="stylesheet" href="/qdii/board.css?v=9">
+  <link rel="stylesheet" href="/qdii/board.css?v=10">
   <link rel="stylesheet" href="/qdii/qdii.css?v=7">
 </head>
 <body class="wide-page wide-qdii">
@@ -56,12 +56,11 @@
         <details class="qdii-method">
           <summary class="card-title">数据口径与回测规则</summary>
           <ul>
-            <li>追踪场外纳指100 / 标普500 QDII 全部基金，同一基金的 A/C/I 类、人民币/美元份额合并为一家；每天自动发现新基金。限额取人民币场外单账户日限额（直销、代销不同时取代销），比前一次低算收紧（含暂停申购），高算放宽。建信纳指的公告 PDF 无文字层，暂不纳入。</li>
-            <li>三项占比的分母都是已开放的家数：暂停中（以生效日计）、近 20 个美股交易日有收紧公告、近 20 日有放宽公告。公告日归到当天或之后的第一个美股交易日。</li>
-            <li>五级按以下顺序判断，先符合者为准：过热（暂停中 ≥50%）→ 进场（放宽 ≥30%）→ 偏热（收紧 ≥15%）→ 布局（放宽 ≥15%）→ 正常。家数少于 5 家时不计。</li>
-            <li>从别的等级切换进来的那天算一次，同一级 20 个交易日内不重复。T+N 为美股交易日，起点是进入前最后一个指数收盘；「今天」红线与表格上方的 T+N 标出最近一次已走到的交易日。</li>
-            <li>布局、进场看涨，上涨算命中（平盘不算）；命中绩效 = 命中各次涨幅之和，累计涨跌含未命中（为负）。过热、偏热、正常只统计下跌比例与平均涨跌，不判命中——历史上过热之后短期下跌偏多，但只出现过 3 次。</li>
-            <li>「平时」为 2018 年起任意时点同期限同一指数的下跌或上涨比例。各次区间可能重叠、样本较少，仅供参考。</li>
+            <li>追踪场外纳指100 / 标普500 QDII 全部基金，同一基金的各类份额合并计算，每天自动发现新基金；限额取人民币场外单账户日限额（直销、代销不同时取代销）。</li>
+            <li>依暂停申购、收紧限额、放宽限额的集中程度，每个美股交易日分为五级：过热、偏热、正常、布局、进场。</li>
+            <li>从别的等级切换进来的那天算一次，同一级短期内不重复计算。T+N 为美股交易日，起点是进入前最后一个指数收盘；红线与「今天 T+N」标出本次已走到的交易日。</li>
+            <li>布局、进场看涨，之后上涨算命中（平盘不算）；过热、偏热、正常只统计之后的下跌比例与平均涨跌，不判命中。</li>
+            <li>「平时」为 2018 年起任意时点同期限同一指数的下跌或上涨比例。各次区间可能重叠、样本较少，仅供参考，不构成投资建议。</li>
           </ul>
         </details>
       </section>
@@ -69,6 +68,6 @@
   </div>
   <div id="toast" class="toast" role="status"></div>
   <script type="module" src="/shared/global-header.js?v=7"></script>
-  <script type="module" src="/qdii/qdii.js?v=13"></script>
+  <script type="module" src="/qdii/qdii.js?v=14"></script>
 </body>
 </html>

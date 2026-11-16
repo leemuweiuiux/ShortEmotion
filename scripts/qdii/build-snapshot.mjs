@@ -125,35 +125,33 @@ export function buildSnapshot(curated, datasets) {
       if (daily[i] !== level.id || daily[i - 1] === level.id || i - lastAt <= cooldown) continue;
       lastAt = i;
       events.push({
-        date: calendar[i], anchorDate: days[i - 1], alive: alive[i],
-        paused: ratio("paused", i), tighten: ratio("tighten", i), ease: ratio("ease", i),
-        age: last - (i - 1),
+        date: calendar[i], anchorDate: days[i - 1], age: last - (i - 1),
         returns: Object.fromEntries(indexList.map((index) => [index.id, Object.fromEntries(HORIZONS.map((h) => [h, fwd(index.id, i, h)]))]))
       });
     }
-    return { ...level, window, events: events.reverse() };
+    // 只公开名称与描述，门槛与占比不进快照
+    return { id: level.id, label: level.label, line: level.line, expect: level.expect, events: events.reverse() };
   });
 
   const at = n - 1;
   let start = at;
   while (start > 0 && daily[start - 1] === daily[at]) start--;
-  const share = (rule) => ({ count: counts[rule][at], ratio: ratio(rule, at) });
-  const now = {
-    date: calendar[at], alive: alive[at], window, state: daily[at] || "normal",
-    since: calendar[start], age: last - (start - 1),
-    paused: share("paused"), tighten: share("tighten"), ease: share("ease")
-  };
+  const now = { date: calendar[at], alive: alive[at], state: daily[at] || "normal", since: calendar[start], age: last - (start - 1) };
+  // 温度走势：等级变化点 + 纳指周线（每 5 个交易日一点）
+  const bands = [];
+  calendar.forEach((date, i) => {
+    if (date >= "2019-01-01" && daily[i] && daily[i] !== bands.at(-1)?.[1]) bands.push([date, daily[i]]);
+  });
+  const prices = days.flatMap((date, i) => date >= "2019-01-01" && ((last - i) % 5 === 0) ? [[date, price(indexList[0].id, i)]] : []);
 
   const notices = families.flatMap((family) => family.changes.map((change) => ({
     family: family.key, index: family.index, name: family.key, ...change
   }))).sort((a, b) => b.announced.localeCompare(a.announced) || b.effective.localeCompare(a.effective) || a.name.localeCompare(b.name));
-  const round = (value) => Math.round(value * 1000) / 1000;
   const through = indices.map((index) => index.indexThrough).sort()[0];
   return {
     verifiedOn: curated.verifiedOn, indexThrough: through, horizons: HORIZONS, indices, signals, now,
-    series: calendar.map((date, i) => [date, round(ratio("paused", i)), round(ratio("tighten", i)), round(ratio("ease", i))]).filter(([date]) => date >= "2019-01-01"),
+    bands, prices,
     notices,
-    families: families.map((family) => ({ key: family.key, index: family.index, code: family.code, current: family.changes.at(-1)?.cap ?? "unlimited",
-      checkedThrough: family.checkedThrough || curated.verifiedOn, review: family.review || [] }))
+    families: families.map((family) => ({ key: family.key, index: family.index, checkedThrough: family.checkedThrough || curated.verifiedOn, review: family.review || [] }))
   };
 }
