@@ -1,5 +1,5 @@
 // /qdiitrend 详情页：看板（可点选交易日行）+ 份额变动 + 历次调整（跟随所选交易日）+ 口径说明。
-import { capLabel, directionLabel, esc, external, leanLabel, leanOf, loadQdiiSnapshot, mountQdiiBoard, percent, scoreLabel, trendClass } from "/qdii/board.js?v=5";
+import { capLabel, directionLabel, esc, external, hitLabel, isHit, loadQdiiSnapshot, mountQdiiBoard, percent, trendClass } from "/qdii/board.js?v=6";
 
 const $ = (id) => document.getElementById(id);
 const number = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 });
@@ -30,14 +30,12 @@ function renderEvents() {
   const visible = showAll ? rows : rows.slice(0, 6);
   const list = visible.map((event) => {
     const outcome = event.horizons[windowDays];
-    const { audit } = outcome;
-    const result = audit?.result;
-    const tag = result ? `<span class="pill${result === "beat" ? " pill-solid" : ""}">${scoreLabel[result]}</span>`
-      : `<span class="pill qdii-muted">${outcome.return === null ? "未到期" : "不评分"}</span>`;
-    const lean = audit ? `<span class="qdii-event-lean">${leanLabel[leanOf(audit.estimate, audit.reference)]} →</span>` : "";
+    const hit = outcome.return !== null && isHit(direction, outcome.return);
+    const tag = outcome.return === null ? '<span class="pill qdii-muted">未到期</span>'
+      : `<span class="pill${hit ? " pill-solid" : ""}">${hitLabel(hit)}</span>`;
     return `<article class="qdii-event">
       <div class="qdii-event-main"><span class="qdii-event-date">${esc(event.announced)}</span><b>${capLabel(event.previous)} → ${capLabel(event.cap)}</b>${external(event.source, "公告")}</div>
-      <div class="qdii-event-result">${lean}${outcome.return === null ? '<b class="qdii-muted">—</b>' : `<b class="${trendClass(outcome.return)}">${percent(outcome.return, true)}</b>`}${tag}</div>
+      <div class="qdii-event-result">${outcome.return === null ? '<b class="qdii-muted">—</b>' : `<b class="${trendClass(outcome.return)}">${percent(outcome.return, true)}</b>`}${tag}</div>
     </article>`;
   }).join("");
   $("qdii-events").innerHTML = list || '<div class="empty">暂无相应的限额变动。</div>';

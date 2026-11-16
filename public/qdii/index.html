@@ -17,8 +17,8 @@
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=18">
   <link rel="stylesheet" href="/shared/global-header.css?v=5">
   <link rel="stylesheet" href="/shared/wide-layout.css?v=4">
-  <link rel="stylesheet" href="/qdii/board.css?v=5">
-  <link rel="stylesheet" href="/qdii/qdii.css?v=4">
+  <link rel="stylesheet" href="/qdii/board.css?v=6">
+  <link rel="stylesheet" href="/qdii/qdii.css?v=5">
 </head>
 <body class="wide-page wide-qdii">
   <div class="app-shell">
@@ -47,8 +47,9 @@
           <ul>
             <li>限额取基金公司公告规定的人民币场外单账户日限额，保存公告日和生效日。</li>
             <li>T+N 为美股交易日，起点是公告日前最后一个纳指收盘；「今天」红线标出本次公告已走到的交易日。</li>
-            <li>上涨概率与平均涨跌只统计同一基金、同一调整方向、已到期的历史公告；「平时」为 2020 年起任意时点同期限纳指的上涨比例。</li>
-            <li>猜中／猜错：每笔公告用当时已到期的同方向历史公告（至少三笔）算出下跌比例，高于平时（2020 年起任意时点同期限纳指）为偏空，低于为偏多；偏空遇跌、偏多遇涨算猜中，反之猜错，与平时相同记持平。未走满的交易日暂不结算。</li>
+            <li>假设收紧看跌、放宽看涨：T+N 收盘相对起点的涨跌方向符合预期即命中，平盘不算。命中率 = 命中次数 ÷ 已到期次数，只统计同一基金、同一调整方向的历史公告。</li>
+            <li>命中绩效：命中各次按信号方向计的涨跌之和（收紧取跌幅）。累计涨跌：全部已到期次数按信号方向计的涨跌之和，命中为正、未命中为负。各次区间可能重叠，累计数字需结合次数看。</li>
+            <li>「平时」为 2020 年起任意时点同期限纳指的下跌（收紧）或上涨（放宽）比例，用来对照命中率。</li>
             <li>份额以季报披露区间为准。份额区间早于调整时，调整后的份额标为待披露。</li>
           </ul>
         </details>
@@ -57,6 +58,6 @@
   </div>
   <div id="toast" class="toast" role="status"></div>
   <script type="module" src="/shared/global-header.js?v=8"></script>
-  <script type="module" src="/qdii/qdii.js?v=7"></script>
+  <script type="module" src="/qdii/qdii.js?v=8"></script>
 </body>
 </html>
