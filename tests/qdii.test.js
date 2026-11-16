@@ -32,7 +32,12 @@ describe("QDII 日频快照", () => {
     const tabs = readFileSync(new URL("../public/shared/primary-tabs.js", import.meta.url), "utf8");
     const home = readFileSync(new URL("../public/home/index.html", import.meta.url), "utf8");
     expect(tabs).not.toContain('"/qdii"');
-    expect(home).toContain('id="qdii-card"');
+    const linkage = home.indexOf('id="global-linkage-card"');
+    const qdii = home.indexOf('id="qdii-card"');
+    expect(linkage).toBeGreaterThan(-1);
+    expect(qdii).toBeGreaterThan(linkage);
+    expect(qdii).toBeLessThan(home.indexOf('id="anomaly-card"'));
+    expect(home.slice(qdii, home.indexOf("</section>", qdii))).not.toMatch(/<button/);
     expect(home).toContain("/qdii/home-card.js");
   });
 

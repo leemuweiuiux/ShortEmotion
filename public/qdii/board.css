@@ -46,3 +46,7 @@
   .qdii-fund-name { font-size: 12px; }
   .qdii-table th, .qdii-table td { padding-inline: 2px; }
 }
+/* 首页模块：只展示三张状态卡，不可交互（操作在 /qdiitrend） */
+.home-qdii .qdii-fund { align-content: start; gap: 5px; }
+.home-qdii .qdii-funds > .loading, .home-qdii .qdii-funds > .empty { grid-column: 1 / -1; }
+@media (max-width: 420px) { .qdii-fund-change b { font-size: 12px; } }

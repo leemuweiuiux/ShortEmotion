@@ -1,5 +1,5 @@
 // /qdii 详情页：同首页模块的看板，加份额变动、单笔调整记录与口径说明。
-import { capLabel, directionLabel, esc, external, loadQdiiSnapshot, mountQdiiBoard, percent, scoreLabel, trendClass } from "/qdii/board.js?v=1";
+import { capLabel, directionLabel, esc, external, loadQdiiSnapshot, mountQdiiBoard, percent, scoreLabel, trendClass } from "/qdii/board.js?v=2";
 
 const $ = (id) => document.getElementById(id);
 const number = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 });
