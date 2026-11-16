@@ -1,5 +1,5 @@
 // 用法：node scripts/qdii/refresh.mjs <curated.json> <snapshot.json> [--skip-if-fresh]
-// 各指数 2020 年至去年的日线存在快照同目录的 history-<id>.json，只在跨年或缺失时重取；平时每个指数只取今年一段。
+// 各指数 2018 年至去年的日线存在快照同目录的 bars-<id>.json，只在跨年或缺失时重取；平时每个指数只取今年一段。
 // --skip-if-fresh：备援 / GitHub 后备定时用；6 小时内已取到最新美股交易日收盘时不再调用 Wind
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -50,13 +50,13 @@ async function fetchYear(index, year, fresh = false) {
 
 const sameColumns = (a, b) => a.map(({ name }) => name).join() === b.map(({ name }) => name).join();
 
-// 2020 年至去年：已存的整年日线直接用，跨年后补上新的一年
+// 2018 年至去年：已存的整年日线直接用，跨年后补上新的一年
 async function history(index) {
-  const path = join(dirname(outputPath), `history-${index.id}.json`);
+  const path = join(dirname(outputPath), `bars-${index.id}.json`);
   const lastYear = thisYear - 1;
   let saved = await readJson(path);
   if (saved?.windcode !== index.windcode) saved = null;
-  const data = saved || { windcode: index.windcode, columns: null, rows: [], throughYear: 2019 };
+  const data = saved || { windcode: index.windcode, columns: null, rows: [], throughYear: 2017 };
   for (let year = data.throughYear + 1; year <= lastYear; year++) {
     const block = await fetchYear(index, year);
     data.columns ??= block.columns;
@@ -100,4 +100,4 @@ if (stale.length || (previous && snapshot.verifiedOn < previous.verifiedOn)) {
 }
 snapshot.updatedAt = now.toISOString();
 await writeFile(outputPath, JSON.stringify(snapshot) + "\n");
-console.log(`已更新 ${snapshot.funds.length} 只基金，${snapshot.indices.map((index) => `${index.short}收盘 ${index.indexThrough}`).join("，")}`);
+console.log(`已更新 ${snapshot.families.length} 个基金家族（${snapshot.now.state}），${snapshot.indices.map((index) => `${index.short}收盘 ${index.indexThrough}`).join("，")}`);

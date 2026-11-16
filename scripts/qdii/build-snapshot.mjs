@@ -1,118 +1,153 @@
-// 用法：node scripts/qdii/build-snapshot.mjs <Wind index_data.get_index_kline 回执文件>（只含第一个指数，调试用）
-import { readFile, writeFile } from "node:fs/promises";
-import { pathToFileURL } from "node:url";
+// 美股 QDII 限额温度计：由基金家族的限额事件与指数日线生成快照。
+// 每个美股交易日计算「近 W 日收紧（含暂停）的家族占比」与「近 W 日放宽的家族占比」；
+// 占比首次越过门槛的那天算一波（冷却期内不重复），结算 T+N 指数涨跌。
+// 公告日（北京）归到当天或之后的第一个美股交易日，起点为公告前最后一个收盘（与回测一致）。
 
-const HORIZONS = [5, 10, 20, 40, 60, 90, 120, 180, 250];
-const DAY = 86_400_000;
+export const HORIZONS = [5, 10, 20, 60];
 const SHANGHAI_DAY = /^\d{4}-\d{2}-\d{2}$/;
-const capValue = (cap) => cap === "unlimited" ? Infinity : cap;
-// 旧版种子没有 indices：只有纳指一组
-export const DEFAULT_INDICES = [{ id: "ndx", name: "纳斯达克100", short: "纳指100", windcode: "NDX.GI" }];
+const rank = (cap) => cap === "unlimited" ? Infinity : Number(cap);
+export const DEFAULT_INDICES = [
+  { id: "ndx", name: "纳斯达克100", short: "纳指100", windcode: "NDX.GI" },
+  { id: "spx", name: "标普500", short: "标普500", windcode: "SPX.GI" }
+];
 
-function lastBefore(days, date) {
+function firstOnOrAfter(days, date) {
   let low = 0;
   let high = days.length;
   while (low < high) {
-    const mid = Math.floor((low + high) / 2);
+    const mid = (low + high) >> 1;
     if (days[mid] < date) low = mid + 1;
     else high = mid;
   }
-  return low - 1;
+  return low;
 }
 
-function observations(starts, horizon, maximum, market) {
-  return starts.flatMap(([idx, date]) => {
-    const end = idx + horizon;
-    return idx < 0 || end > maximum ? [] : [{
-      date, end, change: market[end].close / market[idx].close - 1
-    }];
-  });
-}
-
-function summary(rows) {
-  let down = 0;
-  let up = 0;
-  for (const row of rows) {
-    if (row.change < 0) down++;
-    if (row.change > 0) up++;
-  }
-  return { total: rows.length, down, up, flat: rows.length - down - up, from: rows[0]?.date || null, to: rows.at(-1)?.date || null };
-}
-
-function prepareMarket(index, data, referenceFrom) {
+function prepareMarket(index, data) {
   const cols = Object.fromEntries(data.columns.map(({ name }, i) => [name, i]));
-  const market = data.rows.filter((row) => !(String(row[cols.TURNOVER]) === "0" && String(row[cols.VOLUME]) === "0")).map((row) => ({
-    date: String(row[cols.TIME]).slice(0, 10), close: Number(row[cols.MATCH])
-  }));
+  // 休市日 Wind 补一根成交为 0 的平盘，剔除
+  const market = data.rows.filter((row) => !(String(row[cols.TURNOVER]) === "0" && String(row[cols.VOLUME]) === "0"))
+    .map((row) => ({ date: String(row[cols.TIME]).slice(0, 10), close: Number(row[cols.MATCH]) }));
   if (!market.length || market.some((point, i) => !SHANGHAI_DAY.test(point.date) || !(point.close > 0) || (i && point.date <= market[i - 1].date))) {
     throw new Error(`${index.short}日线包含无效或重复交易日`);
   }
-  const days = market.map((point) => point.date);
-  const end = market.length - 1;
-  const referenceStarts = days.map((date, i) => [i, date]).filter(([, date]) => date >= referenceFrom);
-  const reference = Object.fromEntries(HORIZONS.map((horizon) => [horizon, summary(observations(referenceStarts, horizon, end, market))]));
-  return { market, days, end, reference };
+  return new Map(market.map((point) => [point.date, point.close]));
 }
 
-function buildFund(fund, verifiedOn, { market, days, end }) {
-  const events = fund.events.slice(1).flatMap(([announced, effective, cap, source], i) => {
-    const [, , previous] = fund.events[i];
-    if (cap === previous) return [];
-    return [{
-      announced, effective, cap, previous, source,
-      direction: capValue(cap) < capValue(previous) ? "tighten" : "ease",
-      anchor: lastBefore(days, announced), effectiveAnchor: lastBefore(days, effective)
-    }];
-  });
-  const activeEvents = events.filter((event) => event.effective <= verifiedOn);
-  const current = activeEvents.at(-1);
-  if (!current) throw new Error(`${fund.code} 缺少有效限额变动`);
-  const marketAge = Math.max(0, end - current.effectiveAnchor);
-  const announcedAge = Math.max(0, end - current.anchor);
-  const age = (Date.parse(verifiedOn) - Date.parse(current.effective)) / DAY;
-  // 每笔公告各观察期的实际涨跌；命中（收紧看跌、放宽看涨）在前端按方向判断
-  const results = activeEvents.map(({ anchor, effectiveAnchor, ...event }) => {
-    const horizons = Object.fromEntries(HORIZONS.map((horizon) => {
-      const [actual] = observations([[anchor, event.announced]], horizon, end, market);
-      return [horizon, { end: actual ? days[actual.end] : null, return: actual?.change ?? null }];
-    }));
-    return { ...event, anchorDate: days[anchor] || null, horizons };
-  });
-  return { code: fund.code, name: fund.name, scope: fund.scope, index: fund.index, shares: fund.shares, age, marketAge, announcedAge,
-    checkedThrough: fund.checkedThrough || verifiedOn, review: fund.review || [],
-    current: results.at(-1), events: results.slice().reverse() };
+// 每个家族的限额变动：方向由前后限额比较得出（首个公告之前视为不限额）
+export function familyChanges(family) {
+  let previous = "unlimited";
+  const changes = [];
+  for (const [announced, effective, cap, source] of family.events) {
+    if (rank(cap) === rank(previous)) continue;
+    changes.push({ announced, effective, cap, previous, source,
+      direction: rank(cap) < rank(previous) ? "tighten" : "ease", suspend: cap === 0 });
+    previous = cap;
+  }
+  return changes;
 }
 
-/**
- * datasets：{ 指数 id: Wind 日线 { columns, rows } }；只传一份日线（旧用法）时视为第一个指数。
- * 每只基金按 fund.index 用对应指数结算，「平时」也按各自指数算。
- */
 export function buildSnapshot(curated, datasets) {
   const indexList = curated.indices?.length ? curated.indices : DEFAULT_INDICES;
-  const byId = datasets?.columns ? { [indexList[0].id]: datasets } : datasets;
-  const markets = {};
+  const closes = {};
   const indices = indexList.map((index) => {
-    if (!byId[index.id]) throw new Error(`缺少${index.short}日线`);
-    markets[index.id] = prepareMarket(index, byId[index.id], curated.referenceFrom);
-    return { ...index, indexThrough: markets[index.id].days.at(-1), reference: markets[index.id].reference };
+    if (!datasets[index.id]) throw new Error(`缺少${index.short}日线`);
+    closes[index.id] = prepareMarket(index, datasets[index.id]);
+    return { ...index, indexThrough: [...closes[index.id].keys()].at(-1) };
   });
-  const funds = curated.funds.map((fund) => {
-    const indexId = fund.index || indexList[0].id;
-    if (!markets[indexId]) throw new Error(`${fund.code} 的指数 ${indexId} 不在指数列表里`);
-    return buildFund({ ...fund, index: indexId }, curated.verifiedOn, markets[indexId]);
-  });
-  const through = indices.map((index) => index.indexThrough).sort()[0];
-  // 顶层 indexThrough 取各指数最早的一天，用于判断是否需要重取
-  return { verifiedOn: curated.verifiedOn, indexThrough: through, horizons: HORIZONS, indices, funds };
-}
+  // 共同交易日历；最后加一天「今天」承接美股收盘后的新公告（无收盘）
+  const from = curated.referenceFrom || "2018-01-01";
+  const days = [...closes[indexList[0].id].keys()].filter((date) => date >= from && indexList.every((index) => closes[index.id].has(date)));
+  const last = days.length - 1;
+  const today = curated.verifiedOn > days[last] ? curated.verifiedOn : null;
+  const calendar = today ? [...days, today] : days;
+  const n = calendar.length;
+  const price = (id, i) => closes[id].get(days[i]);
+  const fwd = (id, i, h) => i >= 1 && i - 1 + h <= last ? price(id, i - 1 + h) / price(id, i - 1) - 1 : null;
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const input = process.argv[2];
-  if (!input) throw new Error("缺少 Wind 日线文件参数");
-  const curated = JSON.parse(await readFile(new URL("./curated.json", import.meta.url), "utf8"));
-  const raw = JSON.parse(await readFile(input, "utf8"));
-  const data = raw.content ? JSON.parse(raw.content[0].text).data : raw;
-  const snapshot = buildSnapshot({ ...curated, funds: curated.funds.filter((fund) => !fund.index || fund.index === (curated.indices?.[0]?.id || "ndx")) }, data);
-  await writeFile(new URL("../../public/qdii/snapshot.json", import.meta.url), JSON.stringify(snapshot) + "\n");
-  console.log(`已生成 ${snapshot.funds.length} 只基金的看板快照，指数截至 ${snapshot.indexThrough}`);
+  const families = curated.families.map((family) => {
+    const changes = familyChanges(family);
+    return { ...family, changes, open: firstOnOrAfter(calendar, family.opened || changes[0]?.announced || from),
+      marks: changes.map((change) => ({ ...change, at: firstOnOrAfter(calendar, change.announced) })) };
+  });
+
+  // 「平时」：起点之后任意交易日同期限的涨跌比例
+  for (const index of indices) {
+    index.reference = Object.fromEntries(HORIZONS.map((h) => {
+      let down = 0;
+      let up = 0;
+      let total = 0;
+      for (let i = 1; i <= last; i++) {
+        const change = fwd(index.id, i, h);
+        if (change === null) continue;
+        total++;
+        if (change < 0) down++;
+        if (change > 0) up++;
+      }
+      return [h, { total, down, up }];
+    }));
+  }
+
+  // 每日占比：windows 内有该类变动的家族数 ÷ 已开放家族数
+  const windows = [...new Set(curated.signals.list.map((signal) => signal.window))];
+  const ratio = {};
+  const alive = Array.from({ length: n }, (_, i) => families.filter((family) => family.open <= i).length);
+  for (const kind of ["tighten", "ease"]) {
+    for (const window of windows) {
+      const counts = new Array(n).fill(0);
+      for (const family of families) {
+        const hit = new Array(n).fill(false);
+        for (const mark of family.marks) {
+          if (mark.direction !== kind) continue;
+          for (let i = mark.at; i < Math.min(n, mark.at + window); i++) hit[i] = true;
+        }
+        hit.forEach((value, i) => { if (value && family.open <= i) counts[i]++; });
+      }
+      ratio[`${kind}-${window}`] = counts.map((count, i) => ({ count, ratio: alive[i] ? count / alive[i] : 0 }));
+    }
+  }
+
+  const minimum = curated.signals.minimumFamilies ?? 5;
+  const cooldown = curated.signals.cooldown ?? 20;
+  const signals = curated.signals.list.map((signal) => {
+    const series = ratio[`${signal.kind}-${signal.window}`];
+    const events = [];
+    let lastAt = -Infinity;
+    for (let i = 1; i < n; i++) {
+      if (alive[i] < minimum || series[i].ratio < signal.threshold || series[i - 1].ratio >= signal.threshold || i - lastAt <= cooldown) continue;
+      lastAt = i;
+      events.push({
+        date: calendar[i], anchorDate: days[i - 1], count: series[i].count, alive: alive[i], ratio: series[i].ratio,
+        age: last - (i - 1),
+        returns: Object.fromEntries(indexList.map((index) => [index.id, Object.fromEntries(HORIZONS.map((h) => [h, fwd(index.id, i, h)]))]))
+      });
+    }
+    return { ...signal, events: events.reverse() };
+  });
+
+  const at = n - 1;
+  const paused = families.filter((family) => family.open <= at && family.changes.at(-1)?.cap === 0).length;
+  const tightenKey = `tighten-${curated.signals.list.find((signal) => signal.kind === "tighten").window}`;
+  const easeKey = `ease-${curated.signals.list.find((signal) => signal.kind === "ease").window}`;
+  const level = (id) => signals.find((signal) => signal.id === id);
+  const now = {
+    date: calendar[at], alive: alive[at], paused,
+    tighten: { window: Number(tightenKey.split("-")[1]), ...ratio[tightenKey][at] },
+    ease: { window: Number(easeKey.split("-")[1]), ...ratio[easeKey][at] }
+  };
+  now.state = now.ease.ratio >= level("ease").threshold ? "ease"
+    : now.tighten.ratio >= level("hot").threshold ? "hot"
+      : now.tighten.ratio >= level("warm").threshold ? "warm" : "normal";
+
+  const notices = families.flatMap((family) => family.changes.map((change) => ({
+    family: family.key, index: family.index, name: family.key, ...change
+  }))).sort((a, b) => b.announced.localeCompare(a.announced) || b.effective.localeCompare(a.effective) || a.name.localeCompare(b.name));
+  const round = (value) => Math.round(value * 1000) / 1000;
+  const through = indices.map((index) => index.indexThrough).sort()[0];
+  return {
+    verifiedOn: curated.verifiedOn, indexThrough: through, horizons: HORIZONS, indices, signals, now,
+    series: calendar.map((date, i) => [date, round(ratio[tightenKey][i].ratio), round(ratio[easeKey][i].ratio)]).filter(([date]) => date >= "2019-01-01"),
+    notices,
+    families: families.map((family) => ({ key: family.key, index: family.index, code: family.code, current: family.changes.at(-1)?.cap ?? "unlimited",
+      checkedThrough: family.checkedThrough || curated.verifiedOn, review: family.review || [] }))
+  };
 }
