@@ -56,6 +56,9 @@ def limit_amounts(text, code):
 def parse_limit(title, text, code, published):
     if "继续暂停" in title or HOLIDAY.search(title) or "销售机构" in title or "转换业务" in title:
         return None
+    # 银行卡、支付渠道、费率类通知与额度无关
+    if re.search(r"借记卡|通联支付|直联|费率", title):
+        return None
     # 同时暂停赎回的是境外休市（节假日），不是额度变化
     if "暂停" in title and "赎回" in title:
         return None
@@ -77,9 +80,14 @@ def parse_limit(title, text, code, published):
     amounts = limit_amounts(details, code) or limit_amounts(text, code)  # 金额只写在第 1 节「注」里时退回全文
     if "暂停申购" in title and "大额" not in title and "恢复" not in title:
         return effective, 0
+    # 恢复大额申购 / 取消限制：不再限额（正文里提到的旧金额不算）
+    if re.search(r"恢复大额|取消", title) and re.search(r"取消.{0,160}(?:限制|限额)", details):
+        return effective, "unlimited"
     if len(amounts) == 1:
         return effective, amounts.pop()
     if not amounts and re.search(r"(?:取消|解除).{0,30}(?:申购金额限制|大额申购限制|限额)", details):
+        return effective, "unlimited"
+    if not amounts and "恢复" in title and not re.search(r"限制|大额", title):
         return effective, "unlimited"
     raise ValueError("限额规则或金额需核实")
 
