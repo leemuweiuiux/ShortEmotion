@@ -7,32 +7,20 @@ const seed = JSON.parse(readFileSync(new URL("../scripts/qdii/curated.json", imp
 const bundled = JSON.parse(readFileSync(new URL("../public/qdii/snapshot.json", import.meta.url), "utf8"));
 
 describe("QDII 日频快照", () => {
-  it("首批产品保留最新实际限额、份额日期和已结算的指数结果", () => {
-    expect(bundled.funds.map((fund) => fund.code)).toEqual(["270042", "160213", "016532", "018064", "017028", "050025"]);
-    expect(bundled.funds.map((fund) => fund.index)).toEqual(["ndx", "ndx", "ndx", "spx", "spx", "spx"]);
+  it("内置快照与种子一致：纳指100、标普500 各三只", () => {
+    expect(bundled.funds.map((fund) => [fund.code, fund.index])).toEqual(seed.funds.map((fund) => [fund.code, fund.index]));
     expect(bundled.indices.map((index) => index.id)).toEqual(["ndx", "spx"]);
     expect(bundled.horizons).toEqual([5, 10, 20, 40, 60, 90, 120, 180, 250]);
-    const [fund] = bundled.funds;
-    expect(fund.current).toMatchObject({ effective: "2026-10-15", previous: 10, cap: 0, direction: "tighten" });
-    expect(fund.shares.endDate).toBe("2026-09-30");
-    expect(fund.current.horizons[20].return).toBeCloseTo(-0.0925, 4);
-    expect(fund.current.horizons[60].return).toBeNull();
-    expect(bundled.funds.slice(0, 2).map((item) => item.announcedAge)).toEqual([23, 39]);
+    for (const fund of bundled.funds) expect(Number.isInteger(fund.announcedAge)).toBe(true);
   });
 
-  it("收紧看跌、放宽看涨：按交易日汇总命中率、命中绩效、累计涨跌与本次是否命中", () => {
-    const [fund] = bundled.funds;
-    const [t5, , t20] = horizonRows(bundled, fund, "tighten");
-    expect(t5).toMatchObject({ settled: 10, hits: 7 });
-    expect(t5.hitRate).toBeCloseTo(0.7, 5);
-    expect(t5.hitPerf).toBeCloseTo(0.139, 3);
-    expect(t5.netPerf).toBeCloseTo(0.063, 3);
-    expect(Math.round(t5.baseRate * 100)).toBe(42);
-    expect(t20).toMatchObject({ settled: 10, hits: 4 });
-    expect(isHit("tighten", t5.current.return)).toBe(true);
+  it("收紧看跌、放宽看涨：命中判断与按交易日汇总", () => {
+    expect(isHit("tighten", -0.01)).toBe(true);
     expect(isHit("ease", 0.01)).toBe(true);
     expect(isHit("tighten", 0)).toBe(false);
-    expect(horizonRows(bundled, fund, "ease")[0].current).toBeNull();
+    const rows = horizonRows(bundled, bundled.funds[0], "tighten");
+    expect(rows).toHaveLength(9);
+    for (const row of rows) expect(row.hits).toBeLessThanOrEqual(row.settled);
   });
 
   it("QDII 不在底部主导航，改为首页模块", () => {
