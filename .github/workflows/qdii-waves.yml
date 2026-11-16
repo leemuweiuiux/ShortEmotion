@@ -1,0 +1,27 @@
+name: QDII waves backfill (temporary)
+
+on:
+  push:
+    branches: [backfill/qdii-waves]
+    paths: [scripts/qdii/waves.py, .github/workflows/qdii-waves.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install 'pypdf==6.14.2'
+      - run: python scripts/qdii/waves.py scripts/qdii/waves-output.json 2018-01-01
+      - name: Commit output
+        if: always()
+        run: |
+          git add scripts/qdii/waves-output.json
+          git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -qm "QDII waves output"
+          git push origin HEAD:backfill/qdii-waves
