@@ -1,7 +1,6 @@
 const links = [
   ["/home", "首页", '<path d="M3 19h18M5 15l5-5 4 3 5-7m-4 0h4v4"/>'],
   ["/watchlist", "关注", '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-3-5.5 3 1-6.2L3 9.6l6.2-.9L12 3z"/>'],
-  ["/qdii", "QDII", '<path d="M3 15h4l3-7 4 11 3-6h4"/>'],
   ["/account", "我的", '<circle cx="12" cy="8" r="3.5"/><path d="M5 20v-1a7 7 0 0 1 14 0v1"/>']
 ];
 const current = location.pathname.replace(/\/$/, "");
