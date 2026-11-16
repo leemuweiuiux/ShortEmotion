@@ -17,12 +17,12 @@
   <meta property="og:locale" content="zh_CN">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:image" content="https://www.lfjmwl.com/about/img/pulse-light.webp">
-  <script type="application/ld+json">[{"@context": "https://schema.org", "@type": "Organization", "@id": "https://www.lfjmwl.com/#organization", "name": "Market Emotion", "url": "https://www.lfjmwl.com/about", "logo": "https://www.lfjmwl.com/apple-touch-icon.png", "description": "A股短线情绪与个股分析：每天一个 0–100 的短线情绪分，并发布每日看点短线复盘。"}, {"@context": "https://schema.org", "@type": "WebSite", "@id": "https://www.lfjmwl.com/#website", "name": "Market Emotion", "alternateName": "看懂A股情绪与走势", "url": "https://www.lfjmwl.com/about", "inLanguage": ["zh-Hans", "zh-Hant"], "publisher": {"@id": "https://www.lfjmwl.com/#organization"}}]</script>
+  <script type="application/ld+json">[{"@context": "https://schema.org", "@type": "Organization", "@id": "https://www.lfjmwl.com/#organization", "name": "Market Emotion", "url": "https://www.lfjmwl.com/about", "logo": "https://www.lfjmwl.com/apple-touch-icon.png", "description": "A股短线情绪与个股分析：每天一个 0–100 的短线情绪分，并发布每日看点短线复盘。"}, {"@context": "https://schema.org", "@type": "WebSite", "@id": "https://www.lfjmwl.com/#website", "name": "Market Emotion", "alternateName": "看懂A股情绪与走势", "url": "https://www.lfjmwl.com/about", "inLanguage": ["zh-Hans"], "publisher": {"@id": "https://www.lfjmwl.com/#organization"}}]</script>
   <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
   <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
   <script>
-    // 与看板共用外观设置：深浅色跟随系统（或 twsvp_theme），语言：简体 / 繁体
+    // 与看板共用外观设置：深浅色跟随系统（或 twsvp_theme）
     (function () {
       var root = document.documentElement;
       var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
@@ -30,10 +30,6 @@
       if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       root.dataset.theme = theme;
       if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
-      var lang = get("shortemotion:lang");
-      if (lang !== "hans" && lang !== "hant") lang = /^zh-(tw|hk|mo|hant)/i.test(navigator.language || "") ? "hant" : "hans";
-      root.dataset.lang = lang;
-      if (lang === "hant") root.lang = "zh-Hant-TW";
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -43,7 +39,7 @@
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
-  <link rel="stylesheet" href="/shared/global-header.css?v=4">
+  <link rel="stylesheet" href="/shared/global-header.css?v=5">
   <script defer src="/shared/usage.js?v=3"></script>
 </head>
 <body>
@@ -55,11 +51,6 @@
         <small>看懂A股情绪与走势</small>
       </span>
     </a>
-    <div class="lang-toggle" role="group" aria-label="语言">
-      <button type="button" class="lang-btn" data-lang="hans">简体</button>
-      <span aria-hidden="true">｜</span>
-      <button type="button" class="lang-btn" data-lang="hant">繁体</button>
-    </div>
   </nav>
 
   <main class="page">
@@ -221,7 +212,7 @@
       <p>每个交易日三篇 A 股短线复盘：开盘前的看点早报、午间看点与收盘后的看点收评，附当日情绪分与可回看验证的观点卡。不用登录就能读。</p>
       <ul class="news-latest" hidden></ul>
       <div class="board-links">
-        <a class="board-link" href="/news" data-hans-href="/news" data-hant-href="/zh-hant/news">阅读每日看点</a>
+        <a class="board-link" href="/news">阅读每日看点</a>
       </div>
     </section>
 
@@ -272,6 +263,6 @@
   </div>
 
   <script type="module" src="/about/about.js?v=26"></script>
-  <script type="module" src="/shared/global-header.js?v=6"></script>
+  <script type="module" src="/shared/global-header.js?v=7"></script>
 </body>
 </html>

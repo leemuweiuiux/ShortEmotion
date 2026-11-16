@@ -9,7 +9,7 @@ body.has-se-primary-tabs { padding-bottom: calc(68px + env(safe-area-inset-botto
   box-shadow: 0 -3px 16px rgb(24 32 50 / 6%);
 }
 :root[data-theme="dark"] .se-primary-tabs { background: #181d26; border-color: #2a3140; }
-.se-primary-tabs > div { max-width: 660px; margin: auto; display: grid; grid-template-columns: repeat(3, 1fr); }
+.se-primary-tabs > div { max-width: 660px; margin: auto; display: grid; grid-template-columns: repeat(4, 1fr); }
 .se-primary-tabs a {
   display: grid; justify-items: center; align-content: center; gap: 3px; min-height: 56px;
   color: var(--muted, #626d7e); text-decoration: none; font-size: 12px; font-weight: 650;

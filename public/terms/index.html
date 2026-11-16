@@ -10,7 +10,7 @@
   <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
   <script>
-    // 与介绍页、看板共用外观设置：深浅色跟随系统（或 twsvp_theme），语言：简体 / 繁体
+    // 与介绍页、看板共用外观设置：深浅色跟随系统（或 twsvp_theme）
     (function () {
       var root = document.documentElement;
       var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
@@ -18,10 +18,6 @@
       if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       root.dataset.theme = theme;
       if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
-      var lang = get("shortemotion:lang");
-      if (lang !== "hans" && lang !== "hant") lang = /^zh-(tw|hk|mo|hant)/i.test(navigator.language || "") ? "hant" : "hans";
-      root.dataset.lang = lang;
-      if (lang === "hant") root.lang = "zh-Hant-TW";
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">

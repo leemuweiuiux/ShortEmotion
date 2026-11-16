@@ -1,0 +1,72 @@
+.qdii { --qdii-accent: #2d5cbe; --qdii-soft: #edf3ff; --qdii-down: #2e7656; --qdii-up: #bc4c40;
+  width: min(100%, 1100px); margin: 0 auto; padding: 26px 16px 32px; display: grid; gap: 24px; }
+:root[data-theme="dark"] .qdii { --qdii-accent: #a8c1ff; --qdii-soft: #252f46; --qdii-down: #74cba4; --qdii-up: #f39a90; }
+.qdii-heading, .qdii-section-head { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px; }
+.qdii h1, .qdii h2, .qdii h3, .qdii p { margin: 0; }
+.qdii h1 { font-size: clamp(26px, 4.5vw, 38px); font-weight: 750; letter-spacing: -.025em; }
+.qdii h2 { font-size: 18px; font-weight: 700; }
+.qdii h3 { font-size: 15px; font-weight: 700; }
+.qdii-heading p, .qdii-section-head p, .qdii-dates, .qdii-message { margin-top: 4px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.qdii-dates { font-variant-numeric: tabular-nums; }
+#qdii-content:not([hidden]) { display: grid; gap: 20px; }
+.qdii-funds { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 10px; }
+.qdii .qdii-fund, .qdii .qdii-panel { margin: 0; border: 1px solid var(--border, var(--line)); }
+.qdii .qdii-fund { display: flex; flex-direction: column; overflow: hidden; padding: 0; }
+.qdii .qdii-fund.is-selected { border-color: var(--qdii-accent); }
+.qdii-fund-button { display: grid; gap: 8px; width: 100%; text-align: left; border: 0; border-radius: 0; padding: 14px;
+  background: transparent; color: var(--ink, var(--text)); cursor: pointer; font: inherit; }
+.qdii-fund-button:focus-visible { outline-offset: -4px; }
+.qdii-fund-button:hover, .qdii-fund.is-selected .qdii-fund-button { background: var(--qdii-soft); }
+.qdii-fund-top, .qdii-share > div { display: flex; align-items: baseline; justify-content: space-between; gap: 7px; flex-wrap: wrap; }
+.qdii-fund-name { font-size: 14px; font-weight: 700; }
+.qdii-code, .qdii-fund-timing, .qdii-share small, .qdii-audit-row small { font-size: 12px; color: var(--muted); }
+.qdii-fund-limit { font-size: 22px; font-weight: 750; }
+.qdii-fund-change { display: flex; align-items: center; gap: 7px; font-size: 13px; }
+.qdii-tag { display: inline-block; width: max-content; border-radius: 6px; padding: 3px 7px; font-size: 12px;
+  font-weight: 650; background: var(--qdii-soft); color: var(--qdii-accent); }
+.qdii-tag[data-direction="tighten"], .qdii-tag[data-score="miss"] { color: var(--qdii-up); }
+.qdii-tag[data-direction="ease"], .qdii-tag[data-score="beat"] { color: var(--qdii-down); }
+.qdii-tag[data-score="pending"], .qdii-tag[data-score="unscored"] { color: var(--muted); }
+.qdii-share { padding: 12px 14px 9px; display: grid; gap: 4px; font-size: 13px; }
+.qdii-share strong { font-variant-numeric: tabular-nums; font-size: 13px; }
+.qdii-sources { margin-top: auto; display: flex; flex-wrap: wrap; gap: 12px; padding: 0 14px 12px; }
+.qdii-link { color: var(--qdii-accent); text-underline-offset: 3px; font-size: 12px; }
+.qdii .qdii-panel { display: grid; gap: 14px; padding: clamp(14px, 2.5vw, 22px); }
+.qdii-switch, .qdii-windows { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.qdii-switch button, .qdii-windows button, .qdii-more { border: 1px solid var(--border, var(--line)); color: var(--ink, var(--text));
+  background: transparent; border-radius: 7px; padding: 6px 11px; min-height: 34px; font-family: inherit; font-size: 13px; cursor: pointer; }
+.qdii button[aria-pressed="true"]:not(.qdii-fund-button) { background: var(--qdii-soft); border-color: var(--qdii-accent); color: var(--qdii-accent); font-weight: 700; }
+.qdii button:focus-visible, .qdii a:focus-visible, .qdii summary:focus-visible { outline: 2px solid var(--qdii-accent); }
+.qdii-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.qdii-stat { min-width: 0; padding: 13px; border: 1px solid var(--border, var(--line)); border-radius: 9px; }
+.qdii-stat p, .qdii-method { font-size: 12px; color: var(--muted); line-height: 1.55; margin-top: 4px; }
+.qdii-rates { display: flex; justify-content: space-between; margin: 11px 0 5px; }
+.qdii-rates > div { display: grid; font-size: 13px; gap: 2px; }
+.qdii-rates > div:last-child { text-align: right; }
+.qdii-rates strong { font-size: 23px; font-variant-numeric: tabular-nums; }
+.qdii-bar { background: var(--qdii-soft); height: 4px; display: flex; justify-content: space-between; overflow: hidden; border-radius: 4px; }
+.qdii-bar span { background: var(--qdii-up); }
+.qdii-bar span:last-child { background: var(--qdii-down); }
+.qdii-stat .qdii-stat-count { font-weight: 650; color: var(--ink, var(--text)); margin-top: 8px; }
+.qdii-stat .qdii-period { font-variant-numeric: tabular-nums; }
+.qdii-audit-row { display: grid; grid-template-columns: 1.05fr .8fr 1fr; gap: 10px; padding: 10px 0;
+  border-top: 1px solid var(--border, var(--line)); align-items: start; }
+.qdii-audit-row > div { min-width: 0; display: grid; gap: 4px; overflow-wrap: anywhere; }
+.qdii-audit-row strong { font-size: 14px; font-weight: 650; }
+.qdii-audit-date { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.qdii-more { margin-top: 7px; }
+.qdii-method summary { cursor: pointer; color: var(--ink, var(--text)); }
+.qdii-method ul { margin-bottom: 0; padding-inline-start: 18px; }
+@media (max-width: 730px) {
+  .qdii { padding: 16px 12px 26px; }
+  .qdii-funds { grid-template-columns: 1fr; }
+  .qdii-fund-button { grid-template-columns: 1fr auto; gap: 4px 7px; }
+  .qdii-fund-limit { justify-self: end; font-size: 16px; }
+  .qdii-fund-timing { justify-self: end; text-align: right; }
+  .qdii-share { padding-block: 8px; }
+}
+@media (max-width: 500px) {
+  .qdii-stats { grid-template-columns: 1fr; }
+  .qdii-audit-row { grid-template-columns: 1fr 1fr; }
+  .qdii-audit-row > div:last-child { grid-column: 1/-1; grid-template-columns: max-content auto; align-items: center; }
+}
