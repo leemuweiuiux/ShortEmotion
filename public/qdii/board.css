@@ -1,0 +1,63 @@
+/* QDII 限额看板（首页模块 + /qdii 详情页共用）：沿用全站卡片、pill、红涨绿跌与黑色强调。 */
+.qdii-board { display: grid; gap: 12px; min-width: 0; }
+.qdii-board p { margin: 0; }
+.qdii-funds { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.qdii-fund { display: grid; align-content: space-between; gap: 6px; min-width: 0; padding: 10px; border: 1px solid var(--border); background: var(--panel); }
+.qdii-fund.is-selected { border-color: var(--ink); background: var(--surface); box-shadow: inset 0 0 0 1px var(--ink); }
+.qdii-fund-pick { display: grid; gap: 5px; min-width: 0; padding: 0; border: 0; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.qdii-fund-name { font-size: 13px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+.qdii-fund-date { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.qdii-fund-change { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.qdii-fund-change .pill { font-size: 11px; padding: 0 6px; }
+.qdii-fund-change b { font-family: "Manrope", sans-serif; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.qdii-link { width: max-content; max-width: 100%; color: var(--muted); font-size: 12px; text-underline-offset: 3px; }
+.qdii-link:hover { color: var(--ink); }
+.qdii-board-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; margin-top: 4px; }
+.qdii-board-title { min-width: 0; font-size: 13px; font-weight: 600; }
+.qdii-seg { display: flex; gap: 6px; }
+.qdii-seg button { min-height: 30px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
+.qdii-seg button.active { border-color: var(--ink); background: var(--ink); color: var(--surface); font-weight: 600; }
+.qdii-table-wrap { min-width: 0; overflow-x: auto; }
+.qdii-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.qdii-table th, .qdii-table td { padding: 8px 4px; border-top: 1px solid var(--border); text-align: right; vertical-align: top; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qdii-col-day { width: 18%; }
+/* 详情页：点选交易日行 */
+.qdii-table.is-pickable tbody tr[data-horizon] { cursor: pointer; }
+.qdii-table.is-pickable tbody tr[data-horizon]:hover > * { background: var(--panel); }
+.qdii-table tr.is-picked > * { background: var(--panel); }
+.qdii-table tr.is-picked th { box-shadow: inset 3px 0 0 var(--ink); }
+.qdii-row-pick { padding: 0 0 0 8px; border: 0; background: transparent; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.qdii-table thead th { padding-top: 0; border-top: 0; white-space: normal; color: var(--muted); font-size: 12px; font-weight: 500; }
+.qdii-table th:first-child { padding-left: 0; text-align: left; }
+.qdii-table td:last-child, .qdii-table th:last-child { padding-right: 0; }
+.qdii-table tbody th { font-family: "Manrope", sans-serif; font-weight: 600; }
+.qdii-table b { font-family: "Manrope", sans-serif; font-weight: 700; }
+.qdii-table small { display: block; margin-top: 1px; color: var(--muted); font-size: 11px; }
+.qdii-muted { color: var(--muted); font-weight: 500; }
+.qdii-score[data-score="beat"] { color: var(--ink) !important; font-weight: 600; }
+/* 今天所在位置：本次公告已走到的美股交易日 */
+.qdii-table .qdii-now td { padding: 0; border-top: 2px solid var(--negative); text-align: left; }
+.qdii-now span { display: inline-block; padding: 2px 0 4px; color: var(--negative); font-size: 11px; font-weight: 600; }
+.qdii-table .qdii-now + tr > * { border-top: 0; }
+.qdii-time { min-width: 0; color: var(--muted); font-size: 12px; line-height: 1.6; font-variant-numeric: tabular-nums; }
+@media (min-width: 768px) {
+  .qdii-funds { gap: 12px; }
+  .qdii-fund { padding: 14px; }
+  .qdii-fund-name { font-size: 14px; }
+  .qdii-fund-change b { font-size: 15px; }
+  .qdii-table { font-size: 14px; }
+  .qdii-table th, .qdii-table td { padding-block: 10px; }
+}
+@media (max-width: 380px) {
+  .qdii-fund { padding: 8px; }
+  .qdii-fund-name { font-size: 12px; }
+  .qdii-table th, .qdii-table td { padding-inline: 2px; }
+}
+/* 首页模块：只展示三张状态卡，不可交互（操作在 /qdiitrend） */
+.home-qdii .qdii-fund { align-content: start; gap: 5px; }
+.home-qdii .qdii-funds > .loading, .home-qdii .qdii-funds > .empty { grid-column: 1 / -1; }
+@media (max-width: 420px) { .qdii-fund-change b { font-size: 12px; } }
+.qdii-board :is(button, a):focus { outline: none; }
+.qdii-board :is(button, a):focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.qdii-fund-pick { -webkit-tap-highlight-color: transparent; }
+.qdii-lean { margin-left: 2px; font-family: "Manrope", sans-serif; font-size: 12px; font-style: normal; font-weight: 700; }

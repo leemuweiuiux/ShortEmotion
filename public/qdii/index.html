@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>QDII 限额 · Market Emotion</title>
+  <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
+  <script>
+    (() => {
+      let theme;
+      try { theme = localStorage.getItem("twsvp_theme"); } catch {}
+      document.documentElement.dataset.theme = theme === "light" || theme === "dark"
+        ? theme : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    })();
+  </script>
+  <link rel="stylesheet" href="/short-emotion/twsvp.css?v=17">
+  <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+  <script defer src="/_vercel/insights/script.js"></script>
+  <link rel="stylesheet" href="/shared/global-header.css?v=4">
+  <script defer src="/shared/usage.js?v=3"></script>
+  <link rel="stylesheet" href="/shared/wide-layout.css?v=4">
+  <link rel="stylesheet" href="/qdii/board.css?v=5">
+  <link rel="stylesheet" href="/qdii/qdii.css?v=4">
+</head>
+<body class="wide-page wide-qdii">
+  <div class="app-shell">
+    <nav class="nav" aria-label="页面导航">
+      <a class="nav-logo" href="/home" aria-label="首页"><img src="/short-emotion/logo.svg?v=2" alt="Market Emotion"></a>
+      <div class="nav-title">纳指 QDII 限额</div>
+    </nav>
+    <main class="qdii-page">
+      <section class="card qdii-board-card" aria-labelledby="qdii-title">
+        <div class="card-head"><h1 id="qdii-title" class="card-title">纳指 QDII 限额</h1><span id="qdii-dates" class="qdii-time"></span></div>
+        <p id="qdii-status" class="loading" role="status">正在读取限额快照…</p>
+        <div id="qdii-board" class="qdii-board"></div>
+      </section>
+      <section id="qdii-shares-card" class="card" aria-labelledby="qdii-shares-title" hidden>
+        <div class="card-head"><h2 id="qdii-shares-title" class="card-title">份额变动</h2><span id="qdii-shares-pill" class="pill"></span></div>
+        <div id="qdii-shares" class="qdii-shares"></div>
+      </section>
+      <section id="qdii-events-card" class="card" aria-labelledby="qdii-events-title" hidden>
+        <div class="card-head"><h2 id="qdii-events-title" class="card-title">历次调整</h2><span id="qdii-events-pill" class="pill"></span></div>
+        <p class="qdii-time">点上方表格的交易日行切换观察期</p>
+        <div id="qdii-events" aria-live="polite"></div>
+      </section>
+      <section id="qdii-method-card" class="card" hidden>
+        <details class="qdii-method">
+          <summary class="card-title">数据口径与回测规则</summary>
+          <ul>
+            <li>限额取基金公司公告规定的人民币场外单账户日限额，保存公告日和生效日。</li>
+            <li>T+N 为美股交易日，起点是公告日前最后一个纳指收盘；「今天」红线标出本次公告已走到的交易日。</li>
+            <li>上涨概率与平均涨跌只统计同一基金、同一调整方向、已到期的历史公告；「平时」为 2020 年起任意时点同期限纳指的上涨比例。</li>
+            <li>猜中／猜错：每笔公告用当时已到期的同方向历史公告（至少三笔）算出下跌比例，高于平时（2020 年起任意时点同期限纳指）为偏空，低于为偏多；偏空遇跌、偏多遇涨算猜中，反之猜错，与平时相同记持平。未走满的交易日暂不结算。</li>
+            <li>份额以季报披露区间为准。份额区间早于调整时，调整后的份额标为待披露。</li>
+          </ul>
+        </details>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="/shared/global-header.js?v=7"></script>
+  <script type="module" src="/qdii/qdii.js?v=7"></script>
+</body>
+</html>

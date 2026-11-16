@@ -1,11 +1,13 @@
 import sectorflow from "./_lib/sectorflow/handler.js";
 import etfFlow from "./_lib/etf-flow/handler.js";
 import limitup from "./_lib/limitup/handler.js";
+import qdii from "./_lib/qdii/handler.js";
 
 const handlers = {
   sectorflow,
   "etf-flow": etfFlow,
-  limitup
+  limitup,
+  qdii
 };
 
 // vercel.json maps each existing board URL to this function.
