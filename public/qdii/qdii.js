@@ -1,16 +1,13 @@
-// /qdiitrend 详情页：看板（纳指100/标普500、可点选交易日行）+ 份额变动 + 历次调整（跟随所选交易日）+ 口径说明 + 导出小卡/长图。
-import { capLabel, directionLabel, esc, external, hitLabel, isHit, loadQdiiSnapshot, mountQdiiBoard, percent, trendClass } from "/qdii/board.js?v=8";
-import { datesLine, setupQdiiShare } from "/qdii/share.js?v=2";
+// /qdiitrend 详情页：温度状态（五级）+ 信号胜率表（五级 × 纳指/标普，可点选交易日行）
+// + 历次触发（跟随所选交易日）+ 温度走势 + 全部公告 + 口径 + 导出小卡/长图。
+import { esc, eventsMarkup, loadQdiiSnapshot, mountSignalBoard, noticesMarkup, thermoMarkup } from "/qdii/board.js?v=10";
+import { datesLine, setupQdiiShare } from "/qdii/share.js?v=4";
 
 const $ = (id) => document.getElementById(id);
-const number = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 });
-
 let snapshot;
-let fund;
-let direction;
-let indexGroup;
-let windowDays = 20;
-let showAll = false;
+let state;
+let showAllEvents = false;
+let noticeCount = 20;
 let toastTimer;
 function toast(message, error = false) {
   const box = $("toast");
@@ -21,72 +18,79 @@ function toast(message, error = false) {
   toastTimer = setTimeout(() => box.classList.remove("show"), 2400);
 }
 
-function renderShares() {
-  const { shares, current } = fund;
-  const difference = shares.end - shares.start;
-  const sign = difference > 0 ? "+" : difference < 0 ? "−" : "";
-  $("qdii-shares-pill").textContent = `已维持 ${fund.age} 个自然日`;
-  $("qdii-shares").innerHTML = `<div class="qdii-shares-main">
-      <span>最新份额变动</span>
-      <b class="${trendClass(difference)}">${sign}${number.format(Math.abs(difference) / 10_000)} 万份</b>
-      <small class="${trendClass(difference)}">${percent(difference / shares.start, true)}</small>
-    </div>
-    <p class="qdii-time">${esc(shares.scope)} · ${esc(shares.startDate)} 至 ${esc(shares.endDate)}${shares.endDate < current.effective ? " · 调整后份额待披露" : ""}</p>
-    <p class="qdii-shares-links">${external(shares.source, "份额报告")}${fund.review?.length ? `<span class="qdii-time">公告核实至 ${esc(fund.checkedThrough)}</span>${external(fund.review[0].source, "有新公告待核对")}` : ""}</p>`;
-}
-
-// 历次调整列表（页面与长图共用）
-function eventsMarkup(rows, withLinks = true) {
-  return rows.map((event) => {
-    const outcome = event.horizons[windowDays];
-    const hit = outcome.return !== null && isHit(direction, outcome.return);
-    const tag = outcome.return === null ? '<span class="pill qdii-muted">未到期</span>'
-      : `<span class="pill${hit ? " pill-solid" : ""}">${hitLabel(hit)}</span>`;
-    return `<article class="qdii-event">
-      <div class="qdii-event-main"><span class="qdii-event-date">${esc(event.announced)}</span><b>${capLabel(event.previous)} → ${capLabel(event.cap)}</b>${withLinks ? external(event.source, "公告") : ""}</div>
-      <div class="qdii-event-result">${outcome.return === null ? '<b class="qdii-muted">—</b>' : `<b class="${trendClass(outcome.return)}">${percent(outcome.return, true)}</b>`}${tag}</div>
-    </article>`;
-  }).join("");
-}
-
 function renderEvents() {
-  const rows = fund.events.filter((event) => event.direction === direction);
-  $("qdii-events-pill").textContent = `${directionLabel[direction]} ${rows.length} 笔 · T+${windowDays}`;
-  const list = eventsMarkup(showAll ? rows : rows.slice(0, 6));
-  $("qdii-events").innerHTML = list || '<div class="empty">暂无相应的限额变动。</div>';
-  if (rows.length > 6) $("qdii-events").insertAdjacentHTML("beforeend",
-    `<button type="button" id="qdii-more" class="qdii-more" aria-expanded="${showAll}">${showAll ? "收起记录" : `查看全部 ${rows.length} 笔`}</button>`);
+  const { signal, index, horizon } = state;
+  $("qdii-events-pill").textContent = `${signal.label} ${signal.events.length} 次 · ${index.short} T+${horizon}`;
+  const all = eventsMarkup(signal, index.id, horizon);
+  const rows = showAllEvents ? all : eventsMarkup({ ...signal, events: signal.events.slice(0, 6) }, index.id, horizon);
+  $("qdii-events").innerHTML = rows || '<div class="empty">尚未触发过。</div>';
+  if (signal.events.length > 6) $("qdii-events").insertAdjacentHTML("beforeend",
+    `<button type="button" id="qdii-more" class="qdii-more" aria-expanded="${showAllEvents}">${showAllEvents ? "收起" : `查看全部 ${signal.events.length} 次`}</button>`);
+}
+
+// 温度走势：暂停中占比（黑）、近 20 日收紧占比（绿）、近 20 日放宽占比（红），虚线为各级门槛
+export function chartMarkup(snapshot) {
+  const width = 600;
+  const height = 220;
+  const pad = { left: 30, right: 6, top: 8, bottom: 20 };
+  const { series } = snapshot;
+  const top = Math.max(0.8, ...series.map((row) => Math.max(row[1], row[2], row[3])));
+  const x = (i) => pad.left + i / (series.length - 1) * (width - pad.left - pad.right);
+  const y = (v) => pad.top + (1 - v / top) * (height - pad.top - pad.bottom);
+  const line = (k) => series.map((row, i) => `${x(i).toFixed(1)},${y(row[k]).toFixed(1)}`).join(" ");
+  const years = series.flatMap(([date], i) => i && date.slice(0, 4) !== series[i - 1][0].slice(0, 4) ? [[i, date.slice(0, 4)]] : []);
+  const kind = { paused: "paused", tighten: "tighten", ease: "ease" };
+  const marks = snapshot.signals.filter((signal) => signal.rule).map((signal) => [signal.threshold, signal.label, kind[signal.rule]]);
+  return `<svg class="qdii-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="暂停、收紧与放宽家数占比走势">
+    ${[0, 0.2, 0.4, 0.6, 0.8].filter((v) => v <= top).map((v) => `<line class="qdii-grid" x1="${pad.left}" x2="${width - pad.right}" y1="${y(v)}" y2="${y(v)}"/><text class="qdii-axis" x="${pad.left - 4}" y="${y(v) + 3}" text-anchor="end">${Math.round(v * 100)}%</text>`).join("")}
+    ${years.map(([i, year]) => `<text class="qdii-axis" x="${x(i)}" y="${height - 6}" text-anchor="middle">${year.slice(2)}</text>`).join("")}
+    ${marks.map(([v, label, k]) => `<line class="qdii-threshold is-${k}" x1="${pad.left}" x2="${width - pad.right}" y1="${y(v)}" y2="${y(v)}"/><text class="qdii-axis is-${k}" x="${width - pad.right}" y="${y(v) - 3}" text-anchor="end">${esc(label)}</text>`).join("")}
+    <polyline class="qdii-line is-ease" points="${line(3)}"/>
+    <polyline class="qdii-line is-tighten" points="${line(2)}"/>
+    <polyline class="qdii-line is-paused" points="${line(1)}"/>
+  </svg>
+  <p class="qdii-legend"><span class="is-paused">暂停中占比</span><span class="is-tighten">近 ${snapshot.now.window} 日收紧占比</span><span class="is-ease">近 ${snapshot.now.window} 日放宽占比</span></p>`;
+}
+
+function renderNotices() {
+  const total = snapshot.notices.length;
+  $("qdii-notices-pill").textContent = `${snapshot.families.length} 家 · ${total} 则`;
+  $("qdii-notices").innerHTML = noticesMarkup(snapshot.notices.slice(0, noticeCount))
+    + (total > noticeCount ? `<button type="button" id="qdii-notices-more" class="qdii-more">再看 20 则</button>` : "");
 }
 
 $("qdii-events").addEventListener("click", (event) => {
   if (!event.target.closest("#qdii-more")) return;
-  showAll = !showAll;
+  showAllEvents = !showAllEvents;
   renderEvents();
   if (event.detail === 0) $("qdii-more")?.focus();
+});
+$("qdii-notices").addEventListener("click", (event) => {
+  if (!event.target.closest("#qdii-notices-more")) return;
+  noticeCount += 20;
+  renderNotices();
+  if (event.detail === 0) $("qdii-notices-more")?.focus();
 });
 
 try {
   snapshot = await loadQdiiSnapshot();
   $("qdii-dates").textContent = datesLine(snapshot);
   $("qdii-status").hidden = true;
-  for (const id of ["qdii-shares-card", "qdii-events-card", "qdii-method-card"]) $(id).hidden = false;
-  mountQdiiBoard($("qdii-board"), snapshot, {
-    pickHorizon: windowDays,
-    onChange(state) {
-      if (state.fund !== fund || state.direction !== direction) showAll = false;
-      ({ fund, direction, horizon: windowDays, index: indexGroup } = state);
-      renderShares();
+  $("qdii-thermo").innerHTML = thermoMarkup(snapshot);
+  for (const id of ["qdii-board-card", "qdii-events-card", "qdii-chart-card", "qdii-notices-card", "qdii-method-card"]) $(id).hidden = false;
+  $("qdii-chart").innerHTML = chartMarkup(snapshot);
+  renderNotices();
+  mountSignalBoard($("qdii-board"), snapshot, {
+    pickHorizon: 20,
+    onChange(next) {
+      if (state && next.signal !== state.signal) showAllEvents = false;
+      state = next;
       renderEvents();
     }
   });
-  const share = $("qdii-share");
-  share.disabled = false;
-  setupQdiiShare(share, {
-    snapshot: () => snapshot,
-    state: () => ({ fund, direction, horizon: windowDays, index: indexGroup }),
-    events: () => `<div class="qdii-events-export">${eventsMarkup(fund.events.filter((event) => event.direction === direction), false)}</div>`,
-    toast
-  });
+  const button = $("qdii-share");
+  button.disabled = false;
+  setupQdiiShare(button, { snapshot: () => snapshot, state: () => state, toast });
 } catch {
   $("qdii-status").textContent = "暂时无法读取限额快照，请刷新页面重试。";
 }

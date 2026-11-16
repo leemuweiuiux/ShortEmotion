@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="robots" content="noindex">
-  <title>美股 QDII 限额 · Market Emotion</title>
+  <title>美股 QDII 温度计 · Market Emotion</title>
   <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
   <script>
     (() => {
@@ -20,41 +20,48 @@
   <link rel="stylesheet" href="/shared/global-header.css?v=4">
   <script defer src="/shared/usage.js?v=3"></script>
   <link rel="stylesheet" href="/shared/wide-layout.css?v=4">
-  <link rel="stylesheet" href="/qdii/board.css?v=7">
-  <link rel="stylesheet" href="/qdii/qdii.css?v=6">
+  <link rel="stylesheet" href="/qdii/board.css?v=9">
+  <link rel="stylesheet" href="/qdii/qdii.css?v=7">
 </head>
 <body class="wide-page wide-qdii">
   <div class="app-shell">
     <nav class="nav" aria-label="页面导航">
       <a class="nav-logo" href="/home" aria-label="首页"><img src="/short-emotion/logo.svg?v=2" alt="Market Emotion"></a>
-      <div class="nav-title">美股 QDII 限额</div>
+      <div class="nav-title">美股 QDII 温度计</div>
     </nav>
     <main class="qdii-page">
       <section class="card qdii-board-card" aria-labelledby="qdii-title">
-        <div class="card-head"><h1 id="qdii-title" class="card-title">美股 QDII 限额</h1><div class="qdii-share-wrap"><button id="qdii-share" class="nav-btn" type="button" aria-label="导出分享" aria-haspopup="menu" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 4v11M7.5 8.5 12 4l4.5 4.5M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
+        <div class="card-head"><h1 id="qdii-title" class="card-title">美股 QDII 温度计</h1><div class="qdii-share-wrap"><button id="qdii-share" class="nav-btn" type="button" aria-label="导出分享" aria-haspopup="menu" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 4v11M7.5 8.5 12 4l4.5 4.5M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
         <p id="qdii-dates" class="qdii-time"></p>
         <p id="qdii-status" class="loading" role="status">正在读取限额快照…</p>
+        <div id="qdii-thermo" class="qdii-board"></div>
+      </section>
+      <section id="qdii-board-card" class="card" aria-label="信号胜率" hidden>
         <div id="qdii-board" class="qdii-board"></div>
       </section>
-      <section id="qdii-shares-card" class="card" aria-labelledby="qdii-shares-title" hidden>
-        <div class="card-head"><h2 id="qdii-shares-title" class="card-title">份额变动</h2><span id="qdii-shares-pill" class="pill"></span></div>
-        <div id="qdii-shares" class="qdii-shares"></div>
-      </section>
       <section id="qdii-events-card" class="card" aria-labelledby="qdii-events-title" hidden>
-        <div class="card-head"><h2 id="qdii-events-title" class="card-title">历次调整</h2><span id="qdii-events-pill" class="pill"></span></div>
+        <div class="card-head"><h2 id="qdii-events-title" class="card-title">历次触发</h2><span id="qdii-events-pill" class="pill"></span></div>
         <p class="qdii-time">点上方表格的交易日行切换观察期</p>
         <div id="qdii-events" aria-live="polite"></div>
+      </section>
+      <section id="qdii-chart-card" class="card" aria-labelledby="qdii-chart-title" hidden>
+        <div class="card-head"><h2 id="qdii-chart-title" class="card-title">温度走势</h2></div>
+        <div id="qdii-chart"></div>
+      </section>
+      <section id="qdii-notices-card" class="card" aria-labelledby="qdii-notices-title" hidden>
+        <div class="card-head"><h2 id="qdii-notices-title" class="card-title">全部公告</h2><span id="qdii-notices-pill" class="pill"></span></div>
+        <div id="qdii-notices"></div>
       </section>
       <section id="qdii-method-card" class="card" hidden>
         <details class="qdii-method">
           <summary class="card-title">数据口径与回测规则</summary>
           <ul>
-            <li>限额取基金公司公告规定的人民币场外单账户日限额（A 类人民币份额；直销、代销限额不同时取代销），保存公告日和生效日。纳指100 跟踪博时、汇添富、南方，标普500 跟踪摩根、天弘、博时：按 2023 年以来改金额的调整次数挑选（规模够大、同一指数每家公司一只）。</li>
-            <li>T+N 为美股交易日，起点是公告日前最后一个指数收盘；「今天」红线标出本次公告已走到的交易日。</li>
-            <li>假设收紧看跌、放宽看涨：T+N 收盘相对起点的涨跌方向符合预期即命中，平盘不算。命中率 = 命中次数 ÷ 已到期次数，只统计同一基金、同一调整方向的历史公告。</li>
-            <li>命中绩效：命中各次按信号方向计的涨跌之和（收紧取跌幅）。累计涨跌：全部已到期次数按信号方向计的涨跌之和，命中为正、未命中为负。各次区间可能重叠，累计数字需结合次数看。</li>
-            <li>「平时」为 2020 年起任意时点同期限同一指数（纳指100 或标普500）的下跌（收紧）或上涨（放宽）比例，用来对照命中率。</li>
-            <li>份额以季报披露区间为准。份额区间早于调整时，调整后的份额标为待披露。</li>
+            <li>追踪场外纳指100 / 标普500 QDII 全部基金，同一基金的 A/C/I 类、人民币/美元份额合并为一家；每天自动发现新基金。限额取人民币场外单账户日限额（直销、代销不同时取代销），比前一次低算收紧（含暂停申购），高算放宽。建信纳指的公告 PDF 无文字层，暂不纳入。</li>
+            <li>三项占比的分母都是已开放的家数：暂停中（以生效日计）、近 20 个美股交易日有收紧公告、近 20 日有放宽公告。公告日归到当天或之后的第一个美股交易日。</li>
+            <li>五级按以下顺序判断，先符合者为准：过热（暂停中 ≥50%）→ 进场（放宽 ≥30%）→ 偏热（收紧 ≥15%）→ 布局（放宽 ≥15%）→ 正常。家数少于 5 家时不计。</li>
+            <li>从别的等级切换进来的那天算一次，同一级 20 个交易日内不重复。T+N 为美股交易日，起点是进入前最后一个指数收盘；「今天」红线与表格上方的 T+N 标出最近一次已走到的交易日。</li>
+            <li>布局、进场看涨，上涨算命中（平盘不算）；命中绩效 = 命中各次涨幅之和，累计涨跌含未命中（为负）。过热、偏热、正常只统计下跌比例与平均涨跌，不判命中——历史上过热之后短期下跌偏多，但只出现过 3 次。</li>
+            <li>「平时」为 2018 年起任意时点同期限同一指数的下跌或上涨比例。各次区间可能重叠、样本较少，仅供参考。</li>
           </ul>
         </details>
       </section>
@@ -62,6 +69,6 @@
   </div>
   <div id="toast" class="toast" role="status"></div>
   <script type="module" src="/shared/global-header.js?v=7"></script>
-  <script type="module" src="/qdii/qdii.js?v=11"></script>
+  <script type="module" src="/qdii/qdii.js?v=13"></script>
 </body>
 </html>

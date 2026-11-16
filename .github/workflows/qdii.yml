@@ -20,18 +20,18 @@ on:
 permissions:
   contents: write
 
-# 与 Exp 的 qdii-exp.yml 共用数据分支 qdii-data（2026-11-16 起纳指100 + 标普500），并发组也共用，避免同时推送
+# 与 Exp 的 qdii-exp.yml 共用数据分支 qdii-thermo（2026-11-17 起改为温度计：全部场外纳指100 / 标普500 QDII 基金家族），并发组也共用
 concurrency:
-  group: qdii-data
+  group: qdii-thermo
   cancel-in-progress: false
 
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 30
     env:
-      DATA_BRANCH: qdii-data
-      DATA_DIR: ${{ github.workspace }}/../qdii-data
+      DATA_BRANCH: qdii-thermo
+      DATA_DIR: ${{ github.workspace }}/../qdii-thermo
       SKIP_FLAG: ${{ (github.event_name == 'schedule' || inputs.slot == 'backup') && '--skip-if-fresh' || '' }}
     steps:
       - uses: actions/checkout@v4
@@ -55,7 +55,7 @@ jobs:
         run: |
           python -m pip install 'pypdf==6.14.2'
           python scripts/qdii/refresh-disclosures.py scripts/qdii/curated.json "$DATA_DIR/curated.json"
-      - name: Refresh and settle Nasdaq-100 windows
+      - name: Refresh thermometer and settle signals
         run: node scripts/qdii/refresh.mjs "$DATA_DIR/curated.json" "$DATA_DIR/snapshot.json" $SKIP_FLAG
         env:
           WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
@@ -63,7 +63,7 @@ jobs:
         run: |
           cd "$DATA_DIR"
           printf '%s\n' '{"git":{"deploymentEnabled":false}}' > vercel.json
-          git add curated.json snapshot.json vercel.json history-*.json
+          git add curated.json snapshot.json vercel.json bars-*.json
           if git diff --cached --quiet; then exit 0; fi
           git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -qm "Update QDII data"
           snapshot_commit=$(git rev-parse HEAD)
