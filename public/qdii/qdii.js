@@ -1,7 +1,7 @@
 // /qdiitrend 详情页：温度状态（五级）+ 信号胜率表（五级 × 纳指/标普，可点选交易日行）
 // + 历次触发（跟随所选交易日）+ 温度走势 + 全部公告 + 口径 + 导出小卡/长图。
-import { esc, eventsMarkup, loadQdiiSnapshot, mountSignalBoard, noticesMarkup, thermoMarkup } from "/qdii/board.js?v=10";
-import { datesLine, setupQdiiShare } from "/qdii/share.js?v=4";
+import { esc, eventsMarkup, loadQdiiSnapshot, mountSignalBoard, noticesMarkup, thermoMarkup } from "/qdii/board.js?v=11";
+import { datesLine, setupQdiiShare } from "/qdii/share.js?v=5";
 
 const $ = (id) => document.getElementById(id);
 let snapshot;
@@ -28,33 +28,37 @@ function renderEvents() {
     `<button type="button" id="qdii-more" class="qdii-more" aria-expanded="${showAllEvents}">${showAllEvents ? "收起" : `查看全部 ${signal.events.length} 次`}</button>`);
 }
 
-// 温度走势：暂停中占比（黑）、近 20 日收紧占比（绿）、近 20 日放宽占比（红），虚线为各级门槛
+// 温度走势：纳指周线，背景色带标出每段时间所处的等级（不显示占比与门槛）
 export function chartMarkup(snapshot) {
   const width = 600;
-  const height = 220;
-  const pad = { left: 30, right: 6, top: 8, bottom: 20 };
-  const { series } = snapshot;
-  const top = Math.max(0.8, ...series.map((row) => Math.max(row[1], row[2], row[3])));
-  const x = (i) => pad.left + i / (series.length - 1) * (width - pad.left - pad.right);
-  const y = (v) => pad.top + (1 - v / top) * (height - pad.top - pad.bottom);
-  const line = (k) => series.map((row, i) => `${x(i).toFixed(1)},${y(row[k]).toFixed(1)}`).join(" ");
-  const years = series.flatMap(([date], i) => i && date.slice(0, 4) !== series[i - 1][0].slice(0, 4) ? [[i, date.slice(0, 4)]] : []);
-  const kind = { paused: "paused", tighten: "tighten", ease: "ease" };
-  const marks = snapshot.signals.filter((signal) => signal.rule).map((signal) => [signal.threshold, signal.label, kind[signal.rule]]);
-  return `<svg class="qdii-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="暂停、收紧与放宽家数占比走势">
-    ${[0, 0.2, 0.4, 0.6, 0.8].filter((v) => v <= top).map((v) => `<line class="qdii-grid" x1="${pad.left}" x2="${width - pad.right}" y1="${y(v)}" y2="${y(v)}"/><text class="qdii-axis" x="${pad.left - 4}" y="${y(v) + 3}" text-anchor="end">${Math.round(v * 100)}%</text>`).join("")}
-    ${years.map(([i, year]) => `<text class="qdii-axis" x="${x(i)}" y="${height - 6}" text-anchor="middle">${year.slice(2)}</text>`).join("")}
-    ${marks.map(([v, label, k]) => `<line class="qdii-threshold is-${k}" x1="${pad.left}" x2="${width - pad.right}" y1="${y(v)}" y2="${y(v)}"/><text class="qdii-axis is-${k}" x="${width - pad.right}" y="${y(v) - 3}" text-anchor="end">${esc(label)}</text>`).join("")}
-    <polyline class="qdii-line is-ease" points="${line(3)}"/>
-    <polyline class="qdii-line is-tighten" points="${line(2)}"/>
-    <polyline class="qdii-line is-paused" points="${line(1)}"/>
+  const height = 200;
+  const pad = { left: 6, right: 6, top: 8, bottom: 20 };
+  const { prices, bands } = snapshot;
+  const first = prices[0][0];
+  const lastDate = prices.at(-1)[0];
+  const span = Date.parse(lastDate) - Date.parse(first);
+  const x = (date) => pad.left + (Date.parse(date < first ? first : date) - Date.parse(first)) / span * (width - pad.left - pad.right);
+  const values = prices.map(([, close]) => close);
+  const low = Math.min(...values);
+  const high = Math.max(...values);
+  const y = (v) => pad.top + (1 - (v - low) / (high - low)) * (height - pad.top - pad.bottom);
+  const rects = bands.map(([date, level], i) => {
+    const end = bands[i + 1]?.[0] || lastDate;
+    if (end < first) return "";
+    return `<rect class="qdii-band" data-level="${esc(level)}" x="${x(date).toFixed(1)}" y="${pad.top}" width="${Math.max(0.5, x(end) - x(date)).toFixed(1)}" height="${height - pad.top - pad.bottom}"/>`;
+  }).join("");
+  const years = prices.flatMap(([date], i) => i && date.slice(0, 4) !== prices[i - 1][0].slice(0, 4) ? [date] : []);
+  return `<svg class="qdii-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(snapshot.indices[0].short)}走势与温度等级">
+    ${rects}
+    ${years.map((date) => `<text class="qdii-axis" x="${x(date)}" y="${height - 6}" text-anchor="middle">${date.slice(2, 4)}</text>`).join("")}
+    <polyline class="qdii-line" points="${prices.map(([date, close]) => `${x(date).toFixed(1)},${y(close).toFixed(1)}`).join(" ")}"/>
   </svg>
-  <p class="qdii-legend"><span class="is-paused">暂停中占比</span><span class="is-tighten">近 ${snapshot.now.window} 日收紧占比</span><span class="is-ease">近 ${snapshot.now.window} 日放宽占比</span></p>`;
+  <p class="qdii-legend">${snapshot.signals.map((signal) => `<span data-level="${esc(signal.id)}">${esc(signal.label)}</span>`).join("")}<span class="is-line">${esc(snapshot.indices[0].short)}（周线）</span></p>`;
 }
 
 function renderNotices() {
   const total = snapshot.notices.length;
-  $("qdii-notices-pill").textContent = `${snapshot.families.length} 家 · ${total} 则`;
+  $("qdii-notices-pill").textContent = `${total} 则`;
   $("qdii-notices").innerHTML = noticesMarkup(snapshot.notices.slice(0, noticeCount))
     + (total > noticeCount ? `<button type="button" id="qdii-notices-more" class="qdii-more">再看 20 则</button>` : "");
 }

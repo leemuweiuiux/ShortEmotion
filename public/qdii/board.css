@@ -18,7 +18,8 @@
 .qdii-table-wrap { min-width: 0; overflow-x: auto; }
 .qdii-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
 .qdii-table th, .qdii-table td { padding: 8px 4px; border-top: 1px solid var(--border); text-align: right; vertical-align: top; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.qdii-col-day { width: 16%; }
+.qdii-col-day { width: 18%; }
+.qdii-col-rate { width: 34%; }
 /* 详情页：点选交易日行 */
 .qdii-table.is-pickable tbody tr[data-horizon] { cursor: pointer; }
 .qdii-table.is-pickable tbody tr[data-horizon]:hover > * { background: var(--panel); }
@@ -59,50 +60,36 @@
 .qdii-board :is(button, a):focus { outline: none; }
 .qdii-board :is(button, a):focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .qdii-group-title { margin: 0; color: var(--muted); font-size: 13px; font-weight: 600; }
-/* 温度状态：状态灯 + 两条刻度（满格 60%） */
-.qdii-thermo { display: grid; gap: 12px; min-width: 0; }
-.qdii-state { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+/* 温度状态：五段温度条（不可点），当前等级加指针 */
+.qdii-thermo { display: grid; gap: 8px; min-width: 0; }
+.qdii-scale { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; padding-top: 10px; }
+.qdii-scale-cell { position: relative; display: grid; gap: 6px; text-align: center; }
+.qdii-scale-cell i { display: block; height: 8px; background: var(--level); opacity: .35; }
+.qdii-scale-cell:first-child i { border-radius: 999px 0 0 999px; }
+.qdii-scale-cell:last-child i { border-radius: 0 999px 999px 0; }
+.qdii-scale-cell span { color: var(--muted); font-size: 12px; }
+.qdii-scale-cell.is-current i { opacity: 1; }
+.qdii-scale-cell.is-current span { color: var(--ink); font-weight: 700; }
+.qdii-scale-cell.is-current::before { content: ""; position: absolute; top: -10px; left: 50%; border: 5px solid transparent; border-top: 6px solid var(--ink); transform: translateX(-50%); }
+[data-level="overheat"] { --level: var(--negative); }
+[data-level="warm"] { --level: var(--warn); }
+[data-level="normal"] { --level: var(--muted); }
+[data-level="layout"] { --level: color-mix(in srgb, var(--positive) 55%, var(--surface)); }
+[data-level="enter"] { --level: var(--positive); }
+.qdii-state { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: 4px 0 0; }
 .qdii-state b { font-size: 20px; font-weight: 700; }
-.qdii-state > span:last-child { color: var(--muted); font-size: 13px; }
-.qdii-state-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); align-self: center; }
-.qdii-thermo[data-state="warm"] .qdii-state-dot { background: var(--warn); }
-.qdii-gauge { display: grid; gap: 6px; }
-.qdii-gauge-head { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
-.qdii-gauge-head span { color: var(--muted); }
-.qdii-gauge-head b { font-family: "Manrope", sans-serif; font-size: 16px; font-variant-numeric: tabular-nums; }
-.qdii-gauge-head small { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-.qdii-gauge-bar { position: relative; height: 8px; margin-bottom: 16px; border-radius: 999px; background: var(--panel); }
-.qdii-gauge-bar i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--ink); }
-.qdii-gauge-bar em { position: absolute; top: -3px; bottom: -3px; width: 0; border-left: 2px solid var(--muted); font-style: normal; }
-.qdii-gauge-bar em span { position: absolute; top: 15px; left: 0; transform: translateX(-50%); color: var(--muted); font-size: 11px; white-space: nowrap; }
-.qdii-group-title { margin: 0; color: var(--muted); font-size: 13px; font-weight: 600; }
-/* 温度走势 */
+.qdii-state span { color: var(--muted); font-size: 13px; }
+/* 温度走势：指数周线 + 等级色带 */
 .qdii-chart { display: block; width: 100%; height: auto; }
-.qdii-chart .qdii-grid { stroke: var(--border); stroke-width: 1; }
 .qdii-chart .qdii-axis { fill: var(--muted); font-size: 10px; }
-.qdii-chart .qdii-threshold { stroke-width: 1; stroke-dasharray: 4 3; }
-.qdii-chart .qdii-line { fill: none; stroke-width: 1.2; stroke-linejoin: round; }
-.qdii-chart .is-tighten { stroke: var(--price-down); }
-.qdii-chart .is-ease { stroke: var(--price-up); }
-.qdii-chart text.is-tighten { fill: var(--price-down); stroke: none; }
-.qdii-chart text.is-ease { fill: var(--price-up); stroke: none; }
-.qdii-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--muted); font-size: 12px; }
-.qdii-legend span::before { content: ""; display: inline-block; width: 12px; height: 2px; margin-right: 6px; vertical-align: middle; }
-.qdii-legend .is-tighten::before { background: var(--price-down); }
-.qdii-legend .is-ease::before { background: var(--price-up); }
+.qdii-chart .qdii-band { fill: var(--level); opacity: .22; }
+.qdii-chart .qdii-line { fill: none; stroke: var(--ink); stroke-width: 1.4; stroke-linejoin: round; }
+.qdii-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); font-size: 12px; }
+.qdii-legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; background: var(--level); opacity: .5; }
+.qdii-legend .is-line::before { width: 12px; height: 2px; vertical-align: middle; background: var(--ink); opacity: 1; }
 /* 信号胜率：标题 + 指数切换同一行，五级切换均分 */
 .qdii-board-top { margin: 0; }
 .qdii-signal-seg { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .qdii-signal-seg button { padding: 0 4px; }
 .qdii-age { font-size: 13px; font-weight: 600; }
 .qdii-age.is-live { color: var(--negative); }
-/* 五级阶梯：当前等级高亮 */
-.qdii-ladder { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin: 0; padding: 0; list-style: none; }
-.qdii-ladder li { padding: 4px 0; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font-size: 12px; text-align: center; }
-.qdii-ladder li.is-current { border-color: var(--ink); background: var(--ink); color: var(--surface); font-weight: 600; }
-.qdii-thermo[data-state="overheat"] .qdii-state-dot { background: var(--negative); }
-.qdii-thermo[data-state="layout"] .qdii-state-dot { background: var(--positive); opacity: .6; }
-.qdii-thermo[data-state="enter"] .qdii-state-dot { background: var(--positive); }
-.qdii-chart .is-paused { stroke: var(--ink); }
-.qdii-chart text.is-paused { fill: var(--ink); stroke: none; }
-.qdii-legend .is-paused::before { background: var(--ink); }

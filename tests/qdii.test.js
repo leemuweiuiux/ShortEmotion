@@ -30,7 +30,9 @@ describe("美股 QDII 温度计", () => {
     expect(bundled.horizons).toEqual([5, 10, 20, 60]);
     expect(bundled.signals.map((signal) => signal.id)).toEqual(["overheat", "warm", "normal", "layout", "enter"]);
     expect(bundled.signals.map((signal) => signal.id)).toContain(bundled.now.state);
-    expect(bundled.series[0]).toHaveLength(4);
+    expect(bundled.bands.at(-1)[1]).toBe(bundled.now.state);
+    // 门槛与占比不进快照
+    expect(JSON.stringify(bundled)).not.toMatch(/"(threshold|rule|paused|tighten|ease|ratio)":/);
     const dates = bundled.notices.map((notice) => notice.announced);
     expect(dates).toEqual([...dates].sort().reverse());
   });
@@ -52,7 +54,7 @@ describe("美股 QDII 温度计", () => {
     const snapshot = buildSnapshot(curated, { ndx, spx });
     const overheat = signalOf(snapshot, "overheat");
     expect(overheat.events).toHaveLength(1); // 三家暂停 = 50%
-    expect(overheat.events[0]).toMatchObject({ date: days[31], anchorDate: days[30], alive: 6, paused: 0.5 });
+    expect(overheat.events[0]).toMatchObject({ date: days[31], anchorDate: days[30] });
     expect(overheat.events[0].returns.ndx[5]).toBeCloseTo((100 + 35) / (100 + 30) - 1);
     expect(signalOf(snapshot, "warm").events.map((event) => event.date)).toEqual([days[30]]);
     // 第 100 天：三家恢复 → 放宽 3/6 = 50% → 进场；第 130 天一家取消限额，前一波已出 20 日窗口，1/6 ≈ 17% → 布局
