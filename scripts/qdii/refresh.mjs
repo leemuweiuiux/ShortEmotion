@@ -28,26 +28,36 @@ if (flags.includes("--skip-if-fresh") && previous) {
     process.exit(0);
   }
 }
-let data;
-for (let year = 2020; year <= cutoff.getUTCFullYear(); year++) {
+const thisYear = cutoff.getUTCFullYear();
+let columns;
+async function fetchYear(year, fresh = false) {
   const result = await callWindTool("index_data", "get_index_kline", {
     windcode: "NDX.GI", period: "1d",
-    begin_date: `${year}-01-01`, end_date: year === cutoff.getUTCFullYear() ? end : `${year}-12-31`
-  }, { timeoutMs: 60_000 });
+    begin_date: `${year}-01-01`, end_date: year === thisYear ? end : `${year}-12-31`
+  }, { timeoutMs: 60_000, fresh });
   const block = JSON.parse(result.content[0].text).data;
   if (!Array.isArray(block?.rows) || !block.columns || result._nearLimit) {
     throw new Error(`Wind 纳指日线不完整（${year}）`);
   }
-  if (!data) data = { columns: block.columns, rows: [] };
-  if (block.columns.map(({ name }) => name).join() !== data.columns.map(({ name }) => name).join()) {
+  columns ??= block.columns;
+  if (block.columns.map(({ name }) => name).join() !== columns.map(({ name }) => name).join()) {
     throw new Error(`Wind 纳指日线字段发生变化（${year}）`);
   }
-  data.rows.push(...block.rows);
+  return block.rows;
 }
-const snapshot = buildSnapshot(curated, data);
-if (snapshot.indexThrough > end ||
-    (previous && (snapshot.indexThrough < previous.indexThrough || snapshot.verifiedOn < previous.verifiedOn)) ||
-    (Date.parse(end) - Date.parse(snapshot.indexThrough)) / 86_400_000 > 4) {
+const history = [];
+for (let year = 2020; year < thisYear; year++) history.push(...await fetchYear(year));
+const stale = (snapshot) => snapshot.indexThrough > end ||
+  (previous && (snapshot.indexThrough < previous.indexThrough || snapshot.verifiedOn < previous.verifiedOn)) ||
+  (Date.parse(end) - Date.parse(snapshot.indexThrough)) / 86_400_000 > 4;
+let snapshot = buildSnapshot(curated, { columns, rows: [...history, ...await fetchYear(thisYear)] });
+// Wind 偶尔返回截短的今年日线（2026-11-16 实测停在 11-05，几分钟后重查即完整）：只重取今年这一段，最多两次
+for (let attempt = 1; stale(snapshot) && attempt <= 2; attempt++) {
+  console.log(`Wind 纳指收盘停在 ${snapshot.indexThrough}（查询截至 ${end}），第 ${attempt} 次重取今年日线`);
+  await new Promise((resolve) => setTimeout(resolve, attempt * 20_000));
+  snapshot = buildSnapshot(curated, { columns, rows: [...history, ...await fetchYear(thisYear, true)] });
+}
+if (stale(snapshot)) {
   throw new Error(`纳指收盘日期异常（Wind ${snapshot.indexThrough}，查询截至 ${end}），保留上一份快照`);
 }
 snapshot.updatedAt = now.toISOString();
