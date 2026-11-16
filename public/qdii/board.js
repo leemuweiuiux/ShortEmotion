@@ -1,6 +1,7 @@
 // 美股 QDII 限额温度计：首页模块与 /qdiitrend 详情页共用。
-// 收紧占比 = 近 10 个美股交易日有收紧（含暂停）公告的基金家族 ÷ 已开放家族；放宽占比同理（近 20 日）。
-// 三种信号：偏热（收紧 ≥15%，只看比例不判命中）、过热（收紧 ≥40%，看跌）、放宽潮（放宽 ≥30%，看涨）。
+// 三项占比（分母 = 已开放的基金家族）：暂停中、近 20 个美股交易日有收紧（含暂停）公告、近 20 日有放宽公告。
+// 五级（由拥挤到宽松）：过热（暂停过半）、偏热（收紧 ≥15%）、正常、布局（放宽 ≥15%）、进场（放宽 ≥30%）。
+// 布局、进场看涨，方向对了算命中；过热、偏热、正常只统计之后的涨跌，不判命中。
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const number = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 });
 export { esc };
@@ -14,22 +15,16 @@ export const trendClass = (value) => value > 0 ? "up-text" : value < 0 ? "down-t
 export const external = (url, label, className = "qdii-link") => url
   ? `<a class="${className}" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>` : "";
 export const directionLabel = { tighten: "收紧", ease: "放宽" };
-// 过热看跌（-1）、放宽潮看涨（+1）；偏热不判命中
+// 看涨的等级（布局、进场）判命中；其余不判
 export const expectSign = { down: -1, up: 1 };
 export const isHit = (signal, change) => Boolean(signal.expect) && expectSign[signal.expect] * change > 0;
 export const hitLabel = (hit) => hit ? "命中" : "未命中";
-export const STATE = {
-  normal: { label: "正常", line: "限额调整零散，没有集中收紧或放宽" },
-  warm: { label: "偏热", line: "买盘偏拥挤；历史上之后多半仍在涨" },
-  hot: { label: "过热", line: "大面积收紧；历史上短期回调概率偏高" },
-  ease: { label: "放宽潮", line: "大面积放宽；历史上之后上涨概率高" }
-};
 
 async function readSnapshot(path) {
   const response = await fetch(path, { headers: { Accept: "application/json" } });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const data = await response.json();
-  if (!data.signals?.length || !data.now || !data.horizons?.length) throw new Error("快照不完整");
+  if (!data.signals?.length || !data.now?.paused || !data.horizons?.length) throw new Error("快照不完整");
   return data;
 }
 export const loadQdiiSnapshot = () => readSnapshot("/qdii/data.json").catch(() => readSnapshot("/qdii/snapshot.json"));
@@ -39,8 +34,7 @@ export const indexOf = (snapshot, id) => snapshot.indices.find((index) => index.
 // 与指数最新收盘同年时省略年份，往年只写两位年份
 export const shortDate = (date, through) => date.slice(0, 4) === through.slice(0, 4) ? date.slice(5) : date.slice(2);
 
-function gauge(label, ratio, count, alive, marks) {
-  const scale = 0.6; // 刻度条满格 = 60%
+function gauge(label, { count, ratio }, alive, marks, scale) {
   const pos = (value) => `${Math.min(100, value / scale * 100).toFixed(1)}%`;
   return `<div class="qdii-gauge">
     <div class="qdii-gauge-head"><span>${esc(label)}</span><b>${share(ratio)}</b><small>${count}/${alive} 家</small></div>
@@ -49,18 +43,33 @@ function gauge(label, ratio, count, alive, marks) {
   </div>`;
 }
 
-// 温度状态：状态灯 + 收紧 / 放宽两条刻度
+// 当前等级最近一次进入（表格红线与「今天 T+N」用）
+export function currentEntry(snapshot) {
+  const signal = signalOf(snapshot, snapshot.now.state);
+  return signal?.events[0] ? { signal, event: signal.events[0] } : null;
+}
+export const ageLine = (signal, horizons) => {
+  const event = signal.events[0];
+  if (!event) return `${signal.label}：尚未出现过`;
+  const max = Math.max(...horizons);
+  return event.age < max ? `本次${signal.label}：${event.date} 进入，今天 T+${event.age}`
+    : `上次${signal.label}：${event.date} 进入，已过 T+${max} 观察期`;
+};
+
+// 温度状态：五级状态灯 + 暂停 / 收紧 / 放宽三条刻度
 export function thermoMarkup(snapshot) {
   const { now } = snapshot;
-  const warm = signalOf(snapshot, "warm");
-  const hot = signalOf(snapshot, "hot");
-  const ease = signalOf(snapshot, "ease");
-  const state = STATE[now.state];
+  const level = (id) => signalOf(snapshot, id);
+  const current = level(now.state);
+  const entry = currentEntry(snapshot);
   return `<div class="qdii-thermo" data-state="${esc(now.state)}">
-    <div class="qdii-state"><span class="qdii-state-dot" aria-hidden="true"></span><b>${state.label}</b><span>${esc(state.line)}</span></div>
-    ${gauge(`近 ${now.tighten.window} 日收紧`, now.tighten.ratio, now.tighten.count, now.alive, [[warm.threshold, warm.label], [hot.threshold, hot.label]])}
-    ${gauge(`近 ${now.ease.window} 日放宽`, now.ease.ratio, now.ease.count, now.alive, [[ease.threshold, ease.label]])}
-    <p class="qdii-time">暂停申购中 ${now.paused}/${now.alive} 家 · 截至 ${esc(now.date)}</p>
+    <ol class="qdii-ladder" aria-label="温度等级">${snapshot.signals.map((item) =>
+      `<li class="${item.id === now.state ? "is-current" : ""}"${item.id === now.state ? ' aria-current="true"' : ""}>${esc(item.label)}</li>`).join("")}</ol>
+    <div class="qdii-state"><span class="qdii-state-dot" aria-hidden="true"></span><b>${esc(current.label)}</b><span>${esc(current.line)}${entry && entry.event.age < 250 ? ` · ${esc(entry.event.date)} 进入，今天 T+${entry.event.age}` : ""}</span></div>
+    ${gauge("暂停申购中", now.paused, now.alive, [[level("overheat").threshold, level("overheat").label]], 1)}
+    ${gauge(`近 ${now.window} 日收紧`, now.tighten, now.alive, [[level("warm").threshold, level("warm").label]], 0.6)}
+    ${gauge(`近 ${now.window} 日放宽`, now.ease, now.alive, [[level("layout").threshold, level("layout").label], [level("enter").threshold, level("enter").label]], 0.6)}
+    <p class="qdii-time">截至 ${esc(now.date)} · 共 ${now.alive} 家基金</p>
   </div>`;
 }
 
@@ -77,7 +86,7 @@ export const latestCards = (snapshot, count = 3) =>
   `<div class="qdii-funds">${snapshot.notices.slice(0, count).map((notice) => noticeCard(notice, snapshot.indexThrough)).join("")}</div>`;
 
 export function horizonRows(snapshot, signal, indexId) {
-  const sign = signal.expect ? expectSign[signal.expect] : -1; // 偏热按下跌比例展示
+  const sign = signal.expect ? expectSign[signal.expect] : -1; // 不判命中的等级按下跌比例展示
   const reference = indexOf(snapshot, indexId).reference;
   const active = signal.events[0] && signal.events[0].age < Math.max(...snapshot.horizons) ? signal.events[0] : null;
   return snapshot.horizons.map((horizon) => {
@@ -132,23 +141,25 @@ export function tableMarkup(snapshot, signal, indexId, picked = null) {
   </table>`;
 }
 
-export const signalNote = (signal) => signal.expect
-  ? `${signal.label}：近 ${signal.window} 日${directionLabel[signal.kind]}家数 ≥${share(signal.threshold)} · ${signal.expect === "down" ? "看跌" : "看涨"}，方向对了算命中 · T+N 为美股交易日`
-  : `${signal.label}：近 ${signal.window} 日收紧家数 ≥${share(signal.threshold)} · 只统计之后的涨跌，不判命中 · T+N 为美股交易日`;
+const ruleText = (signal) => signal.rule === "paused" ? `暂停中家数 ≥${share(signal.threshold)}`
+  : signal.rule ? `近 ${signal.window} 日${directionLabel[signal.rule]}家数 ≥${share(signal.threshold)}` : "不属于其他四级";
+export const signalNote = (signal) => `${signal.label}：${ruleText(signal)} · ${signal.expect
+  ? "看涨，上涨算命中" : "只统计之后的涨跌，不判命中"} · T+N 为美股交易日`;
 
 // root 内渲染信号表；onChange(state) 供详情页同步其他区块与导出，state = { signal, index, horizon }
 export function mountSignalBoard(root, snapshot, { onChange, pickHorizon = null } = {}) {
-  const firing = { hot: "hot", ease: "ease", warm: "warm" }[snapshot.now.state];
-  let signal = signalOf(snapshot, firing || "hot");
+  let signal = signalOf(snapshot, snapshot.now.state) || snapshot.signals[0];
   let index = snapshot.indices[0];
   let horizon = pickHorizon;
-  root.innerHTML = `<div class="qdii-board-head">
-      <div class="qdii-seg qdii-signal-seg" role="group" aria-label="选择信号">${snapshot.signals.map((item) =>
-        `<button type="button" value="${esc(item.id)}">${esc(item.label)}</button>`).join("")}</div>
+  root.innerHTML = `<div class="card-head qdii-board-top">
+      <h2 class="card-title">信号胜率</h2>
       <div class="qdii-seg qdii-index-seg" role="group" aria-label="选择指数">${snapshot.indices.map((item) =>
         `<button type="button" value="${esc(item.id)}">${esc(item.short)}</button>`).join("")}</div>
     </div>
+    <div class="qdii-seg qdii-signal-seg" role="group" aria-label="选择等级">${snapshot.signals.map((item) =>
+      `<button type="button" value="${esc(item.id)}">${esc(item.label)}</button>`).join("")}</div>
     <p class="qdii-board-title"></p>
+    <p class="qdii-age"></p>
     <div class="qdii-table-wrap" aria-live="polite"></div>
     <p class="qdii-time qdii-note"></p>`;
   const press = (container, value) => {
@@ -161,7 +172,10 @@ export function mountSignalBoard(root, snapshot, { onChange, pickHorizon = null 
   function render() {
     press(root.querySelector(".qdii-signal-seg"), signal.id);
     press(root.querySelector(".qdii-index-seg"), index.id);
-    root.querySelector(".qdii-board-title").textContent = `${signal.label}后${index.name}涨跌 · 共 ${signal.events.length} 波`;
+    root.querySelector(".qdii-board-title").textContent = `${signal.label}后${index.name}涨跌 · 共 ${signal.events.length} 次`;
+    const age = root.querySelector(".qdii-age");
+    age.textContent = ageLine(signal, snapshot.horizons);
+    age.classList.toggle("is-live", Boolean(signal.events[0] && signal.events[0].age < Math.max(...snapshot.horizons)));
     root.querySelector(".qdii-table-wrap").innerHTML = tableMarkup(snapshot, signal, index.id, horizon);
     root.querySelector(".qdii-note").textContent = signalNote(signal);
     onChange?.({ signal, index, horizon });
@@ -197,7 +211,7 @@ export function eventsMarkup(signal, indexId, horizon) {
     const tag = change === null ? '<span class="pill qdii-muted">未到期</span>'
       : signal.expect ? `<span class="pill${hit ? " pill-solid" : ""}">${hitLabel(hit)}</span>` : "";
     return `<article class="qdii-event">
-      <div class="qdii-event-main"><span class="qdii-event-date">${esc(event.date)}</span><b>${share(event.ratio)}</b><span class="qdii-event-date">${event.count}/${event.alive} 家</span></div>
+      <div class="qdii-event-main"><span class="qdii-event-date">${esc(event.date)}</span><span class="qdii-event-date">暂停 ${share(event.paused)} · 收紧 ${share(event.tighten)} · 放宽 ${share(event.ease)}</span></div>
       <div class="qdii-event-result">${change === null ? '<b class="qdii-muted">—</b>' : `<b class="${trendClass(change)}">${percent(change, true)}</b>`}${tag}</div>
     </article>`;
   }).join("");
