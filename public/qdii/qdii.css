@@ -20,3 +20,8 @@
 .qdii-more { justify-self: start; min-height: 32px; margin-top: 4px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
 .qdii-method summary { cursor: pointer; }
 .qdii-method ul { margin: 10px 0 0; padding-inline-start: 18px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.qdii-share-wrap { position: relative; flex: none; }
+.qdii-share-wrap .export-menu { top: calc(100% + 8px); right: 0; }
+/* 导出：卡片之间留白，长图里的历次调整不显示链接 */
+.qdii-export .qdii-export-card { display: grid; gap: 10px; margin-top: 10px; }
+.qdii-export .qdii-export-single { grid-template-columns: minmax(0, 1fr); }

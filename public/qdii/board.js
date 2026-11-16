@@ -1,6 +1,6 @@
 // QDII 限额看板：顶部选基金（申购状态），下方按交易日看命中率（对比平时）、命中绩效、累计涨跌与本次实绩。
 // 假设：收紧看跌、放宽看涨；T+N 收盘相对公告前最后一个纳指收盘的涨跌符合预期即命中（平盘不算）。
-// 首页模块与 /qdii 详情页共用。
+// 首页模块与 /qdiitrend 详情页共用；按指数分组（纳指100 / 标普500）。
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const number = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 });
 export const directionLabel = { tighten: "收紧", ease: "放宽" };
@@ -40,6 +40,15 @@ function announcedAge(fund) {
   return fund.marketAge + extra;
 }
 
+// 指数分组（纳指100 / 标普500）；旧快照没有 indices 时只有纳指一组
+export function indexGroups(snapshot) {
+  const list = snapshot.indices?.length ? snapshot.indices
+    : [{ id: "ndx", name: "纳斯达克100", short: "纳指100", indexThrough: snapshot.indexThrough, reference: snapshot.reference }];
+  return list.map((index) => ({ ...index, funds: snapshot.funds.filter((fund) => (fund.index || list[0].id) === index.id) }))
+    .filter((group) => group.funds.length);
+}
+export const indexOf = (snapshot, fund) => indexGroups(snapshot).find((group) => group.funds.includes(fund));
+
 export function horizonRows(snapshot, fund, direction) {
   const isCurrent = direction === fund.current.direction;
   const sign = expectedSign[direction];
@@ -48,7 +57,7 @@ export function horizonRows(snapshot, fund, direction) {
       .filter((event) => event.direction === direction && event.horizons[horizon].return !== null)
       .map((event) => event.horizons[horizon].return);
     const hits = changes.filter((change) => sign * change > 0);
-    const base = snapshot.reference[horizon];
+    const base = indexOf(snapshot, fund).reference[horizon];
     return {
       horizon,
       settled: changes.length,
@@ -56,7 +65,7 @@ export function horizonRows(snapshot, fund, direction) {
       hitRate: changes.length ? hits.length / changes.length : null,
       hitPerf: hits.reduce((sum, change) => sum + sign * change, 0),
       netPerf: changes.length ? changes.reduce((sum, change) => sum + sign * change, 0) : null,
-      // 平时：2020 年起任意时点同期限纳指，收紧看下跌比例、放宽看上涨比例
+      // 平时：2020 年起任意时点同期限的同一指数，收紧看下跌比例、放宽看上涨比例
       baseRate: (sign < 0 ? base.down : base.up) / base.total,
       current: isCurrent ? fund.current.horizons[horizon] : null
     };
@@ -78,16 +87,25 @@ function fundCard(fund, selected, through) {
   </article>`;
 }
 
-// 首页用：只展示申购状态，不可点选（操作在 /qdiitrend 详情页）
-export function staticFundCards(snapshot) {
-  return snapshot.funds.map(({ name, current }) => `<article class="qdii-fund">
+export function staticCard({ name, current }, through) {
+  return `<article class="qdii-fund">
     <span class="qdii-fund-name">${esc(name)}</span>
-    <span class="qdii-fund-date">${esc(shortDate(current.announced, snapshot.indexThrough))} 公告</span>
+    <span class="qdii-fund-date">${esc(shortDate(current.announced, through))} 公告</span>
     <span class="qdii-fund-change"><span class="pill">${directionLabel[current.direction]}</span><b>${capLabel(current.previous)} → ${capLabel(current.cap)}</b></span>
-  </article>`).join("");
+  </article>`;
 }
 
-function tableMarkup(snapshot, fund, direction, picked = null) {
+// 首页与长图用：按指数分组只展示申购状态，不可点选（操作在 /qdiitrend 详情页）
+export function staticFundCards(snapshot) {
+  return indexGroups(snapshot).map((group) => `<div class="qdii-group">
+    <h3 class="qdii-group-title">${esc(group.short)}</h3>
+    <div class="qdii-funds">${group.funds.map((fund) => staticCard(fund, group.indexThrough || snapshot.indexThrough)).join("")}</div>
+  </div>`).join("");
+}
+
+export const NOTE = "收紧看跌、放宽看涨，方向对了算命中；命中绩效与累计涨跌按信号方向计 · T+N 为美股交易日";
+
+export function tableMarkup(snapshot, fund, direction, picked = null) {
   const age = announcedAge(fund);
   const isCurrent = direction === fund.current.direction;
   const rows = horizonRows(snapshot, fund, direction);
@@ -119,39 +137,56 @@ function tableMarkup(snapshot, fund, direction, picked = null) {
   </table>`;
 }
 
-// root 内渲染整个看板；onChange(fund, direction, horizon) 供详情页同步其他区块。
+// root 内渲染整个看板；onChange(state) 供详情页同步其他区块与导出，state = { fund, direction, horizon, index }。
 // pickHorizon：详情页可点选交易日行（默认 T+20），下方历次调整跟着切换
 export function mountQdiiBoard(root, snapshot, { onChange, pickHorizon = null } = {}) {
+  const groups = indexGroups(snapshot);
+  let group = groups[0];
   let horizon = pickHorizon;
-  let fund = snapshot.funds[0];
+  let fund = group.funds[0];
   let direction = fund.current.direction;
-  root.innerHTML = `<div class="qdii-funds" role="group" aria-label="选择基金"></div>
+  root.innerHTML = `${groups.length > 1 ? `<div class="qdii-seg qdii-index-seg" role="group" aria-label="选择指数">${groups.map((item) =>
+      `<button type="button" value="${esc(item.id)}">${esc(item.short)}</button>`).join("")}</div>` : ""}
+    <div class="qdii-funds" role="group" aria-label="选择基金"></div>
     <div class="qdii-board-head">
       <p class="qdii-board-title"></p>
-      <div class="qdii-seg" role="group" aria-label="限额调整方向">
+      <div class="qdii-seg qdii-direction-seg" role="group" aria-label="限额调整方向">
         <button type="button" value="tighten">收紧</button><button type="button" value="ease">放宽</button>
       </div>
     </div>
     <div class="qdii-table-wrap" aria-live="polite"></div>
-    <p class="qdii-time">收紧看跌、放宽看涨，方向对了算命中；命中绩效与累计涨跌按信号方向计 · T+N 为美股交易日</p>`;
+    <p class="qdii-time">${NOTE}</p>`;
   const funds = root.querySelector(".qdii-funds");
-  const seg = root.querySelector(".qdii-seg");
-
-  function render() {
-    funds.innerHTML = snapshot.funds.map((item) => fundCard(item, item === fund, snapshot.indexThrough)).join("");
-    for (const button of seg.querySelectorAll("button")) {
-      const active = button.value === direction;
+  const seg = root.querySelector(".qdii-direction-seg");
+  const indexSeg = root.querySelector(".qdii-index-seg");
+  const press = (container, value) => {
+    for (const button of container?.querySelectorAll("button") || []) {
+      const active = button.value === value;
       button.classList.toggle("active", active);
       button.setAttribute("aria-pressed", String(active));
     }
-    root.querySelector(".qdii-board-title").textContent = `${fund.name} · ${directionLabel[direction]}后纳指 100 涨跌`;
+  };
+
+  function render() {
+    press(indexSeg, group.id);
+    funds.innerHTML = group.funds.map((item) => fundCard(item, item === fund, group.indexThrough || snapshot.indexThrough)).join("");
+    press(seg, direction);
+    root.querySelector(".qdii-board-title").textContent = `${fund.name} · ${directionLabel[direction]}后${group.name}涨跌`;
     root.querySelector(".qdii-table-wrap").innerHTML = tableMarkup(snapshot, fund, direction, horizon);
-    onChange?.(fund, direction, horizon);
+    onChange?.({ fund, direction, horizon, index: group });
   }
 
+  indexSeg?.addEventListener("click", (event) => {
+    const next = groups.find((item) => item.id === event.target.closest("button")?.value);
+    if (!next || next === group) return;
+    group = next;
+    fund = group.funds[0];
+    direction = fund.current.direction;
+    render();
+  });
   funds.addEventListener("click", (event) => {
     const code = event.target.closest("[data-fund]")?.dataset.fund;
-    const next = snapshot.funds.find((item) => item.code === code);
+    const next = group.funds.find((item) => item.code === code);
     if (!next || next === fund) return;
     fund = next;
     direction = fund.current.direction;

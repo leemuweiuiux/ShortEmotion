@@ -1,4 +1,4 @@
-// 用法：node scripts/qdii/build-snapshot.mjs <Wind index_data.get_index_kline 回执文件>
+// 用法：node scripts/qdii/build-snapshot.mjs <Wind index_data.get_index_kline 回执文件>（只含第一个指数，调试用）
 import { readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
@@ -6,6 +6,8 @@ const HORIZONS = [5, 10, 20, 40, 60, 90, 120, 180, 250];
 const DAY = 86_400_000;
 const SHANGHAI_DAY = /^\d{4}-\d{2}-\d{2}$/;
 const capValue = (cap) => cap === "unlimited" ? Infinity : cap;
+// 旧版种子没有 indices：只有纳指一组
+export const DEFAULT_INDICES = [{ id: "ndx", name: "纳斯达克100", short: "纳指100", windcode: "NDX.GI" }];
 
 function lastBefore(days, date) {
   let low = 0;
@@ -37,63 +39,71 @@ function summary(rows) {
   return { total: rows.length, down, up, flat: rows.length - down - up, from: rows[0]?.date || null, to: rows.at(-1)?.date || null };
 }
 
-export function buildSnapshot(curated, data) {
-  const indices = Object.fromEntries(data.columns.map(({ name }, i) => [name, i]));
-  const market = data.rows.filter((row) => !(String(row[indices.TURNOVER]) === "0" && String(row[indices.VOLUME]) === "0")).map((row) => ({
-    date: String(row[indices.TIME]).slice(0, 10), close: Number(row[indices.MATCH])
+function prepareMarket(index, data, referenceFrom) {
+  const cols = Object.fromEntries(data.columns.map(({ name }, i) => [name, i]));
+  const market = data.rows.filter((row) => !(String(row[cols.TURNOVER]) === "0" && String(row[cols.VOLUME]) === "0")).map((row) => ({
+    date: String(row[cols.TIME]).slice(0, 10), close: Number(row[cols.MATCH])
   }));
   if (!market.length || market.some((point, i) => !SHANGHAI_DAY.test(point.date) || !(point.close > 0) || (i && point.date <= market[i - 1].date))) {
-    throw new Error("纳指日线包含无效或重复交易日");
+    throw new Error(`${index.short}日线包含无效或重复交易日`);
   }
   const days = market.map((point) => point.date);
-  const marketEnd = market.length - 1;
-  const referenceStarts = days.map((date, index) => [index, date]).filter(([, date]) => date >= curated.referenceFrom);
-  const reference = Object.fromEntries(HORIZONS.map((horizon) => [horizon, summary(observations(referenceStarts, horizon, marketEnd, market))]));
-  const funds = curated.funds.map((fund) => {
-    const events = fund.events.slice(1).flatMap(([announced, effective, cap, source], i) => {
-      const [, , previous] = fund.events[i];
-      if (cap === previous) return [];
-      return [{
-        announced, effective, cap, previous, source,
-        direction: capValue(cap) < capValue(previous) ? "tighten" : "ease",
-        anchor: lastBefore(days, announced), effectiveAnchor: lastBefore(days, effective)
-      }];
-    });
-    const activeEvents = events.filter((event) => event.effective <= curated.verifiedOn);
-    const current = activeEvents.at(-1);
-    if (!current) throw new Error(`${fund.code} 缺少有效限额变动`);
-    const marketAge = Math.max(0, marketEnd - current.effectiveAnchor);
-    const announcedAge = Math.max(0, marketEnd - current.anchor);
-    const age = (Date.parse(curated.verifiedOn) - Date.parse(current.effective)) / DAY;
-    const history = { tighten: {}, ease: {} };
-    for (const direction of Object.keys(history)) {
-      const matching = (event) => event.direction === direction;
-      const eventStarts = activeEvents.filter(matching).map((event) => [event.anchor, event.announced]);
-      const continued = activeEvents.flatMap((event, i) => {
-        const checkpoint = event.effectiveAnchor + marketAge;
-        const next = activeEvents[i + 1]?.effectiveAnchor ?? market.length;
-        return matching(event) && checkpoint < next ? [[checkpoint, days[checkpoint]]] : [];
-      });
-      for (const horizon of HORIZONS) {
-        history[direction][horizon] = {
-          announced: summary(observations(eventStarts, horizon, marketEnd, market)),
-          continued: summary(observations(continued, horizon, marketEnd, market))
-        };
-      }
-    }
-    // 每笔公告各观察期的实际涨跌；命中（收紧看跌、放宽看涨）在前端按方向判断
-    const results = activeEvents.map(({ anchor, effectiveAnchor, ...event }) => {
-      const horizons = Object.fromEntries(HORIZONS.map((horizon) => {
-        const [actual] = observations([[anchor, event.announced]], horizon, marketEnd, market);
-        return [horizon, { end: actual ? days[actual.end] : null, return: actual?.change ?? null }];
-      }));
-      return { ...event, anchorDate: days[anchor] || null, horizons };
-    });
-    return { code: fund.code, name: fund.name, scope: fund.scope, shares: fund.shares, age, marketAge, announcedAge, history,
-      checkedThrough: fund.checkedThrough || curated.verifiedOn, review: fund.review || [],
-      current: results.at(-1), events: results.slice().reverse() };
+  const end = market.length - 1;
+  const referenceStarts = days.map((date, i) => [i, date]).filter(([, date]) => date >= referenceFrom);
+  const reference = Object.fromEntries(HORIZONS.map((horizon) => [horizon, summary(observations(referenceStarts, horizon, end, market))]));
+  return { market, days, end, reference };
+}
+
+function buildFund(fund, verifiedOn, { market, days, end }) {
+  const events = fund.events.slice(1).flatMap(([announced, effective, cap, source], i) => {
+    const [, , previous] = fund.events[i];
+    if (cap === previous) return [];
+    return [{
+      announced, effective, cap, previous, source,
+      direction: capValue(cap) < capValue(previous) ? "tighten" : "ease",
+      anchor: lastBefore(days, announced), effectiveAnchor: lastBefore(days, effective)
+    }];
   });
-  return { verifiedOn: curated.verifiedOn, indexThrough: days.at(-1), horizons: HORIZONS, reference, funds };
+  const activeEvents = events.filter((event) => event.effective <= verifiedOn);
+  const current = activeEvents.at(-1);
+  if (!current) throw new Error(`${fund.code} 缺少有效限额变动`);
+  const marketAge = Math.max(0, end - current.effectiveAnchor);
+  const announcedAge = Math.max(0, end - current.anchor);
+  const age = (Date.parse(verifiedOn) - Date.parse(current.effective)) / DAY;
+  // 每笔公告各观察期的实际涨跌；命中（收紧看跌、放宽看涨）在前端按方向判断
+  const results = activeEvents.map(({ anchor, effectiveAnchor, ...event }) => {
+    const horizons = Object.fromEntries(HORIZONS.map((horizon) => {
+      const [actual] = observations([[anchor, event.announced]], horizon, end, market);
+      return [horizon, { end: actual ? days[actual.end] : null, return: actual?.change ?? null }];
+    }));
+    return { ...event, anchorDate: days[anchor] || null, horizons };
+  });
+  return { code: fund.code, name: fund.name, scope: fund.scope, index: fund.index, shares: fund.shares, age, marketAge, announcedAge,
+    checkedThrough: fund.checkedThrough || verifiedOn, review: fund.review || [],
+    current: results.at(-1), events: results.slice().reverse() };
+}
+
+/**
+ * datasets：{ 指数 id: Wind 日线 { columns, rows } }；只传一份日线（旧用法）时视为第一个指数。
+ * 每只基金按 fund.index 用对应指数结算，「平时」也按各自指数算。
+ */
+export function buildSnapshot(curated, datasets) {
+  const indexList = curated.indices?.length ? curated.indices : DEFAULT_INDICES;
+  const byId = datasets?.columns ? { [indexList[0].id]: datasets } : datasets;
+  const markets = {};
+  const indices = indexList.map((index) => {
+    if (!byId[index.id]) throw new Error(`缺少${index.short}日线`);
+    markets[index.id] = prepareMarket(index, byId[index.id], curated.referenceFrom);
+    return { ...index, indexThrough: markets[index.id].days.at(-1), reference: markets[index.id].reference };
+  });
+  const funds = curated.funds.map((fund) => {
+    const indexId = fund.index || indexList[0].id;
+    if (!markets[indexId]) throw new Error(`${fund.code} 的指数 ${indexId} 不在指数列表里`);
+    return buildFund({ ...fund, index: indexId }, curated.verifiedOn, markets[indexId]);
+  });
+  const through = indices.map((index) => index.indexThrough).sort()[0];
+  // 顶层 indexThrough 取各指数最早的一天，用于判断是否需要重取
+  return { verifiedOn: curated.verifiedOn, indexThrough: through, horizons: HORIZONS, indices, funds };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -102,7 +112,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const curated = JSON.parse(await readFile(new URL("./curated.json", import.meta.url), "utf8"));
   const raw = JSON.parse(await readFile(input, "utf8"));
   const data = raw.content ? JSON.parse(raw.content[0].text).data : raw;
-  const snapshot = buildSnapshot(curated, data);
+  const snapshot = buildSnapshot({ ...curated, funds: curated.funds.filter((fund) => !fund.index || fund.index === (curated.indices?.[0]?.id || "ndx")) }, data);
   await writeFile(new URL("../../public/qdii/snapshot.json", import.meta.url), JSON.stringify(snapshot) + "\n");
-  console.log(`已生成 ${snapshot.funds.length} 只基金的看板快照，纳指截至 ${snapshot.indexThrough}`);
+  console.log(`已生成 ${snapshot.funds.length} 只基金的看板快照，指数截至 ${snapshot.indexThrough}`);
 }
