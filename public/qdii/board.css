@@ -83,6 +83,7 @@
 .qdii-chart { display: block; width: 100%; height: auto; }
 .qdii-chart .qdii-axis { fill: var(--muted); font-size: 10px; }
 .qdii-chart .qdii-band { fill: var(--level); opacity: .22; }
+.qdii-chart .qdii-band[fill] { opacity: 1; }
 .qdii-chart .qdii-line { fill: none; stroke: var(--ink); stroke-width: 1.4; stroke-linejoin: round; }
 .qdii-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); font-size: 12px; }
 .qdii-legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; background: var(--level); opacity: .5; }
