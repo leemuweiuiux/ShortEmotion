@@ -15,19 +15,22 @@ const weekdays = (from, count) => {
 };
 
 describe("美股 QDII 温度计", () => {
-  it("种子：纳指 + 标普全部基金家族，三种信号参数", () => {
+  it("种子：纳指 + 标普全部基金家族，五级参数", () => {
     expect(seed.indices.map((index) => [index.id, index.windcode])).toEqual([["ndx", "NDX.GI"], ["spx", "SPX.GI"]]);
     expect(seed.families.length).toBeGreaterThanOrEqual(20);
     expect(new Set(seed.families.map((family) => family.key)).size).toBe(seed.families.length);
-    expect(seed.signals.list.map(({ id, kind, window, threshold }) => [id, kind, window, threshold]))
-      .toEqual([["warm", "tighten", 10, 0.15], ["hot", "tighten", 10, 0.4], ["ease", "ease", 20, 0.3]]);
+    expect(seed.signals.window).toBe(20);
+    expect(seed.signals.levels.map(({ id, rule, threshold }) => [id, rule, threshold]))
+      .toEqual([["overheat", "paused", 0.5], ["warm", "tighten", 0.15], ["normal", null, null], ["layout", "ease", 0.15], ["enter", "ease", 0.3]]);
+    expect(seed.signals.priority).toEqual(["overheat", "enter", "warm", "layout", "normal"]);
     expect(seed.excluded).toContain("建信纳斯达克100指数");
   });
 
   it("内置快照结构完整，公告按最新在前", () => {
     expect(bundled.horizons).toEqual([5, 10, 20, 60]);
-    expect(bundled.signals.map((signal) => signal.id)).toEqual(["warm", "hot", "ease"]);
-    expect(["normal", "warm", "hot", "ease"]).toContain(bundled.now.state);
+    expect(bundled.signals.map((signal) => signal.id)).toEqual(["overheat", "warm", "normal", "layout", "enter"]);
+    expect(bundled.signals.map((signal) => signal.id)).toContain(bundled.now.state);
+    expect(bundled.series[0]).toHaveLength(4);
     const dates = bundled.notices.map((notice) => notice.announced);
     expect(dates).toEqual([...dates].sort().reverse());
   });
@@ -38,27 +41,32 @@ describe("美股 QDII 温度计", () => {
     expect(changes.map((change) => [change.direction, change.suspend])).toEqual([["tighten", false], ["tighten", true], ["ease", false]]);
   });
 
-  it("越过门槛算一波、冷却期内不重复，T+N 以触发前最后一个收盘为起点", () => {
-    const days = weekdays("2024-01-01", 120);
+  it("五级：暂停过半为过热，进入当天算一次，冷却期内不重复；T+N 以进入前最后一个收盘为起点", () => {
+    const days = weekdays("2024-01-01", 160);
     const ndx = { columns, rows: days.map((day, i) => [day, 100 + i, 1, 1]) }; // 一路上涨
-    const spx = { columns, rows: days.map((day, i) => [day, 200 - i, 1, 1]) }; // 一路下跌
-    const families = Array.from({ length: 5 }, (_, i) => ({ key: `F${i}`, index: "ndx", code: `F${i}`, opened: "2024-01-01",
-      events: i < 2 ? [[days[30], days[30], 1000, null, ""], [days[35], days[35], 100, null, ""]] : [] }));
+    const spx = { columns, rows: days.map((day, i) => [day, 300 - i, 1, 1]) }; // 一路下跌
+    const ev = (i, cap) => [days[i], days[i], cap, null, ""];
+    const families = Array.from({ length: 6 }, (_, i) => ({ key: `F${i}`, index: "ndx", code: `F${i}`, opened: "2024-01-01",
+      events: i < 3 ? [ev(30, 1000), ev(31, 0), ev(100, "unlimited")] : i === 3 ? [ev(100, 1000), ev(130, "unlimited")] : [] }));
     const curated = { ...seed, referenceFrom: "2024-01-01", verifiedOn: days.at(-1), families };
     const snapshot = buildSnapshot(curated, { ndx, spx });
-    const hot = signalOf(snapshot, "hot");
-    expect(hot.events).toHaveLength(1); // 两家同日收紧 = 40%，第 35 日再收紧在冷却期内
-    expect(hot.events[0]).toMatchObject({ date: days[30], anchorDate: days[29], count: 2, alive: 5 });
-    expect(hot.events[0].returns.ndx[5]).toBeCloseTo((100 + 34) / (100 + 29) - 1);
-    expect(hot.events[0].returns.spx[5]).toBeLessThan(0);
-    expect(signalOf(snapshot, "warm").events).toHaveLength(1);
-    const [ndxRow] = horizonRows(snapshot, hot, "ndx");
-    const [spxRow] = horizonRows(snapshot, hot, "spx");
-    expect([ndxRow.hits, ndxRow.settled]).toEqual([0, 1]);
-    expect([spxRow.hits, spxRow.settled]).toEqual([1, 1]);
-    expect(isHit(hot, -0.01)).toBe(true);
-    expect(isHit(signalOf(snapshot, "warm"), -0.01)).toBe(false); // 偏热不判命中
-    expect(tableMarkup(snapshot, signalOf(snapshot, "warm"), "ndx")).toContain("下跌比例");
+    const overheat = signalOf(snapshot, "overheat");
+    expect(overheat.events).toHaveLength(1); // 三家暂停 = 50%
+    expect(overheat.events[0]).toMatchObject({ date: days[31], anchorDate: days[30], alive: 6, paused: 0.5 });
+    expect(overheat.events[0].returns.ndx[5]).toBeCloseTo((100 + 35) / (100 + 30) - 1);
+    expect(signalOf(snapshot, "warm").events.map((event) => event.date)).toEqual([days[30]]);
+    // 第 100 天：三家恢复 → 放宽 3/6 = 50% → 进场；第 130 天一家取消限额，前一波已出 20 日窗口，1/6 ≈ 17% → 布局
+    expect(signalOf(snapshot, "enter").events.map((event) => event.date)).toEqual([days[100]]);
+    expect(signalOf(snapshot, "layout").events.map((event) => event.date)).toEqual([days[130]]);
+    const enter = signalOf(snapshot, "enter");
+    const [ndxRow] = horizonRows(snapshot, enter, "ndx");
+    const [spxRow] = horizonRows(snapshot, enter, "spx");
+    expect([ndxRow.hits, ndxRow.settled]).toEqual([1, 1]);
+    expect([spxRow.hits, spxRow.settled]).toEqual([0, 1]);
+    expect(isHit(enter, 0.01)).toBe(true);
+    expect(isHit(overheat, -0.01)).toBe(false); // 过热不判命中
+    expect(tableMarkup(snapshot, overheat, "ndx")).toContain("下跌比例");
+    expect(snapshot.now.state).toBe("normal");
     expect(() => buildSnapshot(curated, { ndx })).toThrow("缺少标普500日线");
   });
 

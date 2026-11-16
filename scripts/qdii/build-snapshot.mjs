@@ -1,6 +1,7 @@
 // 美股 QDII 限额温度计：由基金家族的限额事件与指数日线生成快照。
-// 每个美股交易日计算「近 W 日收紧（含暂停）的家族占比」与「近 W 日放宽的家族占比」；
-// 占比首次越过门槛的那天算一波（冷却期内不重复），结算 T+N 指数涨跌。
+// 每个美股交易日计算暂停中、近 W 日收紧（含暂停）、近 W 日放宽的家族占比，按优先级定出五级：
+// 过热（暂停过半）→ 进场（大面积放宽）→ 偏热（有收紧）→ 布局（部分放宽）→ 正常。
+// 从别的等级切换进来的那天算一次（冷却期内不重复），结算 T+N 指数涨跌。
 // 公告日（北京）归到当天或之后的第一个美股交易日，起点为公告前最后一个收盘（与回测一致）。
 
 export const HORIZONS = [5, 10, 20, 60];
@@ -87,56 +88,61 @@ export function buildSnapshot(curated, datasets) {
     }));
   }
 
-  // 每日占比：windows 内有该类变动的家族数 ÷ 已开放家族数
-  const windows = [...new Set(curated.signals.list.map((signal) => signal.window))];
-  const ratio = {};
-  const alive = Array.from({ length: n }, (_, i) => families.filter((family) => family.open <= i).length);
-  for (const kind of ["tighten", "ease"]) {
-    for (const window of windows) {
-      const counts = new Array(n).fill(0);
-      for (const family of families) {
-        const hit = new Array(n).fill(false);
-        for (const mark of family.marks) {
-          if (mark.direction !== kind) continue;
-          for (let i = mark.at; i < Math.min(n, mark.at + window); i++) hit[i] = true;
-        }
-        hit.forEach((value, i) => { if (value && family.open <= i) counts[i]++; });
-      }
-      ratio[`${kind}-${window}`] = counts.map((count, i) => ({ count, ratio: alive[i] ? count / alive[i] : 0 }));
+  // 每日三项占比（分母 = 已开放家族）：暂停中、近 W 日有收紧（含暂停）公告、近 W 日有放宽公告
+  const { window, cooldown = 20, minimumFamilies = 5, levels, priority } = curated.signals;
+  const alive = new Array(n).fill(0);
+  const counts = { paused: new Array(n).fill(0), tighten: new Array(n).fill(0), ease: new Array(n).fill(0) };
+  for (const family of families) {
+    const recent = { tighten: new Array(n).fill(false), ease: new Array(n).fill(false) };
+    for (const mark of family.marks) {
+      for (let i = mark.at; i < Math.min(n, mark.at + window); i++) recent[mark.direction][i] = true;
+    }
+    const effective = family.marks.map((mark) => ({ at: firstOnOrAfter(calendar, mark.effective), cap: mark.cap }));
+    let cap = "unlimited";
+    let next = 0;
+    for (let i = 0; i < n; i++) {
+      while (next < effective.length && effective[next].at <= i) cap = effective[next++].cap;
+      if (family.open > i) continue;
+      alive[i]++;
+      if (cap === 0) counts.paused[i]++;
+      if (recent.tighten[i]) counts.tighten[i]++;
+      if (recent.ease[i]) counts.ease[i]++;
     }
   }
+  const ratio = (rule, i) => alive[i] ? counts[rule][i] / alive[i] : 0;
+  const byId = Object.fromEntries(levels.map((level) => [level.id, level]));
+  const levelAt = (i) => alive[i] < minimumFamilies ? null : priority.find((id) => {
+    const level = byId[id];
+    return !level.rule || ratio(level.rule, i) >= level.threshold;
+  });
+  const daily = Array.from({ length: n }, (_, i) => levelAt(i));
 
-  const minimum = curated.signals.minimumFamilies ?? 5;
-  const cooldown = curated.signals.cooldown ?? 20;
-  const signals = curated.signals.list.map((signal) => {
-    const series = ratio[`${signal.kind}-${signal.window}`];
+  // 每一级：从别的等级切换进来的那天算一次，同一级冷却期内不重复
+  const signals = levels.map((level) => {
     const events = [];
     let lastAt = -Infinity;
     for (let i = 1; i < n; i++) {
-      if (alive[i] < minimum || series[i].ratio < signal.threshold || series[i - 1].ratio >= signal.threshold || i - lastAt <= cooldown) continue;
+      if (daily[i] !== level.id || daily[i - 1] === level.id || i - lastAt <= cooldown) continue;
       lastAt = i;
       events.push({
-        date: calendar[i], anchorDate: days[i - 1], count: series[i].count, alive: alive[i], ratio: series[i].ratio,
+        date: calendar[i], anchorDate: days[i - 1], alive: alive[i],
+        paused: ratio("paused", i), tighten: ratio("tighten", i), ease: ratio("ease", i),
         age: last - (i - 1),
         returns: Object.fromEntries(indexList.map((index) => [index.id, Object.fromEntries(HORIZONS.map((h) => [h, fwd(index.id, i, h)]))]))
       });
     }
-    return { ...signal, events: events.reverse() };
+    return { ...level, window, events: events.reverse() };
   });
 
   const at = n - 1;
-  const paused = families.filter((family) => family.open <= at && family.changes.at(-1)?.cap === 0).length;
-  const tightenKey = `tighten-${curated.signals.list.find((signal) => signal.kind === "tighten").window}`;
-  const easeKey = `ease-${curated.signals.list.find((signal) => signal.kind === "ease").window}`;
-  const level = (id) => signals.find((signal) => signal.id === id);
+  let start = at;
+  while (start > 0 && daily[start - 1] === daily[at]) start--;
+  const share = (rule) => ({ count: counts[rule][at], ratio: ratio(rule, at) });
   const now = {
-    date: calendar[at], alive: alive[at], paused,
-    tighten: { window: Number(tightenKey.split("-")[1]), ...ratio[tightenKey][at] },
-    ease: { window: Number(easeKey.split("-")[1]), ...ratio[easeKey][at] }
+    date: calendar[at], alive: alive[at], window, state: daily[at] || "normal",
+    since: calendar[start], age: last - (start - 1),
+    paused: share("paused"), tighten: share("tighten"), ease: share("ease")
   };
-  now.state = now.ease.ratio >= level("ease").threshold ? "ease"
-    : now.tighten.ratio >= level("hot").threshold ? "hot"
-      : now.tighten.ratio >= level("warm").threshold ? "warm" : "normal";
 
   const notices = families.flatMap((family) => family.changes.map((change) => ({
     family: family.key, index: family.index, name: family.key, ...change
@@ -145,7 +151,7 @@ export function buildSnapshot(curated, datasets) {
   const through = indices.map((index) => index.indexThrough).sort()[0];
   return {
     verifiedOn: curated.verifiedOn, indexThrough: through, horizons: HORIZONS, indices, signals, now,
-    series: calendar.map((date, i) => [date, round(ratio[tightenKey][i].ratio), round(ratio[easeKey][i].ratio)]).filter(([date]) => date >= "2019-01-01"),
+    series: calendar.map((date, i) => [date, round(ratio("paused", i)), round(ratio("tighten", i)), round(ratio("ease", i))]).filter(([date]) => date >= "2019-01-01"),
     notices,
     families: families.map((family) => ({ key: family.key, index: family.index, code: family.code, current: family.changes.at(-1)?.cap ?? "unlimited",
       checkedThrough: family.checkedThrough || curated.verifiedOn, review: family.review || [] }))

@@ -59,7 +59,6 @@
 .qdii-board :is(button, a):focus { outline: none; }
 .qdii-board :is(button, a):focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .qdii-group-title { margin: 0; color: var(--muted); font-size: 13px; font-weight: 600; }
-.qdii-board-head .qdii-seg { flex-wrap: wrap; }
 /* 温度状态：状态灯 + 两条刻度（满格 60%） */
 .qdii-thermo { display: grid; gap: 12px; min-width: 0; }
 .qdii-state { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
@@ -67,8 +66,6 @@
 .qdii-state > span:last-child { color: var(--muted); font-size: 13px; }
 .qdii-state-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); align-self: center; }
 .qdii-thermo[data-state="warm"] .qdii-state-dot { background: var(--warn); }
-.qdii-thermo[data-state="hot"] .qdii-state-dot { background: var(--price-down); }
-.qdii-thermo[data-state="ease"] .qdii-state-dot { background: var(--price-up); }
 .qdii-gauge { display: grid; gap: 6px; }
 .qdii-gauge-head { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
 .qdii-gauge-head span { color: var(--muted); }
@@ -93,3 +90,19 @@
 .qdii-legend span::before { content: ""; display: inline-block; width: 12px; height: 2px; margin-right: 6px; vertical-align: middle; }
 .qdii-legend .is-tighten::before { background: var(--price-down); }
 .qdii-legend .is-ease::before { background: var(--price-up); }
+/* 信号胜率：标题 + 指数切换同一行，五级切换均分 */
+.qdii-board-top { margin: 0; }
+.qdii-signal-seg { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.qdii-signal-seg button { padding: 0 4px; }
+.qdii-age { font-size: 13px; font-weight: 600; }
+.qdii-age.is-live { color: var(--negative); }
+/* 五级阶梯：当前等级高亮 */
+.qdii-ladder { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin: 0; padding: 0; list-style: none; }
+.qdii-ladder li { padding: 4px 0; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font-size: 12px; text-align: center; }
+.qdii-ladder li.is-current { border-color: var(--ink); background: var(--ink); color: var(--surface); font-weight: 600; }
+.qdii-thermo[data-state="overheat"] .qdii-state-dot { background: var(--negative); }
+.qdii-thermo[data-state="layout"] .qdii-state-dot { background: var(--positive); opacity: .6; }
+.qdii-thermo[data-state="enter"] .qdii-state-dot { background: var(--positive); }
+.qdii-chart .is-paused { stroke: var(--ink); }
+.qdii-chart text.is-paused { fill: var(--ink); stroke: none; }
+.qdii-legend .is-paused::before { background: var(--ink); }
