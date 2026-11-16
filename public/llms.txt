@@ -5,8 +5,7 @@
 ## 主要页面
 
 - [介绍页](https://www.lfjmwl.com/about)：情绪分怎么算、看板内容、数据来源
-- [每日看点（简体）](https://www.lfjmwl.com/news)：每个交易日开盘前、午间、收盘后各一篇 A 股短线复盘，附当日情绪分与观点卡
-- [每日看点（繁體）](https://www.lfjmwl.com/zh-hant/news)
+- [每日看点](https://www.lfjmwl.com/news)：每个交易日开盘前、午间、收盘后各一篇 A 股短线复盘，附当日情绪分与观点卡
 - [RSS](https://www.lfjmwl.com/news/feed.xml)
 - [站点地图](https://www.lfjmwl.com/sitemap.xml)
 

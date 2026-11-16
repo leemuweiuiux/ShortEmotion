@@ -18,7 +18,7 @@ import { isAdmin } from "./api/_lib/admin.js";
 import { authConfig, resolveSession, safeNext, isSecureRequest, seenCookieFor, recordActivity } from "./api/_lib/session.js";
 
 export const config = {
-  matcher: ["/watchlist", "/watchlist/:path*", "/etfflow", "/etfflow/", "/etfflow/:path*", "/", "/login", "/login/", "/home", "/home/", "/kandian", "/kandian/", "/kandian/:path*", "/technicalanalysis", "/technicalanalysis/", "/sectorflow", "/sectorflow/", "/limitup", "/limitup/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]
+  matcher: ["/zh-hant/news/:path*", "/qdii/:path*", "/watchlist", "/watchlist/:path*", "/etfflow", "/etfflow/", "/etfflow/:path*", "/", "/login", "/login/", "/home", "/home/", "/kandian", "/kandian/", "/kandian/:path*", "/technicalanalysis", "/technicalanalysis/", "/sectorflow", "/sectorflow/", "/limitup", "/limitup/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]
 };
 
 const STATIC_ASSET = /\.(?:css|js|mjs|svg|png|jpe?g|webp|gif|ico|woff2?)$/i;
@@ -49,7 +49,11 @@ function proceed(setCookies = []) {
 export default async function middleware(request) {
   const url = new URL(request.url);
   const path = url.pathname;
-  if (path.startsWith("/watchlist") && !STATIC_ASSET.test(path) &&
+  if (path === "/zh-hant/news" || path.startsWith("/zh-hant/news/")) {
+    url.pathname = path.slice("/zh-hant".length);
+    return Response.redirect(url, 308);
+  }
+  if ((path.startsWith("/watchlist") || path.startsWith("/qdii")) && !STATIC_ASSET.test(path) &&
       !["exp.lfjmwl.com", "localhost", "127.0.0.1"].includes(url.hostname)) return notFound(request);
 
   // 设计 Demo 子网域：只接管根目录，其余路径照常经过下面的登录判断

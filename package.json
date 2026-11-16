@@ -9,8 +9,7 @@
   "scripts": {
     "dev": "node scripts/dev-server.mjs",
     "test": "vitest run",
-    "refresh": "node scripts/short-emotion/refresh.mjs",
-    "build:hant-map": "node scripts/short-emotion/build-hant-map.mjs"
+    "refresh": "node scripts/short-emotion/refresh.mjs"
   },
   "devDependencies": {
     "happy-dom": "^21.0.4",
