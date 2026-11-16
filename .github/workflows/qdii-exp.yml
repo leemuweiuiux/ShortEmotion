@@ -25,7 +25,7 @@ jobs:
     timeout-minutes: 12
     env:
       DATA_BRANCH: qdii-exp-data
-      DATA_DIR: ${{ runner.temp }}/qdii-exp-data
+      DATA_DIR: ${{ github.workspace }}/../qdii-exp-data
     steps:
       - uses: actions/checkout@v4
         with:
