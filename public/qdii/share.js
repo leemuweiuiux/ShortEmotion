@@ -2,7 +2,7 @@
 // 做法同宽基 ETF：克隆进屏幕外 600px 容器，用 html-to-image 截成 PNG（/shared/export-image.js）。
 import { loadImageExporter } from "/shared/export-loader.js?v=1";
 import { exportHeader, exportFooter, renderImage, prepareExportAssets, showGallery, withTimeout, esc } from "/shared/export-image.js?v=2";
-import { chartMarkup, currentEntry, eventsMarkup, latestCards, noticesMarkup, percent, scaleMarkup, signalNote, signalOf, tableMarkup, trendClass } from "/qdii/board.js?v=14";
+import { chartMarkup, currentEntry, eventsMarkup, latestCards, noticesMarkup, percent, scaleMarkup, signalNote, signalOf, tableMarkup, trendClass } from "/qdii/board.js?v=15";
 
 export function datesLine(snapshot) {
   const pending = snapshot.families.reduce((sum, family) => sum + family.review.length, 0);
@@ -39,11 +39,14 @@ const stamp = (snapshot) => `指数收盘 ${snapshot.indexThrough} · 限额核�
 const twoYears = (snapshot) => `${Number(snapshot.indexThrough.slice(0, 4)) - 2}${snapshot.indexThrough.slice(4)}`;
 
 // 各区块（小卡每块一张，长图依次拼接）
-function blocks(snapshot, { signal, index, horizon }, kind) {
+function blocks(snapshot, { signal, index, horizon, chartIndex = snapshot.indices[0] }, kind) {
   const list = [
     { title: "当前温度", html: heroMarkup(snapshot) },
     { title: `历史上${signal.label}后${index.short}怎么走`, html: `${tableMarkup(snapshot, signal, index.id)}<p class="qdii-time">${esc(signalNote(signal))} · 共 ${signal.events.length} 次</p>` },
-    { title: kind === "long" ? "温度走势" : "近两年温度与纳指", html: chartMarkup(snapshot, { from: kind === "long" ? null : twoYears(snapshot), height: kind === "long" ? 200 : 170, inline: true }) },
+    {
+      title: kind === "long" ? `温度走势 · ${chartIndex.short}` : `近两年温度与${chartIndex.short}`,
+      html: chartMarkup(snapshot, { indexId: chartIndex.id, from: kind === "long" ? null : twoYears(snapshot), height: kind === "long" ? 200 : 170, inline: true })
+    },
     kind === "long" ? { title: `历次${signal.label} · ${index.short} T+${horizon}`, html: eventsMarkup(signal, index.id, horizon) || '<p class="qdii-time">尚未出现过。</p>' } : null,
     { title: "最新公告", html: `${latestCards(snapshot, 3)}${noticesMarkup(snapshot.notices.slice(3, kind === "long" ? 10 : 7), false)}` },
     kind === "long" ? { title: "口径", html: '<p class="qdii-time">追踪场外纳指100 / 标普500 QDII 全部基金，依暂停申购、收紧与放宽限额的集中程度分为过热、偏热、正常、布局、进场五级；进入某一级的那天算一次。T+N 为美股交易日，起点是进入前最后一个指数收盘；「平时」为 2018 年起任意时点同期限的同一指数。</p>' } : null
@@ -64,7 +67,7 @@ export function buildQdiiCards(snapshot, state) {
   }));
 }
 
-// button：导出按钮；state()：当前所选 { signal, index, horizon }；toast(message, error)
+// button：导出按钮；state()：当前所选 { signal, index, horizon, chartIndex }；toast(message, error)
 export function setupQdiiShare(button, { snapshot, state, toast }) {
   let busy = false;
   let menu = null;

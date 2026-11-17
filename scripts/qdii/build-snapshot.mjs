@@ -4,6 +4,8 @@
 // 从别的等级切换进来的那天算一次（冷却期内不重复），结算 T+N 指数涨跌。
 // 公告日（北京）归到当天或之后的第一个美股交易日，起点为公告前最后一个收盘（与回测一致）。
 
+import { expectedDirection } from "../../public/qdii/signal-direction.js";
+
 export const HORIZONS = [5, 10, 20, 60];
 const SHANGHAI_DAY = /^\d{4}-\d{2}-\d{2}$/;
 const rank = (cap) => cap === "unlimited" ? Infinity : Number(cap);
@@ -132,19 +134,23 @@ export function buildSnapshot(curated, datasets) {
       });
     }
     // 只公开名称与描述，门槛与占比不进快照
-    return { id: level.id, label: level.label, line: level.line, expect: level.expect, events: events.reverse() };
+    return { id: level.id, label: level.label, line: level.line, expect: expectedDirection(level), events: events.reverse() };
   });
 
   const at = n - 1;
   let start = at;
   while (start > 0 && daily[start - 1] === daily[at]) start--;
   const now = { date: calendar[at], alive: alive[at], state: daily[at] || "normal", since: calendar[start], age: last - (start - 1) };
-  // 温度走势：等级变化点 + 纳指周线（每 5 个交易日一点）
+  // 温度走势：各指数使用同一交易日历，每 5 个交易日取一个收盘。
   const bands = [];
   calendar.forEach((date, i) => {
     if (date >= "2019-01-01" && daily[i] && daily[i] !== bands.at(-1)?.[1]) bands.push([date, daily[i]]);
   });
-  const prices = days.flatMap((date, i) => date >= "2019-01-01" && ((last - i) % 5 === 0) ? [[date, price(indexList[0].id, i)]] : []);
+  const weeklyDates = days.filter((date, i) => date >= "2019-01-01" && (last - i) % 5 === 0);
+  const pricesByIndex = Object.fromEntries(indices.map(({ id }) => [
+    id, weeklyDates.map((date) => [date, closes[id].get(date)])
+  ]));
+  const prices = pricesByIndex[indices[0].id]; // 兼容仍读取旧快照格式的看板
 
   const notices = families.flatMap((family) => family.changes.map((change) => ({
     family: family.key, index: family.index, name: family.key, ...change
@@ -152,7 +158,7 @@ export function buildSnapshot(curated, datasets) {
   const through = indices.map((index) => index.indexThrough).sort()[0];
   return {
     verifiedOn: curated.verifiedOn, indexThrough: through, horizons: HORIZONS, indices, signals, now,
-    bands, prices,
+    bands, prices, pricesByIndex,
     notices,
     families: families.map((family) => ({ key: family.key, index: family.index, checkedThrough: family.checkedThrough || curated.verifiedOn, review: family.review || [] }))
   };

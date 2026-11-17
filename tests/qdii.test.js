@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildSnapshot, familyChanges } from "../scripts/qdii/build-snapshot.mjs";
-import { ageLine, horizonRows, isHit, signalOf, tableMarkup, thermoMarkup } from "../public/qdii/board.js";
+import { ageLine, chartMarkup, eventsMarkup, horizonRows, isHit, signalOf, tableMarkup, thermoMarkup } from "../public/qdii/board.js";
 
 const seed = JSON.parse(readFileSync(new URL("../scripts/qdii/curated.json", import.meta.url), "utf8"));
 const bundled = JSON.parse(readFileSync(new URL("../public/qdii/snapshot.json", import.meta.url), "utf8"));
+const weeklyPrices = JSON.parse(readFileSync(new URL("../public/qdii/weekly-prices.json", import.meta.url), "utf8"));
 const columns = ["TIME", "MATCH", "TURNOVER", "VOLUME"].map((name) => ({ name }));
 const weekdays = (from, count) => {
   const out = [];
@@ -35,6 +36,12 @@ describe("美股 QDII 温度计", () => {
     expect(JSON.stringify(bundled)).not.toMatch(/"(threshold|rule|paused|tighten|ease|ratio)":/);
     const dates = bundled.notices.map((notice) => notice.announced);
     expect(dates).toEqual([...dates].sort().reverse());
+  });
+
+  it("旧快照缺少标普周线时，使用历史周线并标示最后日期", () => {
+    const chart = chartMarkup({ ...bundled, pricesByIndex: weeklyPrices }, { indexId: "spx" });
+    expect(chart).toContain("标普500（周线）");
+    expect(chart).toContain(`周线截至 ${weeklyPrices.spx.at(-1)[0]}`);
   });
 
   it("限额变动方向：首个公告前视为不限额，同额度不算变动", () => {
@@ -75,6 +82,27 @@ describe("美股 QDII 温度计", () => {
     expect(first.latest).toBeNull();
   });
 
+  it("过热、偏热、布局与进场标记命中，观察期结束后仍可查看", () => {
+    const enter = signalOf(bundled, "enter");
+    for (const index of bundled.indices) {
+      const table = tableMarkup(bundled, enter, index.id);
+      expect(table).not.toContain("qdii-progress");
+      expect(table.match(/class="qdii-score" data-hit="true">命中/g)).toHaveLength(bundled.horizons.length);
+    }
+    const layout = tableMarkup(bundled, signalOf(bundled, "layout"), "ndx");
+    expect(layout).toContain('data-hit="true">命中');
+    expect(layout).toContain('data-hit="false">未命中');
+    expect(layout).toContain("未到期");
+    const overheat = signalOf(bundled, "overheat");
+    const warm = signalOf(bundled, "warm");
+    const overheatTable = tableMarkup(bundled, overheat, "ndx");
+    expect(overheatTable).toContain('data-hit="true">命中');
+    expect(overheatTable).toContain('data-hit="false">未命中');
+    expect(tableMarkup(bundled, warm, "ndx")).toContain('data-hit="false">未命中');
+    expect(eventsMarkup(warm, "ndx", 5)).toContain("未命中");
+    expect(tableMarkup(bundled, signalOf(bundled, "normal"), "ndx")).not.toContain("qdii-score");
+  });
+
   it("五级：暂停过半为过热，进入当天算一次，冷却期内不重复；T+N 以进入前最后一个收盘为起点", () => {
     const days = weekdays("2024-01-01", 160);
     const ndx = { columns, rows: days.map((day, i) => [day, 100 + i, 1, 1]) }; // 一路上涨
@@ -84,6 +112,17 @@ describe("美股 QDII 温度计", () => {
       events: i < 3 ? [ev(30, 1000), ev(31, 0), ev(100, "unlimited")] : i === 3 ? [ev(100, 1000), ev(130, "unlimited")] : [] }));
     const curated = { ...seed, referenceFrom: "2024-01-01", verifiedOn: days.at(-1), families };
     const snapshot = buildSnapshot(curated, { ndx, spx });
+    expect(snapshot.signals.map(({ expect }) => expect)).toEqual(["down", "down", null, "up", "up"]);
+    const { pricesByIndex } = snapshot;
+    expect(pricesByIndex.ndx).toEqual(snapshot.prices);
+    expect(pricesByIndex.ndx.map(([date]) => date)).toEqual(pricesByIndex.spx.map(([date]) => date));
+    expect(pricesByIndex.ndx.at(-1)).toEqual([days.at(-1), 259]);
+    expect(pricesByIndex.spx.at(-1)).toEqual([days.at(-1), 141]);
+    const points = (chart) => chart.match(/<polyline[^>]+points="([^"]+)"/)[1];
+    const ndxChart = chartMarkup(snapshot);
+    const spxChart = chartMarkup(snapshot, { indexId: "spx" });
+    expect(spxChart).toContain("标普500（周线）");
+    expect(points(spxChart)).not.toBe(points(ndxChart));
     const overheat = signalOf(snapshot, "overheat");
     expect(overheat.events).toHaveLength(1); // 三家暂停 = 50%
     expect(overheat.events[0]).toMatchObject({ date: days[31], anchorDate: days[30] });
@@ -98,7 +137,8 @@ describe("美股 QDII 温度计", () => {
     expect([ndxRow.hits, ndxRow.settled]).toEqual([1, 1]);
     expect([spxRow.hits, spxRow.settled]).toEqual([0, 1]);
     expect(isHit(enter, 0.01)).toBe(true);
-    expect(isHit(overheat, -0.01)).toBe(false); // 过热不判命中
+    expect(isHit(overheat, -0.01)).toBe(true);
+    expect(isHit(overheat, 0)).toBe(false);
     expect(tableMarkup(snapshot, overheat, "ndx")).toContain("下跌比例");
     expect(snapshot.now.state).toBe("normal");
     expect(() => buildSnapshot(curated, { ndx })).toThrow("缺少标普500日线");
