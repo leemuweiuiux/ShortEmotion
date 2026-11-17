@@ -1,7 +1,7 @@
 // /qdiitrend 详情页：温度状态（五级）+ 信号胜率表（五级 × 纳指/标普，可点选交易日行）
 // + 历次触发（跟随所选交易日）+ 温度走势 + 全部公告 + 口径 + 导出小卡/长图。
-import { chartMarkup, esc, eventsMarkup, loadQdiiSnapshot, mountSignalBoard, noticesMarkup, thermoMarkup } from "/qdii/board.js?v=13";
-import { datesLine, setupQdiiShare } from "/qdii/share.js?v=8";
+import { chartMarkup, esc, eventsMarkup, loadQdiiSnapshot, mountSignalBoard, noticesMarkup, thermoMarkup } from "/qdii/board.js?v=14";
+import { datesLine, setupQdiiShare } from "/qdii/share.js?v=9";
 
 const $ = (id) => document.getElementById(id);
 let snapshot;

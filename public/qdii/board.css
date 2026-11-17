@@ -34,10 +34,12 @@
 .qdii-table small { display: block; margin-top: 1px; color: var(--muted); font-size: 11px; }
 .qdii-muted { color: var(--muted); font-weight: 500; }
 .qdii-score[data-hit="true"] { color: var(--ink) !important; font-weight: 600; }
-/* 今天所在位置：本次公告已走到的美股交易日 */
-.qdii-table .qdii-now td { padding: 0; border-top: 2px solid var(--negative); text-align: left; }
-.qdii-now span { display: inline-block; padding: 2px 0 4px; color: var(--negative); font-size: 11px; font-weight: 600; }
-.qdii-table .qdii-now + tr > * { border-top: 0; }
+/* 观察进度：当前等级用红色，其他等级的上次信号用灰色 */
+.qdii-progress { --qdii-progress-color: var(--muted); }
+.qdii-progress.is-live { --qdii-progress-color: var(--negative); }
+.qdii-table .qdii-progress td { padding: 0; border-top: 2px solid var(--qdii-progress-color); text-align: left; }
+.qdii-progress span { display: inline-block; padding: 2px 0 4px; color: var(--qdii-progress-color); font-size: 11px; font-weight: 600; }
+.qdii-table .qdii-progress + tr > * { border-top: 0; }
 .qdii-time { min-width: 0; color: var(--muted); font-size: 12px; line-height: 1.6; font-variant-numeric: tabular-nums; }
 @media (min-width: 768px) {
   .qdii-funds { gap: 12px; }
@@ -94,3 +96,4 @@
 .qdii-signal-seg button { padding: 0 4px; }
 .qdii-age { font-size: 13px; font-weight: 600; }
 .qdii-age.is-live { color: var(--negative); }
+.qdii-age.is-historical { color: var(--muted); }

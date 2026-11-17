@@ -43,21 +43,25 @@ describe("美股 QDII 温度计", () => {
     expect(changes.map((change) => [change.direction, change.suspend])).toEqual([["tighten", false], ["tighten", true], ["ease", false]]);
   });
 
-  it("只有当前温度显示今天标记，其他信号保留上次触发", () => {
+  it("当前温度标记今天，其他信号标记上次触发的进度", () => {
     const now = bundled.now;
     const current = signalOf(bundled, now.state);
     expect(ageLine(bundled, current)).toContain(`今天 T+${now.age}`);
-    expect(tableMarkup(bundled, current, "ndx")).toContain(`今天 · T+${now.age}`);
+    expect(tableMarkup(bundled, current, "ndx")).toContain(`class="qdii-progress is-live"><td colspan="4"><span>今天 · T+${now.age}`);
     for (const id of ["warm", "layout"]) {
       const signal = signalOf(bundled, id);
-      expect(signal.events[0].age).toBeLessThan(Math.max(...bundled.horizons)); // 旧逻辑会误标今天
-      expect(ageLine(bundled, signal)).toBe(`上次${signal.label}：${signal.events[0].date} 进入`);
+      const { date, age } = signal.events[0];
+      expect(ageLine(bundled, signal)).toBe(`上次${signal.label}：${date} 进入，T+${age}`);
       for (const index of bundled.indices) {
         const table = tableMarkup(bundled, signal, index.id);
-        expect(table).not.toContain("qdii-now");
+        expect(table).toContain(`class="qdii-progress"><td colspan="4"><span>上次信号 · T+${age}`);
+        expect(table).not.toContain("今天 ·");
         expect(table).toContain('scope="col">上次</th>');
       }
     }
+    const expired = signalOf(bundled, "normal");
+    expect(ageLine(bundled, expired)).toContain(`T+${expired.events[0].age}（已过观察期）`);
+    expect(tableMarkup(bundled, expired, "ndx")).not.toContain("qdii-progress");
   });
 
   it("冷却期内再次进入同一级时，采用本次日期，不沿用上次的涨跌", () => {

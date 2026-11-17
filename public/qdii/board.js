@@ -42,12 +42,14 @@ export function currentEntry(snapshot, signal) {
 }
 export const ageLine = (snapshot, signal) => {
   const { now, horizons } = snapshot;
+  const max = Math.max(...horizons);
   if (isCurrentSignal(snapshot, signal)) {
-    const max = Math.max(...horizons);
     return `本次${signal.label}：${now.since} 进入，${now.age < max ? `今天 T+${now.age}` : `已过 T+${max} 观察期`}`;
   }
   const event = signal.events[0];
-  return event ? `上次${signal.label}：${event.date} 进入` : `${signal.label}：尚未出现过`;
+  if (!event) return `${signal.label}：尚未出现过`;
+  const observation = event.age >= max ? "（已过观察期）" : "";
+  return `上次${signal.label}：${event.date} 进入，T+${event.age}${observation}`;
 };
 
 // 五段温度条（不可点）+ 指针标出当前等级
@@ -139,14 +141,12 @@ export function tableMarkup(snapshot, signal, indexId, picked = null) {
   const word = signal.expect === "up" ? "涨" : "跌";
   const rows = horizonRows(snapshot, signal, indexId);
   const current = isCurrentSignal(snapshot, signal);
-  const age = snapshot.now.age;
-  const showToday = current && age < Math.max(...snapshot.horizons);
-  const now = showToday ? `<tr class="qdii-now"><td colspan="4"><span>今天 · T+${age}</span></td></tr>` : "";
-  let placed = !showToday;
+  const age = current ? snapshot.now.age : signal.events[0]?.age;
+  const markerHorizon = age == null ? undefined : snapshot.horizons.find((horizon) => age < horizon);
+  const marker = markerHorizon === undefined ? "" :
+    `<tr class="qdii-progress${current ? " is-live" : ""}"><td colspan="4"><span>${current ? "今天" : "上次信号"} · T+${age}</span></td></tr>`;
   const dash = '<span class="qdii-muted">—</span>';
   const body = rows.map((row) => {
-    let html = "";
-    if (!placed && age < row.horizon) { html += now; placed = true; }
     const { settled, hits, hitRate, average, baseRate, latest: result } = row;
     const rate = `${hitRate === null ? '<b class="qdii-muted">—</b>' : `<b>${(hitRate * 100).toFixed(0)}%</b>`}<small>${hits}/${settled} · 平时${word} ${(baseRate * 100).toFixed(0)}%</small>`;
     const mean = average === null ? dash : `<b class="${trendClass(average)}">${percent(average, true)}</b>`;
@@ -158,13 +158,14 @@ export function tableMarkup(snapshot, signal, indexId, picked = null) {
     const head = picked === null ? `T+${row.horizon}`
       : `<button type="button" class="qdii-row-pick" data-horizon="${row.horizon}" aria-pressed="${row.horizon === picked}">T+${row.horizon}</button>`;
     const attrs = `${row.horizon === picked ? ' class="is-picked"' : ""}${picked === null ? "" : ` data-horizon="${row.horizon}"`}`;
-    return html + `<tr${attrs}><th scope="row">${head}</th><td>${rate}</td><td>${mean}</td><td>${latest}</td></tr>`;
+    return (row.horizon === markerHorizon ? marker : "") +
+      `<tr${attrs}><th scope="row">${head}</th><td>${rate}</td><td>${mean}</td><td>${latest}</td></tr>`;
   }).join("");
   // 固定栏宽：切换等级时各栏不跳动
   return `<table class="qdii-table${picked === null ? "" : " is-pickable"}">
     <colgroup><col class="qdii-col-day"><col class="qdii-col-rate"><col><col></colgroup>
     <thead><tr><th scope="col">交易日</th><th scope="col">${judged ? "上涨胜率" : "下跌比例"}</th><th scope="col">平均涨跌</th><th scope="col">${current ? "本次" : "上次"}</th></tr></thead>
-    <tbody>${body}${placed ? "" : now}</tbody>
+    <tbody>${body}</tbody>
   </table>`;
 }
 
@@ -200,7 +201,9 @@ export function mountSignalBoard(root, snapshot, { onChange, pickHorizon = null 
     root.querySelector(".qdii-board-title").textContent = `${signal.label}后${index.name}涨跌 · 共 ${signal.events.length} 次`;
     const age = root.querySelector(".qdii-age");
     age.textContent = ageLine(snapshot, signal);
-    age.classList.toggle("is-live", isCurrentSignal(snapshot, signal) && snapshot.now.age < Math.max(...snapshot.horizons));
+    const current = isCurrentSignal(snapshot, signal);
+    age.classList.toggle("is-live", current && snapshot.now.age < Math.max(...snapshot.horizons));
+    age.classList.toggle("is-historical", !current);
     root.querySelector(".qdii-table-wrap").innerHTML = tableMarkup(snapshot, signal, index.id, horizon);
     root.querySelector(".qdii-note").textContent = signalNote(signal);
     onChange?.({ signal, index, horizon });
