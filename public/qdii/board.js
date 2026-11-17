@@ -33,17 +33,21 @@ export const indexOf = (snapshot, id) => snapshot.indices.find((index) => index.
 // 与指数最新收盘同年时省略年份，往年只写两位年份
 export const shortDate = (date, through) => date.slice(0, 4) === through.slice(0, 4) ? date.slice(5) : date.slice(2);
 
-// 当前等级最近一次进入（表格红线与「今天 T+N」用）
-export function currentEntry(snapshot) {
-  const signal = signalOf(snapshot, snapshot.now.state);
-  return signal?.events[0] ? { signal, event: signal.events[0] } : null;
-}
-export const ageLine = (signal, horizons) => {
+const isCurrentSignal = (snapshot, signal) => signal.id === snapshot.now.state;
+
+// 冷却期内的再次进入可能没有计入回测，不能沿用上一笔触发的涨跌。
+export function currentEntry(snapshot, signal) {
   const event = signal.events[0];
-  if (!event) return `${signal.label}：尚未出现过`;
-  const max = Math.max(...horizons);
-  return event.age < max ? `本次${signal.label}：${event.date} 进入，今天 T+${event.age}`
-    : `上次${signal.label}：${event.date} 进入，已过 T+${max} 观察期`;
+  return isCurrentSignal(snapshot, signal) && event?.date === snapshot.now.since ? event : null;
+}
+export const ageLine = (snapshot, signal) => {
+  const { now, horizons } = snapshot;
+  if (isCurrentSignal(snapshot, signal)) {
+    const max = Math.max(...horizons);
+    return `本次${signal.label}：${now.since} 进入，${now.age < max ? `今天 T+${now.age}` : `已过 T+${max} 观察期`}`;
+  }
+  const event = signal.events[0];
+  return event ? `上次${signal.label}：${event.date} 进入` : `${signal.label}：尚未出现过`;
 };
 
 // 五段温度条（不可点）+ 指针标出当前等级
@@ -54,11 +58,10 @@ export const scaleMarkup = (snapshot) => `<div class="qdii-scale" role="img" ari
 export function thermoMarkup(snapshot) {
   const { now } = snapshot;
   const current = signalOf(snapshot, now.state);
-  const entry = currentEntry(snapshot);
   return `<div class="qdii-thermo" data-state="${esc(now.state)}">
     ${scaleMarkup(snapshot)}
     <p class="qdii-state"><b>${esc(current.label)}</b><span>${esc(current.line)}</span></p>
-    ${entry ? `<p class="qdii-time">${esc(entry.event.date)} 进入，今天 T+${entry.event.age}</p>` : ""}
+    <p class="qdii-time">${esc(now.since)} 进入，今天 T+${esc(now.age)}</p>
   </div>`;
 }
 
@@ -115,7 +118,8 @@ export const latestCards = (snapshot, count = 3) =>
 export function horizonRows(snapshot, signal, indexId) {
   const sign = signal.expect ? expectSign[signal.expect] : -1; // 不判命中的等级按下跌比例展示
   const reference = indexOf(snapshot, indexId).reference;
-  const active = signal.events[0] && signal.events[0].age < Math.max(...snapshot.horizons) ? signal.events[0] : null;
+  const entry = isCurrentSignal(snapshot, signal) ? currentEntry(snapshot, signal) : signal.events[0];
+  const recent = entry && entry.age < Math.max(...snapshot.horizons) ? entry : null;
   return snapshot.horizons.map((horizon) => {
     const changes = signal.events.map((event) => event.returns[indexId][horizon]).filter((change) => change !== null);
     const hits = changes.filter((change) => sign * change > 0);
@@ -125,7 +129,7 @@ export function horizonRows(snapshot, signal, indexId) {
       hitRate: changes.length ? hits.length / changes.length : null,
             average: changes.length ? changes.reduce((sum, change) => sum + change, 0) / changes.length : null,
       baseRate: (sign < 0 ? base.down : base.up) / base.total,
-      current: active ? { return: active.returns[indexId][horizon] } : null
+      latest: recent ? { return: recent.returns[indexId][horizon] } : null
     };
   });
 }
@@ -134,20 +138,22 @@ export function tableMarkup(snapshot, signal, indexId, picked = null) {
   const judged = Boolean(signal.expect);
   const word = signal.expect === "up" ? "涨" : "跌";
   const rows = horizonRows(snapshot, signal, indexId);
-  const active = signal.events[0] && rows[0].current ? signal.events[0] : null;
-  const now = active ? `<tr class="qdii-now"><td colspan="4"><span>今天 · T+${active.age}</span></td></tr>` : "";
-  let placed = !active;
+  const current = isCurrentSignal(snapshot, signal);
+  const age = snapshot.now.age;
+  const showToday = current && age < Math.max(...snapshot.horizons);
+  const now = showToday ? `<tr class="qdii-now"><td colspan="4"><span>今天 · T+${age}</span></td></tr>` : "";
+  let placed = !showToday;
   const dash = '<span class="qdii-muted">—</span>';
   const body = rows.map((row) => {
     let html = "";
-    if (!placed && active.age < row.horizon) { html += now; placed = true; }
-    const { settled, hits, hitRate, average, baseRate, current } = row;
+    if (!placed && age < row.horizon) { html += now; placed = true; }
+    const { settled, hits, hitRate, average, baseRate, latest: result } = row;
     const rate = `${hitRate === null ? '<b class="qdii-muted">—</b>' : `<b>${(hitRate * 100).toFixed(0)}%</b>`}<small>${hits}/${settled} · 平时${word} ${(baseRate * 100).toFixed(0)}%</small>`;
     const mean = average === null ? dash : `<b class="${trendClass(average)}">${percent(average, true)}</b>`;
     let latest = dash;
-    if (current) {
-      latest = current.return === null ? '<span class="qdii-muted">未到期</span>'
-        : `<b class="${trendClass(current.return)}">${percent(current.return, true)}</b>${judged ? `<small class="qdii-score" data-hit="${isHit(signal, current.return)}">${hitLabel(isHit(signal, current.return))}</small>` : ""}`;
+    if (result) {
+      latest = result.return === null ? '<span class="qdii-muted">未到期</span>'
+        : `<b class="${trendClass(result.return)}">${percent(result.return, true)}</b>${judged ? `<small class="qdii-score" data-hit="${isHit(signal, result.return)}">${hitLabel(isHit(signal, result.return))}</small>` : ""}`;
     }
     const head = picked === null ? `T+${row.horizon}`
       : `<button type="button" class="qdii-row-pick" data-horizon="${row.horizon}" aria-pressed="${row.horizon === picked}">T+${row.horizon}</button>`;
@@ -157,7 +163,7 @@ export function tableMarkup(snapshot, signal, indexId, picked = null) {
   // 固定栏宽：切换等级时各栏不跳动
   return `<table class="qdii-table${picked === null ? "" : " is-pickable"}">
     <colgroup><col class="qdii-col-day"><col class="qdii-col-rate"><col><col></colgroup>
-    <thead><tr><th scope="col">交易日</th><th scope="col">${judged ? "上涨胜率" : "下跌比例"}</th><th scope="col">平均涨跌</th><th scope="col">本次</th></tr></thead>
+    <thead><tr><th scope="col">交易日</th><th scope="col">${judged ? "上涨胜率" : "下跌比例"}</th><th scope="col">平均涨跌</th><th scope="col">${current ? "本次" : "上次"}</th></tr></thead>
     <tbody>${body}${placed ? "" : now}</tbody>
   </table>`;
 }
@@ -193,8 +199,8 @@ export function mountSignalBoard(root, snapshot, { onChange, pickHorizon = null 
     press(root.querySelector(".qdii-index-seg"), index.id);
     root.querySelector(".qdii-board-title").textContent = `${signal.label}后${index.name}涨跌 · 共 ${signal.events.length} 次`;
     const age = root.querySelector(".qdii-age");
-    age.textContent = ageLine(signal, snapshot.horizons);
-    age.classList.toggle("is-live", Boolean(signal.events[0] && signal.events[0].age < Math.max(...snapshot.horizons)));
+    age.textContent = ageLine(snapshot, signal);
+    age.classList.toggle("is-live", isCurrentSignal(snapshot, signal) && snapshot.now.age < Math.max(...snapshot.horizons));
     root.querySelector(".qdii-table-wrap").innerHTML = tableMarkup(snapshot, signal, index.id, horizon);
     root.querySelector(".qdii-note").textContent = signalNote(signal);
     onChange?.({ signal, index, horizon });

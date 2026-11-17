@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildSnapshot, familyChanges } from "../scripts/qdii/build-snapshot.mjs";
-import { horizonRows, isHit, signalOf, tableMarkup } from "../public/qdii/board.js";
+import { ageLine, horizonRows, isHit, signalOf, tableMarkup, thermoMarkup } from "../public/qdii/board.js";
 
 const seed = JSON.parse(readFileSync(new URL("../scripts/qdii/curated.json", import.meta.url), "utf8"));
 const bundled = JSON.parse(readFileSync(new URL("../public/qdii/snapshot.json", import.meta.url), "utf8"));
@@ -41,6 +41,34 @@ describe("美股 QDII 温度计", () => {
     const changes = familyChanges({ events: [["2024-01-02", "2024-01-03", 1000], ["2024-02-01", "2024-02-01", 1000],
       ["2024-03-01", "2024-03-01", 0], ["2024-04-01", "2024-04-01", "unlimited"]] });
     expect(changes.map((change) => [change.direction, change.suspend])).toEqual([["tighten", false], ["tighten", true], ["ease", false]]);
+  });
+
+  it("只有当前温度显示今天标记，其他信号保留上次触发", () => {
+    const now = bundled.now;
+    const current = signalOf(bundled, now.state);
+    expect(ageLine(bundled, current)).toContain(`今天 T+${now.age}`);
+    expect(tableMarkup(bundled, current, "ndx")).toContain(`今天 · T+${now.age}`);
+    for (const id of ["warm", "layout"]) {
+      const signal = signalOf(bundled, id);
+      expect(signal.events[0].age).toBeLessThan(Math.max(...bundled.horizons)); // 旧逻辑会误标今天
+      expect(ageLine(bundled, signal)).toBe(`上次${signal.label}：${signal.events[0].date} 进入`);
+      for (const index of bundled.indices) {
+        const table = tableMarkup(bundled, signal, index.id);
+        expect(table).not.toContain("qdii-now");
+        expect(table).toContain('scope="col">上次</th>');
+      }
+    }
+  });
+
+  it("冷却期内再次进入同一级时，采用本次日期，不沿用上次的涨跌", () => {
+    const now = { ...bundled.now, since: bundled.indexThrough, age: 1 };
+    const snapshot = { ...bundled, now };
+    const signal = signalOf(snapshot, now.state);
+    expect(thermoMarkup(snapshot)).toContain(`${now.since} 进入，今天 T+1`);
+    expect(tableMarkup(snapshot, signal, "ndx")).toContain("今天 · T+1");
+    const [first] = horizonRows(snapshot, signal, "ndx");
+    expect(first.settled).toBeGreaterThan(0);
+    expect(first.latest).toBeNull();
   });
 
   it("五级：暂停过半为过热，进入当天算一次，冷却期内不重复；T+N 以进入前最后一个收盘为起点", () => {

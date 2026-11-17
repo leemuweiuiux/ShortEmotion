@@ -2,7 +2,7 @@
 // 做法同宽基 ETF：克隆进屏幕外 600px 容器，用 html-to-image 截成 PNG（/shared/export-image.js）。
 import { loadImageExporter } from "/shared/export-loader.js?v=1";
 import { exportHeader, exportFooter, renderImage, prepareExportAssets, showGallery, withTimeout, esc } from "/shared/export-image.js?v=2";
-import { chartMarkup, eventsMarkup, latestCards, noticesMarkup, percent, scaleMarkup, signalNote, signalOf, tableMarkup, trendClass } from "/qdii/board.js?v=12";
+import { chartMarkup, currentEntry, eventsMarkup, latestCards, noticesMarkup, percent, scaleMarkup, signalNote, signalOf, tableMarkup, trendClass } from "/qdii/board.js?v=13";
 
 export function datesLine(snapshot) {
   const pending = snapshot.families.reduce((sum, family) => sum + family.review.length, 0);
@@ -19,15 +19,16 @@ const section = (title, html) => {
 
 // 小卡：当前温度（大字等级 + 今天 T+N + 本次至今涨跌）+ 历史上该级之后的涨跌 + 近两年走势
 function heroMarkup(snapshot) {
-  const signal = signalOf(snapshot, snapshot.now.state);
-  const event = signal.events[0];
+  const { now } = snapshot;
+  const signal = signalOf(snapshot, now.state);
+  const event = currentEntry(snapshot, signal);
   const since = event ? snapshot.indices.map((index) => {
     const change = event.sinceEntry?.[index.id];
     return change === null || change === undefined ? "" : `<span>${esc(index.short)} <b class="${trendClass(change)}">${percent(change, true)}</b></span>`;
   }).join("") : "";
   return `<div class="qdii-hero" data-level="${esc(signal.id)}">
     <div class="qdii-hero-main"><small>当前温度</small><b>${esc(signal.label)}</b><span>${esc(signal.line)}</span></div>
-    ${event ? `<div class="qdii-hero-age"><small>${esc(event.date)} 进入</small><b>T+${event.age}</b><span>美股交易日</span></div>` : ""}
+    <div class="qdii-hero-age"><small>${esc(now.since)} 进入</small><b>T+${esc(now.age)}</b><span>美股交易日</span></div>
   </div>
   ${scaleMarkup(snapshot)}
   ${since ? `<p class="qdii-hero-since"><small>进入以来</small>${since}</p>` : ""}`;
