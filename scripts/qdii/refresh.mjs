@@ -29,8 +29,8 @@ if (flags.includes("--skip-if-fresh") && previous) {
   const expected = new Date(cutoff);
   while (expected.getUTCDay() % 6 === 0) expected.setUTCDate(expected.getUTCDate() - 1); // 周末退到周五（不处理美股假日）
   const recent = now - Date.parse(previous.updatedAt || 0) < 6 * 3_600_000;
-  const sameIndices = indices.every((index) => previous.indices?.some((item) => item.id === index.id));
-  if (recent && sameIndices && previous.indexThrough >= expected.toISOString().slice(0, 10)) {
+  const hasWeeklyPrices = indices.every(({ id }) => previous.pricesByIndex?.[id]?.length >= 2);
+  if (recent && hasWeeklyPrices && previous.indexThrough >= expected.toISOString().slice(0, 10)) {
     console.log(`快照已是最新（指数收盘 ${previous.indexThrough}），跳过取数`);
     process.exit(0);
   }

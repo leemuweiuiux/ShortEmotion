@@ -1,6 +1,8 @@
 // 美股 QDII 限额温度计：首页模块与 /qdiitrend 详情页共用。
 // 五级（由拥挤到宽松）：过热、偏热、正常、布局、进场；分级门槛只在数据管线里，页面与快照都不公开。
-// 布局、进场看涨，方向对了算命中；过热、偏热、正常只统计之后的下跌比例与平均涨跌，不判命中。
+// 过热、偏热看跌，布局、进场看涨；正常只统计之后的涨跌。
+import { expectedDirection } from "./signal-direction.js?v=1";
+
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const number = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 });
 export { esc };
@@ -14,19 +16,34 @@ export const trendClass = (value) => value > 0 ? "up-text" : value < 0 ? "down-t
 export const external = (url, label, className = "qdii-link") => url
   ? `<a class="${className}" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>` : "";
 export const directionLabel = { tighten: "收紧", ease: "放宽" };
-// 看涨的等级（布局、进场）判命中；其余不判
-export const expectSign = { down: -1, up: 1 };
-export const isHit = (signal, change) => Boolean(signal.expect) && expectSign[signal.expect] * change > 0;
+const expectSign = { down: -1, up: 1 };
+export const isHit = (signal, change) => expectSign[expectedDirection(signal)] * change > 0;
 export const hitLabel = (hit) => hit ? "命中" : "未命中";
 
-async function readSnapshot(path) {
+async function readJson(path) {
   const response = await fetch(path, { headers: { Accept: "application/json" } });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const data = await response.json();
+  return response.json();
+}
+
+async function readSnapshot(path) {
+  const data = await readJson(path);
   if (!data.signals?.length || !data.bands || !data.horizons?.length) throw new Error("快照不完整");
   return data;
 }
-export const loadQdiiSnapshot = () => readSnapshot("/qdii/data.json").catch(() => readSnapshot("/qdii/snapshot.json"));
+export async function loadQdiiSnapshot({ withChart = false } = {}) {
+  const snapshot = await readSnapshot("/qdii/data.json").catch(() => readSnapshot("/qdii/snapshot.json"));
+  const needsPrices = ({ id }) => chartPrices(snapshot, id).length < 2;
+  if (!withChart || !snapshot.indices.some(needsPrices)) return snapshot;
+
+  // 旧日频快照缺少标普周线时，补内置周线，其他区块继续用最新快照。
+  const bundled = await readJson("/qdii/weekly-prices.json").catch(() => null);
+  if (!bundled) return snapshot;
+  const fallbackPrices = Object.fromEntries(snapshot.indices.filter(needsPrices).map(({ id }) => [
+    id, (bundled[id] ?? []).filter(([date]) => date <= snapshot.indexThrough)
+  ]));
+  return { ...snapshot, pricesByIndex: { ...snapshot.pricesByIndex, ...fallbackPrices } };
+}
 
 export const signalOf = (snapshot, id) => snapshot.signals.find((signal) => signal.id === id);
 export const indexOf = (snapshot, id) => snapshot.indices.find((index) => index.id === id);
@@ -76,11 +93,17 @@ function chartColors() {
   return { ink: read("--ink"), muted: read("--muted"), levels: Object.fromEntries(Object.entries(LEVEL_VAR).map(([id, [name, alpha]]) => [id, [read(name), alpha]])) };
 }
 
-export function chartMarkup(snapshot, { from = null, height = 200, inline = false } = {}) {
+function chartPrices(snapshot, indexId) {
+  return snapshot.pricesByIndex?.[indexId] ?? (indexId === snapshot.indices[0]?.id ? snapshot.prices ?? [] : []);
+}
+
+export function chartMarkup(snapshot, { indexId = snapshot.indices[0]?.id, from = null, height = 200, inline = false } = {}) {
+  const index = indexOf(snapshot, indexId);
+  const prices = chartPrices(snapshot, indexId).filter(([date]) => !from || date >= from);
+  if (!index || prices.length < 2) return '<p class="qdii-time">暂时没有足够的指数走势数据。</p>';
   const colors = inline ? chartColors() : null;
   const width = 600;
   const pad = { left: 6, right: 6, top: 8, bottom: 20 };
-  const prices = from ? snapshot.prices.filter(([date]) => date >= from) : snapshot.prices;
   const { bands } = snapshot;
   const first = prices[0][0];
   const lastDate = prices.at(-1)[0];
@@ -89,20 +112,23 @@ export function chartMarkup(snapshot, { from = null, height = 200, inline = fals
   const values = prices.map(([, close]) => close);
   const low = Math.min(...values);
   const high = Math.max(...values);
-  const y = (v) => pad.top + (1 - (v - low) / (high - low)) * (height - pad.top - pad.bottom);
+  const y = (v) => pad.top + (high === low ? 0.5 : (high - v) / (high - low)) * (height - pad.top - pad.bottom);
   const rects = bands.map(([date, level], i) => {
-    const end = bands[i + 1]?.[0] || lastDate;
-    if (end < first) return "";
+    const next = bands[i + 1]?.[0] || lastDate;
+    const end = next > lastDate ? lastDate : next;
+    if (end <= first || date >= lastDate) return "";
     const paint = colors ? ` fill="${colors.levels[level][0]}" fill-opacity="${colors.levels[level][1]}"` : "";
     return `<rect class="qdii-band" data-level="${esc(level)}"${paint} x="${x(date).toFixed(1)}" y="${pad.top}" width="${Math.max(0.5, x(end) - x(date)).toFixed(1)}" height="${height - pad.top - pad.bottom}"/>`;
   }).join("");
   const years = prices.flatMap(([date], i) => i && date.slice(0, 4) !== prices[i - 1][0].slice(0, 4) ? [date] : []);
-  return `<svg class="qdii-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(snapshot.indices[0].short)}走势与温度等级">
+  const dateNote = lastDate < index.indexThrough ? `<p class="qdii-time">周线截至 ${esc(lastDate)}</p>` : "";
+  return `<svg class="qdii-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(index.short)}走势与温度等级">
     ${rects}
     ${years.map((date) => `<text class="qdii-axis"${colors ? ` fill="${colors.muted}" font-size="10"` : ""} x="${x(date)}" y="${height - 6}" text-anchor="middle">${date.slice(0, 4)}</text>`).join("")}
     <polyline class="qdii-line"${colors ? ` fill="none" stroke="${colors.ink}" stroke-width="1.6"` : ""} points="${prices.map(([date, close]) => `${x(date).toFixed(1)},${y(close).toFixed(1)}`).join(" ")}"/>
   </svg>
-  <p class="qdii-legend">${snapshot.signals.map((signal) => `<span data-level="${esc(signal.id)}">${esc(signal.label)}</span>`).join("")}<span class="is-line">${esc(snapshot.indices[0].short)}（周线）</span></p>`;
+  <p class="qdii-legend">${snapshot.signals.map((signal) => `<span data-level="${esc(signal.id)}">${esc(signal.label)}</span>`).join("")}<span class="is-line">${esc(index.short)}（周线）</span></p>
+  ${dateNote}`;
 }
 
 export function noticeCard(notice, through) {
@@ -118,10 +144,9 @@ export const latestCards = (snapshot, count = 3) =>
   `<div class="qdii-funds">${snapshot.notices.slice(0, count).map((notice) => noticeCard(notice, snapshot.indexThrough)).join("")}</div>`;
 
 export function horizonRows(snapshot, signal, indexId) {
-  const sign = signal.expect ? expectSign[signal.expect] : -1; // 不判命中的等级按下跌比例展示
+  const sign = expectSign[expectedDirection(signal)] ?? -1; // 正常按下跌比例展示
   const reference = indexOf(snapshot, indexId).reference;
   const entry = isCurrentSignal(snapshot, signal) ? currentEntry(snapshot, signal) : signal.events[0];
-  const recent = entry && entry.age < Math.max(...snapshot.horizons) ? entry : null;
   return snapshot.horizons.map((horizon) => {
     const changes = signal.events.map((event) => event.returns[indexId][horizon]).filter((change) => change !== null);
     const hits = changes.filter((change) => sign * change > 0);
@@ -129,16 +154,16 @@ export function horizonRows(snapshot, signal, indexId) {
     return {
       horizon, settled: changes.length, hits: hits.length,
       hitRate: changes.length ? hits.length / changes.length : null,
-            average: changes.length ? changes.reduce((sum, change) => sum + change, 0) / changes.length : null,
+      average: changes.length ? changes.reduce((sum, change) => sum + change, 0) / changes.length : null,
       baseRate: (sign < 0 ? base.down : base.up) / base.total,
-      latest: recent ? { return: recent.returns[indexId][horizon] } : null
+      latest: entry ? { return: entry.returns[indexId][horizon] } : null
     };
   });
 }
 
 export function tableMarkup(snapshot, signal, indexId, picked = null) {
-  const judged = Boolean(signal.expect);
-  const word = signal.expect === "up" ? "涨" : "跌";
+  const direction = expectedDirection(signal);
+  const word = direction === "up" ? "涨" : "跌";
   const rows = horizonRows(snapshot, signal, indexId);
   const current = isCurrentSignal(snapshot, signal);
   const age = current ? snapshot.now.age : signal.events[0]?.age;
@@ -153,7 +178,7 @@ export function tableMarkup(snapshot, signal, indexId, picked = null) {
     let latest = dash;
     if (result) {
       latest = result.return === null ? '<span class="qdii-muted">未到期</span>'
-        : `<b class="${trendClass(result.return)}">${percent(result.return, true)}</b>${judged ? `<small class="qdii-score" data-hit="${isHit(signal, result.return)}">${hitLabel(isHit(signal, result.return))}</small>` : ""}`;
+        : `<b class="${trendClass(result.return)}">${percent(result.return, true)}</b>${direction ? `<small class="qdii-score" data-hit="${isHit(signal, result.return)}">${hitLabel(isHit(signal, result.return))}</small>` : ""}`;
     }
     const head = picked === null ? `T+${row.horizon}`
       : `<button type="button" class="qdii-row-pick" data-horizon="${row.horizon}" aria-pressed="${row.horizon === picked}">T+${row.horizon}</button>`;
@@ -164,13 +189,14 @@ export function tableMarkup(snapshot, signal, indexId, picked = null) {
   // 固定栏宽：切换等级时各栏不跳动
   return `<table class="qdii-table${picked === null ? "" : " is-pickable"}">
     <colgroup><col class="qdii-col-day"><col class="qdii-col-rate"><col><col></colgroup>
-    <thead><tr><th scope="col">交易日</th><th scope="col">${judged ? "上涨胜率" : "下跌比例"}</th><th scope="col">平均涨跌</th><th scope="col">${current ? "本次" : "上次"}</th></tr></thead>
+    <thead><tr><th scope="col">交易日</th><th scope="col">${direction === "up" ? "上涨胜率" : "下跌比例"}</th><th scope="col">平均涨跌</th><th scope="col">${current ? "本次" : "上次"}</th></tr></thead>
     <tbody>${body}</tbody>
   </table>`;
 }
 
-export const signalNote = (signal) => `${signal.label}：${signal.line} · ${signal.expect
-  ? "看涨，之后上涨算命中" : "只统计之后的下跌比例与平均涨跌，不判命中"} · T+N 为美股交易日`;
+const hitNotes = { down: "看跌，之后下跌算命中", up: "看涨，之后上涨算命中" };
+export const signalNote = (signal) => `${signal.label}：${signal.line} · ${hitNotes[expectedDirection(signal)]
+  ?? "只统计之后的下跌比例与平均涨跌"} · T+N 为美股交易日`;
 
 // root 内渲染信号表；onChange(state) 供详情页同步其他区块与导出，state = { signal, index, horizon }
 export function mountSignalBoard(root, snapshot, { onChange, pickHorizon = null } = {}) {
@@ -233,11 +259,12 @@ export function mountSignalBoard(root, snapshot, { onChange, pickHorizon = null 
 
 // 历次触发（页面与长图共用）
 export function eventsMarkup(signal, indexId, horizon) {
+  const direction = expectedDirection(signal);
   return signal.events.map((event) => {
     const change = event.returns[indexId][horizon];
     const hit = change !== null && isHit(signal, change);
     const tag = change === null ? '<span class="pill qdii-muted">未到期</span>'
-      : signal.expect ? `<span class="pill${hit ? " pill-solid" : ""}">${hitLabel(hit)}</span>` : "";
+      : direction ? `<span class="pill${hit ? " pill-solid" : ""}">${hitLabel(hit)}</span>` : "";
     return `<article class="qdii-event">
       <div class="qdii-event-main"><span class="qdii-event-date">${esc(event.date)}</span><span class="qdii-event-date">${esc(signal.label)}</span></div>
       <div class="qdii-event-result">${change === null ? '<b class="qdii-muted">—</b>' : `<b class="${trendClass(change)}">${percent(change, true)}</b>`}${tag}</div>

@@ -1,11 +1,12 @@
 // /qdiitrend 详情页：温度状态（五级）+ 信号胜率表（五级 × 纳指/标普，可点选交易日行）
 // + 历次触发（跟随所选交易日）+ 温度走势 + 全部公告 + 口径 + 导出小卡/长图。
-import { chartMarkup, esc, eventsMarkup, loadQdiiSnapshot, mountSignalBoard, noticesMarkup, thermoMarkup } from "/qdii/board.js?v=14";
-import { datesLine, setupQdiiShare } from "/qdii/share.js?v=9";
+import { chartMarkup, esc, eventsMarkup, loadQdiiSnapshot, mountSignalBoard, noticesMarkup, thermoMarkup } from "/qdii/board.js?v=15";
+import { datesLine, setupQdiiShare } from "/qdii/share.js?v=10";
 
 const $ = (id) => document.getElementById(id);
 let snapshot;
 let state;
+let chartIndex;
 let showAllEvents = false;
 let noticeCount = 20;
 let toastTimer;
@@ -35,6 +36,29 @@ function renderNotices() {
     + (total > noticeCount ? `<button type="button" id="qdii-notices-more" class="qdii-more">再看 20 则</button>` : "");
 }
 
+function mountChart() {
+  const picker = $("qdii-chart-indices");
+  chartIndex = snapshot.indices[0];
+  picker.innerHTML = snapshot.indices.map((index) =>
+    `<button type="button" value="${esc(index.id)}">${esc(index.short)}</button>`).join("");
+  function render() {
+    for (const button of picker.querySelectorAll("button")) {
+      const active = button.value === chartIndex.id;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    }
+    $("qdii-chart").innerHTML = chartMarkup(snapshot, { indexId: chartIndex.id });
+  }
+  picker.addEventListener("click", (event) => {
+    const id = event.target.closest("button")?.value;
+    const next = snapshot.indices.find((index) => index.id === id);
+    if (!next || next === chartIndex) return;
+    chartIndex = next;
+    render();
+  });
+  render();
+}
+
 $("qdii-events").addEventListener("click", (event) => {
   if (!event.target.closest("#qdii-more")) return;
   showAllEvents = !showAllEvents;
@@ -49,12 +73,12 @@ $("qdii-notices").addEventListener("click", (event) => {
 });
 
 try {
-  snapshot = await loadQdiiSnapshot();
+  snapshot = await loadQdiiSnapshot({ withChart: true });
   $("qdii-dates").textContent = datesLine(snapshot);
   $("qdii-status").hidden = true;
   $("qdii-thermo").innerHTML = thermoMarkup(snapshot);
   for (const id of ["qdii-board-card", "qdii-events-card", "qdii-chart-card", "qdii-notices-card", "qdii-method-card"]) $(id).hidden = false;
-  $("qdii-chart").innerHTML = chartMarkup(snapshot);
+  mountChart();
   renderNotices();
   mountSignalBoard($("qdii-board"), snapshot, {
     pickHorizon: 20,
@@ -66,7 +90,7 @@ try {
   });
   const button = $("qdii-share");
   button.disabled = false;
-  setupQdiiShare(button, { snapshot: () => snapshot, state: () => state, toast });
+  setupQdiiShare(button, { snapshot: () => snapshot, state: () => ({ ...state, chartIndex }), toast });
 } catch {
   $("qdii-status").textContent = "暂时无法读取限额快照，请刷新页面重试。";
 }
