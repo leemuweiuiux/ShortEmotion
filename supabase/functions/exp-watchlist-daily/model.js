@@ -143,16 +143,19 @@ export function pickForecast(stocks) {
   };
 }
 
-export function settle(pick, direction, bars, entryDay, exitDay) {
+export const SETTLEMENT_PRICE_BASIS = "unadjusted";
+
+export function settle(pick, direction, rawBars, entryDay, exitDay) {
   if (!pick) return { status: "none" };
   if (!exitDay) return { status: "pending" };
-  if (!bars) return { status: "awaiting-data" };
-  const entry = bars.find(({ day }) => day === entryDay);
-  const exit = bars.find(({ day }) => day === exitDay);
-  const ret = referenceReturn(entry, exit);
-  if (ret == null) return { status: "unavailable" };
+  if (!rawBars?.length) return { status: "awaiting-data" };
+  const entry = rawBars.find(({ day }) => day === entryDay);
+  const exit = rawBars.find(({ day }) => day === exitDay);
+  const priceBasis = SETTLEMENT_PRICE_BASIS;
+  if (!entry || !exit) return { status: "unavailable", priceBasis };
+  const ret = change(entry.open, exit.close);
   return { status: direction === "up" && ret > 0 || direction === "down" && ret < 0 ? "beat" : "miss",
-    returnPct: rounded(ret) };
+    returnPct: rounded(ret), priceBasis };
 }
 
 /** Merge a cached series with a freshly fetched tail. A changed overlapping close means the cache is stale. */

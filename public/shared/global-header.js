@@ -2,8 +2,8 @@ import { readAccount, readPoints, clearRequestCache } from '/shared/request.js?v
 // One shared header for every Market Emotion page.
 // Existing page-specific account menus remain in charge of their own account button.
 const $ = (s, root=document) => root.querySelector(s);
-const features = [['/home','首页'],['/shortemotion/cn','短线情绪'],['/limitup','涨停情绪'],['/sectorflow','资金流向'],['/etfflow','宽基ETF'],['/qdiitrend','QDII 限额'],['/technicalanalysis','个股分析'],['/kandian','看点'],['/watchlist','关注']];
-const labels = {...Object.fromEntries(features),"/about":"Market Emotion","/login":"Market Emotion","/short-emotion":"短线情绪","/kandian/article":"看点文章","/account":"个人中心","/account/signin":"每日签到","/account/points":"积分流水","/account/settings":"设置","/account/edit":"编辑个人信息","/account/invite":"邀请好友","/redeem":"领取积分","/account/redeem":"领取积分"};
+const features = [['/home','首页'],['/shortemotion/cn','短线情绪'],['/limitup','涨停情绪'],['/sectorflow','资金流向'],['/etfflow','宽基ETF'],['/qdiitrend','QDII 温度计'],['/technicalanalysis','个股分析'],['/kandian','看点'],['/watchlist','关注']];
+const labels = {...Object.fromEntries(features),"/qdiitrend":"美股 QDII 温度计","/about":"Market Emotion","/login":"Market Emotion","/short-emotion":"短线情绪","/kandian/article":"看点文章","/account":"个人中心","/account/signin":"每日签到","/account/points":"积分流水","/account/settings":"设置","/account/edit":"编辑个人信息","/account/invite":"邀请好友","/redeem":"领取积分","/account/redeem":"领取积分"};
 let state = { authenticated: false, enabled: true, signedToday: null, unlimited: false };
 let busy = false;
 let refreshAgain = false;

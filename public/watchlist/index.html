@@ -2,27 +2,38 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
   <meta name="robots" content="noindex">
   <title>关注 · Market Emotion</title>
+  <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
   <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
   <script>
-    try {
-      const theme = localStorage.getItem("twsvp_theme");
-      document.documentElement.dataset.theme = theme === "dark" || theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-      if (localStorage.getItem("twsvp_price_scheme") === "green_up") {
-        document.documentElement.style.setProperty("--price-up", "#32801e");
-        document.documentElement.style.setProperty("--price-down", "#c73e28");
+    // 与看板共用外观设置：深浅色主题与红涨/绿涨配色（twsvp_*）；语言只用于底部导航文字。
+    (function () {
+      var root = document.documentElement;
+      var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
+      var theme = get("twsvp_theme");
+      if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      root.dataset.theme = theme;
+      if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
+      if (get("twsvp_price_scheme") === "green_up") {
+        root.style.setProperty("--price-up", "#76BB40");
+        root.style.setProperty("--price-down", "#FF4015");
       }
-    } catch {}
+      var lang = get("shortemotion:lang");
+      root.dataset.lang = lang === "hant" || lang !== "hans" && /^zh-(tw|hk|mo|hant)/i.test(navigator.language || "") ? "hant" : "hans";
+    })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=17">
   <link rel="stylesheet" href="/shared/primary-tabs.css?v=3">
   <link rel="stylesheet" href="/shared/global-header.css?v=5">
+  <script defer src="/shared/usage.js?v=3"></script>
   <link rel="stylesheet" href="/shared/form.css?v=1">
-  <link rel="stylesheet" href="/watchlist/watchlist.css?v=5">
+  <link rel="stylesheet" href="/watchlist/watchlist.css?v=8">
   <link rel="stylesheet" href="/shared/wide-layout.css?v=2">
 </head>
 <body class="wide-page wide-watchlist">
@@ -35,9 +46,9 @@
     <section class="card watch-card" aria-labelledby="watch-forecast">
       <div class="card-head watch-heading">
         <h2 class="card-title" id="watch-forecast">每日预测</h2>
-        <span class="watch-meta">近 5 个交易日</span>
+        <div class="watch-share-wrap"><button id="watch-export" class="nav-btn" type="button" aria-label="导出分享" title="导出分享" aria-haspopup="menu" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 4v11M7.5 8.5 12 4l4.5 4.5M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
       </div>
-      <p class="watch-meta">交易日 20:05 更新。预测窗口为适用日开盘至下一交易日收盘。</p>
+      <p class="watch-meta">最近 10 个交易日 · 预测窗口为适用日开盘至下一交易日收盘。</p>
       <div id="watch-days" class="watch-days" role="group" aria-label="预测日期"></div>
       <div id="watch-focus" class="watch-focus" hidden></div>
       <p id="watch-source" class="watch-meta" hidden></p>
@@ -46,7 +57,9 @@
     <section class="card watch-card" aria-labelledby="watch-pool">
       <div class="card-head watch-heading">
         <h2 class="card-title" id="watch-pool">我的股票池 <span id="watch-count" class="watch-meta">—/10</span></h2>
-        <button id="watch-manage" class="btn-secondary" type="button" aria-expanded="false" aria-controls="watch-form">管理</button>
+        <div class="watch-actions">
+          <button id="watch-manage" class="btn-secondary watch-action" type="button" aria-expanded="false" aria-controls="watch-form">管理</button>
+        </div>
       </div>
       <p id="watch-date" class="watch-meta">正在读取行情…</p>
       <form id="watch-form" class="field" hidden>
@@ -61,12 +74,13 @@
         <thead><tr><th scope="col">股票</th><th scope="col">收盘价／涨跌幅</th><th scope="col">成交量／较前 5 日均量</th><th scope="col" class="watch-remove-cell" hidden><span class="watch-sr">操作</span></th></tr></thead>
         <tbody id="watch-stocks"></tbody>
       </table>
+      <p id="watch-hint" class="watch-meta" hidden>点股票名称进入个股分析，当日尚无分析时需 10 积分。</p>
     </section>
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script type="module" src="/shared/global-header.js?v=8"></script>
   <script type="module" src="/shared/primary-tabs.js?v=3"></script>
-  <script type="module" src="/watchlist/watchlist.js?v=7"></script>
+  <script type="module" src="/watchlist/watchlist.js?v=12"></script>
 </body>
 </html>

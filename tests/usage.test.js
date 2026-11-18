@@ -51,7 +51,7 @@ describe('功能统计口径', () => {
     expect(record.mock.calls[0][1].outcome).toBe('partial');
   });
   it('所有产品页面均接入采集，后台不计入产品数据', () => {
-    for (const page of ['home','about','login','short-emotion','technical-analysis','sectorflow','limitup','kandian','account','account/signin','account/invite','account/points','account/settings','account/edit','privacy','terms']) {
+    for (const page of ['home','about','login','short-emotion','technical-analysis','sectorflow','limitup','kandian','account','account/signin','account/invite','account/points','account/settings','account/edit','privacy','terms','qdii','watchlist']) {
       expect(readFileSync(`public/${page}/index.html`,'utf8')).toContain('/shared/usage.js?v=3');
     }
     expect(readFileSync('public/kandian/article.html','utf8')).toContain('/shared/usage.js?v=3');
