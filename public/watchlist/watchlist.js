@@ -1,3 +1,7 @@
+import { loadImageExporter } from "/shared/export-loader.js?v=1";
+import { exportHeader, exportFooter, prepareExportAssets, renderImage, shareOrDownload, showGallery, closeGallery, withTimeout } from "/shared/export-image.js?v=2";
+import { toast } from "/shared/nav-account.js?v=4";
+
 const $ = (id) => document.getElementById(id);
 const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (char) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
@@ -9,13 +13,12 @@ const pct = (value) => present(value) ? `${value > 0 ? "+" : ""}${value.toFixed(
 const tone = (value) => value > 0 ? "watch-up" : value < 0 ? "watch-down" : "";
 const volume = (value) => !present(value) ? "—" : value >= 1e8 ? (value / 1e8).toFixed(2) + " 亿股"
   : value >= 1e4 ? (value / 1e4).toFixed(2) + " 万股" : value.toLocaleString() + " 股";
-const timestamp = new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", month: "2-digit",
-  day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 let state = { days: [], stocks: [] };
 let selected = "";
 let managing = false;
 let busy = false;
 let syncing = false;
+let exporting = false;
 
 async function request(body) {
   const response = await fetch(endpoint, body ? {
@@ -37,13 +40,28 @@ function signalRow(signal, direction) {
   return `<div class="watch-signal">
     <strong class="${color}">${label}</strong>
     <strong>${escape(pick.name)}<small>${escape(pick.code)}</small></strong>
-    <span class="watch-number" title="历史相似样本">${pick.probability}%<small>${pick.sampleSize} 个样本</small></span>
+    <span class="watch-number" title="历史相似样本">${escape(pick.probability)}%<small>${escape(pick.sampleSize)} 个样本</small></span>
     <span class="watch-result">${status}<small class="${tone(signal.returnPct)} watch-number">${pct(signal.returnPct)}</small></span>
   </div>`;
 }
 
+function forecastDays() {
+  return [...state.days].sort((a, b) => b.day.localeCompare(a.day));
+}
+
+function focusText(attention) {
+  const { name, reason, level } = attention;
+  return "重点关注 · " + name + "｜" + reason + (present(level) ? " · 观察位 " + price(level) : "");
+}
+
+function sourceText(day) {
+  if (day?.daily) return `盘后计算 · ${day.daily.benchmark ?? ""}${day.daily.provisional ? " · 日期以实际开市为准" : ""}`;
+  if (day?.backtest) return `历史回测 · ${day.backtest.benchmark ?? ""} · 特征截至 ${day.backtest.source ?? ""}`;
+  return "";
+}
+
 function renderForecast() {
-  const days = [...state.days].sort((a, b) => b.day.localeCompare(a.day));
+  const days = forecastDays();
   if (!days.some(({ day }) => day === selected)) selected = days[0]?.day || "";
   $("watch-days").innerHTML = days.map(({ day }) =>
     `<button type="button" data-day="${escape(day)}" aria-pressed="${day === selected}">${escape(day.slice(5).replace("-", "/"))}</button>`
@@ -51,15 +69,9 @@ function renderForecast() {
   const current = days.find(({ day }) => day === selected);
   const focus = $("watch-focus");
   focus.hidden = !current?.attention;
-  if (current?.attention) {
-    const { name, reason, level } = current.attention;
-    focus.textContent = "重点关注 · " + name + "｜" + reason + (present(level) ? " · 观察位 " + price(level) : "");
-  }
+  focus.textContent = current?.attention ? focusText(current.attention) : "";
   const source = $("watch-source");
-  source.textContent = current?.daily
-    ? `盘后计算 · ${current.daily.benchmark ?? ""}${current.daily.provisional ? " · 日期以实际开市为准" : ""}`
-    : current?.backtest
-    ? `历史回测 · ${current.backtest.benchmark ?? ""} · 特征截至 ${current.backtest.source ?? ""}` : "";
+  source.textContent = sourceText(current);
   source.hidden = !source.textContent;
   $("watch-signals").innerHTML = current ? signalRow(current.up, "up") + signalRow(current.down, "down")
     : '<p class="watch-empty">交易日历暂未就绪</p>';
@@ -73,31 +85,169 @@ function renderPool() {
   $("watch-query").disabled = busy || state.stocks.length >= 10;
   $("watch-form").querySelector("button").disabled = $("watch-query").disabled;
   document.querySelector(".watch-remove-cell").hidden = !managing;
-  const newest = state.stocks.filter((stock) => stock.day === state.tradingDay && stock.updatedAt)
-    .map((stock) => stock.updatedAt).sort().at(-1);
-  $("watch-date").textContent = newest ? "行情日期 " + state.tradingDay + " · 更新于 " + timestamp.format(new Date(newest)) + "（北京时间）"
+  const current = state.stocks.some((stock) => stock.day === state.tradingDay && stock.updatedAt);
+  $("watch-date").textContent = current ? "行情日期 " + state.tradingDay
     : state.tradingDay ? "最近收盘日 " + state.tradingDay + " · 股票行情待更新" : "行情待更新";
-  table.innerHTML = state.stocks.map((stock) => `<tr>
-    <td><a href="/technicalanalysis?q=${encodeURIComponent(stock.code)}">${escape(stock.name)}</a>
-      <small>${escape(stock.code)}${stock.day && stock.day !== state.tradingDay ? " · " + escape(stock.day.slice(5)) : ""}</small></td>
+  $("watch-hint").hidden = !state.stocks.length;
+  table.innerHTML = state.stocks.map((stock) => stockRow(stock)).join("")
+    || `<tr><td class="watch-empty" colspan="${managing ? 4 : 3}">股票池为空，可添加最多 10 只 A 股。</td></tr>`;
+}
+
+function stockRow(stock, forExport = false) {
+  const name = escape(stock.name);
+  const stockDate = stock.day && stock.day !== state.tradingDay ? " · " + escape(stock.day.slice(5)) : "";
+  return `<tr>
+    <td>${forExport ? `<strong>${name}</strong>` : `<a href="/technicalanalysis?q=${encodeURIComponent(stock.code)}">${name}</a>`}
+      <small>${escape(stock.code)}${stockDate}</small></td>
     <td class="watch-number">${price(stock.close)}<small class="${tone(stock.change)}">${pct(stock.change)}</small></td>
     <td class="watch-number">${volume(stock.volume)}<small>${present(stock.volumeRatio) ? stock.volumeRatio.toFixed(2) + " 倍" : "—"}</small></td>
-    ${managing ? `<td><button type="button" data-remove="${escape(stock.code)}" ${busy ? "disabled" : ""}>移除</button></td>` : ""}
-  </tr>`).join("") || `<tr><td class="watch-empty" colspan="${managing ? 4 : 3}">股票池为空，可添加最多 10 只 A 股。</td></tr>`;
+    ${!forExport && managing ? `<td><button type="button" data-remove="${escape(stock.code)}" ${busy ? "disabled" : ""}>移除</button></td>` : ""}
+  </tr>`;
 }
+
+// ── 导出（与短线情绪、个股分析、涨停情绪一致：长图直接分享/下载，小卡先预览）──
+const STATUS = { beat: "命中", miss: "未命中", pending: "待结算", unavailable: "无法结算", "awaiting-data": "行情待补" };
+const footer = () => exportFooter({ title: "Market Emotion · 关注", line: "每日预测与自选股票池", note: "仅供研究，不构成投资建议。" });
+
+function exportSection(title, markup) {
+  const section = document.createElement("section");
+  section.className = "card";
+  section.innerHTML = (title ? `<h2 class="card-title">${escape(title)}</h2>` : "") + markup;
+  return section;
+}
+
+function poolMarkup() {
+  return `<table class="watch-table">
+    <thead><tr><th>股票</th><th>收盘价／涨跌幅</th><th>成交量／较前 5 日均量</th></tr></thead>
+    <tbody>${state.stocks.map((stock) => stockRow(stock, true)).join("")}</tbody>
+  </table>`;
+}
+
+// 多日预测记录：每个适用日的看涨、看跌各一格，标出命中 / 未命中与区间涨跌
+function recordCell(signal) {
+  if (!signal) return '<span class="watch-meta">暂无记录</span>';
+  const pick = signal.pick;
+  if (!pick) return '<span class="watch-meta">无明确信号</span>';
+  return `<strong>${escape(pick.name)}</strong><small>${escape(pick.code)} · ${escape(pick.probability)}%</small>
+    <span class="watch-hit" data-status="${escape(signal.status)}">${STATUS[signal.status] || "—"}${present(signal.returnPct) ? ` <b class="${tone(signal.returnPct)}">${pct(signal.returnPct)}</b>` : ""}</span>`;
+}
+
+export function recordSummary(days) {
+  const count = (direction, status) => days.filter((day) => day[direction]?.pick && day[direction].status === status).length;
+  const total = (status) => count("up", status) + count("down", status);
+  return { up: [count("up", "beat"), count("up", "beat") + count("up", "miss")], down: [count("down", "beat"), count("down", "beat") + count("down", "miss")],
+    hits: total("beat"), settled: total("beat") + total("miss"), pending: total("pending") };
+}
+
+function recordMarkup(days) {
+  const sum = recordSummary(days);
+  const rate = sum.settled ? `${Math.round((sum.hits / sum.settled) * 100)}%` : "—";
+  return `<div class="watch-record-sum">
+      <span>看涨命中<b>${sum.up[0]}/${sum.up[1]}</b></span>
+      <span>看跌命中<b>${sum.down[0]}/${sum.down[1]}</b></span>
+      <span>合计命中率<b>${rate}</b></span>
+    </div>
+    <table class="watch-table watch-record">
+      <thead><tr><th>适用日</th><th>看涨</th><th>看跌</th></tr></thead>
+      <tbody>${days.map((day) => `<tr><td>${escape(day.day.slice(5).replace("-", "/"))}</td><td>${recordCell(day.up)}</td><td>${recordCell(day.down)}</td></tr>`).join("")}</tbody>
+    </table>
+    <p class="watch-meta">已结算 ${sum.settled} 次${sum.pending ? ` · 待结算 ${sum.pending} 次` : ""}。命中＝看涨后上涨、看跌后下跌；预测窗口为适用日开盘至下一交易日收盘。</p>`;
+}
+
+function buildLong() {
+  const days = forecastDays();
+  const parts = [exportHeader("关注", `最近 ${days.length} 个交易日预测${state.tradingDay ? " · 行情日期 " + state.tradingDay : ""}`)];
+  if (days.length) parts.push(exportSection("每日预测记录", recordMarkup(days)));
+  if (state.stocks.length) parts.push(exportSection("我的股票池", poolMarkup()));
+  parts.push(footer());
+  return parts;
+}
+
+function buildCards() {
+  const cards = [];
+  const day = state.days.find(({ day }) => day === selected);
+  if (day) {
+    const source = sourceText(day);
+    cards.push({ title: "每日预测", date: day.day, subtitle: "适用日 " + day.day, section: exportSection("", `
+      ${source ? `<p class="watch-meta">${escape(source)}</p>` : ""}
+      ${day.attention ? `<div class="watch-focus">${escape(focusText(day.attention))}</div>` : ""}
+      <div class="watch-signals">${signalRow(day.up, "up")}${signalRow(day.down, "down")}</div>`) });
+  }
+  if (state.stocks.length) cards.push({ title: "我的股票池", date: state.tradingDay, subtitle: $("watch-date").textContent, section: exportSection("", poolMarkup()) });
+  return cards;
+}
+
+function updateExportButton() {
+  $("watch-export").disabled = syncing || busy || exporting || (!state.days.length && !state.stocks.length);
+}
+
+async function runExport(kind) {
+  closeMenu();
+  if ($("watch-export").disabled) return;
+  exporting = true;
+  updateExportButton();
+  $("watch-export").setAttribute("aria-busy", "true");
+  try {
+    toast(kind === "long" ? "正在生成长图…" : "正在生成小卡…");
+    await loadImageExporter();
+    await withTimeout(prepareExportAssets(), 8000).catch(() => {});
+    if (kind === "long") {
+      const blob = await renderImage(buildLong(), { extraClass: "watch-export" });
+      await shareOrDownload([{ blob, title: "关注", name: `关注-长图${state.tradingDay ? "-" + state.tradingDay : ""}.png` }], "关注");
+      toast("长图已生成");
+    } else {
+      const cards = buildCards();
+      const files = [];
+      for (const [i, { title, date, subtitle, section }] of cards.entries()) {
+        toast(`正在生成小卡 ${i + 1}/${cards.length}…`);
+        const blob = await renderImage([exportHeader(`关注 · ${title}`, subtitle), section, footer()], { extraClass: "watch-export export-card" });
+        files.push({ blob, title, name: `关注-${i + 1}-${title}${date ? "-" + date : ""}.png` });
+      }
+      showGallery(files, { heading: "分享小卡", shareTitle: "关注", onError: (error) => toast(`保存失败：${error.message}`, true) });
+      toast(`已生成 ${files.length} 张小卡`);
+    }
+  } catch (error) {
+    toast(`导出失败：${error.message || String(error)}`, true);
+  } finally {
+    exporting = false;
+    $("watch-export").removeAttribute("aria-busy");
+    updateExportButton();
+  }
+}
+
+function closeMenu() {
+  document.querySelector(".watch-share-wrap .export-menu")?.remove();
+  $("watch-export").setAttribute("aria-expanded", "false");
+}
+
+$("watch-export").addEventListener("click", (event) => {
+  event.stopPropagation();
+  if (document.querySelector(".watch-share-wrap .export-menu")) return closeMenu();
+  const menu = document.createElement("div");
+  menu.className = "export-menu";
+  menu.setAttribute("role", "menu");
+  menu.innerHTML = '<button type="button" role="menuitem" data-kind="long"><b>导出长图</b><small>多日预测命中记录与股票池，合成一张</small></button><button type="button" role="menuitem" data-kind="card"><b>导出小卡</b><small>所选日期的预测、股票池，各一张</small></button>';
+  menu.addEventListener("click", (e) => { const item = e.target.closest("[data-kind]"); if (item) void runExport(item.dataset.kind); });
+  $("watch-export").parentElement.append(menu);
+  $("watch-export").setAttribute("aria-expanded", "true");
+});
+document.addEventListener("click", (event) => { if (!event.target.closest(".watch-share-wrap")) closeMenu(); });
+document.addEventListener("keydown", (event) => { if (event.key === "Escape") { closeMenu(); closeGallery(); } });
 
 async function load() {
   syncing = true;
+  updateExportButton();
   try {
     state = await request();
     renderForecast();
     renderPool();
-    $("watch-status").textContent = state.needsRefresh ? "新加入的股票将在交易日 20:05 后更新，数据源异常时会自动重试。" : "";
+    $("watch-status").textContent = state.needsRefresh ? "新加入的股票将在下一次收盘行情更新后显示。" : "";
   } catch (error) {
     $("watch-status").textContent = error.message;
     if (!state.days.length) $("watch-signals").innerHTML = '<p class="watch-empty">预测暂未就绪，请稍后重试。</p>';
   } finally {
     syncing = false;
+    updateExportButton();
   }
 }
 
@@ -116,6 +266,7 @@ $("watch-manage").addEventListener("click", () => {
 async function mutate(body) {
   if (busy || syncing) return;
   busy = true;
+  updateExportButton();
   renderPool();
   $("watch-status").textContent = body.action === "add" ? "正在添加股票…" : "正在移除股票…";
   try {
@@ -126,6 +277,7 @@ async function mutate(body) {
     $("watch-status").textContent = error.message;
   } finally {
     busy = false;
+    updateExportButton();
     renderPool();
   }
 }

@@ -1,7 +1,7 @@
 // /qdiitrend 导出：小卡（当前温度、历史涨跌、近两年走势、最新公告各一张）与长图（全部拼成一张，含历次触发与口径）。
 // 做法同宽基 ETF：克隆进屏幕外 600px 容器，用 html-to-image 截成 PNG（/shared/export-image.js）。
 import { loadImageExporter } from "/shared/export-loader.js?v=1";
-import { exportHeader, exportFooter, renderImage, prepareExportAssets, showGallery, withTimeout, esc } from "/shared/export-image.js?v=2";
+import { exportHeader, exportFooter, renderImage, prepareExportAssets, shareOrDownload, showGallery, closeGallery, withTimeout, esc } from "/shared/export-image.js?v=2";
 import { chartMarkup, currentEntry, eventsMarkup, latestCards, noticesMarkup, percent, scaleMarkup, signalNote, signalOf, tableMarkup, trendClass } from "/qdii/board.js?v=15";
 
 export function datesLine(snapshot) {
@@ -86,7 +86,7 @@ export function setupQdiiShare(button, { snapshot, state, toast }) {
       if (kind === "long") {
         const blob = await renderImage(buildQdiiExport(snapshot(), current), { extraClass: "qdii-export" });
         const title = `美股QDII温度计-${current.signal.label}-长图`;
-        showGallery([{ blob, name: `${title}-${snapshot().indexThrough}.png`, title }], { heading: "长图", shareTitle: title, onError: (error) => toast(`保存失败：${error.message}`, true) });
+        await shareOrDownload([{ blob, name: `${title}-${snapshot().indexThrough}.png`, title }], title);
         toast("长图已生成");
       } else {
         const cards = buildQdiiCards(snapshot(), current);
@@ -113,11 +113,11 @@ export function setupQdiiShare(button, { snapshot, state, toast }) {
     menu = document.createElement("div");
     menu.className = "export-menu";
     menu.setAttribute("role", "menu");
-    menu.innerHTML = '<button type="button" role="menuitem" data-kind="card"><b>导出小卡</b><small>当前温度、历史涨跌、近两年走势、最新公告，各一张</small></button><button type="button" role="menuitem" data-kind="long"><b>导出长图</b><small>全部内容拼成一张，含历次触发与口径</small></button>';
+    menu.innerHTML = '<button type="button" role="menuitem" data-kind="long"><b>导出长图</b><small>全部内容拼成一张，含历次触发与口径</small></button><button type="button" role="menuitem" data-kind="card"><b>导出小卡</b><small>当前温度、历史涨跌、近两年走势、最新公告，各一张</small></button>';
     menu.addEventListener("click", (e) => { const item = e.target.closest("[data-kind]"); if (item) run(item.dataset.kind); });
     button.parentElement.append(menu);
     button.setAttribute("aria-expanded", "true");
   });
   document.addEventListener("click", (event) => { if (!event.target.closest(".qdii-share-wrap")) close(); });
-  document.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") { close(); closeGallery(); } });
 }

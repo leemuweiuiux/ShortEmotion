@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { waitUntil } from '@vercel/functions';
 import { authConfig, resolveSession, isSecureNodeRequest, parseCookies } from './session.js';
 
-export const FEATURES = ['home','about','login','shortemotion','anomalies','technicalanalysis','sectorflow','etfflow','redemption','limitup','kandian','article','account','signin','points','settings','profile','invite','legal'];
+export const FEATURES = ['home','about','login','shortemotion','anomalies','technicalanalysis','sectorflow','etfflow','qdii','watchlist','redemption','limitup','kandian','article','account','signin','points','settings','profile','invite','legal'];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export function browserEvent(body) {
   if (!body || !UUID.test(body.id || '') || !FEATURES.includes(body.feature)) return null;

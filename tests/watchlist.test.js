@@ -6,17 +6,19 @@ const bar = (day, close = 10, open = 10, volume = 100) => ({
   day, close, open, volume, high: Math.max(close, open) + 1, low: Math.min(close, open) - 1
 });
 
-describe("Exp 关注", () => {
+describe("关注", () => {
   it("把开盘到下一交易日收盘的方向结算，持平不算方向命中", () => {
     const days = ["2026-11-06", "2026-11-09"];
     const pick = { code: "600519.SH" };
     const bars = [bar(days[0], 11, 10), bar(days[1], 9, 12)];
-    expect(settle(pick, "down", bars, ...days)).toEqual({ status: "beat", returnPct: -10 });
-    expect(settle(pick, "up", bars, ...days)).toEqual({ status: "miss", returnPct: -10 });
-    expect(settle(pick, "up", [bars[0], bar(days[1])], ...days)).toEqual({ status: "miss", returnPct: 0 });
+    expect(settle(pick, "down", bars, ...days)).toEqual({ status: "beat", returnPct: -10, priceBasis: "unadjusted" });
+    expect(settle(pick, "up", bars, ...days)).toEqual({ status: "miss", returnPct: -10, priceBasis: "unadjusted" });
+    expect(settle(pick, "up", [bars[0], bar(days[1])], ...days)).toEqual({ status: "miss", returnPct: 0, priceBasis: "unadjusted" });
     expect(settle(pick, "up", bars, days[0]).status).toBe("pending");
-    expect(settle(pick, "up", [], ...days).status).toBe("unavailable");
+    expect(settle(pick, "up", [bars[0]], ...days).status).toBe("unavailable");
     expect(settle(pick, "up", null, ...days).status).toBe("awaiting-data");
+    expect(settle(pick, "down", [bars[0], { ...bar(days[1], 9, 9), high: 9, low: 9 }], ...days))
+      .toEqual({ status: "beat", returnPct: -10, priceBasis: "unadjusted" });
   });
 
   it("以未复权收盘价展示，均量排除本日，过滤停牌和空行情", () => {
@@ -73,7 +75,30 @@ describe("Exp 关注", () => {
     expect(result.days.some(({ day }) => day === "2026-11-05")).toBe(false);
   });
 
-  it("关注、看涨、看跌各自排序，生产域名不能访问", () => {
+  it("保留最近十个交易日，以及最早一日的结算结果", () => {
+    const marketDays = ["02", "03", "04", "05", "06", "09", "10", "11", "12", "13", "16", "17"]
+      .map((date) => "2026-11-" + date);
+    const pick = { code: "600519.SH", name: "贵州茅台", probability: 61 };
+    const forecasts = marketDays.map((source_day, i) => ({
+      source_day,
+      picks: { up: pick, daily: { day: marketDays[i + 1] ?? "2026-11-18", marketDays } }
+    })).reverse();
+    const result = scheduledDashboard({
+      stocks: [],
+      forecasts,
+      outcomes: [
+        { source_day: marketDays[2], direction: "up", result: { status: "beat", returnPct: 5, priceBasis: "unadjusted" } },
+        { source_day: marketDays[3], direction: "up", result: { status: "beat", returnPct: 5 } }
+      ]
+    });
+    expect(result.days.map(({ day }) => day)).toEqual([...marketDays.slice(3), "2026-11-18"]);
+    expect(result.days[0].up).toMatchObject({ status: "beat", returnPct: 5 });
+    expect(result.days[1].up).toMatchObject({ status: "pending" });
+    expect(result.days[1].up).not.toHaveProperty("returnPct");
+    expect(result.days.at(-1).daily.provisional).toBe(true);
+  });
+
+  it("关注、看涨、看跌各自排序", () => {
     const stock = (code, analysis) => ({ code, name: code, analysis });
     const result = pickForecast([
       stock("600001.SH", { up: 54, down: 46, attention: 70 }),
@@ -81,7 +106,14 @@ describe("Exp 关注", () => {
       stock("600003.SH", { up: 38, down: 62, attention: 20 })
     ]);
     expect([result.attention.code, result.up.code, result.down.code]).toEqual(["600001.SH", "600002.SH", "600003.SH"]);
-    expect(enabledOn("www.lfjmwl.com")).toBe(false);
+  });
+
+  it("只在主站、测试站和本地开放关注", () => {
+    expect(enabledOn("www.lfjmwl.com")).toBe(true);
+    expect(enabledOn("lfjmwl.com")).toBe(true);
+    expect(enabledOn("stockmarketshortemotion.vercel.app")).toBe(true);
+    expect(enabledOn("demo.lfjmwl.com")).toBe(false);
+    expect(enabledOn("lfjmwl.com.example.org")).toBe(false);
     expect(enabledOn("exp.lfjmwl.com")).toBe(true);
   });
 });

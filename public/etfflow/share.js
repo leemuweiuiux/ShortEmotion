@@ -1,5 +1,5 @@
 import {loadImageExporter} from '/shared/export-loader.js?v=1';
-import {exportHeader,exportFooter,renderImage,prepareExportAssets,showGallery,withTimeout,esc} from '/shared/export-image.js?v=2';
+import {exportHeader,exportFooter,renderImage,prepareExportAssets,shareOrDownload,showGallery,closeGallery,withTimeout,esc} from '/shared/export-image.js?v=2';
 import {etfOverviewMarkup,etfNumber,etfColor} from '/shared/etf-overview.js?v=1';
 const labels={amount:'当日净流入（亿元）',day:'较昨日',week:'较近一周',month:'较近一月'};
 const valid=n=>n!==null&&n!==undefined&&Number.isFinite(Number(n));
@@ -46,16 +46,17 @@ export function setupEtfShare(button,{data,selected,metric,toast}){
    await withTimeout(prepareExportAssets(),8000).catch(()=>{});
    const blob=await renderImage(buildEtfExport(snapshot,{kind,selected:selected(),metric:metric()}),{extraClass:'ef-export'});
    const title=`宽基ETF-${kind==='long'?'长图':'小卡'}`;
-   showGallery([{blob,name:`${title}-${snapshot.date}.png`,title}],{heading:title,shareTitle:title,onError:e=>toast(`保存失败：${e.message}`,true)});
+   if(kind==='long')await shareOrDownload([{blob,name:`${title}-${snapshot.date}.png`,title}],title);
+   else showGallery([{blob,name:`${title}-${snapshot.date}.png`,title}],{heading:'分享小卡',shareTitle:title,onError:e=>toast(`保存失败：${e.message}`,true)});
    toast(kind==='long'?'长图已生成':'小卡已生成');
   }catch(e){toast(`导出失败：${e.message||String(e)}`,true);}finally{busy=false;button.disabled=Boolean(data()?.locked)||!data()?.ready;button.removeAttribute('aria-busy');}
  }
  button.addEventListener('click',event=>{
   event.stopPropagation();if(menu)return close();
   menu=document.createElement('div');menu.className='export-menu';menu.setAttribute('role','menu');
-  menu.innerHTML='<button type="button" role="menuitem" data-kind="card"><b>导出小卡</b><small>资金概览与当前宽基指标</small></button><button type="button" role="menuitem" data-kind="long"><b>导出长图</b><small>概览、宽基、完整热力表与所选明细</small></button>';
+  menu.innerHTML='<button type="button" role="menuitem" data-kind="long"><b>导出长图</b><small>概览、宽基、完整热力表与所选明细</small></button><button type="button" role="menuitem" data-kind="card"><b>导出小卡</b><small>资金概览与当前宽基指标</small></button>';
   menu.addEventListener('click',e=>{const item=e.target.closest('[data-kind]');if(item)run(item.dataset.kind);});button.parentElement.append(menu);button.setAttribute('aria-expanded','true');
  });
  document.addEventListener('click',e=>{if(!e.target.closest('.ef-share-wrap'))close();});
- document.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'){close();closeGallery();}});
 }

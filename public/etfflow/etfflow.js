@@ -1,7 +1,7 @@
 import {etfflowRequest} from '/shared/etfflow-access.js?v=1';
 import {restoreSnapshot} from '/shared/request.js?v=1';
 import {etfOverviewMarkup} from '/shared/etf-overview.js?v=1';
-import {setupEtfShare} from '/etfflow/share.js?v=1';
+import {setupEtfShare} from '/etfflow/share.js?v=2';
 import {sectorflowRequest} from '/shared/sectorflow-access.js?v=1';
 import { toast, goLogin, initAccountMenu } from '/shared/nav-account.js?v=4';
 initAccountMenu();
