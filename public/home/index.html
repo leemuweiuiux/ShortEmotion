@@ -18,6 +18,12 @@
       if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       root.dataset.theme = theme;
       if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
+      if (get("twsvp_price_scheme") === "green_up") {
+        root.style.setProperty("--price-up", "#76BB40");
+        root.style.setProperty("--price-down", "#FF4015");
+      }
+      var lang = get("shortemotion:lang");
+      root.dataset.lang = lang === "hant" || lang !== "hans" && /^zh-(tw|hk|mo|hant)/i.test(navigator.language || "") ? "hant" : "hans";
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
