@@ -3,12 +3,14 @@ import etfFlow from "./_lib/etf-flow/handler.js";
 import limitup from "./_lib/limitup/handler.js";
 
 import qdii from "./_lib/qdii/handler.js";
+import secondWave from "./_lib/second-wave/handler.js";
 
 const handlers = {
   sectorflow,
   "etf-flow": etfFlow,
   limitup,
-  qdii
+  qdii,
+  "second-wave": secondWave
 };
 
 // vercel.json maps each existing board URL to this function.
