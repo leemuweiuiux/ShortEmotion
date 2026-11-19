@@ -87,6 +87,20 @@ async function loadLinkage() {
   } catch { fail("mini-linkage"); }
 }
 
+// 题材二波（2026-11-19）与 QDII 温度计一样，先只在 Exp 站显示
+const EXP_HOSTS = ["exp.lfjmwl.com", "localhost", "127.0.0.1"];
+async function loadSecondWave() {
+  const card = $("mini-secondwave");
+  if (!card || !EXP_HOSTS.includes(location.hostname)) return;
+  card.hidden = false;
+  try {
+    const data = await read("/api/second-wave?resource=summary");
+    const stats = data.stats || {};
+    const top = data.top?.[0];
+    fill("mini-secondwave", { value: `${stats.watch ?? "—"}<small>个待确认</small>`, sub: `已启动 ${stats.started ?? "—"}${top ? ` · 最强 ${top.name}` : ""}` });
+  } catch { fail("mini-secondwave"); }
+}
+
 // QDII 温度计只在 Exp 站显示（主站 /qdii* 由 middleware 返回 404）
 async function loadQdii() {
   const card = $("mini-qdii");
@@ -104,6 +118,7 @@ async function loadQdii() {
 if ($("home-minis")) {
   loadAnomaly();
   loadLimitUp();
+  loadSecondWave();
   loadSectorFlow();
   loadEtf();
   loadLinkage();
