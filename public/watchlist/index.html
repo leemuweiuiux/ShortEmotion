@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#ffffff">
   <meta name="robots" content="noindex">
-  <title>关注 · Market Emotion</title>
+  <title>个股 · Market Emotion</title>
   <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
   <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
@@ -29,10 +29,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="/short-emotion/twsvp.css?v=17">
-  <link rel="stylesheet" href="/shared/primary-tabs.css?v=3">
+  <link rel="stylesheet" href="/shared/primary-tabs.css?v=4">
   <link rel="stylesheet" href="/shared/global-header.css?v=5">
   <script defer src="/shared/usage.js?v=3"></script>
   <link rel="stylesheet" href="/shared/form.css?v=1">
+  <link rel="stylesheet" href="/technical-analysis/ta.css?v=13">
+  <link rel="stylesheet" href="/home/home.css?v=19">
   <link rel="stylesheet" href="/watchlist/watchlist.css?v=8">
   <link rel="stylesheet" href="/shared/wide-layout.css?v=2">
 </head>
@@ -40,9 +42,20 @@
   <div class="app-shell">
     <nav class="nav" aria-label="页面导航">
       <a class="nav-logo" href="/home" aria-label="首页"><img src="/short-emotion/logo.svg?v=2" alt="Market Emotion"></a>
-      <div class="nav-title">关注</div>
+      <div class="nav-title">个股</div>
     </nav>
     <main class="watch-page">
+    <form id="ta-form" class="card ta-search home-card" autocomplete="off">
+        <div class="card-head"><h2 class="card-title"><a href="/technicalanalysis">个股分析</a></h2><a class="home-more" href="/technicalanalysis" aria-label="查看更多个股分析">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+        <div class="home-card-body"><div class="se-bar">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-4.2-4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <input id="ta-input" name="q" type="search" inputmode="search" enterkeyhint="go" maxlength="30" placeholder="股票代码或完整名称" aria-label="股票代码或完整名称" required>
+          <button id="ta-run" class="ta-run" type="submit">开始分析</button>
+        </div>
+        <p class="card-desc">生成趋势结构、胜率与赔率、历史同类量价结构和事件驱动分析。</p>
+        <p id="ta-latest" class="ta-recent ta-latest" aria-live="polite">大家都在看：正在加载…</p>
+        <p id="ta-hint" class="ta-hint">*首次查询或更新需要 10 积分</p></div>
+      </form>
     <section class="card watch-card" aria-labelledby="watch-forecast">
       <div class="card-head watch-heading">
         <h2 class="card-title" id="watch-forecast">每日预测</h2>
@@ -79,8 +92,9 @@
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/shared/global-header.js?v=8"></script>
-  <script type="module" src="/shared/primary-tabs.js?v=3"></script>
+  <script type="module" src="/shared/global-header.js?v=9"></script>
+  <script type="module" src="/shared/primary-tabs.js?v=4"></script>
+  <script type="module" src="/home/ta-card.js?v=1"></script>
   <script type="module" src="/watchlist/watchlist.js?v=12"></script>
 </body>
 </html>
