@@ -441,6 +441,25 @@ async function loadGlobalLinkageCard() {
   }
 }
 
+// ── 题材二波（题材页，2026-11-19 先只在 Exp 显示）：各档数量 + 已启动 / 待确认前 3 名 ──
+async function loadSecondWave() {
+  const box = $("#sw-home-body");
+  try {
+    const { response, payload } = await request("/api/second-wave?resource=summary");
+    if (!response.ok) throw new Error(payload.error || "暂时无法读取题材二波");
+    const stats = payload.stats || {};
+    const show = (id, value) => { $(id).textContent = Number.isFinite(Number(value)) ? String(value) : "—"; };
+    show("#sw-home-started", stats.started); show("#sw-home-watch", stats.watch); show("#sw-home-observe", stats.observe); show("#sw-home-fade", stats.fade);
+    $("#sw-home-pill").textContent = payload.meta?.tradeDate ? `${payload.meta.tradeDate} 收盘` : "—";
+    const top = (payload.top || []).slice(0, 3);
+    if (!top.length) { box.innerHTML = '<div class="empty">今日没有已启动或待确认的题材。</div>'; return; }
+    box.innerHTML = `<ol class="home-anomaly-list">${top.map((item) => `<li><a class="home-preview-link" href="/secondwave" aria-label="查看${esc(item.name)}"><b>${esc(item.name)}</b><strong>${esc(Math.round(item.score))}</strong><small>${esc(item.band)} · 今日 ${pct(item.chg)} · 量能为高峰的 ${Math.round(item.water * 100)}%</small></a></li>`).join("")}</ol>`;
+  } catch (error) {
+    $("#sw-home-pill").textContent = "—";
+    box.innerHTML = `<div class="empty">${esc(error.message || "暂时无法读取题材二波")}</div>`;
+  }
+}
+
 // 只加载本页有的卡（whenNearViewport 拿到 null 会立即加载，所以先判断）
 if (linkageCard) whenNearViewport(linkageCard, loadGlobalLinkageCard);
 
@@ -449,6 +468,10 @@ if ($("#emotion-card")) loadEmotion();
 if (body) loadAnomalies();
 if ($("#limitup-card")) whenNearViewport($("#limitup-card"),loadLimitUp);
 if ($("#sectorflow-card")) whenNearViewport($("#sectorflow-card"),loadSectorFlow);
+if ($("#secondwave-card") && ["exp.lfjmwl.com", "localhost", "127.0.0.1"].includes(globalThis.location?.hostname)) {
+  $("#secondwave-card").hidden = false;
+  whenNearViewport($("#secondwave-card"), loadSecondWave);
+}
 
 
 window.addEventListener("se:points-updated", loadPoints);
