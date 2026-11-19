@@ -14,7 +14,7 @@ import { withUsage } from "../usage.js";
 import { getStore } from "../short-emotion/store.js";
 import { readLimitUp, LimitUpNotReadyError } from "./service.js";
 import { requireSession, authConfig } from "../session.js";
-import { POINTS, pointsLimitupStatus, pointsUnlockLimitup, InsufficientPointsError } from "../points.js";
+import { POINTS, FREE_VIEWING, pointsLimitupStatus, pointsUnlockLimitup, InsufficientPointsError } from "../points.js";
 
 const RESOURCES = new Set(["summary", "full"]);
 const UNLOCK = { unlockCost: POINTS.unlockLimitup, unlockHours: POINTS.unlockHours };
@@ -36,8 +36,8 @@ function fail(res, error) {
  * 解锁状态：登录关闭（本地 / 测试）时一直解锁；积分服务不可用（例如还没执行 SQL）时按未解锁处理并标 unavailable。
  * 返回 { unlocked, unlimited, unlockUntil, balance, unavailable }。
  */
-export async function unlockState(session, { status = pointsLimitupStatus, config = authConfig() } = {}) {
-  if (!session?.enabled) return { unlocked: true, unlimited: false, unlockUntil: null, balance: null, unavailable: false };
+export async function unlockState(session, { status = pointsLimitupStatus, config = authConfig(), free = FREE_VIEWING } = {}) {
+  if (!session?.enabled || free) return { unlocked: true, unlimited: false, unlockUntil: null, balance: null, unavailable: false };
   if (!session.accessToken) return { unlocked: false, unlimited: false, unlockUntil: null, balance: null, unavailable: true };
   try {
     const result = await status(config, session.accessToken);
