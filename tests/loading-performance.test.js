@@ -102,6 +102,7 @@ describe('homepage loading',()=>{
     expect(text('mini-etf')).toBe('解锁查看');
     expect(text('mini-linkage')).toBe('AI算力');
     expect(dom.document.querySelector('#mini-qdii').hidden).toBe(true);
+    expect(dom.document.querySelector('#mini-secondwave').hidden).toBe(true);
     expect(dom.document.querySelectorAll('#home-minis button').length).toBe(0);
   });
   it('题材页只加载题材异动与涨停情绪',async()=>{
