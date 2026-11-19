@@ -144,8 +144,8 @@ describe("美股 QDII 温度计", () => {
     expect(() => buildSnapshot(curated, { ndx })).toThrow("缺少标普500日线");
   });
 
-  it("首页模块在全球联动下方，标题为美股 QDII 温度计且不可交互", () => {
-    const home = readFileSync(new URL("../public/home/index.html", import.meta.url), "utf8");
+  it("「资金」页模块在全球联动下方，标题为美股 QDII 温度计且不可交互", () => {
+    const home = readFileSync(new URL("../public/funds/index.html", import.meta.url), "utf8");
     const linkage = home.indexOf('id="global-linkage-card"');
     const qdii = home.indexOf('id="qdii-card"');
     expect(qdii).toBeGreaterThan(linkage);

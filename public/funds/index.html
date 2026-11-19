@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="robots" content="noindex">
+  <title>资金 · Market Emotion</title>
+  <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
+  <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <script>
+    // 与看板共用外观设置：深浅色主题与红涨/绿涨配色（twsvp_*）。
+    (function () {
+      var root = document.documentElement;
+      var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
+      var theme = get("twsvp_theme");
+      if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      root.dataset.theme = theme;
+      if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
+      if (get("twsvp_price_scheme") === "green_up") {
+        root.style.setProperty("--price-up", "#76BB40");
+        root.style.setProperty("--price-down", "#FF4015");
+      }
+      var lang = get("shortemotion:lang");
+      root.dataset.lang = lang === "hant" || lang !== "hans" && /^zh-(tw|hk|mo|hant)/i.test(navigator.language || "") ? "hant" : "hans";
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="/short-emotion/twsvp.css?v=17">
+  <link rel="stylesheet" href="/technical-analysis/ta.css?v=13">
+  <link rel="stylesheet" href="/shared/form.css?v=1">
+  <link rel="stylesheet" href="/shared/fund-flow.css?v=4">
+  <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
+  <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+  <script defer src="/_vercel/insights/script.js"></script>
+<link rel="stylesheet" href="/shared/etf-overview.css?v=1">
+<link rel="stylesheet" href="/home/home.css?v=19">
+<link rel="stylesheet" href="/qdii/board.css?v=12">  <link rel="stylesheet" href="/shared/global-header.css?v=5">
+  <script defer src="/shared/usage.js?v=3"></script>
+  <link rel="stylesheet" href="/shared/wide-layout.css?v=6">
+  <link rel="stylesheet" href="/shared/primary-tabs.css?v=4">
+</head>
+<body class="wide-page wide-home">
+  <div class="app-shell">
+    <nav class="nav">
+      <a class="nav-logo" href="/home" aria-label="首页"><img src="/short-emotion/logo.svg?v=2" alt="Market Emotion"></a>
+      <div class="nav-title">资金</div>
+      <button id="account" class="nav-btn" type="button" aria-label="账号" title="账号" aria-haspopup="menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5" stroke="currentColor" stroke-width="1.6"/><path d="M5 19.5c1.2-3.3 3.8-5 7-5s5.8 1.7 7 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </nav>
+
+    <main class="wide-home-grid">
+      <section id="sectorflow-card" class="card home-card home-sectorflow">
+        <div class="card-head"><h2 class="card-title"><a href="/sectorflow">资金流向</a></h2><a class="home-more" href="/sectorflow" aria-label="查看更多资金流向">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+        <div id="sectorflow-body" class="home-card-body home-etf-body"><div id="sectorflow-chart"></div><div id="sectorflow-home-lock" class="anomaly-lock" role="group" aria-label="资金流向已锁定" hidden></div></div>
+      </section>
+
+      <section id="etf-home-card" class="card home-card"><div class="card-head"><h2 class="card-title"><a href="/etfflow">宽基ETF</a></h2><a class="home-more" href="/etfflow" aria-label="查看更多宽基ETF">查看更多 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 5 7 7-7 7" stroke="currentColor" stroke-width="1.6"/></svg></a></div><div id="etf-home-body" class="home-card-body home-etf-body"><div id="etf-home-overview" aria-live="polite">正在读取资金概览…</div><span id="etf-home-time" class="home-time"></span><div id="etf-home-lock" class="anomaly-lock" role="group" aria-label="宽基ETF已锁定" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><b>查看宽基ETF概览</b><p>解锁后 12 小时内，资金页与看板都能查看</p><button id="etf-home-action" class="pill-btn" type="button" disabled>解锁 · 5 积分</button><small id="etf-home-balance"></small></div></div></section>
+
+      <section id="global-linkage-card" class="card home-card home-linkage" aria-labelledby="home-linkage-title">
+        <div class="card-head">
+          <h2 id="home-linkage-title" class="card-title"><a href="/shortemotion/cn#global">全球联动</a></h2>
+          <a class="home-more" href="/shortemotion/cn#global" aria-label="查看更多全球联动">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        </div>
+        <div class="home-card-body">
+          <div class="home-linkage-ticker">
+            <p id="home-linkage-status" class="home-time" role="status">正在读取联动板块…</p>
+            <div id="home-linkage-scroll" class="home-linkage-scroll" role="region" aria-label="联动板块" tabindex="0" hidden>
+              <div class="home-linkage-track">
+                <ul id="home-linkage-themes" class="home-linkage-themes"></ul>
+              </div>
+            </div>
+          </div>
+          <time id="home-linkage-date" class="home-time" hidden></time>
+        </div>
+      </section>
+
+      <section id="qdii-card" class="card home-card home-qdii" aria-labelledby="home-qdii-title" hidden>
+        <div class="card-head"><h2 id="home-qdii-title" class="card-title"><a href="/qdiitrend">美股 QDII 温度计</a></h2><a class="home-more" href="/qdiitrend" aria-label="查看更多美股 QDII 温度计">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+        <div id="qdii-home-body" class="home-card-body" aria-live="polite"><div class="loading">正在读取限额快照…</div></div>
+      </section>
+      <footer class="legal">
+        <p>仅用于研究与情绪观察，不构成投资建议。</p>
+      </footer>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/home/home.js?v=23"></script>
+  <script type="module" src="/qdii/home-card.js?v=15"></script>
+  <script type="module" src="/shared/nav-points.js?v=2"></script>
+  <script type="module" src="/shared/global-header.js?v=9"></script>
+  <script type="module" src="/shared/primary-tabs.js?v=4"></script>
+</body>
+</html>
