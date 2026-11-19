@@ -15,6 +15,7 @@
   /* 首页、题材、资金三个一级页面共用：卡片按 DOM 顺序两栏自动排，宽内容占满一行（2026-11-19 底部 Tab 重整） */
   .wide-home-grid > .legal, .wide-home-grid > #global-linkage-card, .wide-home-grid > #qdii-card, .wide-home-grid > .mr-home { grid-column: 1 / -1; }
   .wide-home-grid > .home-card { gap: 16px; align-self: stretch; align-content: start; }
+  .wide-home-grid > .home-minis { gap: 16px; }
   .wide-home-grid > #ta-form .home-card-body { max-width: 880px; width: 100%; }
   .wide-home-grid .ef-overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wide-home-grid .ef-stat strong { font-size: 24px; }
