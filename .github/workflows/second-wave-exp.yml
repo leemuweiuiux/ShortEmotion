@@ -1,0 +1,68 @@
+name: Theme second wave preview
+
+# 题材二波形态（2026-11-19，先上 Exp）：收盘后取数计算，结果写入 second-wave-data 分支，Exp 的 /api/second-wave 读取。
+# 准点触发：Supabase Cron 北京时间 16:10 主取、18:10 备援（经主站 /api/cron 手动运行本工作流，所以本文件也放在 main）；
+# GitHub 自带定时只作最后后备。脚本固定从 exp 分支取（同步到主站后再改成 main）。
+on:
+  schedule:
+    - cron: '40 10 * * 1-5' # 北京时间 18:40，备援之后的最后后备
+  workflow_dispatch:
+    inputs:
+      slot:
+        description: "primary（16:10）/ backup（18:10，已有完整结果则跳过）"
+        type: choice
+        options: [primary, backup]
+        default: primary
+  push:
+    branches: [exp]
+    paths:
+      - .github/workflows/second-wave-exp.yml
+      - scripts/second-wave/**
+      - api/_lib/second-wave/**
+
+permissions:
+  contents: write
+
+concurrency:
+  group: second-wave-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      DATA_BRANCH: second-wave-data
+      DATA_DIR: ${{ github.workspace }}/../second-wave-data
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: exp
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Load last published data
+        run: |
+          branch=$(git ls-remote --heads origin "refs/heads/$DATA_BRANCH")
+          if [ -n "$branch" ]; then
+            git fetch --depth=1 origin "$DATA_BRANCH"
+            git worktree add --detach "$DATA_DIR" FETCH_HEAD
+          else
+            mkdir -p "$DATA_DIR"
+            git -C "$DATA_DIR" init -q
+          fi
+      - name: Fetch and score
+        run: node scripts/second-wave/refresh.mjs "$DATA_DIR" ${{ (github.event_name == 'schedule' || inputs.slot == 'backup') && '--skip-if-fresh' || '' }}
+        env:
+          WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
+      - name: Publish data
+        run: |
+          cd "$DATA_DIR"
+          [ -f snapshot.json ] || exit 0
+          printf '%s\n' '{"git":{"deploymentEnabled":false}}' > vercel.json
+          git add snapshot.json bars.json vercel.json
+          if git diff --cached --quiet; then exit 0; fi
+          git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -qm "Update theme second wave data"
+          data_commit=$(git rev-parse HEAD)
+          git -C "$GITHUB_WORKSPACE" fetch "$DATA_DIR" "$data_commit"
+          git -C "$GITHUB_WORKSPACE" push origin "FETCH_HEAD:refs/heads/$DATA_BRANCH"
