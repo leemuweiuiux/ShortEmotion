@@ -145,7 +145,7 @@ export function renderLatest(element, latest, onPick) {
     button.type = "button";
     button.className = "ta-stock-pill";
     button.textContent = row.name;
-    button.title = row.canView ? "查看最新查询结果，不扣积分" : "点击开始分析，需要 10 积分（不限额账号除外）";
+    button.title = row.canView ? "查看最新查询结果，不扣积分" : "点击开始分析（免费，每天 10 次）";
     button.addEventListener("click", () => onPick(row));
     element.append(button);
   }

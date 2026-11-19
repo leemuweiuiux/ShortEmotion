@@ -20,7 +20,7 @@ import { withUsage } from "./_lib/usage.js";
 import { readResource, NotReadyError, normalizeMarket } from "./_lib/short-emotion/service.js";
 import { requestRefresh, latestRefreshRun, githubToken, MIN_INTERVAL_MS } from "./_lib/short-emotion/github.js";
 import { requireSession, authConfig, parseCookies, isSecureNodeRequest } from "./_lib/session.js";
-import { POINTS, pointsStatus, pointsUnlockAnomalies, pointsChargeRefresh, pointsRefundRefresh, InsufficientPointsError } from "./_lib/points.js";
+import { POINTS, FREE_VIEWING, FREE_REFRESH, pointsStatus, pointsUnlockAnomalies, pointsChargeRefresh, pointsRefundRefresh, InsufficientPointsError } from "./_lib/points.js";
 
 function shanghaiParts(date) {
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", weekday: "short", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(date).map((part) => [part.type, part.value]));
@@ -185,7 +185,7 @@ async function handler(req, res) {
         return void res.status(200).json({ market, dispatched: false, reason: "fresh", storedAt: latest.storedAt });
       }
       let ledgerId = null;
-      const charge = needsPoints ? async () => {
+      const charge = needsPoints && !FREE_REFRESH ? async () => {
         const charged = await pointsChargeRefresh(config, session.accessToken);
         if (!charged.ok) throw new InsufficientPointsError(charged.balance);
         if (Number(charged.charged) > 0 && charged.ledgerId) ledgerId = charged.ledgerId;
@@ -248,6 +248,8 @@ async function handler(req, res) {
     res.setHeader("Cache-Control", "no-store");
     try {
       const payload = await readResource("anomalies", market, { fresh: req.query?.fresh === "1" });
+      // 看资料类解锁已全部免费（points.js FREE_VIEWING）
+      if (FREE_VIEWING) return void res.status(200).json(req.query?.preview === '1' ? previewAnomalies(payload) : payload);
       if (!session.accessToken) return void res.status(200).json({ ...lockedAnomalies(payload, null), unavailable: true });
       const status = await pointsStatus(authConfig(), session.accessToken);
       // 不限额账号：一直解锁

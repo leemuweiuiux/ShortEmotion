@@ -1,5 +1,5 @@
 // 个股分析输入卡（2026-11-19 从首页移到「个股」Tab /watchlist 顶部）：
-// 输入股票按「开始分析」→ 跳到 /technicalanalysis 并由那边发起分析（扣 10 积分）。
+// 输入股票按「开始分析」→ 跳到 /technicalanalysis 并由那边发起分析（免费，每人每天 10 次）。
 import { readPoints } from "/shared/request.js?v=1";
 import { startAnalysisRefresh } from "/home/analysis-refresh.js?v=1";
 import { $, toast, readAnalysisConfig, setPendingAnalysis, validQuery, renderLatest } from "/shared/nav-account.js?v=4";
@@ -16,7 +16,7 @@ if (form) {
 
   const renderHint = () => {
     runButton.disabled = !analysis.configured;
-    hint.textContent = !analysis.configured ? "*个股分析暂未开通。" : unlimited ? "*不限额账号，分析不扣积分。" : `*首次查询或更新需要 ${analysis.cost} 积分`;
+    hint.textContent = !analysis.configured ? "*个股分析暂未开通。" : unlimited ? "*不限额账号，分析不扣积分。" : analysis.free ? `*免费分析，每天 ${analysis.dailyLimit} 次${Number.isFinite(Number(analysis.used)) ? `，今日剩余 ${Math.max(0, analysis.dailyLimit - Number(analysis.used))} 次` : ""}` : `*首次查询或更新需要 ${analysis.cost} 积分`;
   };
 
   const loadPoints = async () => {

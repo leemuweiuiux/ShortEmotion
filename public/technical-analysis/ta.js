@@ -1,7 +1,7 @@
 import {loadImageExporter} from '/shared/export-loader.js?v=1';
 import { updateNavPoints } from "/shared/nav-points.js?v=2";
 // 个股技术分析 /technicalanalysis
-// 输入六位代码或准确简称 → POST /api/technical-analysis（每次扣 10 积分，认不出股票或分析失败不扣分）。
+// 输入六位代码或准确简称 → POST /api/technical-analysis（2026-11-19 起免费，每人每天 10 次；认不出股票或分析失败不占次数）。
 // 版面与图表沿用 lfjDashboard「个股技术分析助手」，改成本站的单列卡片样式；页面不标注数据来源。
 import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, takePendingAnalysis, validQuery, renderRecent, readAnalysisResult, shortTime } from "/shared/nav-account.js?v=4";
 import { compositeCharts } from "./chart-export.js?v=1";
@@ -28,16 +28,17 @@ const signed = (value, suffix = "") => (numeric(value) ? `${Number(value) > 0 ? 
 const signClass = (value) => (Number(value) > 0 ? "up-text" : Number(value) < 0 ? "down-text" : "");
 const setText = (selector, value) => { const element = $(selector); if (element) element.textContent = value ?? "—"; };
 
-// ── 积分与按钮 ──
+// ── 积分与按钮（2026-11-19 起个股分析免费，每天限次：config.free / dailyLimit / used）──
+const quotaText = (c) => `*免费分析，每天 ${c.dailyLimit} 次${Number.isFinite(Number(c.used)) ? `，今日剩余 ${Math.max(0, c.dailyLimit - Number(c.used))} 次` : ""}`;
 function renderButton() {
   viewDrawer.setBusy(busy);
   runButton.textContent = busy ? "分析中…" : "开始分析";
   runButton.disabled = busy || !config.configured;
-  $("#ta-reanalyze").textContent = config.unlimited ? "更新数据" : `更新数据 · ${config.cost} 积分`;
+  $("#ta-reanalyze").textContent = config.unlimited || config.free ? "更新数据" : `更新数据 · ${config.cost} 积分`;
 }
 
 function renderHint() {
-  hint.textContent = !config.configured ? "*个股分析暂未开通。" : config.unlimited ? "*不限额账号，分析不扣积分。" : `*首次查询或跨日自动更新需要 ${config.cost} 积分，当日分析直接查看。`;
+  hint.textContent = !config.configured ? "*个股分析暂未开通。" : config.unlimited ? "*不限额账号，分析不扣积分。" : config.free ? `${quotaText(config)}；当日分析过的股票直接查看。` : `*首次查询或跨日自动更新需要 ${config.cost} 积分，当日分析直接查看。`;
 }
 
 async function loadConfig() {
@@ -131,6 +132,7 @@ async function analyze(query, refresh = false) {
     render();
     setUrl({ q: current.code || q });
     if (payload.recent) renderRecent($("#ta-recent"), payload.recent, (row) => openHistory(row.code, true));
+    if (config.free && !payload.viewed && Number.isFinite(Number(config.used))) { config.used = Number(config.used) + 1; renderHint(); }
     toast(payload.charged > 0 && Number.isFinite(Number(payload.balance)) ? `已完成分析，剩余 ${payload.balance} 积分` : payload.viewed ? "已显示最新结果" : "分析完成");
   } catch (error) {
     toast(error.message, true);
