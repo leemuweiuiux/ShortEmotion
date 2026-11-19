@@ -38,10 +38,10 @@
 <link rel="stylesheet" href="/kandian/reports.css?v=5">
 <link rel="stylesheet" href="/shared/like.css?v=1">
 <link rel="stylesheet" href="/shared/etf-overview.css?v=1">
-<link rel="stylesheet" href="/home/home.css?v=19">
+<link rel="stylesheet" href="/home/home.css?v=20">
   <link rel="stylesheet" href="/shared/global-header.css?v=5">
   <script defer src="/shared/usage.js?v=3"></script>
-  <link rel="stylesheet" href="/shared/wide-layout.css?v=6">
+  <link rel="stylesheet" href="/shared/wide-layout.css?v=7">
   <link rel="stylesheet" href="/shared/primary-tabs.css?v=4">
 </head>
 <body class="wide-page wide-home">
@@ -77,10 +77,13 @@
         </a></div>
       </section>
 
-      <section id="watch-home-card" class="card home-card home-watch" aria-labelledby="home-watch-title">
-        <div class="card-head"><h2 id="home-watch-title" class="card-title"><a href="/watchlist">我的关注</a></h2><a class="home-more" href="/watchlist" aria-label="查看更多我的关注">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
-        <div class="home-card-body"><div class="home-card-meta"><span id="watch-home-pill" class="pill">读取中</span></div>
-        <div id="watch-home-body" class="home-watch-body" aria-live="polite"><div class="loading">正在读取关注…</div></div></div>
+      <section id="home-minis" class="home-minis" aria-label="板块速览">
+        <a id="mini-anomaly" class="card home-mini" href="/themes#anomaly-card"><span class="home-mini-title">题材异动<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong class="home-mini-value">—</strong><small class="home-mini-sub">读取中</small></a>
+        <a id="mini-limitup" class="card home-mini" href="/themes#limitup-card"><span class="home-mini-title">涨停 / 跌停<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong class="home-mini-value">—</strong><small class="home-mini-sub">读取中</small></a>
+        <a id="mini-sectorflow" class="card home-mini" href="/funds#sectorflow-card"><span class="home-mini-title">资金流向<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong class="home-mini-value">—</strong><small class="home-mini-sub">读取中</small></a>
+        <a id="mini-etf" class="card home-mini" href="/funds#etf-home-card"><span class="home-mini-title">宽基ETF<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong class="home-mini-value">—</strong><small class="home-mini-sub">读取中</small></a>
+        <a id="mini-linkage" class="card home-mini" href="/funds#global-linkage-card"><span class="home-mini-title">全球联动<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong class="home-mini-value">—</strong><small class="home-mini-sub">读取中</small></a>
+        <a id="mini-qdii" class="card home-mini" href="/funds#qdii-card" hidden><span class="home-mini-title">QDII 温度计<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong class="home-mini-value">—</strong><small class="home-mini-sub">读取中</small></a>
       </section>
 
       <section class="card home-card mr-home" aria-label="每日看点">
@@ -93,7 +96,8 @@
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/home/home.js?v=23"></script>
+  <script type="module" src="/home/home.js?v=24"></script>
+  <script type="module" src="/home/mini-cards.js?v=1"></script>
   <script type="module" src="/kandian/reports.js?v=9"></script>
   <script type="module" src="/shared/nav-points.js?v=2"></script>
   <script type="module" src="/shared/global-header.js?v=9"></script>

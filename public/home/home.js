@@ -7,7 +7,8 @@ import {sectorflowRequest} from '/shared/sectorflow-access.js?v=1';
 import {etfflowRequest} from '/shared/etfflow-access.js?v=1';
 import { emotionTimeLabel } from "/shared/local-time.js?v=1";
 import { updateNavPoints } from "/shared/nav-points.js?v=2";
-// 首页 /home 与「题材」/themes、「资金」/funds 三个一级页面共用本脚本（2026-11-19 底部 Tab 重整），
+// 首页 /home（情绪大卡）与「题材」/themes、「资金」/funds 三个一级页面共用本脚本（2026-11-19 底部 Tab 重整），
+// 首页的板块速览小卡由 mini-cards.js 负责。
 // 页面上有哪张卡才加载哪张，都只读现有数据，不调用 Wind。个股分析输入卡已移到 /watchlist（ta-card.js）。
 //   3. 今日短线情绪：与看板「A股短线情绪」卡同款（姿态、分数、阶段与说明、六个维度），
 //      下面再加市场概况（全A涨跌幅、成交额、涨跌家数、涨跌停）与行情时间，点预览或标题进入看板
@@ -440,29 +441,6 @@ async function loadGlobalLinkageCard() {
   }
 }
 
-// ── 我的关注（首页摘要）：只读股票池（Supabase，不调用 Wind），最多列 5 只，点进「个股」Tab ──
-async function loadWatchHome() {
-  const box = $("#watch-home-body");
-  try {
-    const { response, payload } = await request("/api/auth?action=watchlist");
-    if (!response.ok) throw new Error(payload.error || "暂时无法读取关注");
-    const stocks = Array.isArray(payload.stocks) ? payload.stocks : [];
-    $("#watch-home-pill").textContent = `${stocks.length} 只`;
-    if (!stocks.length) {
-      box.innerHTML = '<div class="empty">还没有关注的股票，<a href="/watchlist">去添加</a></div>';
-      return;
-    }
-    const num = (value) => typeof value === "number" && Number.isFinite(value);
-    box.innerHTML = `<ol class="home-watch-list">${stocks.slice(0, 5).map((stock) => {
-      const tone = num(stock.change) ? (stock.change > 0 ? "up-text" : stock.change < 0 ? "down-text" : "") : "";
-      return `<li><a class="home-preview-link" href="/watchlist" aria-label="查看${esc(stock.name)}"><b>${esc(stock.name)}<small>${esc(stock.code)}</small></b><span>${num(stock.close) ? stock.close.toFixed(2) : "—"}</span><strong class="${tone}">${num(stock.change) ? `${stock.change > 0 ? "+" : ""}${stock.change.toFixed(2)}%` : "—"}</strong></a></li>`;
-    }).join("")}</ol>`;
-  } catch (error) {
-    $("#watch-home-pill").textContent = "—";
-    box.innerHTML = `<div class="empty">${esc(error.message || "暂时无法读取关注")}</div>`;
-  }
-}
-
 // 只加载本页有的卡（whenNearViewport 拿到 null 会立即加载，所以先判断）
 if (linkageCard) whenNearViewport(linkageCard, loadGlobalLinkageCard);
 
@@ -471,7 +449,6 @@ if ($("#emotion-card")) loadEmotion();
 if (body) loadAnomalies();
 if ($("#limitup-card")) whenNearViewport($("#limitup-card"),loadLimitUp);
 if ($("#sectorflow-card")) whenNearViewport($("#sectorflow-card"),loadSectorFlow);
-if ($("#watch-home-card")) loadWatchHome();
 
 
 window.addEventListener("se:points-updated", loadPoints);
