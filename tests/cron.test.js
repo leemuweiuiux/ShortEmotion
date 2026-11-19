@@ -8,7 +8,7 @@ import { duePlan } from "../api/_lib/short-emotion/schedule.js";
 
 const root = resolve(import.meta.dirname, "..");
 // 准点定时分散在几个迁移文件里（短线情绪与早报、午间看点），合起来看
-const migration = ["20261023033000_cron_dispatch.sql", "20261023070000_noon_report_cron.sql", "20261023073220_evening_report_cron.sql", "20261105115544_short_emotion_final_close.sql", "20261113030000_daily_primary_backup_cron.sql", "20261116080000_qdii_daily_cron.sql"]
+const migration = ["20261023033000_cron_dispatch.sql", "20261023070000_noon_report_cron.sql", "20261023073220_evening_report_cron.sql", "20261105115544_short_emotion_final_close.sql", "20261113030000_daily_primary_backup_cron.sql", "20261116080000_qdii_daily_cron.sql", "20261119100000_second_wave_cron.sql"]
   .map((name) => readFileSync(resolve(root, "supabase/migrations", name), "utf8")).join("\n");
 const SECRET = "test-cron-secret";
 
@@ -224,6 +224,14 @@ describe("Supabase 准点定时表", () => {
     expect(triggersFor("qdii-primary")).toEqual(days.map((day) => `${day} 08:20`).sort());
     expect(triggersFor("qdii-backup")).toEqual(days.map((day) => `${day} 09:00`).sort());
     expect(SCHEDULED_JOBS["qdii-backup"]).toEqual({ workflow: "qdii.yml", inputs: { slot: "backup" } });
+  });
+
+  it("题材二波：北京时间周一至周五 16:10 主取、18:10 备援，工作流固定取 exp 的脚本", () => {
+    expect(triggersFor("second-wave-primary")).toEqual(WEEKDAYS.map((day) => `${day} 16:10`).sort());
+    expect(triggersFor("second-wave-backup")).toEqual(WEEKDAYS.map((day) => `${day} 18:10`).sort());
+    expect(SCHEDULED_JOBS["second-wave-backup"]).toEqual({ workflow: "second-wave-exp.yml", inputs: { slot: "backup" } });
+    const workflow = readFileSync(resolve(root, ".github/workflows/second-wave-exp.yml"), "utf8");
+    expect(workflow).toContain("ref: exp");
   });
 
   it("调用正式网址的 /api/cron，密钥从 Vault 读取、不写进仓库", () => {

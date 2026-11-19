@@ -100,7 +100,10 @@ export const SCHEDULED_JOBS = {
   "global-linkage-backup": { workflow: "global-linkage-exp.yml", inputs: { slot: "backup" } },
   // QDII 限额（2026-11-16）：北京时间 08:20 主取、09:00 备援
   "qdii-primary": { workflow: "qdii.yml", inputs: { slot: "primary" } },
-  "qdii-backup": { workflow: "qdii.yml", inputs: { slot: "backup" } }
+  "qdii-backup": { workflow: "qdii.yml", inputs: { slot: "backup" } },
+  // 题材二波（2026-11-19，先上 Exp）：北京时间 16:10 主取、18:10 备援；工作流固定从 exp 分支取脚本
+  "second-wave-primary": { workflow: "second-wave-exp.yml", inputs: { slot: "primary" } },
+  "second-wave-backup": { workflow: "second-wave-exp.yml", inputs: { slot: "backup" } }
 };
 
 // 排队中（还没开始跑）的状态。正在跑的（in_progress）不算：新任务排在它后面不会挤掉任何人。
