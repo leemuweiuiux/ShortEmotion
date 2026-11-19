@@ -72,13 +72,25 @@
         <div id="limitup-ladder" class="home-limitup-body"><div class="loading">正在读取涨停天梯…</div></div>
         <span id="limitup-time" class="home-time"></span></div>
       </section>
+      <section id="secondwave-card" class="card home-card home-secondwave" aria-labelledby="home-sw-title" hidden>
+        <div class="card-head"><h2 id="home-sw-title" class="card-title"><a href="/secondwave">题材二波</a></h2><a class="home-more" href="/secondwave" aria-label="查看更多题材二波">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+        <div class="home-card-body"><div class="home-card-meta"><span id="sw-home-pill" class="pill">读取中</span></div>
+        <p class="card-desc">第一波放量后缩量、比大盘抗跌、等待再度放量的概念指数。</p>
+        <div class="home-market" aria-label="题材二波分档">
+          <div><span>已启动</span><b id="sw-home-started" class="up-text">—</b></div>
+          <div><span>待确认</span><b id="sw-home-watch">—</b></div>
+          <div><span>观察</span><b id="sw-home-observe">—</b></div>
+          <div><span>退潮</span><b id="sw-home-fade" class="down-text">—</b></div>
+        </div>
+        <div id="sw-home-body" class="home-anomaly-body"><div class="loading">正在读取题材二波…</div></div></div>
+      </section>
       <footer class="legal">
         <p>仅用于研究与情绪观察，不构成投资建议。</p>
       </footer>
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/home/home.js?v=23"></script>
+  <script type="module" src="/home/home.js?v=25"></script>
   <script type="module" src="/shared/nav-points.js?v=2"></script>
   <script type="module" src="/shared/global-header.js?v=9"></script>
   <script type="module" src="/shared/primary-tabs.js?v=4"></script>
