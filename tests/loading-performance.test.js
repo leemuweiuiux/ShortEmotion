@@ -77,10 +77,32 @@ describe('homepage loading',()=>{
   };
   it('shows market data while the points request is still unresolved',async()=>{
     const calls=await loadPage('home');
-    expect(calls).toEqual(expect.arrayContaining(['/api/short-emotion?market=cn&resource=emotion','/api/auth?action=watchlist']));
-    expect(calls).not.toContain('/api/limitup?resource=summary');
+    expect(calls).toEqual(['/api/short-emotion?market=cn&resource=emotion']);
     expect(dom.document.querySelector('#emotion-score').textContent).toBe('78');
-    expect(dom.document.querySelector('#watch-home-body').textContent).toContain('贵州茅台');
+  });
+  it('首页板块速览小卡：免费数字直接显示，需积分的只显示解锁查看',async()=>{
+    dom.document.write(readFileSync('public/home/index.html','utf8'));
+    const source=readFileSync('public/home/mini-cards.js','utf8').replace(/^import .*;\n/gm,'');
+    const payloads={
+      'anomalies':{locked:true,total:4,items:[]},
+      'limitup':{metrics:{limitUpCount:28,limitDownCount:83,maxStreak:3,promotionRate:0.12}},
+      'sectorflow':{locked:true},
+      'global-linkage':{groups:[{label:'中美联动',themes:[{theme:'AI算力',pairs:[{heat:{rank:1}}]}]}]}
+    };
+    const requestJSON=vi.fn(async url=>({response:{ok:true,status:200},payload:payloads[Object.keys(payloads).find(k=>url.includes(k))]}));
+    const deps={document:dom.document,location:{hostname:'lfjmwl.com'},requestJSON,etfflowRequest:async()=>({ready:true,locked:true}),
+      etfNumber:n=>String(n),flowDataset:()=>({lines:[]}),selectFlowLines:()=>[],linkageCorrelationLabel:()=>'中'};
+    new Function(...Object.keys(deps),source)(...Object.values(deps));
+    await flush();
+    const text=id=>dom.document.querySelector(`#${id} .home-mini-value`).textContent;
+    expect(text('mini-anomaly')).toBe('4个题材');
+    expect(text('mini-limitup')).toBe('28/83');
+    expect(dom.document.querySelector('#mini-limitup .home-mini-sub').textContent).toBe('最高板 3板 · 晋级 12%');
+    expect(text('mini-sectorflow')).toBe('解锁查看');
+    expect(text('mini-etf')).toBe('解锁查看');
+    expect(text('mini-linkage')).toBe('AI算力');
+    expect(dom.document.querySelector('#mini-qdii').hidden).toBe(true);
+    expect(dom.document.querySelectorAll('#home-minis button').length).toBe(0);
   });
   it('题材页只加载题材异动与涨停情绪',async()=>{
     const calls=await loadPage('themes');

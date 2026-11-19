@@ -43,16 +43,25 @@
 .home-anomaly-list b { font-size: 14px; font-weight: 600; }
 .home-anomaly-list strong { grid-row: span 2; align-self: center; font-family: "Manrope", sans-serif; font-size: 20px; font-weight: 700; }
 .home-anomaly-list small { color: var(--muted); font-size: 12px; line-height: 1.5; }
-/* 首页「我的关注」摘要（2026-11-19） */
-.home-watch-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.home-watch-list li { min-width: 0; }
-.home-watch-list .home-preview-link { display: grid; grid-template-columns: minmax(0, 1fr) auto 72px; align-items: center; gap: 10px; padding: 10px; background: var(--panel); }
-.home-watch-list b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; }
-.home-watch-list b small { margin-left: 6px; color: var(--muted); font-size: 11px; font-weight: 400; }
-.home-watch-list span, .home-watch-list strong { font-family: "Manrope", sans-serif; font-variant-numeric: tabular-nums; text-align: right; }
-.home-watch-list span { color: var(--muted); font-size: 13px; }
-.home-watch-list strong { font-size: 15px; font-weight: 700; }
-.home-watch-body .empty a { color: inherit; }
+/* 首页「板块速览」小卡（2026-11-19）：一排两张，每张一个重点数字 */
+.home-minis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-content: start; }
+.home-mini { display: grid; gap: 6px; align-content: start; min-width: 0; padding: 14px; color: inherit; text-decoration: none; }
+.home-mini[hidden] { display: none; }
+.home-mini:hover { border-color: var(--ink); }
+.home-mini:active { opacity: .8; }
+.home-mini:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.home-mini-title { display: flex; align-items: center; justify-content: space-between; gap: 4px; color: var(--muted); font-size: 13px; font-weight: 600; }
+.home-mini-title svg { width: 14px; height: 14px; flex: none; }
+.home-mini-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: "Manrope", sans-serif; font-size: 24px; font-weight: 700; line-height: 1.25; font-variant-numeric: tabular-nums; }
+.home-mini-value small { margin-left: 3px; color: var(--muted); font-family: "Noto Sans SC", sans-serif; font-size: 12px; font-weight: 500; }
+.home-mini-value i { margin: 0 4px; color: var(--muted); font-style: normal; font-weight: 400; }
+.home-mini-value em { font-style: normal; }
+.home-mini-value.is-text { font-family: "Noto Sans SC", sans-serif; font-size: 18px; font-weight: 650; }
+.home-mini-value.home-mini-neg { color: var(--negative, var(--price-down)); }
+.home-mini-value.home-mini-pos { color: var(--positive, var(--price-up)); }
+.home-mini-lock { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-family: "Noto Sans SC", sans-serif; font-size: 15px; font-weight: 600; }
+.home-mini-lock svg { width: 16px; height: 16px; }
+.home-mini-sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12px; }
 
 /* 涨停情绪：4 个数字免费；天梯未解锁时模糊占位 + 锁（10 积分 / 12 小时，与 /limitup 共用），解锁后按板高列出 */
 .home-limitup-body { position: relative; }
