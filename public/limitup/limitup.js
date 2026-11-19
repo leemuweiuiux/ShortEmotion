@@ -585,7 +585,7 @@ function updateRefreshButton() {
   }
   button.disabled = false;
   button.textContent = "刷新";
-  button.title = refreshAllowed() ? (refreshWindowOpen() ? "获取最新数据（5 积分）" : "补取今日收盘数据（5 积分）") : closedMessage();
+  button.title = refreshAllowed() ? (refreshWindowOpen() ? "获取最新数据" : "补取今日收盘数据") : closedMessage();
 }
 
 function renderRefreshState() {

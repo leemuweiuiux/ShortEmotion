@@ -15,7 +15,7 @@ import { withUsage } from "./_lib/usage.js";
 import { resolveStock, analyzeStock, normalizeInput } from "./_lib/technical-analysis/engine.js";
 import { getApiKeys, isMockMode } from "./_lib/short-emotion/wind-client.js";
 import { requireSession, authConfig } from "./_lib/session.js";
-import { POINTS, pointsStatus, pointsChargeAnalysis, pointsRefundAnalysis, InsufficientPointsError } from "./_lib/points.js";
+import { POINTS, FREE_ANALYSIS, ANALYSIS_DAILY_LIMIT, pointsStatus, pointsAnalysisQuota, pointsChargeAnalysis, pointsChargeAnalysisQuota, pointsRefundAnalysis, InsufficientPointsError, AnalysisQuotaError } from "./_lib/points.js";
 import { historySave, historyRecent, historyLatest, historyGet, historyShared, RECENT_LIMIT } from "./_lib/analysis-history.js";
 
 // 函数最长60秒：识别股票10秒，分析32秒（含取消），留出积分与保存时间。
@@ -75,18 +75,21 @@ async function handler(req, res) {
     let unlimited = false;
     let recent = [];
     let latest = [];
+    let used = null;
     if (needsPoints && session.accessToken) {
       const [status, rows, platformRows] = await Promise.all([
-        pointsStatus(config, session.accessToken).catch(() => null),
+        (FREE_ANALYSIS ? pointsAnalysisQuota : pointsStatus)(config, session.accessToken).catch(() => null),
         historyRecent(config, session.accessToken).catch(() => []),
         req.query.latest === "1" ? historyLatest(config, session.accessToken).catch(() => []) : []
       ]);
       balance = status?.balance ?? null;
       unlimited = Boolean(status?.unlimited);
+      used = Number.isFinite(Number(status?.used)) ? Number(status.used) : null;
       recent = rows.slice(0, RECENT_LIMIT);
       latest = platformRows;
     }
-    return send(res, 200, { configured: analysisConfigured(), cost: POINTS.analysis, balance, unlimited, recent,
+    return send(res, 200, { configured: analysisConfigured(), cost: FREE_ANALYSIS ? 0 : POINTS.analysis, balance, unlimited, recent,
+      ...(FREE_ANALYSIS ? { free: true, dailyLimit: ANALYSIS_DAILY_LIMIT, used } : {}),
       ...(req.query.latest === "1" ? { latest } : {}) });
   }
 
@@ -101,7 +104,7 @@ async function handler(req, res) {
         code = own.code;
       }
       const record = await historyShared(config, session.accessToken, code);
-      if (!record?.result) return send(res, 402, { error: "首次查询该股票需要 10 积分，请点击开始分析", code: "analysis_required", cost: POINTS.analysis });
+      if (!record?.result) return send(res, 402, { error: FREE_ANALYSIS ? "首次查询该股票请点击开始分析" : "首次查询该股票需要 10 积分，请点击开始分析", code: "analysis_required", cost: FREE_ANALYSIS ? 0 : POINTS.analysis });
       return send(res, 200, { ok: true, code, analyzedAt: record.updatedAt, needsRefresh: !isAnalysisCurrent(record), data: record.result });
     } catch {
       return send(res, 503, { error: "暂时无法读取分析记录，请稍后再试", code: "history_unavailable" });
@@ -157,9 +160,16 @@ async function runAnalysis(req, { session, config, needsPoints }) {
     stage = "balance";
     // 余额明显不够时，不调用 Wind 就直接提示
     if (needsPoints) {
-      const status = await pointsStatus(config, session.accessToken);
-      knownBalance = status.balance; knownUnlimited = Boolean(status.unlimited);
-      if (!status.unlimited && Number(status.balance) < POINTS.analysis) throw new InsufficientPointsError(status.balance);
+      if (FREE_ANALYSIS) {
+        // 免费、每天限次：次数用完时不调用 Wind 就直接提示
+        const quota = await pointsAnalysisQuota(config, session.accessToken);
+        knownBalance = quota.balance; knownUnlimited = Boolean(quota.unlimited);
+        if (!quota.unlimited && Number(quota.used) >= ANALYSIS_DAILY_LIMIT) throw new AnalysisQuotaError(quota.used);
+      } else {
+        const status = await pointsStatus(config, session.accessToken);
+        knownBalance = status.balance; knownUnlimited = Boolean(status.unlimited);
+        if (!status.unlimited && Number(status.balance) < POINTS.analysis) throw new InsufficientPointsError(status.balance);
+      }
     }
 
     stage = "resolve_stock";
@@ -178,8 +188,9 @@ async function runAnalysis(req, { session, config, needsPoints }) {
     ensureBudget(0);
     if (needsPoints) {
       stage = "charge";
-      const result = await pointsChargeAnalysis(config, session.accessToken, `${stock.name} ${stock.code}`);
-      if (!result.ok) throw new InsufficientPointsError(result.balance);
+      const note = `${stock.name} ${stock.code}`;
+      const result = FREE_ANALYSIS ? await pointsChargeAnalysisQuota(config, session.accessToken, note) : await pointsChargeAnalysis(config, session.accessToken, note);
+      if (!result.ok) throw result.reason === "quota" ? new AnalysisQuotaError(result.used, result.limit) : new InsufficientPointsError(result.balance);
       charged = result;
     }
 

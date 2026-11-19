@@ -12,6 +12,7 @@ export default defineConfig({
     globals: true,
     include: ["tests/**/*.test.js"],
     // 默认关闭登录（否则会用 api/_lib/supabase-public.js 里的真实 Supabase 项目）；登录相关测试自己打开。
-    env: { SHORT_EMOTION_AUTH: "off" },
+    // 积分沿用原扣分规则测试（SE_POINTS_MODE=paid）；免费模式在 tests/free-points.test.js 单独测。
+    env: { SHORT_EMOTION_AUTH: "off", SE_POINTS_MODE: "paid" },
   },
 });
