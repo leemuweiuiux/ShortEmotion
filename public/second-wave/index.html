@@ -32,7 +32,7 @@
   <link rel="stylesheet" href="/shared/global-header.css?v=5">
   <script defer src="/shared/usage.js?v=3"></script>
   <link rel="stylesheet" href="/shared/wide-layout.css?v=4">
-  <link rel="stylesheet" href="/second-wave/second-wave.css?v=2">
+  <link rel="stylesheet" href="/second-wave/second-wave.css?v=3">
 </head>
 <body class="wide-page wide-second-wave">
   <div class="app-shell">
@@ -44,32 +44,68 @@
       <section class="card" aria-labelledby="sw-title">
         <div class="card-head"><h1 id="sw-title" class="card-title">题材二波形态</h1><div class="sw-head-actions"><span id="sw-date" class="pill">读取中</span><div class="sw-share-wrap"><button id="sw-export" class="nav-btn" type="button" aria-label="导出分享" title="导出分享" aria-haspopup="menu" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 4v11M7.5 8.5 12 4l4.5 4.5M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div></div>
         <p class="card-desc">从热门概念指数里找「第一波放量后缩量、跌得比大盘少、再度放量」的题材。</p>
-        <div id="sw-bands" class="sw-bands" role="group" aria-label="按分档筛选"></div>
-        <p id="sw-market" class="sw-market"></p>
+        <p id="sw-meta" class="sw-market"></p>
+        <div id="sw-bench" class="sw-bench" aria-label="大盘基准"></div>
+        <div id="sw-kpis" class="sw-kpis" role="group" aria-label="按分档筛选"></div>
         <p id="sw-note" class="sw-note" hidden></p>
+      </section>
+      <section class="card" aria-labelledby="sw-bubble-title">
+        <div class="card-head"><h2 id="sw-bubble-title" class="card-title">缩量质量 × 抗跌度</h2></div>
+        <p class="card-desc">只看已启动与待确认。圆点大小为成交额，虚线为缩量质量 50 / 65 与抗跌 -5% / -15% 分界，越靠右上，缩量越充分、越抗跌。</p>
+        <div id="sw-bubble" class="sw-bubble"></div>
+        <div class="sw-legend"><span><i data-band="已启动"></i>已启动</span><span><i data-band="待确认"></i>待确认</span></div>
       </section>
       <section class="card" aria-labelledby="sw-list-title">
         <div class="card-head"><h2 id="sw-list-title" class="card-title">指数列表</h2><span id="sw-count" class="pill"></span></div>
-        <div id="sw-filter" class="sw-filter" role="group" aria-label="分档"></div>
+        <div class="sw-tools">
+          <div id="sw-filter" class="sw-filter" role="group" aria-label="分档"></div>
+          <div class="sw-tools-row">
+            <input id="sw-search" class="sw-search" type="search" placeholder="搜索指数或代码" aria-label="搜索指数或代码">
+            <select id="sw-sort" class="sw-sort" aria-label="排序">
+              <option value="band">分档优先</option><option value="score">总分</option><option value="shrink">缩量质量</option>
+              <option value="resilience">抗跌度</option><option value="ignition">放量比</option><option value="amt">成交额</option><option value="chg">当日涨跌</option>
+            </select>
+          </div>
+        </div>
         <ol id="sw-list" class="sw-list" aria-live="polite"><li class="loading">正在读取题材二波…</li></ol>
-        <button id="sw-more" class="pill-btn sw-more" type="button" hidden>显示更多</button>
+      </section>
+      <section class="card" aria-labelledby="sw-track-title">
+        <div class="card-head"><h2 id="sw-track-title" class="card-title">跟踪清单</h2></div>
+        <p class="card-desc">待确认的指数要满足这些条件，才算二波启动：放量至峰值的 60% 以上、当日涨幅 ≥ +2%，且次一交易日量能不回落（近 2 日均量 ≥ 峰值的 55%）。</p>
+        <div id="sw-track" class="sw-track"></div>
       </section>
       <section class="card">
         <details class="sw-help">
           <summary>怎么看</summary>
           <ul>
-            <li><b>缩量质量</b>：近 5 日量能相对窗口高峰回落的程度、回落趋势与是否持续缩量。</li>
-            <li><b>抗跌</b>：近一个多月指数相对万得全A 的表现，越高说明回调中越抗跌。</li>
-            <li><b>放量</b>：当日成交额相对窗口高峰的比例。</li>
-            <li><b>已启动</b>：先缩量、再连续两日放量上涨；<b>待确认</b>：缩量到位且抗跌，等待放量；<b>观察</b>：条件只满足一部分；<b>退潮</b>：放量下跌或明显弱于大盘。</li>
-            <li>每个交易日收盘后更新一次。仅用于研究与情绪观察，不构成投资建议。</li>
+            <li><b>已启动</b>：先缩量，再放量至峰值的 60% 以上、当日涨幅 ≥ +2%，且近 2 日量能确认。</li>
+            <li><b>待确认</b>：缩量到位（量能水位 ≤ 0.40 且仍在缩量，或缩量质量 ≥ 65），且抗跌 ≥ -5%，等待放量。</li>
+            <li>点任一指数可以看近 25 个交易日的成交额与涨跌幅，以及每一项的计算明细。</li>
+          </ul>
+        </details>
+        <details class="sw-help">
+          <summary>计算口径</summary>
+          <ul>
+            <li><b>量能</b>：水位 = 近 5 日平均成交额 / 窗口峰值成交额；趋势 = 近 5 日均额 / 前 5 日均额（&lt; 1 表示仍在缩量）；地量 = 近 10 日最低单日成交额 / 峰值。</li>
+            <li><b>缩量质量分</b> = 水位 40% + 趋势 35% + 连续性 25%（连续性 = 地量确认 50% + 连缩天数 50%）。</li>
+            <li><b>抗跌度</b> = (1 + 指数区间涨幅) / (1 + 万得全A 区间涨幅) − 1，区间约 25 个交易日；<b>放量比</b> = 当日成交额 / 峰值成交额。</li>
+            <li><b>总分</b> = 缩量质量 40% + 抗跌 35% + 启动 25%，各项归一到 0–100；当日涨幅 ≥ 2% 时启动项额外 +10（上限 100）。</li>
+            <li><b>分档</b>：已启动（先出现过缩量，放量比 ≥ 0.60、当日涨 ≥ 2%，近 2 日均量 / 峰值 ≥ 0.55 确认）→ 待确认（水位 ≤ 0.40 且趋势 ≤ 0.90，或缩量质量 ≥ 65；抗跌 ≥ -5%；主力净流出时降为观察）→ 观察 → 退潮。历史不足一个多月的指数不计算。</li>
+            <li>阈值为经验口径，适用于存量博弈市场；指数口径不代表个股；本页为技术形态统计，仅用于研究与情绪观察，不构成投资建议。</li>
           </ul>
         </details>
       </section>
     </main>
   </div>
+  <div id="sw-sheet" class="sw-sheet" hidden>
+    <div class="sw-sheet-bg" data-close></div>
+    <section class="sw-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sw-sheet-title">
+      <div class="sw-sheet-head"><div><h2 id="sw-sheet-title">—</h2><small id="sw-sheet-code"></small></div><button class="nav-btn" type="button" data-close aria-label="关闭">×</button></div>
+      <div id="sw-sheet-body" class="sw-sheet-body"></div>
+    </section>
+  </div>
   <div id="toast" class="toast" role="status"></div>
   <script type="module" src="/shared/global-header.js?v=9"></script>
-  <script type="module" src="/second-wave/second-wave.js?v=2"></script>
+  <script type="module" src="/second-wave/second-wave.js?v=3"></script>
 </body>
 </html>

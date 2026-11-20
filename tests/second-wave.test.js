@@ -1,5 +1,5 @@
 // 题材二波形态（api/_lib/second-wave/compute.js）：用合成日线验证分档与两项修正。
-import { buildSecondWave, priorDryUp, summarizeSecondWave } from "../api/_lib/second-wave/compute.js";
+import { buildSecondWave, priorDryUp, summarizeSecondWave, candidatesOf } from "../api/_lib/second-wave/compute.js";
 
 const TRADE = "2026-11-19";
 function weekdays(end, count) {
@@ -72,5 +72,14 @@ describe("题材二波形态", () => {
     expect(summary.top).toHaveLength(1);
     expect(summary.top[0]).not.toHaveProperty("series");
     expect(summary.meta).not.toHaveProperty("skipped");
+  });
+
+  it("只看已启动与待确认：先已启动、再待确认，同档按总分", () => {
+    const data = { indices: [
+      { name: "a", band: "待确认", score: 70 }, { name: "b", band: "观察", score: 90 },
+      { name: "c", band: "已启动", score: 50 }, { name: "d", band: "待确认", score: 80 }, { name: "e", band: "退潮", score: 99 }
+    ] };
+    expect(candidatesOf(data).map((x) => x.name)).toEqual(["c", "d", "a"]);
+    expect(summarizeSecondWave({ meta: {}, stats: {}, indices: data.indices.map((x) => ({ ...x, series: [] })) }).top.map((x) => x.name)).toEqual(["c", "d", "a"]);
   });
 });
