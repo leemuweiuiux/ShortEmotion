@@ -1,8 +1,8 @@
 name: Theme second wave preview
 
-# 题材二波形态（2026-11-19，先上 Exp）：收盘后取数计算，结果写入 second-wave-data 分支，Exp 的 /api/second-wave 读取。
+# 题材二波形态（2026-11-19 上 Exp，2026-11-20 上主站）：收盘后取数计算，结果写入 second-wave-data 分支，Exp 的 /api/second-wave 读取。
 # 准点触发：Supabase Cron 北京时间 16:10 主取、18:10 备援（经主站 /api/cron 手动运行本工作流，所以本文件也放在 main）；
-# GitHub 自带定时只作最后后备。脚本固定从 exp 分支取（同步到主站后再改成 main）。
+# GitHub 自带定时只作最后后备。定时与手动运行用 main 的脚本。
 on:
   schedule:
     - cron: '40 10 * * 1-5' # 北京时间 18:40，备援之后的最后后备
@@ -14,7 +14,7 @@ on:
         options: [primary, backup]
         default: primary
   push:
-    branches: [exp]
+    branches: [main, exp]
     paths:
       - .github/workflows/second-wave-exp.yml
       - scripts/second-wave/**
@@ -37,7 +37,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: exp
+          # 推送触发时用推送的分支，其余（定时、手动）用 main
+          ref: ${{ github.event_name == 'push' && github.ref_name || 'main' }}
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

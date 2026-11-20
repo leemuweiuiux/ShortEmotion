@@ -1,8 +1,8 @@
 import { authConfig } from '../session.js';
-import { POINTS, pointsSectorflowStatus } from '../points.js';
+import { POINTS, pointsSectorflowStatus, FREE_VIEWING } from '../points.js';
 export const SECTORFLOW_UNLOCK={unlockCost:POINTS.unlockSectorflow,unlockHours:POINTS.unlockHours};
-export async function sectorflowAccess(session,{status=pointsSectorflowStatus,config=authConfig()}={}){
- if(!session?.enabled)return {locked:false,unlimited:false,unlockUntil:null,balance:null,unavailable:false,...SECTORFLOW_UNLOCK};
+export async function sectorflowAccess(session,{status=pointsSectorflowStatus,config=authConfig(),free=FREE_VIEWING}={}){
+ if(!session?.enabled||free)return {locked:false,unlimited:false,unlockUntil:null,balance:null,unavailable:false,...SECTORFLOW_UNLOCK};
  try{
   if(!session.accessToken)throw new Error('session unavailable');
   const result=await status(config,session.accessToken),unlimited=Boolean(result?.unlimited);

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="robots" content="noindex">
+  <title>题材 · Market Emotion</title>
+  <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
+  <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <script>
+    // 与看板共用外观设置：深浅色主题与红涨/绿涨配色（twsvp_*）。
+    (function () {
+      var root = document.documentElement;
+      var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
+      var theme = get("twsvp_theme");
+      if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      root.dataset.theme = theme;
+      if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
+      if (get("twsvp_price_scheme") === "green_up") {
+        root.style.setProperty("--price-up", "#76BB40");
+        root.style.setProperty("--price-down", "#FF4015");
+      }
+      var lang = get("shortemotion:lang");
+      root.dataset.lang = lang === "hant" || lang !== "hans" && /^zh-(tw|hk|mo|hant)/i.test(navigator.language || "") ? "hant" : "hans";
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="/short-emotion/twsvp.css?v=17">
+  <link rel="stylesheet" href="/technical-analysis/ta.css?v=13">
+  <link rel="stylesheet" href="/shared/form.css?v=1">
+  <link rel="stylesheet" href="/shared/fund-flow.css?v=4">
+  <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
+  <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+  <script defer src="/_vercel/insights/script.js"></script>
+<link rel="stylesheet" href="/shared/etf-overview.css?v=1">
+<link rel="stylesheet" href="/home/home.css?v=19">
+  <link rel="stylesheet" href="/shared/global-header.css?v=5">
+  <script defer src="/shared/usage.js?v=3"></script>
+  <link rel="stylesheet" href="/shared/wide-layout.css?v=6">
+  <link rel="stylesheet" href="/shared/primary-tabs.css?v=5">
+</head>
+<body class="wide-page wide-home">
+  <div class="app-shell">
+    <nav class="nav">
+      <a class="nav-logo" href="/home" aria-label="首页"><img src="/short-emotion/logo.svg?v=2" alt="Market Emotion"></a>
+      <div class="nav-title">题材</div>
+      <button id="account" class="nav-btn" type="button" aria-label="账号" title="账号" aria-haspopup="menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5" stroke="currentColor" stroke-width="1.6"/><path d="M5 19.5c1.2-3.3 3.8-5 7-5s5.8 1.7 7 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </nav>
+
+    <main class="wide-home-grid">
+      <section id="anomaly-card" class="card home-card home-anomaly">
+        <div class="card-head"><h2 class="card-title"><a href="/shortemotion/cn#themes">当日题材异动</a></h2><a class="home-more" href="/shortemotion/cn#themes" aria-label="查看更多当日题材异动">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+        <div class="home-card-body"><div class="home-card-meta"><span id="anomaly-pill" class="pill">读取中</span></div>
+        <p class="card-desc">按涨停点火、批量拉升与消息催化筛出的高价值题材方向。</p>
+        <div id="anomaly-body" class="home-anomaly-body"><div class="loading">正在读取题材异动…</div></div></div>
+      </section>
+
+      <section id="limitup-card" class="card home-card home-limitup">
+        <div class="card-head"><h2 class="card-title"><a href="/limitup">涨停情绪</a></h2><a class="home-more" href="/limitup" aria-label="查看更多涨停情绪">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+        <div class="home-card-body"><div class="home-card-meta"><span id="limitup-pill" class="pill">读取中</span></div>
+        <div class="home-market" aria-label="涨停概况">
+          <div><span>涨停</span><b id="limitup-up" class="up-text">—</b></div>
+          <div><span>跌停</span><b id="limitup-down" class="down-text">—</b></div>
+          <div><span>最高板</span><b id="limitup-max">—</b></div>
+          <div><span>晋级率</span><b id="limitup-promo">—</b></div>
+        </div>
+        <div id="limitup-ladder" class="home-limitup-body"><div class="loading">正在读取涨停天梯…</div></div>
+        <span id="limitup-time" class="home-time"></span></div>
+      </section>
+      <section id="secondwave-card" class="card home-card home-secondwave" aria-labelledby="home-sw-title" hidden>
+        <div class="card-head"><h2 id="home-sw-title" class="card-title"><a href="/secondwave">题材二波</a></h2><a class="home-more" href="/secondwave" aria-label="查看更多题材二波">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+        <div class="home-card-body"><div class="home-card-meta"><span id="sw-home-pill" class="pill">读取中</span></div>
+        <p class="card-desc">第一波放量后缩量、比大盘抗跌、等待再度放量的概念指数。</p>
+        <div class="home-market" aria-label="题材二波分档">
+          <div><span>已启动</span><b id="sw-home-started" class="up-text">—</b></div>
+          <div><span>待确认</span><b id="sw-home-watch">—</b></div>
+        </div>
+        <div id="sw-home-body" class="home-anomaly-body"><div class="loading">正在读取题材二波…</div></div></div>
+      </section>
+      <footer class="legal">
+        <p>仅用于研究与情绪观察，不构成投资建议。</p>
+      </footer>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/home/home.js?v=26"></script>
+  <script type="module" src="/shared/nav-points.js?v=2"></script>
+  <script type="module" src="/shared/global-header.js?v=9"></script>
+  <script type="module" src="/shared/primary-tabs.js?v=4"></script>
+</body>
+</html>

@@ -6,17 +6,17 @@ import {etfOverviewMarkup} from '/shared/etf-overview.js?v=1';
 import {sectorflowRequest} from '/shared/sectorflow-access.js?v=1';
 import {etfflowRequest} from '/shared/etfflow-access.js?v=1';
 import { emotionTimeLabel } from "/shared/local-time.js?v=1";
-import { startAnalysisRefresh } from "./analysis-refresh.js?v=1";
 import { updateNavPoints } from "/shared/nav-points.js?v=2";
-// 首页 /home（登录后打开 / 会到这里），都只读现有数据，不调用 Wind：
-//   2. 个股技术分析：输入股票按「开始分析」→ 跳到 /technicalanalysis 并由那边发起分析（扣 10 积分）
+// 首页 /home（情绪大卡）与「题材」/themes、「资金」/funds 三个一级页面共用本脚本（2026-11-19 底部 Tab 重整），
+// 首页的板块速览小卡由 mini-cards.js 负责。
+// 页面上有哪张卡才加载哪张，都只读现有数据，不调用 Wind。个股分析输入卡已移到 /watchlist（ta-card.js）。
 //   3. 今日短线情绪：与看板「A股短线情绪」卡同款（姿态、分数、阶段与说明、六个维度），
 //      下面再加市场概况（全A涨跌幅、成交额、涨跌家数、涨跌停）与行情时间，点预览或标题进入看板
 //   4. 当日题材异动：未解锁时只显示题材数量，可在首页直接解锁（−10 积分，12 小时）；解锁后列出前 3 个
 //   5. 资金流向：今日累计净流入曲线，流入/流出各前三；与 /sectorflow 共用5积分解锁，12小时有效。
 //   6. 涨停情绪：涨停、跌停、最高板、晋级率 4 个数字免费；涨停天梯须解锁（−10 积分，12 小时，与 /limitup 整页共用），
 //      解锁后按板高列出个股。与题材异动的解锁分开计算。
-import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, setPendingAnalysis, validQuery, renderLatest } from "/shared/nav-account.js?v=4";
+import { $, toast, goLogin, initAccountMenu } from "/shared/nav-account.js?v=4";
 import { mountFundFlow } from "/shared/fund-flow.js?v=8";
 import { showPointsShortage } from "/shared/points-shortage.js?v=1";
 
@@ -40,57 +40,10 @@ async function loadPoints() {
     balance = payload.balance ?? null;
     unlimited = Boolean(payload.unlimited);
     updateNavPoints(payload);
-    renderAnalysisHint();
     if(anomalyData?.locked)renderLocked();
     if(limitupData?.locked)renderLimitUpLocked();
   } catch {}
 }
-
-// ── 2. 个股技术分析 ──
-const form = $("#ta-form");
-const input = $("#ta-input");
-const runButton = $("#ta-run");
-const hint = $("#ta-hint");
-let analysis = { configured: true, cost: 10 };
-function renderAnalysisHint() {
-  runButton.disabled = !analysis.configured;
-  hint.textContent = !analysis.configured ? "*个股分析暂未开通。" : unlimited ? "*不限额账号，分析不扣积分。" : `*首次查询或更新需要 ${analysis.cost} 积分`;
-}
-
-startAnalysisRefresh(() => readAnalysisConfig({ includeLatest: true }).then((config) => {
-  analysis = config;
-  renderLatest($("#ta-latest"), config.latest, (row) => {
-    if (row.canView) {
-      location.href = `/technicalanalysis?view=${encodeURIComponent(row.code)}`;
-      return;
-    }
-    input.value = String(row.code || "");
-    form.requestSubmit(); // 共用余额校验、一次性跳转和分析流程。
-  });
-  if (config.unlimited) unlimited = true;
-  renderAnalysisHint();
-}).catch(() => {
-  if (!$("#ta-latest").querySelector(".ta-stock-pill")) {
-    $("#ta-latest").textContent = "大家都在看：暂时无法读取";
-  }
-}));
-renderAnalysisHint();
-
-form.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const q = input.value.trim();
-  if (!validQuery(q)) {
-    toast("请输入六位代码或准确简称", true);
-    input.focus();
-    return;
-  }
-  if (!unlimited && balance != null && Number.isFinite(Number(balance)) && balance < analysis.cost) {
-    showPointsShortage({ cost: analysis.cost, balance });
-    return;
-  }
-  setPendingAnalysis(q);
-  location.href = `/technicalanalysis?q=${encodeURIComponent(q)}`;
-});
 
 // ── 3. 今日短线情绪 + 市场概况 ──
 function pct(value) {
@@ -112,6 +65,7 @@ function pair(selector, left, right) {
 // 六个维度：名称与顺序同看板（public/short-emotion/app.js dimensionNames）
 const DIMENSIONS = [["breadth", "市场广度"], ["limits", "极端反馈"], ["ladder", "连板梯队"], ["profit", "赚钱效应"], ["themes", "题材聚焦"], ["liquidity", "成交环境"]];
 function renderDimensions(dimensions = {}) {
+  if (!$("#emotion-dims")) return;
   $("#emotion-dims").innerHTML = DIMENSIONS.map(([key, name]) => {
     const value = Number(dimensions?.[key]);
     const known = Number.isFinite(value);
@@ -167,7 +121,7 @@ function renderLocked() {
     ? "<p>积分服务暂时不可用，请稍后再试</p>"
     : `<button id="unlock" class="pill-btn" type="button">解锁 · ${cost} 积分</button>${balance != null && Number.isFinite(Number(balance)) ? `<small>积分 ${esc(balance)}</small>` : ""}${short ? '<a class="lock-link" href="/account/signin">去签到</a>' : ""}`;
   body.innerHTML = `<div class="lock-skeleton" aria-hidden="true">${"<i></i>".repeat(3)}</div>
-    <div class="anomaly-lock" role="group" aria-label="题材异动已锁定">${lockIcon}<b>今日识别到 ${total} 个题材异动</b><p>解锁后 ${hours} 小时内，首页与看板都能查看</p>${action}</div>`;
+    <div class="anomaly-lock" role="group" aria-label="题材异动已锁定">${lockIcon}<b>今日识别到 ${total} 个题材异动</b><p>解锁后 ${hours} 小时内，题材页与看板都能查看</p>${action}</div>`;
   $("#unlock")?.addEventListener("click", unlock);
 }
 
@@ -235,7 +189,7 @@ async function unlock(event) {
 }
 
 // ── 5. 资金流向：与详情页同一套曲线，默认流入/流出各前三 ──
-const flowChart = mountFundFlow($("#sectorflow-chart"), { compact: true, onSelect: (code) => {
+const flowChart = $("#sectorflow-chart") && mountFundFlow($("#sectorflow-chart"), { compact: true, onSelect: (code) => {
   location.href = `/sectorflow?board=${encodeURIComponent(code)}`;
 } });
 let sectorHomeAccess=null,sectorHomeBusy=false;
@@ -244,7 +198,7 @@ function renderSectorHomeLock(){
  $('#sectorflow-body').classList.toggle('locked',locked);
  $('#sectorflow-chart').hidden=locked;panel.hidden=!locked;
  if(!locked){panel.innerHTML='';return;}
- panel.innerHTML=`${lockIcon}<b>查看资金流向</b><p>${sectorHomeAccess.unavailable?'积分服务暂时不可用，请稍后再试':'解锁后 12 小时内，首页与板块资金页都能查看'}</p><button id="sectorflow-home-unlock" class="pill-btn" type="button" ${sectorHomeBusy?'disabled':''}>${sectorHomeBusy?'解锁中…':'解锁 · 5 积分'}</button>${sectorHomeAccess.balance!=null?`<small>积分 ${esc(sectorHomeAccess.balance)}</small>`:''}`;
+ panel.innerHTML=`${lockIcon}<b>查看资金流向</b><p>${sectorHomeAccess.unavailable?'积分服务暂时不可用，请稍后再试':'解锁后 12 小时内，资金页与板块资金页都能查看'}</p><button id="sectorflow-home-unlock" class="pill-btn" type="button" ${sectorHomeBusy?'disabled':''}>${sectorHomeBusy?'解锁中…':'解锁 · 5 积分'}</button>${sectorHomeAccess.balance!=null?`<small>积分 ${esc(sectorHomeAccess.balance)}</small>`:''}`;
  panel.querySelector('button').addEventListener('click',async()=>{
   if(sectorHomeBusy)return;
   if(sectorHomeAccess.unavailable){await loadSectorFlow();return;}
@@ -266,7 +220,7 @@ async function loadSectorFlow() {
   sectorHomeAccess={locked:true,unavailable:true};renderSectorHomeLock();flowChart.update(null);
  }
 }
-addEventListener('pageshow',event=>{if(event.persisted)loadSectorFlow();});
+if (flowChart) addEventListener('pageshow',event=>{if(event.persisted)loadSectorFlow();});
 
 // ── 6. 涨停情绪 ──
 let limitupData = null;
@@ -310,7 +264,7 @@ function renderLimitUpLocked() {
     ? "<p>积分服务暂时不可用，请稍后再试</p>"
     : `<button id="limitup-unlock" class="pill-btn" type="button">解锁 · ${cost} 积分</button>${known ? `<small>积分 ${esc(shown)}</small>` : ""}${short ? '<a class="lock-link" href="/account/signin">去签到</a>' : ""}`;
   limitupBody.innerHTML = `<div class="lock-skeleton" aria-hidden="true">${"<i></i>".repeat(3)}</div>
-    <div class="anomaly-lock" role="group" aria-label="涨停天梯已锁定">${lockIcon}<b>涨停天梯与涨停情绪详情</b><p>解锁后 ${hours} 小时内，首页天梯与涨停情绪页都能查看</p>${action}</div>`;
+    <div class="anomaly-lock" role="group" aria-label="涨停天梯已锁定">${lockIcon}<b>涨停天梯与涨停情绪详情</b><p>解锁后 ${hours} 小时内，题材页天梯与涨停情绪页都能查看</p>${action}</div>`;
   $("#limitup-unlock")?.addEventListener("click", unlockLimitUp);
 }
 
@@ -413,6 +367,7 @@ function updateLinkagePlayback() {
   }
 }
 
+if (linkageScroll) {
 linkageMotion?.addEventListener?.("change", updateLinkagePlayback);
 linkageScroll.addEventListener("pointerenter", (event) => {
   if (event.pointerType !== "mouse") return;
@@ -436,6 +391,7 @@ else new IntersectionObserver(([entry]) => {
   updateLinkagePlayback();
 }).observe(linkageScroll);
 if (typeof ResizeObserver !== "undefined") new ResizeObserver(updateLinkagePlayback).observe(linkageScroll);
+}
 
 async function loadGlobalLinkageCard() {
   const status = $("#home-linkage-status");
@@ -485,13 +441,37 @@ async function loadGlobalLinkageCard() {
   }
 }
 
-whenNearViewport(linkageCard, loadGlobalLinkageCard);
+// ── 题材二波（题材页，2026-11-19 先只在 Exp 显示）：各档数量 + 已启动 / 待确认前 3 名 ──
+async function loadSecondWave() {
+  const box = $("#sw-home-body");
+  try {
+    const { response, payload } = await request("/api/second-wave?resource=summary");
+    if (!response.ok) throw new Error(payload.error || "暂时无法读取题材二波");
+    const stats = payload.stats || {};
+    const show = (id, value) => { $(id).textContent = Number.isFinite(Number(value)) ? String(value) : "—"; };
+    show("#sw-home-started", stats.started); show("#sw-home-watch", stats.watch);
+    $("#sw-home-pill").textContent = payload.meta?.tradeDate ? `${payload.meta.tradeDate} 收盘` : "—";
+    const top = (payload.top || []).slice(0, 3);
+    if (!top.length) { box.innerHTML = '<div class="empty">今日没有已启动或待确认的题材。</div>'; return; }
+    box.innerHTML = `<ol class="home-anomaly-list">${top.map((item) => `<li><a class="home-preview-link" href="/secondwave" aria-label="查看${esc(item.name)}"><b>${esc(item.name)}</b><strong>${esc(Math.round(item.score))}</strong><small>${esc(item.band)} · 今日 ${pct(item.chg)} · 量能为高峰的 ${Math.round(item.water * 100)}%</small></a></li>`).join("")}</ol>`;
+  } catch (error) {
+    $("#sw-home-pill").textContent = "—";
+    box.innerHTML = `<div class="empty">${esc(error.message || "暂时无法读取题材二波")}</div>`;
+  }
+}
+
+// 只加载本页有的卡（whenNearViewport 拿到 null 会立即加载，所以先判断）
+if (linkageCard) whenNearViewport(linkageCard, loadGlobalLinkageCard);
 
 loadPoints();
-loadEmotion();
-loadAnomalies();
-whenNearViewport($("#limitup-card"),loadLimitUp);
-whenNearViewport($("#sectorflow-card"),loadSectorFlow);
+if ($("#emotion-card")) loadEmotion();
+if (body) loadAnomalies();
+if ($("#limitup-card")) whenNearViewport($("#limitup-card"),loadLimitUp);
+if ($("#sectorflow-card")) whenNearViewport($("#sectorflow-card"),loadSectorFlow);
+if ($("#secondwave-card") && ["lfjmwl.com", "www.lfjmwl.com", "stockmarketshortemotion.vercel.app", "exp.lfjmwl.com", "localhost", "127.0.0.1"].includes(globalThis.location?.hostname)) {
+  $("#secondwave-card").hidden = false;
+  whenNearViewport($("#secondwave-card"), loadSecondWave);
+}
 
 
 window.addEventListener("se:points-updated", loadPoints);
@@ -507,19 +487,21 @@ function renderEtfHome(){
  etfHomeButton.textContent=etfHomeBusy?'解锁中…':'解锁 · 5 积分';
  $('#etf-home-balance').hidden=etfHomeData?.balance==null;
  $('#etf-home-balance').textContent=etfHomeData?.balance==null?'':`积分 ${etfHomeData.balance}`;
- $('#etf-home-lock p').textContent=etfHomeData?.unavailable?'积分服务暂时不可用，请稍后再试':'解锁后 12 小时内，首页与看板都能查看';
+ $('#etf-home-lock p').textContent=etfHomeData?.unavailable?'积分服务暂时不可用，请稍后再试':'解锁后 12 小时内，资金页与看板都能查看';
  if(!etfHomeData?.ready){$('#etf-home-overview').textContent='当前数据缺失';$('#etf-home-time').textContent='';return;}
  if(locked){$('#etf-home-overview').innerHTML='<div class="lock-skeleton" aria-hidden="true"><i></i><i></i><i></i><i></i></div>';return;}
  $('#etf-home-overview').innerHTML=etfOverviewMarkup(etfHomeData);
  $('#etf-home-time').textContent=`数据日期 ${etfHomeData.date.slice(0,4)}-${etfHomeData.date.slice(4,6)}-${etfHomeData.date.slice(6)}`;
 }
 async function loadEtfHome(){try{etfHomeData=await etfflowRequest();renderEtfHome();rememberSnapshot("etfflow",etfHomeData);}catch(error){if(error.status===401)return goLogin();$('#etf-home-overview').textContent=error.message;}}
-etfHomeButton.addEventListener('click',async()=>{
+if (etfHomeButton) etfHomeButton.addEventListener('click',async()=>{
  if(etfHomeBusy||!etfHomeData)return;
  if(etfHomeData.unavailable){toast('积分服务暂时不可用，请稍后再试',true);loadEtfHome();return;}
  if(!etfHomeData.locked){location.assign('/etfflow');return;}
  etfHomeBusy=true;renderEtfHome();
  try{const result=await etfflowRequest('unlock');showUnlockSuccess(toast, 'etfflow', result);await loadEtfHome();}catch(error){if(error.status===401)return goLogin();toast(error.message,true);}finally{etfHomeBusy=false;renderEtfHome();}
 });
-whenNearViewport($("#etf-home-card"),loadEtfHome);
-addEventListener('pageshow',event=>{if(event.persisted)loadEtfHome();});
+if (etfHomeButton) {
+  whenNearViewport($("#etf-home-card"),loadEtfHome);
+  addEventListener('pageshow',event=>{if(event.persisted)loadEtfHome();});
+}

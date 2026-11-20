@@ -61,24 +61,57 @@ describe('shared reads and navigation isolation',()=>{
 });
 
 describe('homepage loading',()=>{
-  it('shows market data while the points request is still unresolved',async()=>{
-    dom.document.write(readFileSync('public/home/index.html','utf8'));
+  // 首页、题材、资金三个一级页面共用 home.js（2026-11-19 底部 Tab 重整），各自只加载页面上有的卡。
+  const loadPage=async(page)=>{
+    dom.document.write(readFileSync(`public/${page}/index.html`,'utf8'));
     const source=readFileSync('public/home/home.js','utf8').replace(/^import .*;\n/gm,'');
     const points=new Promise(()=>{});
-    const request=vi.fn(async url=>({response:{ok:true,status:200},payload:url.includes('resource=emotion')?{score:78,dimensions:{},market:{},regime:{phase:'回暖'}}:{locked:true,total:2,metrics:{}}}));
+    const request=vi.fn(async url=>({response:{ok:true,status:200},payload:url.includes('resource=emotion')?{score:78,dimensions:{},market:{},regime:{phase:'回暖'}}:url.includes('watchlist')?{days:[],stocks:[{code:'600519.SH',name:'贵州茅台',close:1500,change:1.2}]}:{locked:true,total:2,metrics:{}}}));
     const deps={requestJSON:request,readPoints:()=>points,rememberSnapshot:vi.fn(),whenNearViewport:(el,load)=>load(),
       etfOverviewMarkup:()=>'',sectorflowRequest:vi.fn(),etfflowRequest:async()=>({ready:false}),emotionTimeLabel:()=>'',
-      startAnalysisRefresh:load=>load(),updateNavPoints:vi.fn(),$:s=>dom.document.querySelector(s),toast:vi.fn(),goLogin:vi.fn(),initAccountMenu:vi.fn(),
-      readAnalysisConfig:async()=>({configured:true,cost:10,latest:[]}),setPendingAnalysis:vi.fn(),validQuery:()=>true,renderLatest:vi.fn(),
-      mountFundFlow:()=>({update:vi.fn()}),addEventListener:dom.addEventListener.bind(dom)};
+      updateNavPoints:vi.fn(),$:s=>dom.document.querySelector(s),toast:vi.fn(),goLogin:vi.fn(),initAccountMenu:vi.fn(),
+      mountFundFlow:()=>({update:vi.fn()}),addEventListener:dom.addEventListener.bind(dom),linkageCorrelationLabel:()=>''};
     new Function(...Object.keys(deps),source)(...Object.values(deps));
     await flush();
-    expect(request.mock.calls.map(c=>c[0])).toEqual(expect.arrayContaining([
-      '/api/short-emotion?market=cn&resource=emotion',
-      '/api/short-emotion?market=cn&resource=anomalies&preview=1',
-      '/api/sectorflow?resource=summary','/api/limitup?resource=summary'
-    ]));
+    return request.mock.calls.map(c=>c[0]);
+  };
+  it('shows market data while the points request is still unresolved',async()=>{
+    const calls=await loadPage('home');
+    expect(calls).toEqual(['/api/short-emotion?market=cn&resource=emotion']);
     expect(dom.document.querySelector('#emotion-score').textContent).toBe('78');
+  });
+  it('首页板块速览小卡：免费数字直接显示，需积分的只显示解锁查看',async()=>{
+    dom.document.write(readFileSync('public/home/index.html','utf8'));
+    const source=readFileSync('public/home/mini-cards.js','utf8').replace(/^import .*;\n/gm,'');
+    const payloads={
+      'anomalies':{locked:true,total:4,items:[]},
+      'limitup':{metrics:{limitUpCount:28,limitDownCount:83,maxStreak:3,promotionRate:0.12}},
+      'sectorflow':{locked:true},
+      'global-linkage':{groups:[{label:'中美联动',themes:[{theme:'AI算力',pairs:[{heat:{rank:1}}]}]}]}
+    };
+    const requestJSON=vi.fn(async url=>({response:{ok:true,status:200},payload:payloads[Object.keys(payloads).find(k=>url.includes(k))]}));
+    const deps={document:dom.document,location:{hostname:'example.com'},requestJSON,etfflowRequest:async()=>({ready:true,locked:true}),
+      etfNumber:n=>String(n),flowDataset:()=>({lines:[]}),selectFlowLines:()=>[],linkageCorrelationLabel:()=>'中'};
+    new Function(...Object.keys(deps),source)(...Object.values(deps));
+    await flush();
+    const text=id=>dom.document.querySelector(`#${id} .home-mini-value`).textContent;
+    expect(text('mini-anomaly')).toBe('4个题材');
+    expect(dom.document.querySelector('#mini-limitup')).toBeNull();
+    expect(text('mini-sectorflow')).toBe('解锁查看');
+    expect(text('mini-etf')).toBe('解锁查看');
+    expect(text('mini-linkage')).toBe('AI算力');
+    expect(dom.document.querySelector('#mini-qdii').hidden).toBe(true);
+    expect(dom.document.querySelector('#mini-secondwave').hidden).toBe(true);
+    expect(dom.document.querySelectorAll('#home-minis button').length).toBe(0);
+  });
+  it('题材页只加载题材异动与涨停情绪',async()=>{
+    const calls=await loadPage('themes');
+    expect(calls.sort()).toEqual(['/api/limitup?resource=summary','/api/short-emotion?market=cn&resource=anomalies&preview=1']);
+  });
+  it('资金页加载资金流向与全球联动，不加载情绪与题材',async()=>{
+    const calls=await loadPage('funds');
+    expect(calls).toEqual(expect.arrayContaining(['/api/sectorflow?resource=summary','/api/short-emotion?market=cn&resource=global-linkage']));
+    expect(calls).not.toContain('/api/short-emotion?market=cn&resource=emotion');
   });
   it('keeps ranking and total count while omitting heavy theme details',()=>{
     const items=Array.from({length:6},(_,i)=>({name:`题材${i}`,score:90-i,signals:['news'],limitStocks:[{code:'x'}],news:['large body']}));

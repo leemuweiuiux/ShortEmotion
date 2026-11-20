@@ -38,11 +38,11 @@
 <link rel="stylesheet" href="/kandian/reports.css?v=5">
 <link rel="stylesheet" href="/shared/like.css?v=1">
 <link rel="stylesheet" href="/shared/etf-overview.css?v=1">
-<link rel="stylesheet" href="/home/home.css?v=18">
-<link rel="stylesheet" href="/qdii/board.css?v=12">  <link rel="stylesheet" href="/shared/global-header.css?v=4">
+<link rel="stylesheet" href="/home/home.css?v=20">
+  <link rel="stylesheet" href="/shared/global-header.css?v=5">
   <script defer src="/shared/usage.js?v=3"></script>
-  <link rel="stylesheet" href="/shared/wide-layout.css?v=4">
-  <link rel="stylesheet" href="/shared/primary-tabs.css?v=1">
+  <link rel="stylesheet" href="/shared/wide-layout.css?v=7">
+  <link rel="stylesheet" href="/shared/primary-tabs.css?v=5">
 </head>
 <body class="wide-page wide-home">
   <div class="app-shell">
@@ -55,18 +55,6 @@
     </nav>
 
     <main class="wide-home-grid">
-      <form id="ta-form" class="card ta-search home-card" autocomplete="off">
-        <div class="card-head"><h2 class="card-title"><a href="/technicalanalysis">个股分析</a></h2><a class="home-more" href="/technicalanalysis" aria-label="查看更多个股分析">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
-        <div class="home-card-body"><div class="se-bar">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-4.2-4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          <input id="ta-input" name="q" type="search" inputmode="search" enterkeyhint="go" maxlength="30" placeholder="股票代码或完整名称" aria-label="股票代码或完整名称" required>
-          <button id="ta-run" class="ta-run" type="submit">开始分析</button>
-        </div>
-        <p class="card-desc">生成趋势结构、胜率与赔率、历史同类量价结构和事件驱动分析。</p>
-        <p id="ta-latest" class="ta-recent ta-latest" aria-live="polite">大家都在看：正在加载…</p>
-        <p id="ta-hint" class="ta-hint">*首次查询或更新需要 10 积分</p></div>
-      </form>
-
       <section id="emotion-card" class="card home-card home-emotion">
         <div class="card-head"><h2 class="card-title"><a href="/shortemotion/cn">今日短线情绪</a></h2><a class="home-more" href="/shortemotion/cn" aria-label="查看更多今日短线情绪">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
         <div class="home-card-body">
@@ -89,53 +77,13 @@
         </a></div>
       </section>
 
-      <section id="global-linkage-card" class="card home-card home-linkage" aria-labelledby="home-linkage-title">
-        <div class="card-head">
-          <h2 id="home-linkage-title" class="card-title"><a href="/shortemotion/cn#global">全球联动</a></h2>
-          <a class="home-more" href="/shortemotion/cn#global" aria-label="查看更多全球联动">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
-        </div>
-        <div class="home-card-body">
-          <div class="home-linkage-ticker">
-            <p id="home-linkage-status" class="home-time" role="status">正在读取联动板块…</p>
-            <div id="home-linkage-scroll" class="home-linkage-scroll" role="region" aria-label="联动板块" tabindex="0" hidden>
-              <div class="home-linkage-track">
-                <ul id="home-linkage-themes" class="home-linkage-themes"></ul>
-              </div>
-            </div>
-          </div>
-          <time id="home-linkage-date" class="home-time" hidden></time>
-        </div>
-      </section>
-
-      <section id="qdii-card" class="card home-card home-qdii" aria-labelledby="home-qdii-title" hidden>
-        <div class="card-head"><h2 id="home-qdii-title" class="card-title"><a href="/qdiitrend">美股 QDII 温度计</a></h2><a class="home-more" href="/qdiitrend" aria-label="查看更多美股 QDII 温度计">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
-        <div id="qdii-home-body" class="home-card-body" aria-live="polite"><div class="loading">正在读取限额快照…</div></div>
-      </section>
-
-      <section id="anomaly-card" class="card home-card home-anomaly">
-        <div class="card-head"><h2 class="card-title"><a href="/shortemotion/cn#themes">当日题材异动</a></h2><a class="home-more" href="/shortemotion/cn#themes" aria-label="查看更多当日题材异动">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
-        <div class="home-card-body"><div class="home-card-meta"><span id="anomaly-pill" class="pill">读取中</span></div>
-        <p class="card-desc">按涨停点火、批量拉升与消息催化筛出的高价值题材方向。</p>
-        <div id="anomaly-body" class="home-anomaly-body"><div class="loading">正在读取题材异动…</div></div></div>
-      </section>
-
-      <section id="limitup-card" class="card home-card home-limitup">
-        <div class="card-head"><h2 class="card-title"><a href="/limitup">涨停情绪</a></h2><a class="home-more" href="/limitup" aria-label="查看更多涨停情绪">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
-        <div class="home-card-body"><div class="home-card-meta"><span id="limitup-pill" class="pill">读取中</span></div>
-        <div class="home-market" aria-label="涨停概况">
-          <div><span>涨停</span><b id="limitup-up" class="up-text">—</b></div>
-          <div><span>跌停</span><b id="limitup-down" class="down-text">—</b></div>
-          <div><span>最高板</span><b id="limitup-max">—</b></div>
-          <div><span>晋级率</span><b id="limitup-promo">—</b></div>
-        </div>
-        <div id="limitup-ladder" class="home-limitup-body"><div class="loading">正在读取涨停天梯…</div></div>
-        <span id="limitup-time" class="home-time"></span></div>
-      </section>
-
-      <section id="etf-home-card" class="card home-card"><div class="card-head"><h2 class="card-title"><a href="/etfflow">宽基ETF</a></h2><a class="home-more" href="/etfflow" aria-label="查看更多宽基ETF">查看更多 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 5 7 7-7 7" stroke="currentColor" stroke-width="1.6"/></svg></a></div><div id="etf-home-body" class="home-card-body home-etf-body"><div id="etf-home-overview" aria-live="polite">正在读取资金概览…</div><span id="etf-home-time" class="home-time"></span><div id="etf-home-lock" class="anomaly-lock" role="group" aria-label="宽基ETF已锁定" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><b>查看宽基ETF概览</b><p>解锁后 12 小时内，首页与看板都能查看</p><button id="etf-home-action" class="pill-btn" type="button" disabled>解锁 · 5 积分</button><small id="etf-home-balance"></small></div></div></section>
-      <section id="sectorflow-card" class="card home-card home-sectorflow">
-        <div class="card-head"><h2 class="card-title"><a href="/sectorflow">资金流向</a></h2><a class="home-more" href="/sectorflow" aria-label="查看更多资金流向">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
-        <div id="sectorflow-body" class="home-card-body home-etf-body"><div id="sectorflow-chart"></div><div id="sectorflow-home-lock" class="anomaly-lock" role="group" aria-label="资金流向已锁定" hidden></div></div>
+      <section id="home-minis" class="home-minis" aria-label="板块速览">
+        <a id="mini-anomaly" class="card home-mini" href="/themes#anomaly-card"><span class="home-mini-title">题材异动<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong class="home-mini-value">—</strong><small class="home-mini-sub">读取中</small></a>
+        <a id="mini-secondwave" class="card home-mini" href="/secondwave" hidden><span class="home-mini-title">题材二波<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong class="home-mini-value">—</strong><small class="home-mini-sub">读取中</small></a>
+        <a id="mini-sectorflow" class="card home-mini" href="/funds#sectorflow-card"><span class="home-mini-title">资金流向<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong class="home-mini-value">—</strong><small class="home-mini-sub">读取中</small></a>
+        <a id="mini-etf" class="card home-mini" href="/funds#etf-home-card"><span class="home-mini-title">宽基ETF<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong class="home-mini-value">—</strong><small class="home-mini-sub">读取中</small></a>
+        <a id="mini-linkage" class="card home-mini" href="/funds#global-linkage-card"><span class="home-mini-title">全球联动<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong class="home-mini-value">—</strong><small class="home-mini-sub">读取中</small></a>
+        <a id="mini-qdii" class="card home-mini" href="/funds#qdii-card" hidden><span class="home-mini-title">QDII 温度计<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong class="home-mini-value">—</strong><small class="home-mini-sub">读取中</small></a>
       </section>
 
       <section class="card home-card mr-home" aria-label="每日看点">
@@ -148,13 +96,11 @@
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/home/home.js?v=23"></script>
-<script type="module" src="/kandian/reports.js?v=9"></script>
-
+  <script type="module" src="/home/home.js?v=26"></script>
+  <script type="module" src="/home/mini-cards.js?v=3"></script>
+  <script type="module" src="/kandian/reports.js?v=9"></script>
   <script type="module" src="/shared/nav-points.js?v=2"></script>
-  <script type="module" src="/shared/global-header.js?v=7"></script>
-  <script type="module" src="/shared/primary-tabs.js?v=2"></script>
-  <script type="module" src="/qdii/home-card.js?v=15"></script>
+  <script type="module" src="/shared/global-header.js?v=9"></script>
+  <script type="module" src="/shared/primary-tabs.js?v=4"></script>
 </body>
 </html>
-

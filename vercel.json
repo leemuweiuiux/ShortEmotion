@@ -48,6 +48,10 @@
     {"source": "/api/etf-flow", "destination": "/api/market-data?__se_board=etf-flow"},
     {"source": "/api/etf-flow/", "destination": "/api/market-data?__se_board=etf-flow"},
     {"source": "/api/limitup", "destination": "/api/market-data?__se_board=limitup"},
+    {"source": "/api/second-wave", "destination": "/api/market-data?__se_board=second-wave"},
+    {"source": "/api/second-wave/", "destination": "/api/market-data?__se_board=second-wave"},
+    {"source": "/secondwave", "destination": "/second-wave/index.html"},
+    {"source": "/secondwave/", "destination": "/second-wave/index.html"},
     {"source": "/api/limitup/", "destination": "/api/market-data?__se_board=limitup"},
     {"source": "/api/morning-report", "destination": "/api/kandian?__se_report=1"},
     {"source": "/api/morning-report/", "destination": "/api/kandian?__se_report=1"},
@@ -56,6 +60,12 @@
     {"source": "/news/feed.xml", "destination": "/api/news?view=rss"},
     {"source": "/zh-hant/news/feed.xml", "destination": "/api/news?view=rss&lang=hant"},
     {"source": "/news", "destination": "/api/news"},
+    {"source": "/market", "destination": "/api/news?view=market"},
+    {"source": "/market/", "destination": "/api/news?view=market"},
+    {"source": "/market/:date", "destination": "/api/news?view=market&date=:date"},
+    {"source": "/zh-hant/market", "destination": "/api/news?view=market&lang=hant"},
+    {"source": "/zh-hant/market/", "destination": "/api/news?view=market&lang=hant"},
+    {"source": "/zh-hant/market/:date", "destination": "/api/news?view=market&lang=hant&date=:date"},
     {"source": "/news/", "destination": "/api/news"},
     {"source": "/news/:id", "destination": "/api/news?id=:id"},
     {"source": "/zh-hant/news", "destination": "/api/news?lang=hant"},
@@ -97,6 +107,10 @@
     {"source": "/watchlist/", "destination": "/watchlist/index.html"},
     {"source": "/home", "destination": "/home/index.html"},
     {"source": "/home/", "destination": "/home/index.html"},
+    {"source": "/themes", "destination": "/themes/index.html"},
+    {"source": "/themes/", "destination": "/themes/index.html"},
+    {"source": "/funds", "destination": "/funds/index.html"},
+    {"source": "/funds/", "destination": "/funds/index.html"},
     {"source": "/technicalanalysis", "destination": "/technical-analysis/index.html"},
     {"source": "/technicalanalysis/", "destination": "/technical-analysis/index.html"},
     {"source": "/etfflow", "destination": "/etfflow/index.html"},
@@ -107,5 +121,8 @@
     {"source": "/limitup/", "destination": "/limitup/index.html"},
     {"source": "/shortemotion/cn", "destination": "/short-emotion/index.html"},
     {"source": "/shortemotion/cn/", "destination": "/short-emotion/index.html"}
+  ],
+  "headers": [
+    {"source": "/(.*)", "has": [{"type": "host", "value": "exp.lfjmwl.com"}], "headers": [{"key": "X-Robots-Tag", "value": "noindex, nofollow"}]}
   ]
 }

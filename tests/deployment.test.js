@@ -28,19 +28,20 @@ describe("网址：介绍页、登录页与看板", () => {
     expect(html).toMatch(/<a class="drawer-cta" href="\/login">登录<\/a>/);
   });
 
-  it("介绍页介绍个股技术分析：主视觉入口、四项说明、看板卡片", () => {
+  it("介绍页（2026-11-20 改版）：主视觉入口、四个看板卡、近期短线情绪，不提积分与更新频率", () => {
     const html = readFileSync(resolve(root, "public/about/index.html"), "utf8");
     expect(html).toMatch(/<form class="ta-tile" action="\/technicalanalysis" method="get"/);
-    expect(html).toContain('<a class="board-link" href="/technicalanalysis">');
+    for (const href of ["/home", "/themes", "/funds", "/watchlist", "/market", "/news"]) expect(html).toContain(`<a class="board-link" href="${href}"`);
     expect(html).toContain("看懂A股情绪与走势");
-    expect(html).toContain("以下截图为示例数据");
+    expect(html).not.toContain("积分");
+    expect(html).not.toContain("每个交易日");
     expect(html).not.toContain("更多看板陆续上线");
   });
 
   it("介绍页轮换标题：动词与对象成对，对象都是 7 个字（切换时不换行）", () => {
     const code = readFileSync(resolve(root, "public/about/about.js"), "utf8");
     const pairs = [...code.matchAll(/\["([^"]+)", "([^"]+)"\]/g)].map((m) => [m[1], m[2]]);
-    expect(pairs[0]).toEqual(["量化", "每天的短线情绪"]);
+    expect(pairs[0]).toEqual(["量化", "A股的短线情绪"]);
     expect(pairs.some(([, object]) => object.startsWith("个股"))).toBe(true);
     for (const [verb, object] of pairs) {
       expect([...verb]).toHaveLength(2);
@@ -162,7 +163,7 @@ describe("页面脚本", () => {
 
   it("中间件只拦介绍页以外的入口：/、/login、首页、看点、个股分析、板块资金、涨停情绪、个人页面、看板、管理后台", async () => {
     const { config } = await import("../middleware.js");
-    expect(config.matcher).toEqual(["/qdii/:path*", "/qdiitrend", "/qdiitrend/", "/watchlist", "/watchlist/:path*", "/etfflow", "/etfflow/", "/etfflow/:path*", "/", "/login", "/login/", "/home", "/home/", "/kandian", "/kandian/", "/kandian/:path*", "/technicalanalysis", "/technicalanalysis/", "/sectorflow", "/sectorflow/", "/limitup", "/limitup/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]);
+    expect(config.matcher).toEqual(["/qdii/:path*", "/qdiitrend", "/qdiitrend/", "/watchlist", "/watchlist/:path*", "/themes", "/themes/", "/funds", "/funds/", "/secondwave", "/secondwave/", "/etfflow", "/etfflow/", "/etfflow/:path*", "/", "/login", "/login/", "/home", "/home/", "/kandian", "/kandian/", "/kandian/:path*", "/technicalanalysis", "/technicalanalysis/", "/sectorflow", "/sectorflow/", "/limitup", "/limitup/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]);
   });
 });
 
