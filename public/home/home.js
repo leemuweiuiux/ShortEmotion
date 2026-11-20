@@ -449,7 +449,7 @@ async function loadSecondWave() {
     if (!response.ok) throw new Error(payload.error || "暂时无法读取题材二波");
     const stats = payload.stats || {};
     const show = (id, value) => { $(id).textContent = Number.isFinite(Number(value)) ? String(value) : "—"; };
-    show("#sw-home-started", stats.started); show("#sw-home-watch", stats.watch); show("#sw-home-observe", stats.observe); show("#sw-home-fade", stats.fade);
+    show("#sw-home-started", stats.started); show("#sw-home-watch", stats.watch);
     $("#sw-home-pill").textContent = payload.meta?.tradeDate ? `${payload.meta.tradeDate} 收盘` : "—";
     const top = (payload.top || []).slice(0, 3);
     if (!top.length) { box.innerHTML = '<div class="empty">今日没有已启动或待确认的题材。</div>'; return; }
