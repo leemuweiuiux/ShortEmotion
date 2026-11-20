@@ -54,7 +54,7 @@
     <main class="wide-home-grid">
       <section id="sectorflow-card" class="card home-card home-sectorflow">
         <div class="card-head"><h2 class="card-title"><a href="/sectorflow">资金流向</a></h2><a class="home-more" href="/sectorflow" aria-label="查看更多资金流向">查看更多<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
-        <div id="sectorflow-body" class="home-card-body home-etf-body"><div id="sectorflow-chart"></div><div id="sectorflow-home-lock" class="anomaly-lock" role="group" aria-label="资金流向已锁定" hidden></div></div>
+        <div id="sectorflow-body" class="home-card-body home-etf-body"><div id="sectorflow-chart"></div><span id="sectorflow-home-time" class="home-time"></span><div id="sectorflow-home-lock" class="anomaly-lock" role="group" aria-label="资金流向已锁定" hidden></div></div>
       </section>
 
       <section id="etf-home-card" class="card home-card"><div class="card-head"><h2 class="card-title"><a href="/etfflow">宽基ETF</a></h2><a class="home-more" href="/etfflow" aria-label="查看更多宽基ETF">查看更多 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 5 7 7-7 7" stroke="currentColor" stroke-width="1.6"/></svg></a></div><div id="etf-home-body" class="home-card-body home-etf-body"><div id="etf-home-overview" aria-live="polite">正在读取资金概览…</div><span id="etf-home-time" class="home-time"></span><div id="etf-home-lock" class="anomaly-lock" role="group" aria-label="宽基ETF已锁定" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><b>查看宽基ETF概览</b><p>解锁后 12 小时内，资金页与看板都能查看</p><button id="etf-home-action" class="pill-btn" type="button" disabled>解锁 · 5 积分</button><small id="etf-home-balance"></small></div></div></section>
@@ -87,8 +87,8 @@
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/home/home.js?v=27"></script>
-  <script type="module" src="/qdii/home-card.js?v=15"></script>
+  <script type="module" src="/home/home.js?v=28"></script>
+  <script type="module" src="/qdii/home-card.js?v=16"></script>
   <script type="module" src="/shared/nav-points.js?v=2"></script>
   <script type="module" src="/shared/global-header.js?v=9"></script>
   <script type="module" src="/shared/primary-tabs.js?v=4"></script>

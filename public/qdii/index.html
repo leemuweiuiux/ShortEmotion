@@ -43,7 +43,7 @@
     </nav>
     <main class="qdii-page">
       <section class="card qdii-board-card" aria-labelledby="qdii-title">
-        <div class="card-head"><h1 id="qdii-title" class="card-title">美股 QDII 温度计</h1><div class="qdii-share-wrap"><button id="qdii-share" class="nav-btn" type="button" aria-label="导出分享" aria-haspopup="menu" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 4v11M7.5 8.5 12 4l4.5 4.5M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
+        <div class="card-head"><h1 id="qdii-title" class="card-title">美股 QDII 温度计</h1><span id="qdii-asof" class="pill"></span><div class="qdii-share-wrap"><button id="qdii-share" class="nav-btn" type="button" aria-label="导出分享" aria-haspopup="menu" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 4v11M7.5 8.5 12 4l4.5 4.5M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
         <p id="qdii-dates" class="qdii-time"></p>
         <p id="qdii-status" class="loading" role="status">正在读取限额快照…</p>
         <div id="qdii-thermo" class="qdii-board"></div>
@@ -83,6 +83,6 @@
   </div>
   <div id="toast" class="toast" role="status"></div>
   <script type="module" src="/shared/global-header.js?v=8"></script>
-  <script type="module" src="/qdii/qdii.js?v=20"></script>
+  <script type="module" src="/qdii/qdii.js?v=21"></script>
 </body>
 </html>

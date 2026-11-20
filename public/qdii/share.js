@@ -3,6 +3,8 @@
 import { loadImageExporter } from "/shared/export-loader.js?v=1";
 import { exportHeader, exportFooter, renderImage, prepareExportAssets, shareOrDownload, showGallery, closeGallery, withTimeout, esc } from "/shared/export-image.js?v=2";
 import { chartMarkup, currentEntry, eventsMarkup, latestCards, noticesMarkup, percent, scaleMarkup, signalNote, signalOf, tableMarkup, trendClass } from "/qdii/board.js?v=15";
+import { asofLabel } from "/shared/local-time.js?v=2";
+
 
 export function datesLine(snapshot) {
   const pending = snapshot.families.reduce((sum, family) => sum + family.review.length, 0);
@@ -35,7 +37,7 @@ function heroMarkup(snapshot) {
 }
 
 const footer = () => exportFooter({ title: "Market Emotion · 美股 QDII 温度计", line: "QDII 限额拥挤还是宽松？看美股之后怎么走", note: "仅供研究，不构成投资建议。" });
-const stamp = (snapshot) => `指数收盘 ${snapshot.indexThrough} · 限额核实 ${snapshot.verifiedOn}`;
+const stamp = (snapshot) => `${asofLabel({ at: snapshot.updatedAt, day: snapshot.indexThrough, closed: true })} · 限额核实 ${snapshot.verifiedOn}`;
 const twoYears = (snapshot) => `${Number(snapshot.indexThrough.slice(0, 4)) - 2}${snapshot.indexThrough.slice(4)}`;
 
 // 各区块（小卡每块一张，长图依次拼接）
