@@ -3,8 +3,9 @@ import { updateNavPoints } from "/shared/nav-points.js?v=2";
 // 个股技术分析 /technicalanalysis
 // 输入六位代码或准确简称 → POST /api/technical-analysis（2026-11-19 起免费，每人每天 10 次；认不出股票或分析失败不占次数）。
 // 版面与图表沿用 lfjDashboard「个股技术分析助手」，改成本站的单列卡片样式；页面不标注数据来源。
-import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, takePendingAnalysis, validQuery, renderRecent, readAnalysisResult, shortTime } from "/shared/nav-account.js?v=4";
+import { $, toast, goLogin, initAccountMenu, readAnalysisConfig, takePendingAnalysis, validQuery, renderRecent, readAnalysisResult } from "/shared/nav-account.js?v=4";
 import { compositeCharts } from "./chart-export.js?v=1";
+import { asofLabel } from "/shared/local-time.js?v=2";
 
 import { initViewDrawer } from "./view-drawer.js?v=3";
 
@@ -68,7 +69,7 @@ async function openHistory(id, byCode = false) {
     const payload = await readAnalysisResult(id, byCode);
     current = payload.data;
     render();
-    $("#ta-history-time").textContent = `${payload.needsRefresh ? "历史结果" : "最新结果"} · 更新于 ${shortTime(payload.analyzedAt)}`;
+    $("#ta-history-time").textContent = `${payload.needsRefresh ? "历史结果" : "最新结果"} · ${asofLabel({ at: payload.analyzedAt }) || "未返回更新时间"}`;
     if (payload.needsRefresh) refreshCode = current.code;
     $("#ta-history-bar").hidden = false;
     input.value = String(current.code || "").split(".")[0];
@@ -119,7 +120,7 @@ async function analyze(query, refresh = false) {
         current = payload.fallback.data;
         render();
         $("#ta-history-bar").hidden = false;
-        $("#ta-history-time").textContent = `更新未完成 · 保留 ${shortTime(payload.fallback.analyzedAt)} 的历史结果`;
+        $("#ta-history-time").textContent = `更新未完成 · 保留历史结果 · ${asofLabel({ at: payload.fallback.analyzedAt })}`;
         setUrl({ view: current.code });
       }
       // 失败时说明有没有扣分：积分不足、已退回的提示本身已写明；其余（认不出股票等）没扣分
@@ -128,7 +129,7 @@ async function analyze(query, refresh = false) {
     }
     current = payload.data;
     $("#ta-history-bar").hidden = false;
-    $("#ta-history-time").textContent = `最新结果 · 更新于 ${shortTime(payload.analyzedAt)}`;
+    $("#ta-history-time").textContent = `最新结果 · ${asofLabel({ at: payload.analyzedAt }) || "未返回更新时间"}`;
     render();
     setUrl({ q: current.code || q });
     if (payload.recent) renderRecent($("#ta-recent"), payload.recent, (row) => openHistory(row.code, true));

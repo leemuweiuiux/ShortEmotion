@@ -4,7 +4,7 @@ import { requestJSON, readPoints, rememberSnapshot } from '/shared/request.js?v=
 import {etfOverviewMarkup} from '/shared/etf-overview.js?v=1';
 import {sectorflowRequest} from '/shared/sectorflow-access.js?v=1';
 import {etfflowRequest} from '/shared/etfflow-access.js?v=1';
-import { emotionTimeLabel } from "/shared/local-time.js?v=1";
+import { renderAsof } from "/shared/local-time.js?v=2";
 import { updateNavPoints } from "/shared/nav-points.js?v=2";
 // 首页 /home（情绪大卡）与「题材」/themes、「资金」/funds 三个一级页面共用本脚本（2026-11-19 底部 Tab 重整），
 // 首页的板块速览小卡由 mini-cards.js 负责。
@@ -83,7 +83,7 @@ async function loadEmotion() {
     $("#emotion-phase").textContent = payload.regime?.phase || "—";
     $("#emotion-posture").textContent = payload.regime?.posture ? `姿态 · ${payload.regime.posture}` : "—";
     $("#emotion-copy").textContent = payload.regime?.summary || "";
-    $("#emotion-time").textContent = emotionTimeLabel(payload);
+    renderAsof($("#emotion-time"), { at: payload.storedAt || payload.capturedAt || payload.quoteTime, closed: Boolean(payload.endOfDay || payload.offSession || /\s(1[5-9]|2\d):\d{2}/.test(String(payload.quoteTime || ""))), partial: payload.partial });
     renderDimensions(payload.dimensions);
     const market = payload.market || {};
     const change = $("#market-change");
@@ -227,14 +227,6 @@ const limitupBody = $("#limitup-ladder");
 const streakText = (streak) => (Number(streak) >= 2 ? `${Number(streak)}板` : "首板");
 
 /** 行情时间「2026-10-27T10:05:43+08:00」→「行情时间 10-27 10:05」；不是今天的数据加注「最近交易日」。 */
-function isoQuoteLabel(value) {
-  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-  if (!match) return "";
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-  const stale = `${match[1]}-${match[2]}-${match[3]}` !== today;
-  return `行情时间 ${match[2]}-${match[3]} ${match[4]}:${match[5]}${stale ? " · 最近交易日" : ""}`;
-}
-
 function renderLimitUpMetrics() {
   const metrics = limitupData?.metrics || {};
   const count = (value) => (Number.isFinite(Number(value)) && value !== null ? Number(value).toLocaleString("zh-CN") : "—");
@@ -246,7 +238,7 @@ function renderLimitUpMetrics() {
     : Number.isFinite(Number(metrics.promotionRate)) && metrics.promotionRate !== null
       ? `${Math.round(metrics.promotionRate * 100)}%`
       : "—";
-  $("#limitup-time").textContent = isoQuoteLabel(limitupData?.quoteTime);
+  renderAsof($("#limitup-time"), { at: limitupData?.storedAt || limitupData?.quoteTime, closed: /[T\s](1[5-9]|2\d):\d{2}/.test(String(limitupData?.quoteTime || "")) });
 }
 
 function renderLimitUpLocked() {
@@ -432,7 +424,7 @@ async function loadGlobalLinkageCard() {
       const date = payload.tradingDate.replace(/^(....)(..)(..)$/, "$1-$2-$3");
       const dateLabel = $("#home-linkage-date");
       dateLabel.dateTime = date;
-      dateLabel.textContent = `数据日期 ${date}`;
+      renderAsof(dateLabel, { at: payload.storedAt, day: payload.tradingDate });
       dateLabel.hidden = false;
     }
   } catch {
@@ -449,7 +441,7 @@ async function loadSecondWave() {
     const stats = payload.stats || {};
     const show = (id, value) => { $(id).textContent = Number.isFinite(Number(value)) ? String(value) : "—"; };
     show("#sw-home-started", stats.started); show("#sw-home-watch", stats.watch);
-    $("#sw-home-pill").textContent = payload.meta?.tradeDate ? `${payload.meta.tradeDate} 收盘` : "—";
+    renderAsof($("#sw-home-pill"), { at: payload.meta?.generatedAt, day: payload.meta?.tradeDate, closed: true }, { fallback: "—" });
     const top = (payload.top || []).slice(0, 3);
     if (!top.length) { box.innerHTML = '<div class="empty">今日没有已启动或待确认的题材。</div>'; return; }
     box.innerHTML = `<ol class="home-anomaly-list">${top.map((item) => `<li><a class="home-preview-link" href="/secondwave" aria-label="查看${esc(item.name)}"><b>${esc(item.name)}</b><strong>${esc(Math.round(item.score))}</strong><small>${esc(item.band)} · 今日 ${pct(item.chg)} · 量能为高峰的 ${Math.round(item.water * 100)}%</small></a></li>`).join("")}</ol>`;
@@ -490,7 +482,7 @@ function renderEtfHome(){
  if(!etfHomeData?.ready){$('#etf-home-overview').textContent='当前数据缺失';$('#etf-home-time').textContent='';return;}
  if(locked){$('#etf-home-overview').innerHTML='<div class="lock-skeleton" aria-hidden="true"><i></i><i></i><i></i><i></i></div>';return;}
  $('#etf-home-overview').innerHTML=etfOverviewMarkup(etfHomeData);
- $('#etf-home-time').textContent=`数据日期 ${etfHomeData.date.slice(0,4)}-${etfHomeData.date.slice(4,6)}-${etfHomeData.date.slice(6)}`;
+ renderAsof($('#etf-home-time'),{at:etfHomeData.updatedAt,day:etfHomeData.date,closed:true});
 }
 async function loadEtfHome(){try{etfHomeData=await etfflowRequest();renderEtfHome();rememberSnapshot("etfflow",etfHomeData);}catch(error){if(error.status===401)return goLogin();$('#etf-home-overview').textContent=error.message;}}
 if (etfHomeButton) etfHomeButton.addEventListener('click',async()=>{
