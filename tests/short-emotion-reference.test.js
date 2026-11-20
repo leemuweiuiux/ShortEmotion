@@ -58,7 +58,7 @@ describe("参考看板渲染与当前框架适配", () => {
     const node = (key) => { if (!nodes.has(key)) nodes.set(key, {}); return nodes.get(key); };
     vm.runInNewContext(renderer + "\nrenderAnomalies();", {
       anomalyData: { items, summary: { total: items.length, minScore: 55 } }, anomalyFilter: filter, requestedTheme: null,
-      $: node, $$: () => [], setText: () => {}, stockDetailsOpen: () => true,
+      $: node, $$: () => [], setText: () => {}, renderAsof: () => null, stockDetailsOpen: () => true,
       escapeHtml: (s) => String(s), plain: (s, fallback) => s || fallback,
       formatPct: (n) => `${n}%`, signClass: () => "", ...context
     });

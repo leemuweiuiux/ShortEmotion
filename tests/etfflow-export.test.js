@@ -6,7 +6,7 @@ let buildEtfExport,heatmapPanels;const window=new Window();
 beforeAll(async()=>{
  globalThis.document=window.document;
  // Resolve browser absolute imports to the real shared modules for Node-based DOM checks.
- const source=(await readFile(new URL('../public/etfflow/share.js',import.meta.url),'utf8')).replace("'/shared/export-loader.js?v=1'",JSON.stringify(new URL('../public/shared/export-loader.js',import.meta.url).href)).replace("'/shared/export-image.js?v=2'",JSON.stringify(new URL('../public/shared/export-image.js',import.meta.url).href)).replace("'/shared/etf-overview.js?v=1'",JSON.stringify(new URL('../public/shared/etf-overview.js',import.meta.url).href));
+ const source=(await readFile(new URL('../public/etfflow/share.js',import.meta.url),'utf8')).replace("'/shared/export-loader.js?v=1'",JSON.stringify(new URL('../public/shared/export-loader.js',import.meta.url).href)).replace("'/shared/export-image.js?v=2'",JSON.stringify(new URL('../public/shared/export-image.js',import.meta.url).href)).replace("'/shared/local-time.js?v=2'",JSON.stringify(new URL('../public/shared/local-time.js',import.meta.url).href)).replace("'/shared/etf-overview.js?v=1'",JSON.stringify(new URL('../public/shared/etf-overview.js',import.meta.url).href));
  ({buildEtfExport,heatmapPanels}=await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`));
 });
 afterAll(()=>{delete globalThis.document;window.happyDOM.abort();});
@@ -20,7 +20,7 @@ describe('ETF exported image content',()=>{
  });
  it('keeps small cards compact and long exports scoped to selected ETF details',()=>{
   const d=data(),card=buildEtfExport(d),long=buildEtfExport(d,{kind:'long',selected:'hs300'});
-  expect(card.some(n=>n.querySelector('table'))).toBe(false);expect(card.map(n=>n.textContent).join('')).toContain('2026-10-22');
+  expect(card.some(n=>n.querySelector('table'))).toBe(false);expect(card.map(n=>n.textContent).join('')).toMatch(/已收盘 · (2026-)?10-22/);
   const detail=long.find(n=>n.querySelector('.ef-export-detail'));expect(detail.textContent).toContain('510300.SH');expect(detail.textContent).not.toContain('159845.SZ');expect(long.filter(n=>n.querySelector('.ef-export-table'))).toHaveLength(2);
  });
  it('refuses export of locked or incomplete data',()=>{expect(()=>buildEtfExport({...data(),locked:true})).toThrow('解锁');expect(()=>buildEtfExport({ready:false})).toThrow('加载');});

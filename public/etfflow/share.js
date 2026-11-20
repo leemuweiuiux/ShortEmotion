@@ -1,6 +1,7 @@
 import {loadImageExporter} from '/shared/export-loader.js?v=1';
 import {exportHeader,exportFooter,renderImage,prepareExportAssets,shareOrDownload,showGallery,closeGallery,withTimeout,esc} from '/shared/export-image.js?v=2';
 import {etfOverviewMarkup,etfNumber,etfColor} from '/shared/etf-overview.js?v=1';
+import {asofLabel} from '/shared/local-time.js?v=2';
 const labels={amount:'当日净流入（亿元）',day:'较昨日',week:'较近一周',month:'较近一月'};
 const valid=n=>n!==null&&n!==undefined&&Number.isFinite(Number(n));
 const date=d=>`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`;
@@ -24,7 +25,7 @@ export function heatmapPanels(data){
 }
 export function buildEtfExport(data,{kind='card',selected='hs300',metric='amount'}={}){
  if(!data?.ready||data.locked||!data.series?.length)throw new Error('请先解锁并加载宽基ETF数据');
- const parts=[exportHeader('宽基ETF',`数据日期 ${date(data.date)}`),node('资金概览',etfOverviewMarkup(data)),groups(data,metric,kind==='long')];
+ const parts=[exportHeader('宽基ETF',asofLabel({at:data.updatedAt,day:data.date,closed:true})),node('资金概览',etfOverviewMarkup(data)),groups(data,metric,kind==='long')];
  if(kind==='long'){
   parts.push(...heatmapPanels(data));
   const group=data.series.find(g=>g.id===selected),funds=data.funds.filter(f=>f.group===selected).map(f=>({...f,amount:f.points.find(p=>p.date===data.date)?.amount})).sort((a,b)=>(b.amount??-Infinity)-(a.amount??-Infinity));

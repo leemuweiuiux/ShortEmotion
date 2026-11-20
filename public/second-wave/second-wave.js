@@ -2,6 +2,7 @@
 // 读 /api/second-wave（收盘后的日频结果，不调用 Wind）。只显示已启动与待确认，先已启动、再待确认，同档按总分。
 // 大盘基准、分档数字、缩量质量 × 抗跌度气泡图、列表（筛选、搜索、排序）、跟踪清单、单一指数详情（量能柱 + 涨跌线、计算明细）。
 import { goLogin, toast } from "/shared/nav-account.js?v=4";
+import { asofLabel, renderAsof } from "/shared/local-time.js?v=2";
 import { loadImageExporter } from "/shared/export-loader.js?v=1";
 import { exportHeader, exportFooter, prepareExportAssets, renderImage, shareOrDownload, showGallery, closeGallery, withTimeout } from "/shared/export-image.js?v=2";
 
@@ -21,6 +22,8 @@ let data = null;
 const state = { band: "", q: "", sort: "band" };
 
 // 颜色直接写进 SVG：导出截图时 SVG 里的 CSS 变量不会被解析
+const swAsof = (meta = {}) => ({ at: meta.generatedAt, day: meta.tradeDate, closed: true });
+
 function palette() {
   const style = getComputedStyle(document.documentElement);
   const read = (name, fallback) => style.getPropertyValue(name).trim() || fallback;
@@ -239,7 +242,7 @@ function kpiMarkup(asButtons = true) {
 
 function render() {
   const { meta, stats } = data;
-  $("sw-date").textContent = `${meta.tradeDate} 收盘`;
+  renderAsof($("sw-date"), swAsof(meta));
   $("sw-export").disabled = !candidates().length;
   $("sw-meta").textContent = `观察窗口约 ${meta.window} 个日历日（约 25 个交易日）· 共 ${stats.total} 个概念指数参与评分`;
   $("sw-bench").innerHTML = benchMarkup();
@@ -295,7 +298,7 @@ const sorted = () => candidates().sort(SORTS.band);
 function buildLong() {
   const items = sorted();
   return [
-    exportHeader("题材二波", `${data.meta.tradeDate} 收盘 · ${data.stats.total} 个概念指数`),
+    exportHeader("题材二波", `${asofLabel(swAsof(data.meta))} · ${data.stats.total} 个概念指数`),
     exportSection("今日概览", overviewMarkup()),
     exportSection("缩量质量 × 抗跌度", `<div class="sw-bubble">${bubbleSvg(items)}</div>`),
     exportSection("已启动与待确认", items.length ? listMarkup(items) : '<p class="empty">当前没有已启动 / 待确认的指数</p>'),
@@ -329,7 +332,7 @@ async function runExport(kind) {
       const files = [];
       for (const [i, { title, section }] of cards.entries()) {
         toast(`正在生成小卡 ${i + 1}/${cards.length}…`);
-        const blob = await renderImage([exportHeader(`题材二波 · ${title}`, `${date} 收盘`), section, footer()], { extraClass: "sw-export export-card" });
+        const blob = await renderImage([exportHeader(`题材二波 · ${title}`, asofLabel(swAsof(data.meta))), section, footer()], { extraClass: "sw-export export-card" });
         files.push({ blob, title, name: `题材二波-${i + 1}-${title}-${date}.png` });
       }
       showGallery(files, { heading: "分享小卡", shareTitle: "题材二波", onError: (error) => toast(`保存失败：${error.message}`, true) });

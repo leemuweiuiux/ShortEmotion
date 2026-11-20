@@ -3,7 +3,8 @@
 // 数据来自 /api/limitup（只读定时任务写入的快照）；「刷新」沿用短线情绪（/api/short-emotion action=refresh，扣 5 积分），
 // 同一次更新会重算涨停情绪。各区块的计算与展示原样取自 lfjDashboard「涨停事件工作台20261027」limit.js。
 import { toast, goLogin, initAccountMenu } from "/shared/nav-account.js?v=4";
-import { setupLimitupShare } from "/limitup/share.js?v=2";
+import { renderAsof } from "/shared/local-time.js?v=2";
+import { setupLimitupShare } from "/limitup/share.js?v=3";
 import { updateNavPoints } from "/shared/nav-points.js?v=2";
 import { showPointsShortage } from "/shared/points-shortage.js?v=1";
 
@@ -413,15 +414,8 @@ function render(data) {
 }
 
 
-// ── 状态栏：行情时间 · 快照时间 · 解锁有效期 ──
+// ── 状态栏：统一更新标签 · 解锁有效期 ──
 let current = null;
-function quoteLabel(value) {
-  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2})/);
-  if (!match) return null;
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-  const stale = `${match[1]}-${match[2]}-${match[3]}` !== today;
-  return `行情时间 ${match[2]}-${match[3]} ${match[4]}${stale ? " · 最近交易日" : ""}`;
-}
 function untilLabel(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
@@ -431,11 +425,11 @@ function untilLabel(value) {
 function renderHeader() {
   if (refreshRun.active || !current) return;
   const degraded = Boolean(current.degraded);
-  $("#connection-dot").className = `status-dot${degraded ? "" : " ok"}`;
   const closed = /[T\s](1[5-9]|2\d):\d{2}/.test(String(current.quoteTime || ""));
-  setText("#connection", current.locked ? "未解锁" : degraded ? "部分数据未更新" : closed ? "已收盘" : "盘中");
-  const until = !current.locked && !current.unlimited && current.unlockUntil ? `已解锁至 ${untilLabel(current.unlockUntil)}` : null;
-  setText("#quote-time", [quoteLabel(current.quoteTime) || "未返回行情时间", until].filter(Boolean).join(" · "));
+  const info = renderAsof($("#connection"), { at: current.storedAt || current.quoteTime, closed, partial: degraded }, { fallback: "未返回更新时间", plain: true });
+  $("#connection-dot").className = `status-dot${info?.live && !degraded ? " ok" : ""}`;
+  const until = !current.locked && !current.unlimited && current.unlockUntil ? `已解锁至 ${untilLabel(current.unlockUntil)}` : "";
+  setText("#quote-time", current.locked ? "未解锁" : until);
 }
 
 function setBalance(payload) {
