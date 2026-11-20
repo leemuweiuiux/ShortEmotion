@@ -31,7 +31,7 @@ describe("网址：介绍页、登录页与看板", () => {
   it("介绍页（2026-11-20 改版）：主视觉入口、四个看板卡、近期短线情绪，不提积分与更新频率", () => {
     const html = readFileSync(resolve(root, "public/about/index.html"), "utf8");
     expect(html).toMatch(/<form class="ta-tile" action="\/technicalanalysis" method="get"/);
-    for (const href of ["/home", "/themes", "/funds", "/watchlist", "/market", "/news"]) expect(html).toContain(`<a class="board-link" href="${href}">`);
+    for (const href of ["/home", "/themes", "/funds", "/watchlist", "/market", "/news"]) expect(html).toContain(`<a class="board-link" href="${href}"`);
     expect(html).toContain("看懂A股情绪与走势");
     expect(html).not.toContain("积分");
     expect(html).not.toContain("每个交易日");

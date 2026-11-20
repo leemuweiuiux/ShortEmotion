@@ -264,7 +264,7 @@ export async function renderNews(store, query = {}, now = new Date()) {
   if (view === "market" || view === "market-recent") {
     const market = await import("../market/pages.js");
     if (view === "market-recent") return market.recentJson(store, { limit: query.limit });
-    return query.date ? market.dayPage(store, { date: String(query.date), now }) : market.listPage(store, { page: query.page });
+    return query.date ? market.dayPage(store, { date: String(query.date), now, lang }) : market.listPage(store, { page: query.page, lang });
   }
   if (query.id) return articlePage(store, { id: String(query.id), lang, now });
   return listPage(store, { lang, page: query.page, now });

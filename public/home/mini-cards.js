@@ -75,8 +75,8 @@ async function loadLinkage() {
   } catch { fail("mini-linkage"); }
 }
 
-// 题材二波（2026-11-19）与 QDII 温度计一样，先只在 Exp 站显示
-const EXP_HOSTS = ["exp.lfjmwl.com", "localhost", "127.0.0.1"];
+// 题材二波与 QDII 温度计：主站与 Exp 都显示（2026-11-20 上主站）
+const EXP_HOSTS = ["lfjmwl.com", "www.lfjmwl.com", "stockmarketshortemotion.vercel.app", "exp.lfjmwl.com", "localhost", "127.0.0.1"];
 async function loadSecondWave() {
   const card = $("mini-secondwave");
   if (!card || !EXP_HOSTS.includes(location.hostname)) return;
@@ -89,10 +89,10 @@ async function loadSecondWave() {
   } catch { fail("mini-secondwave"); }
 }
 
-// QDII 温度计只在 Exp 站显示（主站 /qdii* 由 middleware 返回 404）
+// QDII 温度计（与 /qdii* 同一份站点名单）
 async function loadQdii() {
   const card = $("mini-qdii");
-  if (!card || !["exp.lfjmwl.com", "localhost", "127.0.0.1"].includes(location.hostname)) return;
+  if (!card || !["lfjmwl.com", "www.lfjmwl.com", "stockmarketshortemotion.vercel.app", "exp.lfjmwl.com", "localhost", "127.0.0.1"].includes(location.hostname)) return;
   card.hidden = false;
   try {
     const { loadQdiiSnapshot, signalOf } = await import("/qdii/board.js?v=15");

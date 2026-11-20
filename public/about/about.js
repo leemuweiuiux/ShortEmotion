@@ -123,7 +123,9 @@ async function loadRecent(wrap) {
       const cell = (text) => { const td = document.createElement("td"); td.textContent = text; return td; };
       const date = document.createElement("td");
       const link = document.createElement("a");
-      link.href = item.url;
+      link.dataset.hansHref = item.url;
+      link.dataset.hantHref = item.hantUrl || item.url;
+      link.href = document.documentElement.dataset.lang === "hant" ? link.dataset.hantHref : item.url;
       link.textContent = item.date.slice(5).replace("-", "/") + (item.closed ? "" : " 盘中");
       date.append(link);
       row.append(date, cell(String(item.score)), cell(item.phase || "—"), cell(`${item.limitUp ?? "—"} / ${item.limitDown ?? "—"}`));

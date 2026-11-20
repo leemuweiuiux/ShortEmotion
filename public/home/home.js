@@ -468,7 +468,7 @@ if ($("#emotion-card")) loadEmotion();
 if (body) loadAnomalies();
 if ($("#limitup-card")) whenNearViewport($("#limitup-card"),loadLimitUp);
 if ($("#sectorflow-card")) whenNearViewport($("#sectorflow-card"),loadSectorFlow);
-if ($("#secondwave-card") && ["exp.lfjmwl.com", "localhost", "127.0.0.1"].includes(globalThis.location?.hostname)) {
+if ($("#secondwave-card") && ["lfjmwl.com", "www.lfjmwl.com", "stockmarketshortemotion.vercel.app", "exp.lfjmwl.com", "localhost", "127.0.0.1"].includes(globalThis.location?.hostname)) {
   $("#secondwave-card").hidden = false;
   whenNearViewport($("#secondwave-card"), loadSecondWave);
 }

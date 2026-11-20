@@ -226,12 +226,12 @@ describe("Supabase 准点定时表", () => {
     expect(SCHEDULED_JOBS["qdii-backup"]).toEqual({ workflow: "qdii.yml", inputs: { slot: "backup" } });
   });
 
-  it("题材二波：北京时间周一至周五 16:10 主取、18:10 备援，工作流固定取 exp 的脚本", () => {
+  it("题材二波：北京时间周一至周五 16:10 主取、18:10 备援，定时与手动运行取 main 的脚本", () => {
     expect(triggersFor("second-wave-primary")).toEqual(WEEKDAYS.map((day) => `${day} 16:10`).sort());
     expect(triggersFor("second-wave-backup")).toEqual(WEEKDAYS.map((day) => `${day} 18:10`).sort());
     expect(SCHEDULED_JOBS["second-wave-backup"]).toEqual({ workflow: "second-wave-exp.yml", inputs: { slot: "backup" } });
     const workflow = readFileSync(resolve(root, ".github/workflows/second-wave-exp.yml"), "utf8");
-    expect(workflow).toContain("ref: exp");
+    expect(workflow).toContain("ref: ${{ github.event_name == 'push' && github.ref_name || 'main' }}");
   });
 
   it("调用正式网址的 /api/cron，密钥从 Vault 读取、不写进仓库", () => {
