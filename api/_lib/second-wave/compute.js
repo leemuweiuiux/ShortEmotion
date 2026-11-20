@@ -135,11 +135,13 @@ export function scoreIndex({ name, code, bars, snap = {} }, { calendar, tradeDat
       name, code, band,
       score: round(score, 1),
       chg: round(retToday),
-      amt: round(amtNow, 1), amtAvg5: round(amtAvg5, 1), amtMax: round(amtMax, 1),
+      amt: round(amtNow, 1), amtAvg5: round(amtAvg5, 1), amtMax: round(amtMax, 1), launchAmt: round(amtMax * t.ignition, 1),
       peakDate: peak.d, water: round(water, 3), trend: round(trend, 3), streak,
       resilience: round(resil * 100), ignition: round(ignition, 3), launch2: round(launch2, 3),
       retCum: round(retCum * 100), drawdown: round(drawdown * 100), maxDayDrop: round(maxDayDrop * 100),
       mainNet: round(snap.mainNet), mainNet5: round(snap.mainNet5), turn: round(snap.turn),
+      close: round(last.c, 2), low10: round(low10, 3), retMkt: round(retMkt * 100),
+      sWater: round(sWater, 1), sTrend: round(sTrend, 1), sCont: round(sCont, 1),
       sShrink: round(sShrink, 1), sResil: round(sResil, 1), sIgn: round(sIgn, 1),
       note: notes.join("；"),
       series: win.map((row) => ({ d: row.d, chg: row.chg, amt: round(row.amt, 2) }))
@@ -197,11 +199,19 @@ export function buildSecondWave({ benchmark, indices, tradeDate, generatedAt = n
   };
 }
 
+const BAND_ORDER = { 已启动: 0, 待确认: 1 };
+/** 已启动 + 待确认，按分档优先、同档总分排序。 */
+export function candidatesOf(data) {
+  return (data?.indices || []).filter((item) => item.band in BAND_ORDER)
+    .sort((a, b) => BAND_ORDER[a.band] - BAND_ORDER[b.band] || b.score - a.score);
+}
+
 /** 题材页卡片用的摘要：各档数量与「已启动 + 待确认」前 5 名（不含走势序列）。 */
 export function summarizeSecondWave(data) {
   if (!data) return null;
   const pick = ({ series, ...item }) => item;
-  const top = data.indices.filter((item) => item.band === "已启动" || item.band === "待确认").slice(0, 5).map(pick);
+  // 只看已启动与待确认，先已启动、再待确认，同档按总分（2026-11-20）
+  const top = candidatesOf(data).slice(0, 5).map(pick);
   const { skipped, failures, ...meta } = data.meta;
   return { meta, stats: data.stats, top };
 }
