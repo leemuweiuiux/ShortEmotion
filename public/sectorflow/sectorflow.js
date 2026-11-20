@@ -5,6 +5,8 @@ import {requestJSON,restoreSnapshot} from '/shared/request.js?v=1';
 import { toast, goLogin, initAccountMenu } from '/shared/nav-account.js?v=4';
 import { mountFundFlow } from '/shared/fund-flow.js?v=8';
 import { setupShare } from '/sectorflow/share.js?v=3';
+import { renderAsof } from '/shared/local-time.js?v=2';
+const asof = (payload) => renderAsof(document.querySelector('#sf-asof'), { at: payload?.storedAt });
 initAccountMenu();
 const chart = mountFundFlow(document.querySelector('#fund-flow'), { initialCode: new URLSearchParams(location.search).get('board') || '' });
 const shareButton = document.querySelector('#sf-share');
@@ -17,7 +19,7 @@ setupShare(shareButton, chart, { toast, ready: () => loaded });
 // enables exporting or replaces a newer server response.
 restoreSnapshot('sectorflow').then(payload=>{
   if(received || !payload?.dashboard || payload.locked)return;
-  chart.update(payload.dashboard);flowPanel.hidden=false;
+  chart.update(payload.dashboard);flowPanel.hidden=false;asof(payload);
 });
 async function load() {
   try {
@@ -39,6 +41,7 @@ async function load() {
     }
     accessPanel.hidden=true;flowPanel.hidden=false;
     chart.update(payload.dashboard);
+    asof(payload);
     loaded = true;
   } catch (error) {
     if (!loaded) chart.update(null);

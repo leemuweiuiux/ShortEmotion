@@ -196,7 +196,7 @@ let sectorHomeAccess=null,sectorHomeBusy=false;
 function renderSectorHomeLock(){
  const locked=Boolean(sectorHomeAccess?.locked),panel=$('#sectorflow-home-lock');
  $('#sectorflow-body').classList.toggle('locked',locked);
- $('#sectorflow-chart').hidden=locked;panel.hidden=!locked;
+ $('#sectorflow-chart').hidden=locked;$('#sectorflow-home-time').hidden=locked;panel.hidden=!locked;
  if(!locked){panel.innerHTML='';return;}
  panel.innerHTML=`${lockIcon}<b>查看资金流向</b><p>${sectorHomeAccess.unavailable?'积分服务暂时不可用，请稍后再试':'解锁后 12 小时内，资金页与板块资金页都能查看'}</p><button id="sectorflow-home-unlock" class="pill-btn" type="button" ${sectorHomeBusy?'disabled':''}>${sectorHomeBusy?'解锁中…':'解锁 · 5 积分'}</button>${sectorHomeAccess.balance!=null?`<small>积分 ${esc(sectorHomeAccess.balance)}</small>`:''}`;
  panel.querySelector('button').addEventListener('click',async()=>{
@@ -216,6 +216,7 @@ async function loadSectorFlow() {
   sectorHomeAccess=payload;renderSectorHomeLock();
   rememberSnapshot("sectorflow",payload);
   flowChart.update(payload.locked?null:payload.dashboard);
+  renderAsof($('#sectorflow-home-time'),{at:payload.storedAt});
  }catch{
   sectorHomeAccess={locked:true,unavailable:true};renderSectorHomeLock();flowChart.update(null);
  }
