@@ -1,8 +1,9 @@
 import { showUnlockSuccess } from "/shared/unlock-toast.js?v=1";
 import {etfflowRequest} from '/shared/etfflow-access.js?v=1';
 import {restoreSnapshot} from '/shared/request.js?v=1';
+import {renderAsof} from '/shared/local-time.js?v=2';
 import {etfOverviewMarkup} from '/shared/etf-overview.js?v=1';
-import {setupEtfShare} from '/etfflow/share.js?v=2';
+import {setupEtfShare} from '/etfflow/share.js?v=3';
 import {sectorflowRequest} from '/shared/sectorflow-access.js?v=1';
 import { toast, goLogin, initAccountMenu } from '/shared/nav-account.js?v=4';
 initAccountMenu();
@@ -21,7 +22,7 @@ let received=false;
 restoreSnapshot('etfflow').then(data=>{
  if(received||!data?.ready||data.locked)return;
  $('#ef-overview').innerHTML=etfOverviewMarkup(data);
- $('#ef-date').textContent=`数据日期 ${date(data.date)}`;
+ renderAsof($('#ef-date'),{at:data.updatedAt,day:data.date,closed:true});
 });
 function overview(){$('#ef-overview').innerHTML=etfOverviewMarkup(dashboard);}
 function groups(){
@@ -61,8 +62,7 @@ if(typeof ResizeObserver!=='undefined')new ResizeObserver(updateScrollButtons).o
 async function load(){try{
  const data=await etfflowRequest('full');dashboard=data;received=true;
  if(!data.ready){$('#ef-protected').hidden=true;$('#ef-paywall').hidden=true;$('#ef-share').disabled=true;$('#ef-date').textContent='当前数据缺失';for(const id of ['#ef-overview','#ef-groups'])$(id).innerHTML='<p class="ef-empty">当前数据缺失</p>';return;}
- const updated=data.updatedAt?new Intl.DateTimeFormat(undefined,{dateStyle:'short',timeStyle:'short'}).format(new Date(data.updatedAt)):'';
- $('#ef-date').textContent=`数据日期 ${date(data.date)}${updated?` · 更新于 ${updated}`:''}`;
+ renderAsof($('#ef-date'),{at:data.updatedAt,day:data.date,closed:true});
  overview();$('#ef-paywall').hidden=!data.locked;$('#ef-protected').hidden=Boolean(data.locked);$('#ef-share').disabled=Boolean(data.locked)||!data.ready||$('#ef-share').getAttribute('aria-busy')==='true';
  if(data.locked){$('#ef-unlock').disabled=Boolean(data.unavailable);$('#ef-paywall-copy').textContent=data.unavailable?'积分服务暂时不可用，请稍后再试':'解锁后查看各类宽基、历史流入及ETF明细，12小时内有效。';return;}
  $('#ef-filter').innerHTML=data.series.map(g=>`<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('');
