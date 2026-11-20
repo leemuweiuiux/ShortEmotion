@@ -1,7 +1,7 @@
 import { showUnlockSuccess } from "/shared/unlock-toast.js?v=1";
 import { linkageCorrelationLabel } from "/shared/linkage-correlation.js?v=1";
 import {loadImageExporter} from '/shared/export-loader.js?v=1';
-import { localTimeLabel, emotionTimeLabel } from "/shared/local-time.js?v=1";
+import { localTimeLabel, asofLabel, renderAsof } from "/shared/local-time.js?v=2";
 import { updateNavPoints } from "/shared/nav-points.js?v=2";
 import { showPointsShortage } from "/shared/points-shortage.js?v=1";
 import { prepareTimelineForExport } from "./export-svg.js?v=2";
@@ -148,21 +148,22 @@ function setText(selector, value) {
   if (element) element.textContent = value;
 }
 
+function emotionAsof() {
+  const closed = Boolean(data.endOfDay || data.offSession || /\s(1[5-9]|2\d):\d{2}/.test(String(data.quoteTime || "")));
+  return { at: data.storedAt || data.capturedAt || data.quoteTime, closed, partial: data.partial };
+}
+
 function renderHeader() {
-  const closed = data.endOfDay || /\s(1[5-9]|2\d):\d{2}/.test(String(data.quoteTime || ""));
-  const phase = closed ? "已收盘" : data.offSession ? "非交易时段" : "盘中";
-  const status = data.partial ? `${phase} · 部分数据未更新` : phase;
   if (refreshRun.active) return; // 更新中由 renderRefreshState 接管状态条
-  $("#connection-dot").className = data.partial ? "status-dot" : "status-dot ok";
-  setText("#connection", status);
-  const quoteLabel = emotionTimeLabel(data);
-  setText("#quote-time", quoteLabel);
-  reportToolbarState({ connection: status, quoteTime: quoteLabel, partial: data.partial });
+  const info = renderAsof($("#connection"), emotionAsof(), { fallback: "未返回更新时间", plain: true });
+  $("#connection-dot").className = info?.live && !data.partial ? "status-dot ok" : "status-dot";
+  setText("#quote-time", "");
+  reportToolbarState({ connection: $("#connection").textContent, quoteTime: "", partial: data.partial });
 }
 
 function reportToolbarState(overrides = {}) {
   if (!isEmbedded || window.parent === window) return;
-  window.parent.postMessage({ type: "emotion-toolbar-state", connection: data?.partial ? "部分数据未更新" : "数据已连接", quoteTime: data ? emotionTimeLabel(data) : "等待行情时间", partial: Boolean(data?.partial), ...overrides }, "*");
+  window.parent.postMessage({ type: "emotion-toolbar-state", connection: data?.partial ? "部分数据未更新" : "数据已连接", quoteTime: data ? asofLabel(emotionAsof()) : "等待更新", partial: Boolean(data?.partial), ...overrides }, "*");
 }
 
 function renderPulse() {
@@ -274,8 +275,7 @@ function renderAnomalies() {
     news: (a, b) => (b.sortMetrics?.newsMomentum || 0) - (a.sortMetrics?.newsMomentum || 0) || (b.tabScores?.news ?? b.score) - (a.tabScores?.news ?? a.score)
   };
   const items = sourceItems.filter((item) => (anomalyFilter === "all" || item.signals.includes(anomalyFilter)) && (item.tabScores?.[anomalyFilter] ?? item.score) >= 60).sort(sorters[anomalyFilter] || sorters.all);
-  const quoteTime = anomalyData?.items?.[0]?.tradeTime ? `行情时间 ${anomalyData.items[0].tradeTime} · ` : "";
-  setText("#anomaly-time", `${quoteTime}`);
+  renderAsof($("#anomaly-time"), { at: anomalyData?.storedAt || anomalyData?.items?.[0]?.tradeTime });
   const viewState = items.length ? "" : `<div class="anomaly-view-state"><b>${filterLabels[anomalyFilter]}</b><span>0 个题材</span></div>`;
   if (!items.length) {
     $("#anomaly-list").innerHTML = `${viewState}<div class="anomaly-empty">当前筛选条件下没有识别到题材异动。</div>`;
@@ -732,8 +732,7 @@ async function loadNews() {
   try {
     const payload = await api("news");
     const items = payload.items || [];
-    const asOf = localTimeLabel(payload.asOf);
-    setText("#news-asof", asOf ? `快照 ${asOf}` : "等待快照");
+    renderAsof($("#news-asof"), { at: payload.asOf }, { fallback: "等待快照" });
     $("#news-list").innerHTML = items.length ? items.slice(0, 5).map((item) => `<article class="news-item"><b>${escapeHtml(plain(item.title, "市场消息"))}</b><span>${escapeHtml(item.date || "")}${Number(item.relevance) > 0 ? ` · 相关度 ${Number(item.relevance).toFixed(2)}` : ""}</span><p>${escapeHtml(String(item.content || "").slice(0, 170))}${String(item.content || "").length > 170 ? "…" : ""}</p></article>`).join("") : '<div class="empty">暂无新闻快照。</div>';
   } catch (error) {
     $("#news-list").innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`;
@@ -767,7 +766,7 @@ function cloneForExport(node, { openDetails = true } = {}) {
 function exportHeader(subtitle = "") {
   const head = document.createElement("div");
   head.className = "export-head";
-  const quote = $("#quote-time")?.textContent || "";
+  const quote = $("#connection")?.textContent || "";
   head.innerHTML = `<img src="/short-emotion/logo.svg?v=2" alt="Market Emotion"><div><b>${escapeHtml(`短线情绪 · ${CFG.label}`)}${subtitle ? ` · ${escapeHtml(subtitle)}` : ""}</b><small>${escapeHtml(quote)}</small></div>`;
   return head;
 }
