@@ -18,10 +18,8 @@
       if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       root.dataset.theme = theme;
       if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
-      var lang = get("shortemotion:lang");
-      if (lang !== "hans" && lang !== "hant") lang = /^zh-(tw|hk|mo|hant)/i.test(navigator.language || "") ? "hant" : "hans";
+      var lang = "hans"; // 仅提供简体
       root.dataset.lang = lang;
-      if (lang === "hant") root.lang = "zh-Hant-TW";
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -46,11 +44,6 @@
         <small>看懂A股情绪与走势</small>
       </span>
     </a>
-    <div class="lang-toggle" role="group" aria-label="语言">
-      <button type="button" class="lang-btn" data-lang="hans">简体</button>
-      <span aria-hidden="true">｜</span>
-      <button type="button" class="lang-btn" data-lang="hant">繁体</button>
-    </div>
   </nav>
 
   <main class="page login-page">

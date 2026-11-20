@@ -57,7 +57,6 @@ export function daySentence(record) {
 
 function shell({ title, description, path, data, main, lang = "hans", alternates }) {
   const links = alternates ? `<link rel="alternate" hreflang="zh-Hans" href="${abs(alternates.hans)}"><link rel="alternate" hreflang="zh-Hant" href="${abs(alternates.hant)}"><link rel="alternate" hreflang="x-default" href="${abs(alternates.hans)}">` : "";
-  const toggle = alternates ? `<div class="lang-toggle news-lang" role="group" aria-label="简体 / 繁体"><a href="${alternates.hans}" hreflang="zh-Hans"${lang === "hant" ? "" : ' aria-current="page"'}>简体</a><span aria-hidden="true">｜</span><a href="${alternates.hant}" hreflang="zh-Hant"${lang === "hant" ? ' aria-current="page"' : ""}>繁體</a></div>` : "";
   return localize(lang, `<!doctype html><html lang="${lang === "hant" ? "zh-Hant" : "zh-CN"}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#ffffff">`
     + `<title>${esc(title)}</title><meta name="description" content="${esc(description)}"><meta name="robots" content="index,follow,max-snippet:-1">`
     + `<link rel="canonical" href="${abs(path)}">${links}`
@@ -68,7 +67,7 @@ function shell({ title, description, path, data, main, lang = "hans", alternates
     + `<script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};</script><script defer src="/_vercel/insights/script.js"></script>`
     + data.map(jsonLd).join("")
     + `</head><body class="wide-page wide-news"><div class="app-shell news-shell">`
-    + `<nav class="nav news-nav" aria-label="网站导航"><a class="nav-logo" href="/about" aria-label="${SITE_NAME}"><img src="/short-emotion/logo.svg?v=2" alt="${SITE_NAME}" width="28" height="28"></a><div class="nav-title">市场数据</div>${toggle}</nav>`
+    + `<nav class="nav news-nav" aria-label="网站导航"><a class="nav-logo" href="/about" aria-label="${SITE_NAME}"><img src="/short-emotion/logo.svg?v=2" alt="${SITE_NAME}" width="28" height="28"></a><div class="nav-title">市场数据</div></nav>`
     + `<main class="news-main">${main}`
     + `<aside class="news-cta"><div><b>看实时的短线情绪</b><p>情绪分、题材异动、涨停天梯与资金流向；免费注册，邮箱验证码登录。</p></div><div class="news-cta-links"><a class="news-cta-btn" href="/home">查看看板</a><a href="${lang === "hant" ? "/zh-hant/news" : "/news"}">每日看点</a></div></aside>`
     + `<footer class="legal">仅用于研究与市场观察，不构成投资建议。© 2026 ${SITE_NAME}</footer></main></div></body></html>`);
