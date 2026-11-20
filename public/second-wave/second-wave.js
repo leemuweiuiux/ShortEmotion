@@ -45,7 +45,7 @@ function bars(item) {
   return `<svg class="sw-bars" viewBox="0 0 100 28" preserveAspectRatio="none" role="img" aria-label="近 ${series.length} 个交易日成交额">${rects}</svg>`;
 }
 
-// ── 缩量质量 × 抗跌度（与原版同口径：分位数定轴，气泡大小按 90 分位成交额封顶，虚线 50 / 65 与 -5% / -15%）──
+// ── 缩量质量 × 抗跌度（与原版同画法：分位数定轴，气泡大小按 90 分位成交额封顶）。计算口径不在页面外露（2026-11-20）：不画分界虚线与刻度 ──
 const quantile = (values, q) => {
   const sorted = values.filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
   if (!sorted.length) return 0;
@@ -77,14 +77,10 @@ export function bubbleSvg(list) {
   const amtRef = Math.max(1, quantile(list.map((d) => d.amt), 0.90));
   const text = (x, y, value, anchor = "middle", size = 10, extra = "") => `<text x="${x}" y="${y}" fill="${colors.muted}" font-size="${size}" text-anchor="${anchor}" ${extra}>${value}</text>`;
   let g = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="缩量质量与抗跌度气泡图">`;
-  [50, 65].forEach((v) => { if (v > xMin && v < xMax) g += `<line x1="${sx(v)}" y1="${pad.t}" x2="${sx(v)}" y2="${H - pad.b}" stroke="${colors.border}" stroke-dasharray="3 4"/>`; });
-  [-5, -15].forEach((v) => { if (v > yMin && v < yMax) g += `<line x1="${pad.l}" y1="${sy(v)}" x2="${W - pad.r}" y2="${sy(v)}" stroke="${colors.border}" stroke-dasharray="3 4"/>`; });
   const step = xMax - xMin <= 30 ? 5 : xMax - xMin <= 60 ? 10 : 20;
   const ticks = new Set();
   for (let v = Math.ceil(xMin / step) * step; v <= xMax; v += step) ticks.add(v);
-  [50, 65].forEach((v) => { if (v > xMin && v < xMax) ticks.add(v); });
   ticks.forEach((v) => { g += text(sx(v), H - pad.b + 14, v); });
-  [-5, -15].forEach((v) => { if (v > yMin && v < yMax) g += text(pad.l - 8, sy(v) + 3, `${v}%`, "end"); });
   g += text(pad.l - 8, pad.t + 8, `${yMax}%`, "end") + text(pad.l - 8, H - pad.b, `${yMin}%`, "end");
   g += `<line x1="${pad.l}" y1="${H - pad.b}" x2="${W - pad.r}" y2="${H - pad.b}" stroke="${colors.muted}"/><line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${H - pad.b}" stroke="${colors.muted}"/>`;
   g += text((W + pad.l) / 2, H - 6, "缩量质量分（越右越缩量到位）");
@@ -159,7 +155,7 @@ function trackMarkup() {
       <div class="sw-titem-head"><b>${esc(short(d.name))}<small>${esc(d.code)}</small></b><span>缩量质量 ${fmt(shrinkOf(d))}</span></div>
       <p>量能水位 ${fmt(d.water * 100, 0)}%（峰值 ${fmt(d.amtMax)} 亿 · ${esc(d.peakDate)}）· 5日/前5日 ${fmt(d.trend, 2)} · 连缩 ${d.streak} 天</p>
       <p>抗跌度 ${signed(d.resilience)} · 距峰值回撤 ${signed(d.drawdown)} · 当日 ${signed(d.chg)} · 放量比 ${fmt(d.ignition, 2)}</p>
-      <p class="sw-cond">启动确认：成交额放大至 <b>${fmt(launchOf(d))} 亿</b> 且当日涨幅 <b>≥ +2%</b>，次一交易日量能不回落（近 2 日均量 / 峰值 ≥ 0.55）</p>
+      <p class="sw-cond">启动条件：成交额放大至 <b>${fmt(launchOf(d))} 亿</b> 以上、当日涨幅 <b>≥ +2%</b>，且次一交易日量能不回落</p>
     </article>`).join("");
 }
 
@@ -192,21 +188,21 @@ function detailMarkup(d) {
   const net = (v) => (ok(v) ? `${signed(v, 2, "")} 亿` : "—");
   return `<dl class="sw-dcells">${cell("总分", fmt(d.score))}${cell("当日涨跌", signed(d.chg), tone(d.chg))}${cell("当日成交额", `${fmt(d.amt)} 亿`)}${cell("缩量质量", fmt(shrinkOf(d)))}${cell("抗跌度", signed(d.resilience), tone(d.resilience))}${cell("放量比", fmt(d.ignition, 2))}</dl>
     <h3>近 ${(d.series || []).length} 个交易日 成交额 / 涨跌幅</h3>${detailChart(d)}
-    <h3>计算明细</h3><div class="sw-calc">
+    <h3>明细</h3><div class="sw-calc">
       ${line("窗口峰值成交额", `${fmt(d.amtMax)} 亿（${esc(d.peakDate)}）`)}${line("最新成交额", `${fmt(d.amt)} 亿`)}${line("近 5 日平均成交额", `${fmt(d.amtAvg5)} 亿`)}
-      ${line("水位（近 5 日均额 / 峰值）", fmt(d.water, 3))}${line("趋势（近 5 日均额 / 前 5 日均额）", fmt(d.trend, 3))}${line("地量（近 10 日最低 / 峰值）", fmt(d.low10, 3))}
-      ${line("连续缩量天数", `${d.streak ?? "—"} 天`)}${line("近 2 日均量 / 峰值（启动确认）", fmt(d.launch2, 3))}
+      ${line("量能水位", fmt(d.water, 3))}${line("5 日 / 前 5 日", fmt(d.trend, 3))}${line("地量", fmt(d.low10, 3))}
+      ${line("连续缩量天数", `${d.streak ?? "—"} 天`)}${line("近 2 日量能", fmt(d.launch2, 3))}
       ${line("区间涨幅", `${signed(d.retCum)}（万得全A ${signed(ok(d.retMkt) ? d.retMkt : data.meta.benchmark?.retWindow)}）`)}${line("抗跌度", signed(d.resilience))}
       ${line("放量比", fmt(d.ignition, 3))}${line("距峰值回撤", signed(d.drawdown))}${line("窗口最大单日跌幅", signed(d.maxDayDrop))}
       ${line("主力净流入（当日 / 5 日）", `${net(d.mainNet)} / ${net(d.mainNet5)}`)}${line("换手率", ok(d.turn) ? `${fmt(d.turn, 2)}%` : "—")}
     </div>
-    <h3>缩量质量分与三因子</h3><div class="sw-calc">
-      ${line("水位得分（质量分内 40%）", fmt(d.sWater))}${line("趋势得分（质量分内 35%）", fmt(d.sTrend))}${line("连续性得分（质量分内 25%）", fmt(d.sCont))}
-      ${line("缩量质量分", fmt(shrinkOf(d)))}${line("抗跌度得分（总分内 35%）", fmt(d.sResil))}${line("启动强度得分（总分内 25%）", fmt(d.sIgn))}
-      ${line("总分 = 质量 40% + 抗跌 35% + 启动 25%", fmt(d.score))}
+    <h3>各项得分</h3><div class="sw-calc">
+      ${line("水位得分", fmt(d.sWater))}${line("趋势得分", fmt(d.sTrend))}${line("连续性得分", fmt(d.sCont))}
+      ${line("缩量质量分", fmt(shrinkOf(d)))}${line("抗跌度得分", fmt(d.sResil))}${line("启动强度得分", fmt(d.sIgn))}
+      ${line("总分", fmt(d.score))}
     </div>
     ${d.note ? `<h3>备注</h3><p class="sw-dnote">${esc(d.note)}</p>` : ""}
-    ${d.band === "待确认" ? `<p class="sw-cond">启动确认条件：成交额 ≥ ${fmt(launchOf(d))} 亿且当日涨幅 ≥ +2%，次一交易日量能不回落（近 2 日均量 / 峰值 ≥ 0.55）</p>` : ""}`;
+    ${d.band === "待确认" ? `<p class="sw-cond">启动条件：成交额放大至 ${fmt(launchOf(d))} 亿以上、当日涨幅 ≥ +2%，且次一交易日量能不回落</p>` : ""}`;
 }
 function openDetail(code) {
   const d = candidates().find((item) => item.code === code);
@@ -230,7 +226,7 @@ function benchMarkup() {
 }
 function kpiMarkup(asButtons = true) {
   const s = data.stats;
-  const items = [["", "参与评分", s.total, "个题材指数"], ["已启动", "已启动", s.started, "放量且涨 ≥ 2%"], ["待确认", "待确认", s.watch, "缩量到位且抗跌"], ["", "平均总分", fmt(s.avgScore), "满分 100"]];
+  const items = [["", "参与评分", s.total, "个题材指数"], ["已启动", "已启动", s.started, "再度放量上涨"], ["待确认", "待确认", s.watch, "缩量到位且抗跌"], ["", "平均总分", fmt(s.avgScore), "满分 100"]];
   return items.map(([band, label, value, note]) => {
     const inner = `<span>${band ? `<em class="sw-band" data-band="${band}">${label}</em>` : label}</span><strong>${value ?? "—"}</strong><small>${note}</small>`;
     return asButtons && band ? `<button type="button" data-band="${band}">${inner}</button>` : `<div>${inner}</div>`;
