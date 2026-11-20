@@ -1,0 +1,20 @@
+/* 每日市场数据 /market（2026-11-20） */
+.mk-kicker { margin: 0 0 4px; font-size: 13px; }
+.mk-kicker a { color: var(--muted); }
+.mk-lead { margin: 4px 0 16px; font-size: 15px; line-height: 1.8; }
+.mk-cells { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0 0 16px; }
+.mk-cells div { display: grid; gap: 4px; padding: 12px; background: var(--panel); }
+.mk-cells dt { color: var(--muted); font-size: 12px; }
+.mk-cells dd { margin: 0; font-family: "Manrope", sans-serif; font-size: 22px; font-weight: 700; }
+.mk-cells small { color: var(--muted); font-size: 11px; }
+.mk-section { margin: 20px 0; }
+.mk-section h2 { margin: 0 0 10px; font-size: 16px; }
+.mk-table-wrap { overflow-x: auto; }
+.mk-table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.mk-table th, .mk-table td { padding: 10px 8px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+.mk-table th:first-child { text-align: left; }
+.mk-table thead th { color: var(--muted); font-size: 12px; font-weight: 500; }
+.mk-table th small { margin-left: 6px; color: var(--muted); font-size: 11px; font-weight: 400; }
+.mk-links { display: grid; gap: 8px; margin: 0; padding-left: 18px; }
+.mk-note { margin: 16px 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+@media (min-width: 768px) { .mk-cells { grid-template-columns: repeat(5, minmax(0, 1fr)); } }

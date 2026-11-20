@@ -8,10 +8,10 @@ initLanguage();
 
 // ── 主视觉轮换标题：动词与对象成对一起换（后段都是 7 个字） ──
 const PAIRS = [
-  ["量化", "每天的短线情绪"],
+  ["量化", "A股的短线情绪"],
   ["追踪", "当日的题材异动"],
-  ["拆解", "个股的技术走势"],
-  ["测算", "个股的胜率赔率"]
+  ["看清", "板块的资金流向"],
+  ["拆解", "个股的技术走势"]
 ];
 const word = $(".hero-word");
 const object = $(".hero-object");
@@ -102,6 +102,30 @@ async function loadNews(list) {
 }
 const newsList = $(".news-latest");
 if (newsList) loadNews(newsList);
+
+// ── 近期短线情绪：最近 5 个交易日（公开，链到 /market/<日期>） ──
+async function loadRecent(wrap) {
+  try {
+    const response = await fetch("/api/news?view=market-recent&limit=5", { headers: { Accept: "application/json" } });
+    if (!response.ok) return;
+    const { items = [] } = await response.json();
+    if (!items.length) return;
+    $("tbody", wrap).replaceChildren(...items.map((item) => {
+      const row = document.createElement("tr");
+      const cell = (text) => { const td = document.createElement("td"); td.textContent = text; return td; };
+      const date = document.createElement("td");
+      const link = document.createElement("a");
+      link.href = item.url;
+      link.textContent = item.date.slice(5).replace("-", "/") + (item.closed ? "" : " 盘中");
+      date.append(link);
+      row.append(date, cell(String(item.score)), cell(item.phase || "—"), cell(`${item.limitUp ?? "—"} / ${item.limitDown ?? "—"}`));
+      return row;
+    }));
+    wrap.hidden = false;
+  } catch {}
+}
+const recentWrap = $(".recent-wrap");
+if (recentWrap) loadRecent(recentWrap);
 
 // ── 邀请链接 /about?invite=SE…：记下邀请码（7 天，登录页自动填好），显示谁邀请你 ──
 const INVITE_PATTERN = /^SE[A-HJKMNP-Z2-9]{6}$/;
