@@ -96,8 +96,7 @@ describe('homepage loading',()=>{
     await flush();
     const text=id=>dom.document.querySelector(`#${id} .home-mini-value`).textContent;
     expect(text('mini-anomaly')).toBe('4个题材');
-    expect(text('mini-limitup')).toBe('28/83');
-    expect(dom.document.querySelector('#mini-limitup .home-mini-sub').textContent).toBe('最高板 3板 · 晋级 12%');
+    expect(dom.document.querySelector('#mini-limitup')).toBeNull();
     expect(text('mini-sectorflow')).toBe('解锁查看');
     expect(text('mini-etf')).toBe('解锁查看');
     expect(text('mini-linkage')).toBe('AI算力');

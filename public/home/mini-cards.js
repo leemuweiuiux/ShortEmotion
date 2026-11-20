@@ -41,18 +41,6 @@ async function loadAnomaly() {
   } catch { fail("mini-anomaly"); }
 }
 
-async function loadLimitUp() {
-  try {
-    const data = await read("/api/limitup?resource=summary");
-    const m = data.metrics || {};
-    const pending = data.pending || {};
-    const count = (value) => (num(value) ? Number(value).toLocaleString("zh-CN") : "—");
-    const max = pending.ladder ? "待补齐" : Number(m.maxStreak) >= 2 ? `${Number(m.maxStreak)}板` : Number(m.maxStreak) > 0 ? "首板" : "—";
-    const promo = pending.relay ? "待补齐" : num(m.promotionRate) ? `${Math.round(m.promotionRate * 100)}%` : "—";
-    fill("mini-limitup", { value: `<em class="up-text">${count(m.limitUpCount)}</em><i>/</i><em class="down-text">${count(m.limitDownCount)}</em>`, sub: `最高板 ${max} · 晋级 ${promo}` });
-  } catch { fail("mini-limitup"); }
-}
-
 async function loadSectorFlow() {
   try {
     const data = await read("/api/sectorflow?resource=summary");
@@ -117,7 +105,6 @@ async function loadQdii() {
 
 if ($("home-minis")) {
   loadAnomaly();
-  loadLimitUp();
   loadSecondWave();
   loadSectorFlow();
   loadEtf();
