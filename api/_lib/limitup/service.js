@@ -6,7 +6,7 @@
 //   limitup:latest             最新快照（盘中每 30 分钟覆盖）
 //   limitup:day:<YYYYMMDD>     每个交易日最后一份快照（「较上日」用上一交易日这份）
 //   limitup:news-cache:<日期>  资讯复核结果 { entries: { 代码: [题材…] } }：同一只股票当天只查一次资讯
-import { loadLimitUpBoard, exportNewsReviewCache, importNewsReviewCache, quoteDayOf } from "./engine.js";
+import { buildLimitUpHighlights, loadLimitUpBoard, exportNewsReviewCache, importNewsReviewCache, quoteDayOf } from "./engine.js";
 
 export const LIMITUP_KEYS = {
   latest: "limitup:latest",
@@ -52,10 +52,14 @@ export function snapshotCompleteness(board) {
   return gates * 10_000 + (Number(quality.detail?.returned) || (board?.stocks || []).length);
 }
 
-/** 同一交易日收盘后补跑时，新结果不如已存快照完整就不覆盖（Wind 偶发漏数，越跑越差的情况要挡住）。 */
+/** 保留同一交易日行情时间可核对的快照，并防止收盘补跑降低完整度。 */
 export function shouldKeepPrevious(previous, board) {
   if (!previous || !board || previous.tradingDate !== board.tradingDate) return false;
-  if (!isCloseSnapshot(previous, previous.tradingDate) || !isCloseSnapshot(board, board.tradingDate)) return false;
+  const previousTime = Date.parse(previous.quoteTime);
+  const nextTime = Date.parse(board.quoteTime);
+  if (Number.isFinite(previousTime) && !Number.isFinite(nextTime)) return true;
+  const bothClosed = isCloseSnapshot(previous, previous.tradingDate) && isCloseSnapshot(board, board.tradingDate);
+  if (!bothClosed) return nextTime < previousTime;
   return snapshotCompleteness(previous) > snapshotCompleteness(board);
 }
 
@@ -106,7 +110,8 @@ export async function refreshLimitUp(store, { day } = {}) {
     return output;
   }
   if (shouldKeepPrevious(previous, board)) {
-    output.skipped = "本次收盘数据不如已存快照完整，保留已存快照";
+    output.skipped = "本次行情时间未更新或收盘数据不完整，保留已存快照";
+    output.errors.push(...(board.dataQuality?.errors || []));
     return output;
   }
   await store.kvSet(LIMITUP_KEYS.latest, board);
@@ -208,5 +213,17 @@ export async function readLimitUp(store, resource = "full", { unlocked = false }
   const board = entry.value;
   const previous = await resolvePrevious(store, board);
   if (resource === "summary") return summarizeLimitUp(board, previous, { unlocked, storedAt: entry.updatedAt || null });
-  return { ...board, previous, storedAt: entry.updatedAt || null };
+  // 已存快照可能把较昨收的波动记作待核实。只移除这条旧规则产生的原因。
+  const priorCloseWarning = /^较上日 \d+ → \d+ 家，变化较大，需结合行情核实$/;
+  let updated = false;
+  const concepts = (board.concepts || []).map((concept) => {
+    if (!concept.reviewReasons?.some(reason => priorCloseWarning.test(reason))) return concept;
+    updated = true;
+    return { ...concept, reviewReasons: concept.reviewReasons.filter(reason => !priorCloseWarning.test(reason)) };
+  });
+  const rebuildHighlights = updated || (!board.quoteTime && board.highlights?.length);
+  const detail = rebuildHighlights
+    ? { concepts, highlights: buildLimitUpHighlights({ ...board, concepts, quoteTime: board.quoteTime ?? null }) }
+    : {};
+  return { ...board, ...detail, previous, storedAt: entry.updatedAt || null };
 }
