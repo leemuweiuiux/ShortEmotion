@@ -113,10 +113,7 @@ function head({ lang, title, description, path, alternates, og = {}, data = [] }
 }
 
 function nav(lang, alternates) {
-  const toggle = alternates
-    ? `<div class="lang-toggle news-lang" role="group" aria-label="简体 / 繁体"><a href="${alternates.hans}" hreflang="zh-Hans" lang="zh-Hans"${lang === "hant" ? "" : ' aria-current="page"'}>简体</a><span aria-hidden="true">｜</span><a href="${alternates.hant}" hreflang="zh-Hant" lang="zh-Hant"${lang === "hant" ? ' aria-current="page"' : ""}>繁体</a></div>`
-    : "";
-  return `<nav class="nav news-nav" aria-label="网站导航"><a class="nav-logo" href="/about" aria-label="${SITE_NAME}"><img src="/short-emotion/logo.svg?v=2" alt="${SITE_NAME}" width="28" height="28"></a><div class="nav-title">每日看点</div>${toggle}</nav>`;
+  return `<nav class="nav news-nav" aria-label="网站导航"><a class="nav-logo" href="/about" aria-label="${SITE_NAME}"><img src="/short-emotion/logo.svg?v=2" alt="${SITE_NAME}" width="28" height="28"></a><div class="nav-title">每日看点</div></nav>`;
 }
 
 const cta = `<aside class="news-cta"><div><b>看今天的实时短线情绪</b><p>情绪分、题材异动、涨停天梯与资金流向；免费注册，邮箱验证码登录。</p></div><div class="news-cta-links"><a class="news-cta-btn" href="/shortemotion/cn">查看实时看板</a><a href="/about">了解 ${SITE_NAME}</a></div></aside>`;

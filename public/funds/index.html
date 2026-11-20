@@ -22,8 +22,7 @@
         root.style.setProperty("--price-up", "#76BB40");
         root.style.setProperty("--price-down", "#FF4015");
       }
-      var lang = get("shortemotion:lang");
-      root.dataset.lang = lang === "hant" || lang !== "hans" && /^zh-(tw|hk|mo|hant)/i.test(navigator.language || "") ? "hant" : "hans";
+      root.dataset.lang = "hans"; // 仅提供简体
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
