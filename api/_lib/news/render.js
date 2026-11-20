@@ -12,7 +12,7 @@ export const PAGE_SIZE = 20;
 const SITE_NAME = "Market Emotion";
 const OG_IMAGE = `${SITE}/about/img/pulse-light.webp`;
 const LOGO = `${SITE}/apple-touch-icon.png`;
-const ASSETS = {
+export const ASSETS = {
   twsvp: "/short-emotion/twsvp.css?v=18",
   reports: "/kandian/reports.css?v=5",
   news: "/kandian/news.css?v=1",
@@ -22,7 +22,7 @@ const ASSETS = {
   usage: "/shared/usage.js?v=2"
 };
 // 与看板共用外观设置：深浅色跟随系统（或 twsvp_theme）
-const THEME_SCRIPT = `<script>(function(){var t=null;try{t=localStorage.getItem('twsvp_theme')}catch(e){}document.documentElement.dataset.theme=t==='light'||t==='dark'?t:matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';})();</script>`;
+export const THEME_SCRIPT = `<script>(function(){var t=null;try{t=localStorage.getItem('twsvp_theme')}catch(e){}document.documentElement.dataset.theme=t==='light'||t==='dark'?t:matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';})();</script>`;
 const LIST_TITLE = "每日看点：A股短线情绪复盘";
 const LIST_INTRO = `每个交易日三篇 A 股短线复盘：开盘前的看点早报、午间看点与收盘后的看点收评。每篇基于 ${SITE_NAME} 的短线情绪分、涨跌停与连板梯队、题材异动和公开资讯，由 AI 编辑 Komidomi 生成，并附可回看验证的观点卡。`;
 const DIMENSIONS = "市场广度、极端反馈、连板梯队、赚钱效应、题材聚焦、成交环境";
@@ -225,6 +225,7 @@ export async function sitemap(store, { now = new Date() } = {}) {
   const pages = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
   const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">`
     + `<url><loc>${SITE}/about</loc></url>`
+    + (await import("../market/pages.js").then((m) => m.sitemapUrls(store)).catch(() => [])).map((path) => `<url><loc>${SITE}${path}</loc></url>`).join("")
     + url(newsPath("hans"), newsPath("hant"), newest)
     + Array.from({ length: pages - 1 }, (_, i) => url(pagePath("hans", i + 2), pagePath("hant", i + 2), null)).join("")
     + all.map((a) => url(newsPath("hans", a.id), newsPath("hant", a.id), latest(a.publishedAt, a.generatedAt))).join("")
@@ -259,6 +260,12 @@ export async function renderNews(store, query = {}, now = new Date()) {
   if (view === "sitemap") return sitemap(store, { now });
   if (view === "rss") return rss(store, { lang, now });
   if (view === "latest") return latestJson(store, { limit: query.limit, now });
+  // 每日市场数据（2026-11-20）：/market、/market/<日期>、介绍页近期数据
+  if (view === "market" || view === "market-recent") {
+    const market = await import("../market/pages.js");
+    if (view === "market-recent") return market.recentJson(store, { limit: query.limit });
+    return query.date ? market.dayPage(store, { date: String(query.date), now }) : market.listPage(store, { page: query.page });
+  }
   if (query.id) return articlePage(store, { id: String(query.id), lang, now });
   return listPage(store, { lang, page: query.page, now });
 }

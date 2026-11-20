@@ -60,6 +60,9 @@
     {"source": "/news/feed.xml", "destination": "/api/news?view=rss"},
     {"source": "/zh-hant/news/feed.xml", "destination": "/api/news?view=rss&lang=hant"},
     {"source": "/news", "destination": "/api/news"},
+    {"source": "/market", "destination": "/api/news?view=market"},
+    {"source": "/market/", "destination": "/api/news?view=market"},
+    {"source": "/market/:date", "destination": "/api/news?view=market&date=:date"},
     {"source": "/news/", "destination": "/api/news"},
     {"source": "/news/:id", "destination": "/api/news?id=:id"},
     {"source": "/zh-hant/news", "destination": "/api/news?lang=hant"},
@@ -115,5 +118,8 @@
     {"source": "/limitup/", "destination": "/limitup/index.html"},
     {"source": "/shortemotion/cn", "destination": "/short-emotion/index.html"},
     {"source": "/shortemotion/cn/", "destination": "/short-emotion/index.html"}
+  ],
+  "headers": [
+    {"source": "/(.*)", "has": [{"type": "host", "value": "exp.lfjmwl.com"}], "headers": [{"key": "X-Robots-Tag", "value": "noindex, nofollow"}]}
   ]
 }
