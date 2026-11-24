@@ -34,7 +34,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/about/about.css?v=14">
+  <link rel="stylesheet" href="/about/about.css?v=15">
   <link rel="stylesheet" href="/shared/form.css?v=1">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
@@ -173,7 +173,39 @@
       </ul>
     </section>
 
-    <footer class="footer">
+    <section class="pricing" id="pricing">
+      <h2>收费方式：积分充值</h2>
+      <p>Market Emotion 通过积分充值收费。充值获得的积分用来解锁产品功能，各功能消耗的积分以页面提示为准。</p>
+      <ul class="price-list">
+        <li><b>500 积分</b><span class="price">¥50</span></li>
+        <li><b>1200 积分</b><span class="price">¥100</span><span class="price-tag">多送 20%</span></li>
+      </ul>
+      <div class="pricing-event">
+        <b>活动 · 每日签到</b>
+        <span>登录后每天签到一次，获得 5 积分。</span>
+      </div>
+      <ul class="pricing-notes">
+        <li>以人民币计价，一次性购买，不会自动续费。</li>
+        <li>付款成功后，积分即时到账当前登录账号。</li>
+        <li>积分不能兑换现金、提现或转让；充值成功后不支持退款，扣款异常的处理见《<a href="/refund">退款政策</a>》。</li>
+      </ul>
+      <div class="board-links">
+        <a class="board-link" href="/account/buy-points">去充值</a>
+      </div>
+    </section>
+
+    <footer class="footer site-info">
+      <nav class="footer-links" aria-label="条款与政策">
+        <a href="/terms">用户协议</a><span aria-hidden="true">·</span><a href="/privacy">隐私政策</a><span aria-hidden="true">·</span><a href="/refund">退款政策</a><span aria-hidden="true">·</span><a href="#pricing">积分充值</a>
+      </nav>
+      <dl class="footer-info">
+        <div><dt>服务名称</dt><dd>Market Emotion（www.lfjmwl.com）</dd></div>
+        <div><dt>服务内容</dt><dd>A 股短线情绪数据看板与分析工具，积分解锁产品功能</dd></div>
+        <div><dt>运营者</dt><dd>LFJ、MWL、KOMI</dd></div>
+        <div><dt>收费方式</dt><dd>积分充值，人民币计价：¥50 / 500 积分，¥100 / 1200 积分</dd></div>
+        <div><dt>退款</dt><dd>充值成功后不支持退款，重复扣款、付款未到账等扣款异常除外</dd></div>
+        <div><dt>联系邮箱</dt><dd><a href="mailto:pai.product.manager@gmail.com">pai.product.manager@gmail.com</a></dd></div>
+      </dl>
       <p>仅用于研究与情绪观察，不构成投资建议。</p>
       <p>© 2026 Market Emotion</p>
     </footer>

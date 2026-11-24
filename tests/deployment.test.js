@@ -28,12 +28,13 @@ describe("网址：介绍页、登录页与看板", () => {
     expect(html).toMatch(/<a class="drawer-cta" href="\/login">登录<\/a>/);
   });
 
-  it("介绍页（2026-11-20 改版）：主视觉入口、四个看板卡、近期短线情绪，不提积分与更新频率", () => {
+  it("介绍页（2026-11-20 改版）：主视觉入口、四个看板卡、近期短线情绪，不提更新频率；积分只出现在 2026-11-24 加的「收费方式：积分充值」与页底完整信息", () => {
     const html = readFileSync(resolve(root, "public/about/index.html"), "utf8");
+    const body = html.replace(/<section class="pricing"[\s\S]*?<\/section>/, "").replace(/<footer class="footer site-info">[\s\S]*?<\/footer>/, "");
     expect(html).toMatch(/<form class="ta-tile" action="\/technicalanalysis" method="get"/);
     for (const href of ["/home", "/themes", "/funds", "/watchlist", "/market", "/news"]) expect(html).toContain(`<a class="board-link" href="${href}">`);
     expect(html).toContain("看懂A股情绪与走势");
-    expect(html).not.toContain("积分");
+    expect(body).not.toContain("积分");
     expect(html).not.toContain("每个交易日");
     expect(html).not.toContain("更多看板陆续上线");
   });

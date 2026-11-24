@@ -35,7 +35,7 @@ test("reproduces ECPay's published SHA256 checkout signature", () => {
 test("locks the server's RMB and sandbox TWD amounts before signing checkout", async () => {
   const fetch = vi.fn(async () => new Response(null, { status: 201 }));
   vi.stubGlobal("fetch", fetch);
-  const response = await call({ method: "POST", body: { points: 240, priceCny: 1, chargeTwd: 1 } });
+  const response = await call({ method: "POST", body: { points: 500, priceCny: 1, chargeTwd: 1 } });
   expect(response.code).toBe(201);
   expect(response.body.checkoutUrl).toBe("https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5");
   const fields = response.body.fields;
@@ -47,7 +47,7 @@ test("locks the server's RMB and sandbox TWD amounts before signing checkout", a
   expect(url).toBe(store);
   expect(request.headers.Authorization).toBe("Bearer session-token");
   expect(JSON.parse(request.body)).toEqual({
-    order_no: fields.MerchantTradeNo, points: 240, price_cny: 50, charge_twd: 225
+    order_no: fields.MerchantTradeNo, points: 500, price_cny: 50, charge_twd: 225
   });
 });
 

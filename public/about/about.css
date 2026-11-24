@@ -243,6 +243,29 @@ h3 { font-size: 17px; font-weight: 700; line-height: 1.4; }
 /* ── 页脚 ── */
 .footer { display: grid; gap: 2px; padding: 4px 4px 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
 
+/* ── 积分充值 ── */
+.pricing { display: grid; gap: 12px; }
+.pricing > p { color: var(--muted); font-size: 14px; line-height: 1.7; }
+.price-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; margin: 0; padding: 0; list-style: none; background: var(--border); border: 1px solid var(--border); }
+.price-list li { display: grid; gap: 4px; align-content: start; padding: 14px 12px; background: var(--surface); }
+.price-list b { font-size: 14px; font-weight: 600; }
+.price-list .price { font-family: Manrope, "Noto Sans SC", sans-serif; font-size: 22px; font-weight: 700; }
+.price-list .price-tag { justify-self: start; padding: 1px 6px; border: 1px solid var(--border); color: var(--muted); font-size: 11px; }
+.pricing-event { display: grid; gap: 4px; padding: 12px; background: var(--panel); border: 1px solid var(--border); }
+.pricing-event b { font-size: 14px; font-weight: 600; }
+.pricing-event span { color: var(--muted); font-size: 13px; line-height: 1.6; }
+.pricing-notes { display: grid; gap: 4px; margin: 0; padding-left: 18px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.pricing-notes a, .footer a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+
+/* ── 页底完整信息 ── */
+.footer.site-info { gap: 8px; padding-top: 16px; border-top: 1px solid var(--border); }
+.footer-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.footer-links a { color: var(--ink); }
+.footer-info { display: grid; gap: 4px; margin: 0; }
+.footer-info div { display: grid; grid-template-columns: 5em 1fr; gap: 8px; }
+.footer-info dt { color: var(--muted); }
+.footer-info dd { margin: 0; }
+
 /* ── 底部单一行动（同 TWSVP 首页的底部抽屉） ── */
 .drawer {
   position: fixed;

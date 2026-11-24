@@ -10,9 +10,8 @@ export const checkoutUrl = gateway + "/Cashier/AioCheckOut/V5";
 export const orderPattern = /^SE[A-F0-9]{18}$/;
 
 export const packages = [
-  { points: 30, priceCny: 10, chargeTwd: 45 },
-  { points: 240, priceCny: 50, chargeTwd: 225 },
-  { points: 500, priceCny: 100, chargeTwd: 450 }
+  { points: 500, priceCny: 50, chargeTwd: 225 },
+  { points: 1200, priceCny: 100, chargeTwd: 450 }
 ];
 
 export function checkMac(fields) {

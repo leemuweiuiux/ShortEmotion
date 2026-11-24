@@ -33,7 +33,7 @@ describe("用户协议与隐私政策页面", () => {
     const privacy = read("public/privacy/index.html");
     const terms = read("public/terms/index.html");
     for (const html of [privacy, terms]) {
-      expect(html).toMatch(/<span>版本 1\.[234]<\/span>/);
+      expect(html).toMatch(/<span>版本 1\.[2-5]<\/span>/);
       expect(html).toContain("每 30 天");
       expect(html).not.toContain("匿名代号");
       expect(html).not.toContain("个人页面");
@@ -71,7 +71,7 @@ describe("登录页与个人页面的入口", () => {
     expect(html.indexOf('class="agree"')).toBeGreaterThan(html.indexOf('id="send"'));
     expect(html).toContain("点击「发送验证码」即表示你已阅读并同意《<a href=\"/terms\"");
     expect(html.match(/<p class="agree">[\s\S]*?<\/p>/)[0]).not.toContain("境外");
-    expect(html).toMatch(/<footer class="legal-links"><a href="\/terms">用户协议<\/a>.*<a href="\/privacy">隐私政策<\/a><\/footer>\s*<\/main>/);
+    expect(html).toMatch(/<footer class="legal-links"><a href="\/terms">用户协议<\/a>.*<a href="\/privacy">隐私政策<\/a>.*<a href="\/refund">退款政策<\/a><\/footer>\s*<\/main>/);
   });
 
   it("登录页脚本：不再有勾选拦截", () => {
@@ -80,7 +80,7 @@ describe("登录页与个人页面的入口", () => {
 
   it("设置页（个人中心右上角）：外观、积分流水、用户协议、隐私政策、退出登录", () => {
     const html = read("public/account/settings/index.html");
-    const order = ["data-theme-choice", 'href="/account/points"', 'href="/terms"', 'href="/privacy"', 'id="logout"'].map((text) => html.indexOf(text));
+    const order = ["data-theme-choice", 'href="/account/points"', 'href="/terms"', 'href="/privacy"', 'href="/refund"', 'id="logout"'].map((text) => html.indexOf(text));
     expect(order.every((index) => index > 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     const center = read("public/account/index.html");
@@ -100,7 +100,7 @@ describe("登录页与个人页面的入口", () => {
 describe("公开页面不能引用登录判断之内的资源（未登录时会被转去登录页，页面没有版面）", () => {
   const matcher = read("middleware.js").match(/matcher:\s*\[([^\]]*)\]/)[1].match(/"[^"]+"/g).map((item) => item.slice(1, -1));
   const guarded = (path) => matcher.some((pattern) => pattern.endsWith("/:path*") ? path.startsWith(pattern.slice(0, -"/:path*".length) + "/") : path === pattern);
-  for (const file of ["public/terms/index.html", "public/privacy/index.html", "public/login/index.html", "public/about/index.html"]) {
+  for (const file of ["public/terms/index.html", "public/privacy/index.html", "public/refund/index.html", "public/login/index.html", "public/about/index.html"]) {
     it(file, () => {
       const html = read(file);
       const assets = [...html.matchAll(/<(?:link|script)[^>]+(?:href|src)="(\/[^"?]+)/g)].map((m) => m[1]);
@@ -114,5 +114,41 @@ describe("公开页面不能引用登录判断之内的资源（未登录时会�
       expect(html).not.toContain("/account/account.css");
       expect(html).toMatch(/<body class="[^"\n]*\blegal-page\b[^"\n]*">/);
     }
+  });
+});
+
+// 积分充值与退款政策（2026-11-24）：人民币计价，50 元 500 积分、100 元 1200 积分；充值成功后一律不退，只处理扣款异常；
+// 介绍页加「收费方式：积分充值」与每日签到 5 积分活动，页底放完整信息（运营者、收费方式、退款、联系邮箱、三份文件链接）。
+describe("积分充值与退款政策", () => {
+  it("退款政策是公开页面，写明运营者、邮箱、版本，以及不退款与扣款异常", () => {
+    const vercel = JSON.parse(read("vercel.json"));
+    for (const path of ["/refund", "/refund/"]) {
+      expect(vercel.rewrites.some((r) => r.source === path && r.destination === "/refund/index.html")).toBe(true);
+    }
+    expect(read("middleware.js").match(/matcher:\s*\[([^\]]*)\]/)[1]).not.toMatch(/"\/refund/);
+    const html = read("public/refund/index.html");
+    expect(html).toContain("<span>运营者 LFJ、MWL、KOMI</span>");
+    expect(html).toContain(`mailto:${EMAIL}`);
+    expect(html).toMatch(/<span>版本 \d+\.\d+<\/span> · <span>生效日期 2026 年 \d+ 月 \d+ 日<\/span>/);
+    expect(html).toContain("充值成功后不支持退款");
+    for (const text of ["重复扣款", "付款成功但积分未到账", "原路退回", "50 元 500 积分", "100 元 1200 积分"]) expect(html).toContain(text);
+  });
+
+  it("用户协议与隐私政策写明充值规则与支付订单", () => {
+    const terms = read("public/terms/index.html");
+    expect(terms).not.toContain("目前积分不提供购买");
+    expect(terms).toContain("50 元 500 积分、100 元 1200 积分");
+    expect(terms).toContain('href="/refund"');
+    const privacy = read("public/privacy/index.html");
+    expect(privacy).toContain("积分充值订单");
+    expect(privacy).toContain("第三方支付服务商");
+  });
+
+  it("介绍页：收费方式、两档方案、签到 5 积分，页底有完整信息与三份文件链接", () => {
+    const html = read("public/about/index.html");
+    const pricing = html.match(/<section class="pricing"[\s\S]*?<\/section>/)[0];
+    for (const text of ["积分充值", "500 积分", "¥50", "1200 积分", "¥100", "解锁产品功能", "每日签到", "5 积分"]) expect(pricing).toContain(text);
+    const footer = html.match(/<footer class="footer site-info">[\s\S]*?<\/footer>/)[0];
+    for (const text of ['href="/terms"', 'href="/privacy"', 'href="/refund"', "LFJ、MWL、KOMI", `mailto:${EMAIL}`, "人民币"]) expect(footer).toContain(text);
   });
 });
