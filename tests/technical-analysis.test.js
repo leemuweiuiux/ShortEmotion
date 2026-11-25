@@ -6,7 +6,7 @@ process.env.WIND_MOCK = "1";
 const engine = await import("../api/_lib/technical-analysis/engine.js");
 const wind = await import("../api/_lib/short-emotion/wind-client.js");
 const session = await import("../api/_lib/session.js");
-const { default: api, analysisConfigured, isAnalysisCurrent } = await import("../api/technical-analysis.js");
+const { default: api, analysisConfigured, isAnalysisCurrent, isPreOpen, lastCloseAt } = await import("../api/technical-analysis.js");
 
 // 固定默认模拟时间在收盘后：避免 CI 在北京时间 09:30 刚开盘时分钟数据不足
 // 触发预期内的日线降级，导致原本验证完整分析的测试受运行时间影响。
@@ -460,6 +460,35 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     expect(today.body).toMatchObject({ viewed: true, charged: 0, balance: balance - 10 });
     expect(wind.windCallStats().total).toBe(0);
     expect((await call({ method: "GET", query: { action: "result", code: "603936.SH" } })).body.needsRefresh).toBe(false);
+  });
+
+  it("9:15–9:30 开盘前沿用上一交易日收盘后的报告（含重新分析），不调用 Wind；9:30 后恢复更新", async () => {
+    await call({ body: { q: "603936" } }); // 周二 16:00 收盘后生成
+    const balance = account.balance;
+    vi.setSystemTime(new Date("2026-10-21T09:20:00+08:00"));
+    expect((await call({ method: "GET", query: { action: "result", code: "603936.SH" } })).body.needsRefresh).toBe(false);
+    wind.resetWindCallStats();
+    for (const body of [{ q: "603936" }, { q: "603936", refresh: true }]) {
+      const res = await call({ body });
+      expect(res.body).toMatchObject({ viewed: true, preOpen: true, charged: 0, balance });
+    }
+    expect(wind.windCallStats().total).toBe(0);
+    sharedResults.get("603936.SH").updatedAt = "2026-10-20T06:00:00Z"; // 周二 14:00 的盘中报告不算收盘数据
+    expect((await call({ body: { q: "603936" } })).body.preOpen).toBeUndefined();
+    vi.setSystemTime(new Date("2026-10-21T09:31:00+08:00"));
+    sharedResults.get("603936.SH").updatedAt = "2026-10-20T08:00:00Z";
+    const opened = await call({ body: { q: "603936" } });
+    expect(opened.body.preOpen).toBeUndefined();
+    expect(opened.body.viewed).toBeUndefined();
+  });
+
+  it("开盘前时段与上一收盘时间按北京时间、跳过周末", () => {
+    expect(isPreOpen(new Date("2026-10-21T09:14:59+08:00"))).toBe(false);
+    expect(isPreOpen(new Date("2026-10-21T09:15:00+08:00"))).toBe(true);
+    expect(isPreOpen(new Date("2026-10-21T09:29:59+08:00"))).toBe(true);
+    expect(isPreOpen(new Date("2026-10-21T09:30:00+08:00"))).toBe(false);
+    expect(isPreOpen(new Date("2026-10-24T09:20:00+08:00"))).toBe(false); // 周六
+    expect(lastCloseAt(new Date("2026-10-26T09:20:00+08:00")).toISOString()).toBe("2026-10-23T07:00:00.000Z"); // 周一 → 上周五 15:00
   });
 
   it("跨日自动更新失败退款，旧报告仍可读且仍标为过期", async () => {
