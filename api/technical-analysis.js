@@ -55,6 +55,29 @@ export function isAnalysisCurrent(record, now = new Date()) {
   return day(stamp) === day(now);
 }
 
+// 北京时间 9:15–9:30（集合竞价到开盘前）视同非交易时段：2026-11-25 这段时间 Wind 实时行情连续 10 秒无回应。
+// 此时上一交易日收盘后生成的报告就是最近收盘数据，直接沿用（含「重新分析」），不调用 Wind、不占当日次数。
+const beijingParts = value => Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Shanghai', weekday: 'short',
+  year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(value).map(p => [p.type, p.value]));
+export function isPreOpen(now = new Date()) {
+  const p = beijingParts(now);
+  if (p.weekday === 'Sat' || p.weekday === 'Sun') return false;
+  const minutes = Number(p.hour) * 60 + Number(p.minute);
+  return minutes >= 9 * 60 + 15 && minutes < 9 * 60 + 30;
+}
+// 上一个工作日 15:00。不识别节假日：长假后只会少沿用（改走正常取数），不会把收盘前的盘中报告当成收盘数据。
+export function lastCloseAt(now = new Date()) {
+  const p = beijingParts(now);
+  const day = new Date(Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day)));
+  do day.setUTCDate(day.getUTCDate() - 1); while ([0, 6].includes(day.getUTCDay()));
+  return new Date(`${day.toISOString().slice(0, 10)}T15:00:00+08:00`);
+}
+export function isPreOpenReusable(record, now = new Date()) {
+  const stamp = new Date(record?.updatedAt);
+  return isPreOpen(now) && Number.isFinite(stamp.getTime()) && stamp >= lastCloseAt(now) && stamp <= now;
+}
+const PRE_OPEN_TIMEOUT = "开盘前（9:15–9:30）行情暂停更新，请 9:30 后再试";
+
 function send(res, status, payload) {
   res.setHeader("Cache-Control", "no-store");
   res.status(status).json(payload);
@@ -105,7 +128,7 @@ async function handler(req, res) {
       }
       const record = await historyShared(config, session.accessToken, code);
       if (!record?.result) return send(res, 402, { error: FREE_ANALYSIS ? "首次查询该股票请点击开始分析" : "首次查询该股票需要 10 积分，请点击开始分析", code: "analysis_required", cost: FREE_ANALYSIS ? 0 : POINTS.analysis });
-      return send(res, 200, { ok: true, code, analyzedAt: record.updatedAt, needsRefresh: !isAnalysisCurrent(record), data: record.result });
+      return send(res, 200, { ok: true, code, analyzedAt: record.updatedAt, needsRefresh: !isAnalysisCurrent(record) && !isPreOpenReusable(record), data: record.result });
     } catch {
       return send(res, 503, { error: "暂时无法读取分析记录，请稍后再试", code: "history_unavailable" });
     }
@@ -150,9 +173,10 @@ async function runAnalysis(req, { session, config, needsPoints }) {
     if (needsPoints) {
       const shared = await historyShared(config, session.accessToken, q);
       fallback = shared?.result ? { data: shared.result, analyzedAt: shared.updatedAt } : null;
-      if (!isRefresh(req) && shared?.result && isAnalysisCurrent(shared)) {
+      const preOpenReuse = Boolean(shared?.result) && isPreOpenReusable(shared);
+      if (shared?.result && ((!isRefresh(req) && isAnalysisCurrent(shared)) || preOpenReuse)) {
         const status = await pointsStatus(config, session.accessToken);
-        return result(200, { ok: true, viewed: true, data: shared.result, partial: Boolean(shared.result.partial), analyzedAt: shared.updatedAt,
+        return result(200, { ok: true, viewed: true, ...(preOpenReuse ? { preOpen: true } : {}), data: shared.result, partial: Boolean(shared.result.partial), analyzedAt: shared.updatedAt,
           charged: 0, balance: status.balance, unlimited: Boolean(status.unlimited),
           recent: await historyRecent(config, session.accessToken).catch(() => null) });
       }
@@ -231,7 +255,8 @@ async function runAnalysis(req, { session, config, needsPoints }) {
     else if (!error?.statusCode) console.error("technical-analysis failed", error);
     const status = error?.statusCode || 502;
     const actionable = ["timeout", "rate_limit", "quota_exhausted", "upstream_auth"].includes(error?.code);
-    const message = status >= 500 && !error?.statusCode && !actionable ? "分析失败，请稍后再试" : error.message;
+    const message = error?.code === "timeout" && isPreOpen(new Date(started)) ? PRE_OPEN_TIMEOUT
+      : status >= 500 && !error?.statusCode && !actionable ? "分析失败，请稍后再试" : error.message;
     return result(status, {
       error: charged?.refunded ? `${message}（${Number.isFinite(Number(charged.balance)) ? `已退回积分，剩余 ${charged.balance} 积分` : "已退回积分"}）` : message,
       code: error?.code || "analysis_failed",
