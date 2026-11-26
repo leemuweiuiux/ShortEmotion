@@ -2,6 +2,7 @@ import { loadImageExporter } from "/shared/export-loader.js?v=1";
 import { exportHeader, exportFooter, prepareExportAssets, renderImage, shareOrDownload, showGallery, closeGallery, withTimeout } from "/shared/export-image.js?v=2";
 import { toast } from "/shared/nav-account.js?v=4";
 import { mountForecastEmpty } from "/watchlist/forecast-empty.js?v=1";
+import { renderAsof } from "/shared/local-time.js?v=2";
 
 const $ = (id) => document.getElementById(id);
 const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (char) =>
@@ -98,9 +99,12 @@ function renderPool() {
   $("watch-query").disabled = busy || state.stocks.length >= 10;
   $("watch-form").querySelector("button").disabled = $("watch-query").disabled;
   document.querySelector(".watch-remove-cell").hidden = !managing;
-  const current = state.stocks.some((stock) => stock.day === state.tradingDay && stock.updatedAt);
-  $("watch-date").textContent = current ? "行情日期 " + state.tradingDay
-    : state.tradingDay ? "最近收盘日 " + state.tradingDay + " · 股票行情待更新" : "行情待更新";
+  // 统一更新标签：日线收盘行情，按生成时间显示（没有生成时间时退回交易日）。
+  const updated = state.stocks.filter((stock) => stock.day === state.tradingDay && stock.updatedAt)
+    .map((stock) => stock.updatedAt).sort().at(-1);
+  const dateLabel = $("watch-date");
+  renderAsof(dateLabel, { at: updated, day: state.tradingDay, closed: true }, { fallback: "行情待更新" });
+  if (!updated && state.tradingDay) dateLabel.textContent += " · 股票行情待更新";
   $("watch-hint").hidden = !state.stocks.length;
   table.innerHTML = state.stocks.map((stock) => stockRow(stock)).join("")
     || `<tr><td class="watch-empty" colspan="${managing ? 4 : 3}">还没有关注的公司，点击「管理」添加，最多 10 只。</td></tr>`;

@@ -46,24 +46,20 @@ function isRefresh(req) {
   return body?.refresh === true;
 }
 
-// Report-generation day, not the trading day: weekends must not repeatedly charge
-// for a freshly generated report using the latest available close.
-export function isAnalysisCurrent(record, now = new Date()) {
-  const stamp = new Date(record?.updatedAt);
-  if (!record?.updatedAt || !Number.isFinite(stamp.getTime())) return false;
-  const day = value => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(value);
-  return day(stamp) === day(now);
-}
-
-// 北京时间 9:15–9:30（集合竞价到开盘前）视同非交易时段：2026-11-25 这段时间 Wind 实时行情连续 10 秒无回应。
-// 此时上一交易日收盘后生成的报告就是最近收盘数据，直接沿用（含「重新分析」），不调用 Wind、不占当日次数。
+// 北京时间 9:15–9:30（集合竞价到开盘前）：2026-11-25 这段时间 Wind 实时行情连续 10 秒无回应，超时时给出专门提示。
 const beijingParts = value => Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Shanghai', weekday: 'short',
   year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(value).map(p => [p.type, p.value]));
+const isWeekend = p => p.weekday === 'Sat' || p.weekday === 'Sun';
+const minutesOf = p => Number(p.hour) * 60 + Number(p.minute);
+const beijingAt = (p, time) => new Date(`${p.year}-${p.month}-${p.day}T${time}:00+08:00`);
 export function isPreOpen(now = new Date()) {
   const p = beijingParts(now);
-  if (p.weekday === 'Sat' || p.weekday === 'Sun') return false;
-  const minutes = Number(p.hour) * 60 + Number(p.minute);
-  return minutes >= 9 * 60 + 15 && minutes < 9 * 60 + 30;
+  return !isWeekend(p) && minutesOf(p) >= 9 * 60 + 15 && minutesOf(p) < 9 * 60 + 30;
+}
+// 交易时段 9:30–15:00（含午休）。不识别节假日。
+export function isTradingHours(now = new Date()) {
+  const p = beijingParts(now);
+  return !isWeekend(p) && minutesOf(p) >= 9 * 60 + 30 && minutesOf(p) < 15 * 60;
 }
 // 上一个工作日 15:00。不识别节假日：长假后只会少沿用（改走正常取数），不会把收盘前的盘中报告当成收盘数据。
 export function lastCloseAt(now = new Date()) {
@@ -72,9 +68,26 @@ export function lastCloseAt(now = new Date()) {
   do day.setUTCDate(day.getUTCDate() - 1); while ([0, 6].includes(day.getUTCDay()));
   return new Date(`${day.toISOString().slice(0, 10)}T15:00:00+08:00`);
 }
-export function isPreOpenReusable(record, now = new Date()) {
+// 最近一次收盘：工作日 15:00 之后是当天 15:00，否则是上一个工作日 15:00。
+export function latestCloseAt(now = new Date()) {
+  const p = beijingParts(now);
+  return !isWeekend(p) && minutesOf(p) >= 15 * 60 ? beijingAt(p, '15:00') : lastCloseAt(now);
+}
+
+// 报告新旧（2026-11-26）：
+// · 盘中（9:30–15:00）：当天开盘后生成的才算最新；
+// · 非交易时段（收盘后、开盘前、周末）：最近一次收盘之后生成的算最新，直接沿用、不调用 Wind、不占当日次数；
+//   当天的盘中快照到收盘后算过期，改取收盘版。
+export function isAnalysisCurrent(record, now = new Date()) {
   const stamp = new Date(record?.updatedAt);
-  return isPreOpen(now) && Number.isFinite(stamp.getTime()) && stamp >= lastCloseAt(now) && stamp <= now;
+  if (!record?.updatedAt || !Number.isFinite(stamp.getTime())) return false;
+  const since = isTradingHours(now) ? beijingAt(beijingParts(now), '09:30') : latestCloseAt(now);
+  return stamp >= since;
+}
+// 非交易时段连「重新分析」也沿用最近收盘报告；部分结果允许重算（9:15–9:30 Wind 无回应，仍沿用）。
+export function isOffHoursReusable(record, now = new Date()) {
+  return Boolean(record?.result) && !isTradingHours(now) && isAnalysisCurrent(record, now)
+    && (!record.result.partial || isPreOpen(now));
 }
 const PRE_OPEN_TIMEOUT = "开盘前（9:15–9:30）行情暂停更新，请 9:30 后再试";
 
@@ -128,7 +141,7 @@ async function handler(req, res) {
       }
       const record = await historyShared(config, session.accessToken, code);
       if (!record?.result) return send(res, 402, { error: FREE_ANALYSIS ? "首次查询该股票请点击开始分析" : "首次查询该股票需要 10 积分，请点击开始分析", code: "analysis_required", cost: FREE_ANALYSIS ? 0 : POINTS.analysis });
-      return send(res, 200, { ok: true, code, analyzedAt: record.updatedAt, needsRefresh: !isAnalysisCurrent(record) && !isPreOpenReusable(record), data: record.result });
+      return send(res, 200, { ok: true, code, analyzedAt: record.updatedAt, needsRefresh: !isAnalysisCurrent(record), data: record.result });
     } catch {
       return send(res, 503, { error: "暂时无法读取分析记录，请稍后再试", code: "history_unavailable" });
     }
@@ -173,10 +186,10 @@ async function runAnalysis(req, { session, config, needsPoints }) {
     if (needsPoints) {
       const shared = await historyShared(config, session.accessToken, q);
       fallback = shared?.result ? { data: shared.result, analyzedAt: shared.updatedAt } : null;
-      const preOpenReuse = Boolean(shared?.result) && isPreOpenReusable(shared);
-      if (shared?.result && ((!isRefresh(req) && isAnalysisCurrent(shared)) || preOpenReuse)) {
+      const offHoursReuse = isOffHoursReusable(shared);
+      if (shared?.result && ((!isRefresh(req) && isAnalysisCurrent(shared)) || offHoursReuse)) {
         const status = await pointsStatus(config, session.accessToken);
-        return result(200, { ok: true, viewed: true, ...(preOpenReuse ? { preOpen: true } : {}), data: shared.result, partial: Boolean(shared.result.partial), analyzedAt: shared.updatedAt,
+        return result(200, { ok: true, viewed: true, ...(offHoursReuse ? { offHours: true } : {}), data: shared.result, partial: Boolean(shared.result.partial), analyzedAt: shared.updatedAt,
           charged: 0, balance: status.balance, unlimited: Boolean(status.unlimited),
           recent: await historyRecent(config, session.accessToken).catch(() => null) });
       }
