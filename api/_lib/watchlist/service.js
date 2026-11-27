@@ -1,7 +1,7 @@
 import { authConfig, requireSession } from "../session.js";
 import { InputError, StockNotFoundError, resolveStock as resolveWind } from "../technical-analysis/engine.js";
 import { getStore } from "../short-emotion/store.js";
-import { exposureOf, relatedOf } from "./related.js";
+import { relatedOf } from "./related.js";
 
 /** Resolve a code or full name through Wind; only an exact A-share match is accepted. */
 async function resolveStock(query) {
@@ -33,7 +33,7 @@ const fail = (message, statusCode) => Object.assign(new Error(message), { status
 const codePattern = /^(?:6\d{5}\.SH|[03]\d{5}\.SZ|[489]\d{5}\.BJ)$/;
 const userFilter = (id) => "eq." + id;
 
-// 个股所属概念（题材集中度用）：先看站内概念缓存，没有才向 Wind 取一次，存进关注列表那一行，之后不再取。
+// 个股所属概念（首页「与你相关」对照题材异动与二波用）：先看站内概念缓存，没有才向 Wind 取一次，存进关注列表那一行，之后不再取。
 const CONCEPT_FILL_LIMIT = 4;
 async function cachedConcepts(store) {
   const entries = (await store.kvGet("cache:concepts").catch(() => null))?.value?.entries || {};
@@ -128,7 +128,6 @@ export function scheduledDashboard({ stocks, forecasts, outcomes, cached = [] })
   const dates = [...new Set([...market, ...signals.keys()])].sort().slice(-FORECAST_DAYS);
   return {
     stocks: stocks.map(({ code, name, concepts }) => ({ ...quotes.get(code), code, name, concepts: concepts ?? null })),
-    exposure: exposureOf(stocks),
     days: dates.map((day) => signals.get(day) ?? { day }),
     tradingDay,
     needsRefresh: stocks.some(({ code }) => !quotes.has(code))

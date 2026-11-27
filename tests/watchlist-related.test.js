@@ -1,30 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { exposureOf, relatedOf, sameTheme } from "../api/_lib/watchlist/related.js";
+import { relatedOf, sameTheme } from "../api/_lib/watchlist/related.js";
 import { scheduledDashboard } from "../api/_lib/watchlist/service.js";
 
 const stock = (code, name, concepts, quote = {}) => ({ code, name, concepts, ...quote });
-
-describe("题材集中度", () => {
-  it("同一概念覆盖一半以上时判为集中，并合并覆盖相同股票的概念", () => {
-    const result = exposureOf([
-      stock("600001.SH", "甲", ["算力", "CPO"]),
-      stock("600002.SH", "乙", ["算力", "CPO"]),
-      stock("600003.SH", "丙", ["算力", "CPO", "储能"]),
-      stock("600004.SH", "丁", ["储能"])
-    ]);
-    expect(result.level).toBe("high");
-    expect(result.clusters[0].concepts).toEqual(["算力", "CPO"]);
-    expect(result.clusters[0].stocks.map((item) => item.name)).toEqual(["甲", "乙", "丙"]);
-    expect(result.text).toContain("4 只里有 3 只同属「算力」");
-  });
-
-  it("没有重叠时为分散；取得题材的不足 3 只时不评估", () => {
-    expect(exposureOf([stock("600001.SH", "甲", ["A1"]), stock("600002.SH", "乙", ["B1"]), stock("600003.SH", "丙", ["C1"])]).level).toBe("low");
-    const few = exposureOf([stock("600001.SH", "甲", ["A1"]), stock("600002.SH", "乙", null), stock("600003.SH", "丙", [])]);
-    expect(few.level).toBe("few");
-    expect(few.missing).toBe(2);
-  });
-});
 
 describe("与你相关", () => {
   const board = { stocks: [{ code: "600001.SH", streak: 3 }], limitDown: { stocks: [{ code: "000002.SZ" }] } };
@@ -65,9 +43,9 @@ describe("与你相关", () => {
     expect(sameTheme("AI", "AI眼镜")).toBe(false);
   });
 
-  it("关注页数据带出题材集中度", () => {
+  it("关注数据带出个股题材，供「与你相关」对照", () => {
     const data = scheduledDashboard({ stocks: [{ code: "600001.SH", name: "甲", concepts: ["算力"] }], forecasts: [], outcomes: [] });
     expect(data.stocks[0].concepts).toEqual(["算力"]);
-    expect(data.exposure.level).toBe("few");
+    expect(data.exposure).toBeUndefined();
   });
 });
