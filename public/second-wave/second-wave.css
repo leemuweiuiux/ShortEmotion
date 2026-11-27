@@ -65,7 +65,15 @@
 .sw-kpis small { color: var(--muted); font-size: 11px; }
 .sw-bubble { margin-top: 10px; }
 .sw-bubble svg { display: block; width: 100%; height: auto; }
-.sw-bubble circle { cursor: pointer; }
+.sw-bubble circle { cursor: pointer; touch-action: none; }
+/* 空白处仍可上下滚动页面；从气泡上按下时可左右／上下滑动切换提示 */
+.sw-bubble svg { touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.sw-bubble circle.is-active { fill-opacity: .75; stroke-width: 2.6; }
+.sw-tip { position: fixed; top: 0; left: 0; z-index: 50; display: grid; grid-template-columns: auto auto; justify-content: start; align-items: center; gap: 2px 8px; max-width: min(280px, calc(100vw - 16px)); padding: 8px 10px; background: var(--card); color: var(--ink); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 6px 20px rgba(0, 0, 0, .16); pointer-events: none; font-size: 12px; line-height: 1.5; }
+.sw-tip[hidden] { display: none; }
+.sw-tip b { font-size: 14px; font-weight: 700; }
+.sw-tip small, .sw-tip em { grid-column: 1 / -1; color: var(--muted); font-style: normal; font-variant-numeric: tabular-nums; }
+.sw-tip em { color: var(--ink); font-weight: 600; }
 .sw-legend { display: flex; gap: 14px; margin-top: 6px; color: var(--muted); font-size: 12px; }
 .sw-legend i { display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 50%; }
 .sw-legend i[data-band="已启动"] { background: var(--price-up); }

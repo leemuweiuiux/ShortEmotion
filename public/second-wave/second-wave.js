@@ -92,7 +92,7 @@ export function bubbleSvg(list) {
   [...list].sort((a, b) => b.amt - a.amt).forEach((d) => {
     const r = Math.min(2.5 + Math.sqrt(d.amt / amtRef) * 7, 11);
     const c = bandColor(d.band, colors);
-    g += `<circle cx="${sx(shrinkOf(d))}" cy="${sy(d.resilience)}" r="${r}" fill="${c}" fill-opacity=".28" stroke="${c}" stroke-width="1.4" data-code="${esc(d.code)}"><title>${esc(d.name)} ${esc(d.band)} 质量 ${fmt(shrinkOf(d), 0)} 抗跌 ${signed(d.resilience)} 总分 ${fmt(d.score)}</title></circle>`;
+    g += `<circle cx="${sx(shrinkOf(d))}" cy="${sy(d.resilience)}" r="${r}" fill="${c}" fill-opacity=".28" stroke="${c}" stroke-width="1.4" data-code="${esc(d.code)}"/>`;
   });
   list.slice(0, 8).forEach((d) => {
     g += `<text x="${sx(shrinkOf(d)) + 9}" y="${sy(d.resilience) - 6}" fill="${colors.ink}" font-size="10">${esc(short(d.name))}</text>`;
@@ -260,7 +260,67 @@ $("sw-search").addEventListener("input", (event) => { state.q = event.target.val
 $("sw-sort").addEventListener("change", (event) => { state.sort = event.target.value; renderList(); });
 $("sw-list").addEventListener("click", (event) => { const item = event.target.closest(".sw-item"); if (item) openDetail(item.dataset.code); });
 $("sw-list").addEventListener("keydown", (event) => { if (event.key === "Enter") { const item = event.target.closest(".sw-item"); if (item) openDetail(item.dataset.code); } });
-$("sw-bubble").addEventListener("click", (event) => { const dot = event.target.closest("circle[data-code]"); if (dot) openDetail(dot.dataset.code); });
+// ── 气泡图提示（2026-11-27）：点多、点小时按「离手指／鼠标最近的点」显示名称与得分；
+// 鼠标悬停显示、点击看详情；手指按住可左右滑动切换，松手时打开当前提示的那一个。
+const bubbleTip = Object.assign(document.createElement("div"), { className: "sw-tip", hidden: true });
+document.body.append(bubbleTip);
+let activeDot = null;
+let lastTouchEnd = 0;
+function nearestDot(event, reach) {
+  let best = null;
+  let bestGap = reach;
+  for (const dot of $("sw-bubble").querySelectorAll("circle[data-code]")) {
+    const box = dot.getBoundingClientRect();
+    const gap = Math.hypot(event.clientX - (box.left + box.width / 2), event.clientY - (box.top + box.height / 2)) - box.width / 2;
+    if (gap < bestGap) { best = dot; bestGap = gap; }
+  }
+  return best;
+}
+function hideTip() {
+  activeDot?.classList.remove("is-active");
+  activeDot = null;
+  bubbleTip.hidden = true;
+}
+function showTip(event) {
+  const touch = event.pointerType !== "mouse";
+  const dot = nearestDot(event, touch ? 28 : 14);
+  if (!dot) return hideTip();
+  const d = candidates().find((item) => item.code === dot.dataset.code);
+  if (!d) return hideTip();
+  if (dot !== activeDot) {
+    activeDot?.classList.remove("is-active");
+    activeDot = dot;
+    dot.classList.add("is-active");
+    bubbleTip.innerHTML = `<b>${esc(short(d.name))}</b><span class="sw-band" data-band="${esc(d.band)}">${esc(d.band)}</span>
+      <small>缩量质量 ${fmt(shrinkOf(d), 0)} · 抗跌 ${signed(d.resilience)} · 总分 ${fmt(d.score)}</small>
+      <em>${touch ? "松手查看详情" : "点击查看详情"}</em>`;
+  }
+  bubbleTip.hidden = false;
+  const box = activeDot.getBoundingClientRect();
+  const width = bubbleTip.offsetWidth;
+  const x = Math.min(Math.max(box.left + box.width / 2 - width / 2, 8), innerWidth - width - 8);
+  // 手指在下方挡住视线，提示放在点上方更高处
+  const y = Math.max(box.top - bubbleTip.offsetHeight - (touch ? 28 : 10), 8);
+  bubbleTip.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+}
+const bubbleBox = $("sw-bubble");
+bubbleBox.addEventListener("pointermove", showTip);
+bubbleBox.addEventListener("pointerdown", (event) => { if (event.pointerType !== "mouse") showTip(event); });
+bubbleBox.addEventListener("pointerleave", (event) => { if (event.pointerType === "mouse") hideTip(); });
+bubbleBox.addEventListener("pointercancel", hideTip); // 手指改为上下滚动页面
+bubbleBox.addEventListener("pointerup", (event) => {
+  if (event.pointerType === "mouse") return;
+  lastTouchEnd = Date.now();
+  const code = activeDot?.dataset.code;
+  hideTip();
+  if (code) openDetail(code);
+});
+bubbleBox.addEventListener("click", (event) => {
+  if (Date.now() - lastTouchEnd < 600) return; // 触控已在松手时处理
+  const dot = activeDot || nearestDot(event, 14);
+  if (dot) { const code = dot.dataset.code; hideTip(); openDetail(code); }
+});
+addEventListener("scroll", hideTip, { passive: true });
 $("sw-sheet").addEventListener("click", (event) => { if (event.target.closest("[data-close]")) closeDetail(); });
 
 async function load() {
