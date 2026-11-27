@@ -61,13 +61,13 @@ scrollRegion.addEventListener('scroll',updateScrollButtons,{passive:true});
 if(typeof ResizeObserver!=='undefined')new ResizeObserver(updateScrollButtons).observe(scrollRegion);
 async function load(){try{
  const data=await etfflowRequest('full');dashboard=data;received=true;
- if(!data.ready){$('#ef-protected').hidden=true;$('#ef-paywall').hidden=true;$('#ef-share').disabled=true;$('#ef-date').textContent='当前数据缺失';for(const id of ['#ef-overview','#ef-groups'])$(id).innerHTML='<p class="ef-empty">当前数据缺失</p>';return;}
+ if(!data.ready){$('#ef-protected').hidden=true;$('#ef-paywall').hidden=true;$('#ef-share').disabled=true;$('#ef-date').textContent='当前数据缺失';for(const id of ['#ef-overview','#ef-groups'])$(id).innerHTML='<p class="ef-empty">资金数据待更新，交易日 20:35 后再来看看。</p>';return;}
  renderAsof($('#ef-date'),{at:data.updatedAt,day:data.date,closed:true});
  overview();$('#ef-paywall').hidden=!data.locked;$('#ef-protected').hidden=Boolean(data.locked);$('#ef-share').disabled=Boolean(data.locked)||!data.ready||$('#ef-share').getAttribute('aria-busy')==='true';
  if(data.locked){$('#ef-unlock').disabled=Boolean(data.unavailable);$('#ef-paywall-copy').textContent=data.unavailable?'积分服务暂时不可用，请稍后再试':'解锁后查看各类宽基、历史流入及ETF明细，12小时内有效。';return;}
  $('#ef-filter').innerHTML=data.series.map(g=>`<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('');
  $('#ef-metric').disabled=false;$('#ef-filter').disabled=false;overview();groups();heatmap();select(selected);
- }catch(e){if(e.status===401)return goLogin();$('#ef-date').textContent=e.message;if(!dashboard)$('#ef-overview').innerHTML='<p class="ef-empty">当前数据缺失</p>';}}
+ }catch(e){if(e.status===401)return goLogin();$('#ef-date').textContent=e.message;if(!dashboard)$('#ef-overview').innerHTML='<p class="ef-empty">资金数据暂时无法读取，请稍后刷新。</p>';}}
 load();
 setInterval(()=>{if(!document.hidden)load();},5*60_000);
 

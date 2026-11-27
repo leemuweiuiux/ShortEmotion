@@ -151,7 +151,7 @@ function renderHighlights(data) {
   if (!highlights.length) {
     container.innerHTML = pendingGate(data, "detailComplete")
       ? `<div class="lu-empty">${esc(pendingText(data))}，暂不下结论。</div>`
-      : '<div class="lu-empty">今日暂无明显强弱信号。</div>';
+      : '<div class="lu-empty">今日暂无明显强弱信号，可结合天梯查看。</div>';
     return;
   }
   container.innerHTML = highlights.map((item) => `<div class="lu-highlight ${esc(item.tone || "")}">
@@ -223,7 +223,7 @@ function renderLadder(data) {
   if (!ladder.length) {
     container.innerHTML = pendingGate(data, "ladderComplete")
       ? `<div class="lu-empty">${esc(pendingText(data))}，天梯暂不展示。</div>`
-      : '<div class="lu-empty">今日暂无涨停天梯数据。</div>';
+      : '<div class="lu-empty">暂无涨停天梯，交易时段更新后显示。</div>';
     return;
   }
 
@@ -245,7 +245,7 @@ function renderLadder(data) {
           : "";
         return `<span class="lu-stock${isLead ? " is-lead" : ""}${stock.isST ? " is-st" : ""}"><b>${esc(stock.name)}</b>${concept}<em>${esc(shortClock(stock.sealTime))}</em></span>`;
       }).join("")
-      : '<span class="lu-tier-empty">空缺（该板高无个股）</span>';
+      : '<span class="lu-tier-empty">该板高暂无公司</span>';
     const more = collapsible && !expanded
       ? `<button class="lu-more" type="button" data-tier="${tier.streak}">展开其余 ${stocks.length - LADDER_COLLAPSE} 只 ▾</button>`
       : "";
@@ -292,7 +292,7 @@ function renderPromotion(data) {
   ` : "";
 
   if (!tiers.length) {
-    $("#promo-list").innerHTML = `<div class="lu-empty">${relayPending ? "晋级数据待补齐。" : "暂无可分层计算的晋级数据。"}</div>`;
+    $("#promo-list").innerHTML = `<div class="lu-empty">${relayPending ? "晋级数据待补齐。" : "晋级样本不足，数据补齐后显示。"}</div>`;
     setText("#promo-note", "晋级率需要上一交易日的涨停名单；首个交易日沉淀后自动生效。");
     return;
   }
@@ -329,7 +329,7 @@ function renderConcepts(data) {
   if (!concepts.length) {
     container.innerHTML = pendingGate(data, "detailComplete")
       ? `<div class="lu-empty">${esc(pendingText(data))}，题材暂不展示。</div>`
-      : '<div class="lu-empty">今日涨停个股未匹配到有效题材概念。</div>';
+      : '<div class="lu-empty">暂无可归类的题材，数据补齐后显示。</div>';
     return;
   }
   const previousCounts = new Map((data.previous?.concepts || []).map((concept) => [concept.name, concept.limitCount]));

@@ -24,7 +24,7 @@ const dialog = $("#kd-compose");
 
 function renderFeed() {
   const filtered = views.filter((v) => filter === "all" || filter === "mine" || v.direction === filter);
-  const empty = filter === "mine" ? "你还没有发布过看点，来留下你的第一个判断。" : "还没有这个方向的看点，来留下你的判断。";
+  const empty = filter === "all" ? "暂无看点，点击下方「发布看法」分享判断。" : filter === "mine" ? "还没发布过看点，点击下方「发布看法」分享判断。" : "暂无这个方向的看点，可切换筛选或发布看法。";
   $("#kd-feed").innerHTML = filtered.length ? filtered.map((v) => cardHtml(v)).join("") : `<div class="empty">${empty}</div>`;
 }
 

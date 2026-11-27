@@ -16,7 +16,7 @@ function renderEvents() {
   $("qdii-events-pill").textContent = `${signal.label} ${signal.events.length} 次 · ${index.short} T+${horizon}`;
   const all = eventsMarkup(signal, index.id, horizon);
   const rows = showAllEvents ? all : eventsMarkup({ ...signal, events: signal.events.slice(0, 6) }, index.id, horizon);
-  $("qdii-events").innerHTML = rows || '<div class="empty">尚未触发过。</div>';
+  $("qdii-events").innerHTML = rows || '<div class="empty">该状态暂无触发记录，可切换其他状态。</div>';
   if (signal.events.length > 6) $("qdii-events").insertAdjacentHTML("beforeend",
     `<button type="button" id="qdii-more" class="qdii-more" aria-expanded="${showAllEvents}">${showAllEvents ? "收起" : `查看全部 ${signal.events.length} 次`}</button>`);
 }
@@ -24,7 +24,7 @@ function renderEvents() {
 function renderNotices() {
   const total = snapshot.notices.length;
   $("qdii-notices-pill").textContent = `${total} 则`;
-  $("qdii-notices").innerHTML = noticesMarkup(snapshot.notices.slice(0, noticeCount))
+  $("qdii-notices").innerHTML = (noticesMarkup(snapshot.notices.slice(0, noticeCount)) || '<div class="empty">暂无相关公告，有更新时会在这里显示。</div>')
     + (total > noticeCount ? `<button type="button" id="qdii-notices-more" class="qdii-more">再看 20 则</button>` : "");
 }
 
