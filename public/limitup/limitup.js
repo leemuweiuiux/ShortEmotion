@@ -4,6 +4,7 @@ import { showUnlockSuccess } from "/shared/unlock-toast.js?v=1";
 // 数据来自 /api/limitup（只读定时任务写入的快照）；「刷新」沿用短线情绪（/api/short-emotion action=refresh，扣 5 积分），
 // 同一次更新会重算涨停情绪。各区块的计算与展示原样取自 lfjDashboard「涨停事件工作台20261027」limit.js。
 import { toast, goLogin, initAccountMenu } from "/shared/nav-account.js?v=4";
+import { stockAttrs } from "/shared/stock-actions.js?v=1";
 import { renderAsof } from "/shared/local-time.js?v=2";
 import { setupLimitupShare } from "/limitup/share.js?v=3";
 import { updateNavPoints } from "/shared/nav-points.js?v=2";
@@ -179,7 +180,7 @@ function renderLimitDown(data) {
     : "";
   container.innerHTML = `${conceptLine}<div class="lu-down-list">${stocks.map((stock) => {
     const concept = stock.concepts?.length ? `<i class="lu-stock-tag">${esc(stock.concepts[0])}</i>` : "";
-    return `<span class="lu-down-stock"><b>${esc(stock.name)}</b>${concept}<em>${esc(shortClock(stock.downTime))}</em></span>`;
+    return `<span class="lu-down-stock"${stockAttrs(stock.code, stock.name)}><b>${esc(stock.name)}</b>${concept}<em>${esc(shortClock(stock.downTime))}</em></span>`;
   }).join("")}</div>`;
 }
 
@@ -209,7 +210,7 @@ function renderLadder(data) {
       const name = typeof item === "string" ? null : item.name;
       const concept = typeof item === "string" ? null : item.concept;
       const tag = concept ? `<i class="lu-stock-tag">${esc(concept)}</i>` : "";
-      return `<span class="lu-broken-item" title="${esc(code)}"><b>${esc(name || code)}</b>${tag}${name ? `<em>${esc(code)}</em>` : ""}</span>`;
+      return `<span class="lu-broken-item" title="${esc(code)}"${stockAttrs(code, name)}><b>${esc(name || code)}</b>${tag}${name ? `<em>${esc(code)}</em>` : ""}</span>`;
     }).join("");
     brokenBox.innerHTML = `<div class="lu-broken">
       <div class="lu-broken-head">⚠ 断板 <b>${streakText(broken.streak)}</b> ${broken.brokenCount}/${broken.totalCount} 家未晋级，高度${drop < 0 ? "回落" : "止步"}于 ${streakText(summary.maxStreak)}</div>
@@ -243,7 +244,7 @@ function renderLadder(data) {
         const concept = stock.primaryConcept
           ? `<i class="lu-stock-tag">${esc(stock.primaryConcept)}</i>`
           : "";
-        return `<span class="lu-stock${isLead ? " is-lead" : ""}${stock.isST ? " is-st" : ""}"><b>${esc(stock.name)}</b>${concept}<em>${esc(shortClock(stock.sealTime))}</em></span>`;
+        return `<span class="lu-stock${isLead ? " is-lead" : ""}${stock.isST ? " is-st" : ""}"${stockAttrs(stock.code, stock.name)}><b>${esc(stock.name)}</b>${concept}<em>${esc(shortClock(stock.sealTime))}</em></span>`;
       }).join("")
       : '<span class="lu-tier-empty">该板高暂无公司</span>';
     const more = collapsible && !expanded
@@ -347,7 +348,7 @@ function renderConcepts(data) {
     }).join("");
     const newsProof = stocks.flatMap(stock => (stock.newsEvidence || []).filter(item => stock.newsAdded?.includes(concept.name) && item.theme === concept.name).map(item => `<span class="lu-proof">${esc(stock.name)} · ${esc(item.source || "来源未提供")} · ${esc(item.date || "日期未提供")} · ${esc(item.title)}：${esc(item.sentence)}</span>`)).join("");
     const tags = stocks.length
-      ? stocks.map((stock) => `<span class="lu-stock${stock.isST ? " is-st" : ""}" title="${esc(`概念依据：${(concept.evidence?.[stock.code] || []).join("、") || "未记录"}${stock.newsUnmatched?.length ? `；资讯线索待核实：${stock.newsUnmatched.join("、")}` : ""}`)}"><b>${esc(stock.name)}</b><em>${streakText(stock.streak)} ${esc(shortClock(stock.sealTime))}</em><small>依据：${esc((concept.evidence?.[stock.code] || []).join("、") || "未记录")}</small></span>`).join("")
+      ? stocks.map((stock) => `<span class="lu-stock${stock.isST ? " is-st" : ""}"${stockAttrs(stock.code, stock.name)} title="${esc(`概念依据：${(concept.evidence?.[stock.code] || []).join("、") || "未记录"}${stock.newsUnmatched?.length ? `；资讯线索待核实：${stock.newsUnmatched.join("、")}` : ""}`)}"><b>${esc(stock.name)}</b><em>${streakText(stock.streak)} ${esc(shortClock(stock.sealTime))}</em><small>依据：${esc((concept.evidence?.[stock.code] || []).join("、") || "未记录")}</small></span>`).join("")
       : '<span class="lu-tier-empty">—</span>';
     // 强弱状态与跌停、断板家数：概念聚合不再只讲涨停，弱方向也要能一眼看到
     const status = concept.reviewReasons?.length

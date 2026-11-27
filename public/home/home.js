@@ -1,4 +1,5 @@
 import { showUnlockSuccess } from "/shared/unlock-toast.js?v=1";
+import { stockAttrs } from "/shared/stock-actions.js?v=1";
 import { linkageCorrelationLabel } from "/shared/linkage-correlation.js?v=1";
 import {whenNearViewport} from '/shared/viewport-load.js?v=1';
 import { requestJSON, readPoints, rememberSnapshot } from '/shared/request.js?v=1';
@@ -277,7 +278,7 @@ function renderLimitUpUnlocked() {
   // 板高降序；每档最多列 6 只（同档按封板时间由早到晚），其余写「等 N 家」
   const rows = [...ladder].sort((a, b) => b.streak - a.streak).map((tier) => {
     const more = tier.count > (tier.stocks || []).length ? `<em>等 ${tier.count} 家</em>` : "";
-    const list = (tier.stocks || []).map((stock) => `<span>${esc(stock.name)}</span>`).join("");
+    const list = (tier.stocks || []).map((stock) => `<span${stockAttrs(stock.code, stock.name)}>${esc(stock.name)}</span>`).join("");
     return `<li><b>${streakText(tier.streak)}<small>${esc(tier.count)} 家</small></b><p>${list}${more}</p></li>`;
   }).join("");
   limitupBody.innerHTML = `<a class="home-preview-link" href="/limitup" aria-label="查看涨停情绪详情"><ol class="home-limitup-ladder">${rows}</ol></a>`;

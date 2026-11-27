@@ -101,3 +101,16 @@
 .watch-hit { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .watch-hit[data-status="beat"] { color: var(--ink); font-weight: 700; }
 .watch-hit b { font-weight: 600; }
+
+/* 题材集中度（2026-11-27） */
+.watch-exposure-level { flex: none; padding: 2px 8px; border: 1px solid var(--border); border-radius: 4px; color: var(--muted); font-size: 12px; }
+.watch-exposure-level:empty { display: none; }
+.watch-exposure-level.is-high { color: var(--surface); background: var(--ink); border-color: var(--ink); font-weight: 600; }
+.watch-exposure-level.is-some { color: var(--ink); border-color: var(--ink); }
+.watch-exposure-text { margin: 0; color: var(--ink); font-size: 14px; line-height: 1.6; }
+.watch-exposure-groups { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.watch-exposure-groups:empty { display: none; }
+.watch-exposure-groups li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 10px; background: var(--panel); border-radius: 6px; }
+.watch-exposure-groups strong { font-size: 13px; font-weight: 600; }
+.watch-exposure-groups span { grid-column: 1; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.watch-exposure-groups em { grid-row: 1 / span 2; grid-column: 2; align-self: center; font-style: normal; font-family: "Manrope", sans-serif; font-weight: 700; }
