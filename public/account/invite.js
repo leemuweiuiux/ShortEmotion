@@ -50,7 +50,7 @@ function renderFriends(friends) {
   if (!friends.length) {
     const empty = document.createElement("li");
     empty.className = "ledger-empty";
-    setText(empty, "还没有好友接受邀请");
+    setText(empty, "还没有好友加入，分享邀请码邀请好友。");
     list.append(empty);
   }
 }

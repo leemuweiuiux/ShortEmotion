@@ -69,7 +69,7 @@ export function renderLedger(list, rows, { append = false } = {}) {
   if (!list.children.length) {
     const empty = document.createElement("li");
     empty.className = "ledger-empty";
-    setText(empty, "暂无记录");
+    setText(empty, "暂无积分记录，签到或使用功能后会显示。");
     list.append(empty);
   }
 }
