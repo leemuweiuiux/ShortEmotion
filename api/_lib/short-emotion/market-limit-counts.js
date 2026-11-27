@@ -43,7 +43,15 @@ export async function loadMarketLimitCounts(day, { fresh = false } = {}) {
   if (!fresh && cached && Date.now() - cached.at < 60_000) return cached.promise;
   const promise = (async () => {
     const errors = [];
-    const counts = await Promise.all(["涨停", "跌停"].map(async direction => {
+    // 先用一句同时问涨停与跌停家数（2026-11-13 探针：单问「涨停家数」偶发「没找到数据」，合问两张汇总表都返回）；
+    // 解析不到的方向再按原来的单句逐一补问。
+    let combined = [null, null];
+    try {
+      const payload = await callWindTool("analytics_data", "get_financial_data", { question: `${day}沪深京A股涨停家数和跌停家数（包含ST股票）` });
+      combined = [parseLimitCount(payload, "涨停", day), parseLimitCount(payload, "跌停", day)];
+    } catch { /* 回退到单句 */ }
+    const counts = await Promise.all(["涨停", "跌停"].map(async (direction, slot) => {
+      if (combined[slot] !== null) return combined[slot];
       for (const question of [`${day}沪深京A股${direction}家数（包含ST股票）`, `${day}全部A股${direction}家数`]) {
         try {
           const payload = await callWindTool("analytics_data", "get_financial_data", { question });

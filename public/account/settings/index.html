@@ -10,7 +10,7 @@
   <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
   <script>
-    // 与介绍页、看板共用外观设置：深浅色跟随系统（或 twsvp_theme）
+    // 与介绍页、看板共用外观设置：深浅色跟随系统（或 twsvp_theme），语言：简体 / 繁体
     (function () {
       var root = document.documentElement;
       var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
@@ -18,17 +18,19 @@
       if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       root.dataset.theme = theme;
       if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
+      var lang = "hans"; // 仅提供简体
+      root.dataset.lang = lang;
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/about/about.css?v=13">
   <link rel="stylesheet" href="/shared/form.css?v=1">
-  <link rel="stylesheet" href="/account/account.css?v=14">
+  <link rel="stylesheet" href="/account/account.css?v=15">
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
-  <link rel="stylesheet" href="/shared/global-header.css?v=5">
+  <link rel="stylesheet" href="/shared/global-header.css?v=4">
   <script defer src="/shared/usage.js?v=3"></script>
   <link rel="stylesheet" href="/shared/wide-layout.css?v=2">
 </head>
@@ -59,12 +61,22 @@
       <a class="settings-row" href="/privacy"><span>隐私政策</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
     </nav>
 
+    <section id="android-update" class="sub-card settings-list" aria-label="App 版本" hidden>
+      <button id="check-android-update" class="settings-row update-check" type="button">
+        <span>更新版本</span><span id="android-installed-version" class="update-version"></span>
+      </button>
+      <div id="android-update-result" class="update-result" hidden>
+        <p id="android-update-status" role="status" aria-live="polite"></p>
+        <a id="android-update-download" class="btn-primary update-download" hidden>下载新版</a>
+      </div>
+    </section>
+
     <button id="logout" class="logout-link" type="button">退出登录</button>
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/account/settings.js?v=4"></script>
-  <script type="module" src="/shared/global-header.js?v=8"></script>
+  <script type="module" src="/account/settings.js?v=5"></script>
+  <script type="module" src="/shared/global-header.js?v=7"></script>
 </body>
 </html>

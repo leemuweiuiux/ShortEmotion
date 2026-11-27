@@ -1,3 +1,4 @@
+import { showUnlockSuccess } from "/shared/unlock-toast.js?v=1";
 import { etfflowRequest } from '/shared/etfflow-access.js?v=1';
 import { toast, goLogin } from '/shared/nav-account.js?v=4';
 const button=document.querySelector('#sf-etf-action');
@@ -18,7 +19,7 @@ button.addEventListener('click',async()=>{
  if(access.unavailable){toast('积分服务暂时不可用，请稍后再试',true);load();return;}
  if(!access.locked){location.assign('/etfflow');return;}
  busy=true;render();
- try{const result=await etfflowRequest('unlock');access={...result,locked:false};toast('已解锁宽基ETF资金');}
+ try{const result=await etfflowRequest('unlock');access={...result,locked:false};showUnlockSuccess(toast, 'etfflow', result);}
  catch(error){if(error.status===401)return goLogin();toast(error.message,true);}
  finally{busy=false;render();}
 });

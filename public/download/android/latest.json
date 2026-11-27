@@ -1,0 +1,8 @@
+{
+  "version": "1.0.2",
+  "versionCode": 3,
+  "url": "/download/android/shortemotion-1.0.2.apk",
+  "sha256": "7be21343233b9448884b5f71f1b8fdd70d608847a56bb3e313702c6d3f4e3d4e",
+  "bytes": 907777,
+  "notes": "修复部分 Android 设备启动时闪退的问题。已安装旧版的用户可以直接覆盖安装。"
+}

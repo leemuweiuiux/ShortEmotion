@@ -579,6 +579,11 @@ export async function refreshGlobalLinkage(store, { now = new Date() } = {}) {
   if (cached?.tradingDate && next.tradingDate && next.tradingDate < cached.tradingDate) {
     return { skipped: true, reason: "Wind 返回的日期早于缓存，保留上一份快照" };
   }
+  // 主取与备援（2026-11-13）：同一交易日只在缺失更少时覆盖，备援不会把主取的较完整结果换掉
+  const missingCount = (value) => (value?.missing?.length ?? value?.missingCodes?.length ?? 0);
+  if (cached?.tradingDate && cached.tradingDate === next.tradingDate && missingCount(next) > missingCount(cached)) {
+    return { skipped: true, reason: "同日已有缺失更少的快照，保留" };
+  }
   await store.kvSet(GLOBAL_LINKAGE_KEY, next);
   return { value: next };
 }

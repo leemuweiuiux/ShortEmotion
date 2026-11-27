@@ -1,6 +1,6 @@
 // 公开的「每日看点」与站点地图（不需要登录）：
-//   /news、/news/<id>   文章列表与文章（服务端直接输出 HTML）
-//   /sitemap.xml、/news/feed.xml      站点地图与 RSS
+//   /news、/news/<id>、/zh-hant/news、/zh-hant/news/<id>   文章列表与文章（服务端直接输出 HTML，繁体由 opencc 转换）
+//   /sitemap.xml、/news/feed.xml、/zh-hant/news/feed.xml      站点地图与 RSS
 //   /api/news?view=latest                                     介绍页「每日看点」最新几篇（JSON）
 // 网址由 vercel.json 改写到这里；内容见 api/_lib/news/render.js。
 import { getStore } from "./_lib/short-emotion/store.js";

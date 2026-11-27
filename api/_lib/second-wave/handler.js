@@ -1,4 +1,4 @@
-// /api/second-wave：题材二波形态（2026-11-19，先只在 Exp 开放）。只读 second-wave-data 分支的 snapshot.json，不调用 Wind。
+// /api/second-wave：题材二波形态（2026-11-19 上 Exp，2026-11-20 上主站）。只读 second-wave-data 分支的 snapshot.json，不调用 Wind。
 //   ?resource=summary 题材页卡片：各档数量与「已启动 + 待确认」前 5 名；默认返回全部指数（含近 25 个交易日量能）。
 // 看资料类内容全部免费（2026-11-19），只需登录。
 import { DATA_RAW_BASE, githubToken } from "../short-emotion/github.js";
@@ -34,7 +34,7 @@ export default async function secondWave(req, res) {
     res.setHeader("Allow", "GET");
     return res.status(405).json({ error: "方法不支持" });
   }
-  if (!["exp.lfjmwl.com", "localhost", "127.0.0.1"].includes(String(req.headers.host || "").split(":")[0])) {
+  if (!["lfjmwl.com", "www.lfjmwl.com", "stockmarketshortemotion.vercel.app", "exp.lfjmwl.com", "localhost", "127.0.0.1"].includes(String(req.headers.host || "").split(":")[0])) {
     return res.status(404).json({ error: "接口不存在" });
   }
   try {

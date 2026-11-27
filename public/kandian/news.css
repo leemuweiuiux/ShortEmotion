@@ -2,6 +2,11 @@
 .news-main { display: grid; gap: 12px; }
 .news-main > .legal { padding-top: 4px; }
 
+/* 顶栏右侧：简体 / 繁体（链接到对应网址，不在页面里转换） */
+.news-lang { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; color: var(--muted); font-size: 12px; }
+.news-lang a { padding: 2px 6px; border: 1px solid transparent; color: inherit; text-decoration: none; }
+.news-lang a[aria-current] { border-color: var(--border); background: var(--panel); color: var(--ink); }
+.news-lang a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
 .news-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
 .news-crumbs a { color: inherit; text-decoration: none; }

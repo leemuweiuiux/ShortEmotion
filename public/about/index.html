@@ -17,12 +17,12 @@
   <meta property="og:locale" content="zh_CN">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:image" content="https://www.lfjmwl.com/about/img/pulse-light.webp">
-  <script type="application/ld+json">[{"@context": "https://schema.org", "@type": "Organization", "@id": "https://www.lfjmwl.com/#organization", "name": "Market Emotion", "url": "https://www.lfjmwl.com/about", "logo": "https://www.lfjmwl.com/apple-touch-icon.png", "description": "A股短线情绪、题材与资金看板：0–100 的短线情绪分、题材异动、涨停天梯、板块资金流向、个股分析与每日看点短线复盘。"}, {"@context": "https://schema.org", "@type": "WebSite", "@id": "https://www.lfjmwl.com/#website", "name": "Market Emotion", "alternateName": "看懂A股情绪与走势", "url": "https://www.lfjmwl.com/about", "inLanguage": ["zh-Hans"], "publisher": {"@id": "https://www.lfjmwl.com/#organization"}}]</script>
+  <script type="application/ld+json">[{"@context": "https://schema.org", "@type": "Organization", "@id": "https://www.lfjmwl.com/#organization", "name": "Market Emotion", "url": "https://www.lfjmwl.com/about", "logo": "https://www.lfjmwl.com/apple-touch-icon.png", "description": "A股短线情绪、题材与资金看板：0–100 的短线情绪分、题材异动、涨停天梯、板块资金流向、个股分析与每日看点短线复盘。"}, {"@context": "https://schema.org", "@type": "WebSite", "@id": "https://www.lfjmwl.com/#website", "name": "Market Emotion", "alternateName": "看懂A股情绪与走势", "url": "https://www.lfjmwl.com/about", "inLanguage": ["zh-Hans", "zh-Hant"], "publisher": {"@id": "https://www.lfjmwl.com/#organization"}}]</script>
   <link rel="icon" href="/short-emotion/favicon-32.png?v=2" type="image/png" sizes="32x32">
   <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
   <script>
-    // 与看板共用外观设置：深浅色跟随系统（或 twsvp_theme）
+    // 与看板共用外观设置：深浅色跟随系统（或 twsvp_theme），语言：简体 / 繁体
     (function () {
       var root = document.documentElement;
       var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
@@ -30,6 +30,8 @@
       if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       root.dataset.theme = theme;
       if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
+      var lang = "hans"; // 仅提供简体
+      root.dataset.lang = lang;
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -39,7 +41,7 @@
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
-  <link rel="stylesheet" href="/shared/global-header.css?v=5">
+  <link rel="stylesheet" href="/shared/global-header.css?v=4">
   <script defer src="/shared/usage.js?v=3"></script>
 </head>
 <body>
@@ -50,6 +52,10 @@
         <b>Market Emotion</b>
         <small>看懂A股情绪与走势</small>
       </span>
+    </a>
+    <a class="app-download-link" href="/download">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4"/></svg>
+      <span>android 下载</span>
     </a>
   </nav>
 
@@ -149,7 +155,7 @@
         </table>
       </div>
       <div class="board-links">
-        <a class="board-link" href="/market">查看每日数据</a>
+        <a class="board-link" href="/market" data-hans-href="/market" data-hant-href="/zh-hant/market">查看每日数据</a>
       </div>
     </section>
 
@@ -158,7 +164,7 @@
       <p>A 股短线复盘：开盘前的看点早报、午间看点与收盘后的看点收评，附当日情绪分与可回看验证的观点卡。不用登录就能读。</p>
       <ul class="news-latest" hidden></ul>
       <div class="board-links">
-        <a class="board-link" href="/news">阅读每日看点</a>
+        <a class="board-link" href="/news" data-hans-href="/news" data-hant-href="/zh-hant/news">阅读每日看点</a>
       </div>
     </section>
 
@@ -187,6 +193,6 @@
   </div>
 
   <script type="module" src="/about/about.js?v=27"></script>
-  <script type="module" src="/shared/global-header.js?v=8"></script>
+  <script type="module" src="/shared/global-header.js?v=7"></script>
 </body>
 </html>

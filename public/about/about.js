@@ -1,5 +1,5 @@
 // 介绍页 /about：简繁切换、主视觉轮换标题、今日情绪（公开摘要接口，不调用 Wind）、个股分析入口、邀请横幅、底部登录按钮。
-import { initLanguage, setText, setAttributeText } from "/shared/lang.js?v=21";
+import { initLanguage, setText, setAttributeText } from "/shared/lang.js?v=20";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -77,7 +77,13 @@ async function loadLive(tile) {
 }
 $$(".live-tile").forEach(loadLive);
 
-// ── 每日看点：最新三篇（公开，不需要登录） ──
+// ── 每日看点：最新三篇（公开，不需要登录）；繁体时链接到 /zh-hant/news ──
+const isHant = () => document.documentElement.dataset.lang === "hant";
+function syncNewsLinks() {
+  $$("a[data-hant-href]").forEach((link) => { link.href = isHant() ? link.dataset.hantHref : link.dataset.hansHref; });
+}
+new MutationObserver(syncNewsLinks).observe(document.documentElement, { attributes: true, attributeFilter: ["data-lang"] });
+syncNewsLinks();
 async function loadNews(list) {
   try {
     const response = await fetch("/api/news?view=latest&limit=3", { headers: { Accept: "application/json" } });
@@ -88,7 +94,8 @@ async function loadNews(list) {
     list.replaceChildren(...items.map((item) => {
       const li = document.createElement("li");
       const link = document.createElement("a");
-      link.href = item.url;
+      link.dataset.hansHref = item.url;
+      link.dataset.hantHref = item.hantUrl;
       const meta = document.createElement("small");
       const title = document.createElement("span");
       link.append(meta, title);
@@ -98,6 +105,7 @@ async function loadNews(list) {
       return li;
     }));
     list.hidden = false;
+    syncNewsLinks();
   } catch {}
 }
 const newsList = $(".news-latest");
@@ -115,7 +123,9 @@ async function loadRecent(wrap) {
       const cell = (text) => { const td = document.createElement("td"); td.textContent = text; return td; };
       const date = document.createElement("td");
       const link = document.createElement("a");
-      link.href = item.url;
+      link.dataset.hansHref = item.url;
+      link.dataset.hantHref = item.hantUrl || item.url;
+      link.href = document.documentElement.dataset.lang === "hant" ? link.dataset.hantHref : item.url;
       link.textContent = item.date.slice(5).replace("-", "/") + (item.closed ? "" : " 盘中");
       date.append(link);
       row.append(date, cell(String(item.score)), cell(item.phase || "—"), cell(`${item.limitUp ?? "—"} / ${item.limitDown ?? "—"}`));

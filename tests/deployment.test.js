@@ -31,7 +31,7 @@ describe("网址：介绍页、登录页与看板", () => {
   it("介绍页（2026-11-20 改版）：主视觉入口、四个看板卡、近期短线情绪，不提积分与更新频率", () => {
     const html = readFileSync(resolve(root, "public/about/index.html"), "utf8");
     expect(html).toMatch(/<form class="ta-tile" action="\/technicalanalysis" method="get"/);
-    for (const href of ["/home", "/themes", "/funds", "/watchlist", "/market", "/news"]) expect(html).toContain(`<a class="board-link" href="${href}">`);
+    for (const href of ["/home", "/themes", "/funds", "/watchlist", "/market", "/news"]) expect(html).toContain(`<a class="board-link" href="${href}"`);
     expect(html).toContain("看懂A股情绪与走势");
     expect(html).not.toContain("积分");
     expect(html).not.toContain("每个交易日");
@@ -87,12 +87,9 @@ describe("网址：介绍页、登录页与看板", () => {
   it("短线情绪看板在 /shortemotion/cn", () => {
     for (const path of ["/shortemotion/cn", "/shortemotion/cn/"]) expect(rewrites[path]).toBe(PAGE);
     expect(redirects["/shortemotion"]).toBe("/shortemotion/cn");
-  });
-
-  it("QDII 页面与日频数据走各自入口", () => {
     expect(rewrites["/qdiitrend"]).toBe("/qdii/index.html");
-    expect(redirects["/qdii"]).toBe("/qdiitrend");
     expect(rewrites["/qdii/data.json"]).toBe("/api/market-data?__se_board=qdii");
+    expect(redirects["/qdii"]).toBe("/qdiitrend");
   });
 
   it("旧网址都跳到新网址（不经过二次跳转）", () => {
@@ -150,7 +147,7 @@ describe("手机输入体验", () => {
 });
 
 describe("页面脚本", () => {
-  it("介绍页、登录页、共用模块 import 的文件都存在，简体字表文件存在", () => {
+  it("介绍页、登录页、共用模块 import 的文件都存在，简繁字表版本号一致", () => {
     const files = ["public/about/about.js", "public/login/login.js", "public/account/account.js", "public/account/settings.js", "public/account/invite.js", "public/shared/invite-entry.js", "public/shared/lang.js", "public/short-emotion/app.js", "public/home/home.js", "public/technical-analysis/ta.js", "public/sectorflow/sectorflow.js", "public/shared/nav-account.js"];
     const versions = new Set();
     for (const file of files) {
@@ -158,7 +155,7 @@ describe("页面脚本", () => {
       for (const [, path, version] of code.matchAll(/from "(\/[^"?]+|\.\/[^"?]+)(?:\?v=(\d+))?"/g)) {
         const target = path.startsWith("./") ? resolve(root, file, "..", path) : resolve(root, "public", `.${path}`);
         expect(() => readFileSync(target), `${file} → ${path}`).not.toThrow();
-        if (path.endsWith("hans-map.js")) versions.add(version);
+        if (path.endsWith("hant-map.js")) versions.add(version);
       }
     }
     expect([...versions]).toHaveLength(1);
@@ -166,7 +163,7 @@ describe("页面脚本", () => {
 
   it("中间件只拦介绍页以外的入口：/、/login、首页、看点、个股分析、板块资金、涨停情绪、个人页面、看板、管理后台", async () => {
     const { config } = await import("../middleware.js");
-    expect(config.matcher).toEqual(["/zh-hant/news/:path*", "/qdii/:path*", "/qdiitrend", "/qdiitrend/", "/watchlist", "/watchlist/:path*", "/themes", "/themes/", "/funds", "/funds/", "/secondwave", "/secondwave/", "/etfflow", "/etfflow/", "/etfflow/:path*", "/", "/login", "/login/", "/home", "/home/", "/kandian", "/kandian/", "/kandian/:path*", "/technicalanalysis", "/technicalanalysis/", "/sectorflow", "/sectorflow/", "/limitup", "/limitup/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]);
+    expect(config.matcher).toEqual(["/qdii/:path*", "/qdiitrend", "/qdiitrend/", "/watchlist", "/watchlist/:path*", "/themes", "/themes/", "/funds", "/funds/", "/secondwave", "/secondwave/", "/etfflow", "/etfflow/", "/etfflow/:path*", "/", "/login", "/login/", "/home", "/home/", "/kandian", "/kandian/", "/kandian/:path*", "/technicalanalysis", "/technicalanalysis/", "/sectorflow", "/sectorflow/", "/limitup", "/limitup/", "/account/:path*", "/shortemotion/:path*", "/admin", "/admin/:path*"]);
   });
 });
 

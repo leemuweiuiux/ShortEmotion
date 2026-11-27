@@ -12,12 +12,13 @@ export const PRIMARY_TABS = [
   ["/account", "我的", '<circle cx="12" cy="8" r="3.5"/><path d="M5 20v-1a7 7 0 0 1 14 0v1"/>']
 ];
 const current = location.pathname.replace(/\/$/, "");
-if (["exp.lfjmwl.com", "localhost", "127.0.0.1"].includes(location.hostname) && PRIMARY_TABS.some(([href]) => href === current)) {
+if (["lfjmwl.com", "www.lfjmwl.com", "stockmarketshortemotion.vercel.app", "exp.lfjmwl.com", "localhost", "127.0.0.1"].includes(location.hostname) && PRIMARY_TABS.some(([href]) => href === current)) {
   const nav = document.createElement("nav");
   nav.className = "se-primary-tabs";
   nav.setAttribute("aria-label", "主导航");
-  nav.innerHTML = '<div>' + PRIMARY_TABS.map(([href, label, icon]) =>
-    `<a href="${href}"${href === current ? ' aria-current="page"' : ""}><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg><span>${label}</span></a>`
+  const traditional = document.documentElement.dataset.lang === "hant";
+  nav.innerHTML = '<div>' + PRIMARY_TABS.map(([href, label, icon], index) =>
+    `<a href="${href}"${href === current ? ' aria-current="page"' : ""}><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg><span>${traditional ? ["首頁", "題材", "資金", "個股", "我的"][index] : label}</span></a>`
   ).join("") + '</div>';
   document.body.classList.add("has-se-primary-tabs");
   document.body.append(nav);

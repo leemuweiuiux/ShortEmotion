@@ -1,3 +1,4 @@
+import { appendFile } from "node:fs/promises";
 // 三期看点共用：读上一篇观点卡、查消息（瘦身后）、写入文章与列表。
 import { windCall } from '../../api/_lib/short-emotion/engine.js';
 import { previousEntry, viewCard, slimNews, reviewHeading } from '../../api/_lib/morning-report/chain.js';
@@ -39,6 +40,8 @@ export async function publishArticle(store, index, { article, meta, sector, prev
   await store.kvSet(`morning-report-evidence:${full.id}`, evidence);
   await store.kvSet(articleKey(full.id), full);
   await store.kvSet(INDEX, [indexEntry(full), ...index]);
+  // 记下新发布的文章，工作流推送数据后用 IndexNow 通知搜索引擎（scripts/seo/indexnow.mjs）
+  if (process.env.INDEXNOW_QUEUE) await appendFile(process.env.INDEXNOW_QUEUE, `${full.id}\n`).catch(() => {});
   return full;
 }
 

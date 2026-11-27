@@ -64,6 +64,7 @@ jobs:
           MORNING_REPORT_MODEL: ${{ vars.MORNING_REPORT_MODEL }}
           SHORT_EMOTION_STORE: file
           SHORT_EMOTION_DATA_DIR: ${{ env.DATA_DIR }}
+          INDEXNOW_QUEUE: ${{ runner.temp }}/indexnow-ids
       - name: Publish data branch
         # 一个市场失败时，另一个市场已写好的数据照常发布（任务仍会标记为失败）
         if: success()
@@ -85,3 +86,9 @@ jobs:
           git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" short-emotion-data
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Notify search engines (IndexNow)
+        # 新文章上线后通知 Bing 等搜索引擎；失败不影响发布
+        if: success()
+        continue-on-error: true
+        timeout-minutes: 15
+        run: node scripts/seo/indexnow.mjs "$RUNNER_TEMP/indexnow-ids"

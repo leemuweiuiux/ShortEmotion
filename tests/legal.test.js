@@ -88,12 +88,10 @@ describe("登录页与个人页面的入口", () => {
     expect(center).not.toMatch(/id="logout"|data-theme-choice|id="ledger"|href="\/terms"/);
   });
 
-  it("公开协议和设置页始终显示简体", () => {
-    for (const file of ["public/terms/index.html", "public/privacy/index.html", "public/account/settings/index.html"]) {
-      const html = read(file);
-      expect(html).toContain('<html lang="zh-CN">');
-      expect(html).not.toMatch(/data-lang-choice|data-hant|zh-Hant/);
-    }
+  it("繁体切换涵盖两份文件的文字", () => {
+    const script = read("scripts/short-emotion/build-hant-map.mjs");
+    expect(script).toContain('"public/terms/index.html"');
+    expect(script).toContain('"public/privacy/index.html"');
   });
 });
 

@@ -21,6 +21,19 @@ describe('ETF flow financial calculations',()=>{
   expect(parseHistory(history('份',8),'510300.SH')).toEqual([]);
   expect(parseHistory(history(),'510330.SH')).toEqual([]);
  });
+ it('accepts the daily 基金规模 alias only when it reconciles and matches the observation date',()=>{
+  const payload=history();
+  const table=payload.data.data[0];
+  const alias='2026年10月9日到2026年11月12日每日的基金规模';
+  table.columns[4].name=alias;
+  expect(parseHistory(payload,'510300.SH')[0]).toMatchObject({shares:32729887700,shareScale:10000});
+  table.columns.push({name:alias+'时间'});
+  table.rows[0].push('2026-10-21');
+  expect(parseHistory(payload,'510300.SH')).toEqual([]);
+  table.rows[0][5]='2026-10-22';
+  table.rows[0][4]=8;
+  expect(parseHistory(payload,'510300.SH')).toEqual([]);
+ });
  it('never bridges a missing trading observation or interprets a split as a capital inflow',()=>{
   const q=[{date:'1',shares:100,nav:10},{date:'3',shares:110,nav:10}];expect(fundPoints(q,['1','2','3']).every(p=>p.amount===null)).toBe(true);
   expect(fundPoints([{date:'1',shares:100,nav:10},{date:'2',shares:200,nav:5}],['1','2'])[0].amount).toBeNull();
@@ -52,4 +65,83 @@ it('compares an identical fund cohort when historical data are missing',()=>{
  const dates=Array.from({length:21},(_,i)=>String(i).padStart(8,'0'));
  const funds=[{points:dates.map(date=>({date,amount:10}))},{points:dates.map((date,i)=>({date,amount:i===0?null:20}))}];
  const c=compareFunds(funds,dates,dates.at(-1));expect(c.month).toMatchObject({today:10,baseline:10,pct:0,covered:1,expected:2});expect(c.week).toMatchObject({today:30,baseline:30,pct:0,covered:2,expected:2});
+});
+
+describe('ETF batch collection (2026-11-13)', () => {
+ it('parses Wind wide tables with dated columns, in one table or one table per day', async () => {
+  const {parseWideHistory}=await import('../api/_lib/etf-flow/source.js');
+  const oneTable={data:{data:[{columns:[{name:'Wind代码'},{name:'证券简称'},{name:'2026年11月11日基金份额',unit:'份'},{name:'2026年11月11日单位净值',unit:'元'},{name:'2026年11月11日基金资产净值',unit:'亿元'},{name:'2026年11月12日单位净值',unit:'元'},{name:'2026年11月12日基金份额',unit:'份'},{name:'2026年11月12日基金资产净值',unit:'亿元'}],
+   rows:[['159300.SZ','富国沪深300ETF',56705.8097,4.4551,25.263,4.4206,51305.8097,22.6802]]}]}};
+  const quotes=parseWideHistory(oneTable).get('159300.SZ');
+  expect(quotes.map(q=>q.date)).toEqual(['20261111','20261112']);
+  expect(quotes[1]).toMatchObject({shareScale:10000,nav:4.4206});
+  const perDay={data:{data:[
+   {columns:[{name:'Wind代码'},{name:'2026年11月11日基金份额',unit:'份'},{name:'2026年11月11日单位净值',unit:'元'},{name:'2026年11月11日基金规模',unit:'亿元'}],rows:[['510530.SH',5147.94,7.64,3.933]]},
+   {columns:[{name:'Wind代码'},{name:'2026年11月12日基金份额',unit:'份'},{name:'2026年11月12日单位净值',unit:'元'},{name:'2026年11月12日基金规模',unit:'亿元'}],rows:[['510530.SH',5097.94,7.5165,3.8319]]}]}};
+  expect(parseWideHistory(perDay).get('510530.SH').map(q=>q.date)).toEqual(['20261111','20261112']);
+  // 资产净值与份额×净值对不上就不收
+  perDay.data.data[1].rows[0][3]=99;
+  expect(parseWideHistory(perDay).get('510530.SH').map(q=>q.date)).toEqual(['20261111']);
+ });
+
+ it('uses one batch call for funds with complete history and publishes only complete trailing days', async () => {
+  const {collectSnapshot}=await import('../api/_lib/etf-flow/source.js');
+  const catalog={groups:{hs300:{funds:[{code:'510300.SH',name:'A'},{code:'510310.SH',name:'B'}]}}};
+  const calendar=[];for(let d=new Date(Date.UTC(2026,8,20));calendar.length<30;d.setUTCDate(d.getUTCDate()+1)){if([0,6].includes(d.getUTCDay()))continue;calendar.push(d.toISOString().slice(0,10).replace(/-/g,''));}
+  const quote=(date,shares)=>({date,shares,nav:1,assets:shares,shareScale:1});
+  const previous={funds:catalog.groups.hs300.funds.map(f=>({code:f.code,quotes:calendar.slice(0,-2).map((d,i)=>quote(d,1e8+i*1e6))}))};
+  const [d1,d2]=calendar.slice(-2);
+  const human=d=>`${d.slice(0,4)}年${Number(d.slice(4,6))}月${Number(d.slice(6))}日`;
+  const calls=[];
+  const call=async(server,tool,params)=>{
+   calls.push(`${server}/${tool}`);
+   if(tool==='get_index_kline')return {data:{columns:[{name:'TIME'}],rows:calendar.map(d=>[d])}};
+   if(tool==='get_fund_financials'&&params.question.includes(',')){
+    const cols=[{name:'Wind代码'}];const rows=[['510300.SH'],['510310.SH']];
+    for(const d of [d1,d2]){cols.push({name:`${human(d)}基金份额`,unit:'份'},{name:`${human(d)}单位净值`,unit:'元'},{name:`${human(d)}基金资产净值`,unit:'元'});
+     {const v=d===d2?2.1e8:2e8;rows[0].push(v,1,v);}rows[1].push(...(d===d2?[null,null,null]:[3e8,1,3e8]));}
+    return {data:{data:[{columns:cols,rows}]}};
+   }
+   return {data:{data:[]}};
+  };
+  const now=new Date(Date.parse(`${d2.slice(0,4)}-${d2.slice(4,6)}-${d2.slice(6)}T13:00:00Z`));
+  const snapshot=await collectSnapshot(call,previous,now,{catalog});
+  expect(calls.filter(c=>c==='fund_data/get_fund_financials').length).toBe(2); // 1 次批量 + 510310 缺 d2 时逐只补问
+  expect(snapshot.funds.find(f=>f.code==='510300.SH').quotes.some(q=>q.date===d2)).toBe(true);
+  // 510310 的最后一天没有值：最后一天不发布
+  expect(snapshot.dates.at(-1)).toBe(d1);
+ });
+ it('splits a failed batch into halves and retries once', async () => {
+  const {collectSnapshot}=await import('../api/_lib/etf-flow/source.js');
+  const codes=Array.from({length:8},(_,i)=>`51030${i}.SH`);
+  const catalog={groups:{hs300:{funds:codes.map(code=>({code,name:code}))}}};
+  const calendar=[];for(let d=new Date(Date.UTC(2026,8,20));calendar.length<30;d.setUTCDate(d.getUTCDate()+1)){if([0,6].includes(d.getUTCDay()))continue;calendar.push(d.toISOString().slice(0,10).replace(/-/g,''));}
+  const previous={funds:codes.map(code=>({code,quotes:calendar.slice(0,-2).map((d,i)=>({date:d,shares:1e8+i,nav:1,assets:1e8+i,shareScale:1}))}))};
+  const [d1,d2]=calendar.slice(-2);
+  const human=d=>`${d.slice(0,4)}年${Number(d.slice(4,6))}月${Number(d.slice(6))}日`;
+  const batchSizes=[];
+  const call=async(server,tool,params)=>{
+   if(tool==='get_index_kline')return {data:{columns:[{name:'TIME'}],rows:calendar.map(d=>[d])}};
+   if(params.question.includes(',')){
+    const asked=codes.filter(c=>params.question.includes(c));
+    if(tool==='get_fund_financials')batchSizes.push(asked.length);
+    if(asked.length===8)return {data:{data:[]}};
+    const cols=[{name:'Wind代码'}];const rows=asked.map(c=>[c]);
+    for(const d of [d1,d2]){cols.push({name:`${human(d)}基金份额`,unit:'份'},{name:`${human(d)}单位净值`,unit:'元'},{name:`${human(d)}基金资产净值`,unit:'元'});{const v=d===d2?2.1e8:2e8;rows.forEach(r=>r.push(v,1,v));}}
+    return {data:{data:[{columns:cols,rows}]}};
+   }
+   throw new Error('per-fund call not expected');
+  };
+  const now=new Date(Date.parse(`${d2.slice(0,4)}-${d2.slice(4,6)}-${d2.slice(6)}T13:00:00Z`));
+  const snapshot=await collectSnapshot(call,previous,now,{catalog});
+  expect(batchSizes).toEqual([8,4,4]);
+  expect(snapshot.funds.every(f=>f.quotes.some(q=>q.date===d2))).toBe(true);
+ });
+});
+describe('ETF stale carry-forward (2026-11-13)', () => {
+ it('drops a day whose shares, nav and assets equal the previous day', async () => {
+  const {dropStale}=await import('../api/_lib/etf-flow/source.js');
+  const q=(date,v)=>({date,shares:v,nav:1,assets:v});
+  expect(dropStale([q('20261111',1),q('20261112',2),q('20261113',2)]).map(x=>x.date)).toEqual(['20261111','20261112']);
+ });
 });

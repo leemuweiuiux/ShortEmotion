@@ -59,6 +59,12 @@ export function shouldKeepPrevious(previous, board) {
   return snapshotCompleteness(previous) > snapshotCompleteness(board);
 }
 
+/** 收盘明细、晋级、封板时间都齐全（16:35 备援据此决定还要不要再取一次）。 */
+export async function limitupFullyComplete(store, day) {
+  const latest = (await store.kvGet(LIMITUP_KEYS.latest).catch(() => null))?.value;
+  return hasCloseSnapshot(latest, day) && latest.dataQuality?.sealComplete === true;
+}
+
 export async function limitupHasClose(store, day) {
   const latest = (await store.kvGet(LIMITUP_KEYS.latest).catch(() => null))?.value;
   return hasCloseSnapshot(latest, day);
@@ -81,7 +87,8 @@ export async function refreshLimitUp(store, { day } = {}) {
   for (const cacheDay of cacheDays) await importCache(store, cacheDay);
 
   const board = await loadLimitUpBoard(day, {
-    loadStoredDay: async (storedDay) => (await store.kvGet(LIMITUP_KEYS.day(storedDay)).catch(() => null))?.value || null
+    loadStoredDay: async (storedDay) => (await store.kvGet(LIMITUP_KEYS.day(storedDay)).catch(() => null))?.value || null,
+    previousBoard: previous
   });
   const output = { ran: false, skipped: null, errors: [], board };
 

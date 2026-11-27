@@ -12,7 +12,7 @@
   <link rel="icon" href="/short-emotion/logo.svg?v=2" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
   <script>
-    // 与介绍页、看板共用外观设置：深浅色跟随系统（或 twsvp_theme）
+    // 与介绍页、看板共用外观设置：深浅色跟随系统（或 twsvp_theme），语言：简体 / 繁体
     (function () {
       var root = document.documentElement;
       var get = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
@@ -20,6 +20,8 @@
       if (theme !== "light" && theme !== "dark") theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       root.dataset.theme = theme;
       if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#151922");
+      var lang = "hans"; // 仅提供简体
+      root.dataset.lang = lang;
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31,7 +33,7 @@
   <!-- Vercel Web Analytics：只记页面浏览量（不用 cookie），在 Vercel 项目的 Analytics 里查看 -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
-  <link rel="stylesheet" href="/shared/global-header.css?v=5">
+  <link rel="stylesheet" href="/shared/global-header.css?v=4">
   <script defer src="/shared/usage.js?v=4"></script>
   <link rel="stylesheet" href="/shared/wide-layout.css?v=2">
 </head>
@@ -101,6 +103,6 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script type="module" src="/redeem/redeem.js?v=2"></script>
-  <script type="module" src="/shared/global-header.js?v=8"></script>
+  <script type="module" src="/shared/global-header.js?v=7"></script>
 </body>
 </html>

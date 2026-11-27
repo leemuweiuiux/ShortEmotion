@@ -90,7 +90,7 @@ describe('homepage loading',()=>{
       'global-linkage':{groups:[{label:'中美联动',themes:[{theme:'AI算力',pairs:[{heat:{rank:1}}]}]}]}
     };
     const requestJSON=vi.fn(async url=>({response:{ok:true,status:200},payload:payloads[Object.keys(payloads).find(k=>url.includes(k))]}));
-    const deps={document:dom.document,location:{hostname:'lfjmwl.com'},requestJSON,etfflowRequest:async()=>({ready:true,locked:true}),
+    const deps={document:dom.document,location:{hostname:'example.com'},requestJSON,etfflowRequest:async()=>({ready:true,locked:true}),
       etfNumber:n=>String(n),flowDataset:()=>({lines:[]}),selectFlowLines:()=>[],linkageCorrelationLabel:()=>'中'};
     new Function(...Object.keys(deps),source)(...Object.values(deps));
     await flush();
