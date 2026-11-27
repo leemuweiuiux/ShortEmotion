@@ -1,0 +1,21 @@
+/* 看板个股点击弹窗（2026-11-27） */
+[data-stock-code] { cursor: pointer; }
+[data-stock-code]:hover b, [data-stock-code]:hover > span:first-child { text-decoration: underline; text-underline-offset: 3px; }
+[data-stock-code]:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+html.stock-sheet-open { overflow: hidden; }
+.stock-sheet { position: fixed; inset: 0; z-index: 1000; display: grid; align-items: end; justify-items: center; }
+.stock-sheet[hidden] { display: none; }
+.stock-sheet-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, .4); }
+.stock-sheet-panel { position: relative; display: grid; gap: 10px; width: min(100%, 440px); padding: 18px 16px calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--card, #fff); color: var(--ink, #121417); border-radius: 14px 14px 0 0; box-shadow: 0 -8px 30px rgba(0, 0, 0, .18); }
+.stock-sheet-head { display: flex; align-items: baseline; gap: 8px; padding-bottom: 4px; }
+.stock-sheet-head strong { font-size: 17px; font-weight: 700; }
+.stock-sheet-head small { color: var(--muted, #6b7280); font-size: 12px; font-variant-numeric: tabular-nums; }
+.stock-sheet-btn { display: flex; align-items: center; justify-content: center; min-height: 46px; border: 1px solid var(--ink, #121417); border-radius: 8px; background: transparent; color: var(--ink, #121417); font: inherit; font-size: 15px; font-weight: 600; text-decoration: none; cursor: pointer; }
+.stock-sheet-btn[data-act="watch"] { background: var(--ink, #121417); color: var(--surface, #fff); }
+.stock-sheet-btn:disabled { opacity: .6; cursor: default; }
+.stock-sheet-note { margin: 0; color: var(--muted, #6b7280); font-size: 12px; text-align: center; }
+.stock-sheet-cancel { min-height: 40px; border: 0; background: transparent; color: var(--muted, #6b7280); font: inherit; font-size: 14px; cursor: pointer; }
+@media (min-width: 768px) {
+  .stock-sheet { align-items: center; }
+  .stock-sheet-panel { border-radius: 14px; }
+}

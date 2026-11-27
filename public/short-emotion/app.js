@@ -1,4 +1,5 @@
 import { showUnlockSuccess } from "/shared/unlock-toast.js?v=1";
+import { stockAttrs } from "/shared/stock-actions.js?v=1";
 import { linkageCorrelationLabel } from "/shared/linkage-correlation.js?v=1";
 import {loadImageExporter} from '/shared/export-loader.js?v=1';
 import { localTimeLabel, asofLabel, renderAsof } from "/shared/local-time.js?v=2";
@@ -286,7 +287,7 @@ function renderAnomalies() {
     const streakBadge = role === "ignition" && Number(stock.limitStreak) >= 2 ? `<i class="streak-badge">${escapeHtml(stock.streakLabel || `${stock.limitStreak}连板`)}</i>` : "";
     const roleBadge = stock.roleLabel ? `<i class="role-badge ${stock.role === "龙头" ? "leader" : stock.role === "中军" ? "mid" : stock.role === "领涨" ? "lead" : ""}">${escapeHtml(stock.roleLabel)}</i>` : "";
     const quote = Number.isFinite(Number(stock.changePct)) ? formatPct(stock.changePct) : (role === "ignition" || stock.markLimit) ? "涨停" : "—";
-    return `<div class="role-stock"><span>${roleBadge}<b>${escapeHtml(stock.name)}</b><small>${escapeHtml(stock.code)}</small></span><span class="role-stock-metric"><em class="${signClass(stock.changePct)}">${quote}</em>${streakBadge}</span>${Number.isFinite(Number(stock.candidateScore)) ? `<i>候选分 ${stock.candidateScore}</i>` : ""}</div>`;
+    return `<div class="role-stock"${stockAttrs(stock.code, stock.name)}><span>${roleBadge}<b>${escapeHtml(stock.name)}</b><small>${escapeHtml(stock.code)}</small></span><span class="role-stock-metric"><em class="${signClass(stock.changePct)}">${quote}</em>${streakBadge}</span>${Number.isFinite(Number(stock.candidateScore)) ? `<i>候选分 ${stock.candidateScore}</i>` : ""}</div>`;
   }).join("") : '<div class="role-empty">暂无符合条件的公司</div>';
   $("#anomaly-list").innerHTML = viewState + items.map((item, index) => {
     const activeScore = item.tabScores?.[anomalyFilter] ?? item.score;

@@ -144,3 +144,27 @@
 .home-linkage-correlation, .home-linkage-stock-count { color: var(--muted); }
 .home-linkage-correlation strong { color: var(--ink); font-weight: 600; }
 .home-linkage-ticker [hidden] { display: none; }
+
+/* 每日预测（2026-11-27）：首页只放关注股的看涨／看跌预测；没有关注时引导添加 */
+.home-forecast-note { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.home-forecast-guide { margin: 0; color: var(--ink); font-size: 14px; line-height: 1.6; }
+.home-forecast-rows { display: grid; gap: 6px; }
+.home-forecast-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px; background: var(--panel); border-radius: 6px; color: var(--ink); text-decoration: none; }
+a.home-forecast-row:hover { opacity: .85; }
+.home-forecast-dir { font-size: 13px; font-weight: 700; }
+.home-forecast-dir.is-up { color: var(--price-up); }
+.home-forecast-dir.is-down { color: var(--price-down); }
+.home-forecast-row b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; }
+.home-forecast-row small { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.home-forecast-result { text-align: right; font-size: 12px; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.home-forecast-result strong { display: block; font-family: "Manrope", sans-serif; font-size: 16px; }
+.home-forecast-action { justify-self: start; display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border: 1px solid var(--ink); border-radius: 6px; color: var(--ink); font-size: 13px; font-weight: 600; text-decoration: none; }
+.home-forecast-action:hover { background: var(--panel); }
+@media (min-width: 768px) {
+  .wide-home-grid > #home-forecast { grid-column: 1 / -1; order: 1; }
+  .wide-home-grid > .mr-home, .wide-home-grid > .legal { order: 2; }
+}
+
+/* 小卡一句解读（2026-11-27）：规则生成，不调用大模型 */
+.home-mini-read { color: var(--ink); font-size: 12px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.home-mini-read:empty { display: none; }
