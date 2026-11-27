@@ -16,7 +16,7 @@ import { updateNavPoints } from "/shared/nav-points.js?v=2";
 //   6. 涨停情绪：涨停、跌停、最高板、晋级率 4 个数字免费；涨停天梯须解锁（−10 积分，12 小时，与 /limitup 整页共用），
 //      解锁后按板高列出个股。与题材异动的解锁分开计算。
 import { $, toast, goLogin, initAccountMenu } from "/shared/nav-account.js?v=4";
-import { mountFundFlow } from "/shared/fund-flow.js?v=8";
+import { mountFundFlow } from "/shared/fund-flow.js?v=9";
 import { showPointsShortage } from "/shared/points-shortage.js?v=1";
 
 initAccountMenu();
@@ -132,7 +132,7 @@ function renderUnlocked() {
     .sort((a, b) => (b.tabScores?.all ?? b.score) - (a.tabScores?.all ?? a.score));
   $("#anomaly-pill").textContent = anomalyData.unlimited ? `今日 ${anomalyData.total ?? items.length} 个题材` : anomalyData.unlockUntil ? `已解锁至 ${untilLabel(anomalyData.unlockUntil)}` : `今日 ${anomalyData.total ?? items.length} 个题材`;
   if (!items.length) {
-    body.innerHTML = '<div class="empty">今日暂未识别到高价值题材异动。</div>';
+    body.innerHTML = '<div class="empty">今日暂无明显题材异动，交易时段持续更新。</div>';
     return;
   }
   const rows = items.slice(0, 3).map((item) => {
@@ -270,7 +270,7 @@ function renderLimitUpUnlocked() {
     const detail = limitupData.pending?.detail;
     limitupBody.innerHTML = limitupData.pending?.ladder
       ? `<div class="empty">涨停明细待补齐${detail ? `（已取得 ${esc(detail.returned)}/${esc(detail.total)} 家）` : ""}，天梯暂不展示。</div>`
-      : '<div class="empty">今日暂无涨停天梯数据。</div>';
+      : '<div class="empty">暂无涨停天梯，交易时段更新后显示。</div>';
     return;
   }
   // 板高降序；每档最多列 6 只（同档按封板时间由早到晚），其余写「等 N 家」
@@ -403,7 +403,7 @@ async function loadGlobalLinkageCard() {
       };
     })).sort((left, right) => left.rank - right.rank);
     if (!themes.length) {
-      status.textContent = "暂无联动板块数据";
+      status.textContent = "暂无联动板块，更新后显示";
       return;
     }
     linkageThemes.innerHTML = themes.map((theme) => {
@@ -444,7 +444,7 @@ async function loadSecondWave() {
     show("#sw-home-started", stats.started); show("#sw-home-watch", stats.watch);
     renderAsof($("#sw-home-pill"), { at: payload.meta?.generatedAt, day: payload.meta?.tradeDate, closed: true }, { fallback: "—" });
     const top = (payload.top || []).slice(0, 3);
-    if (!top.length) { box.innerHTML = '<div class="empty">今日没有已启动或待确认的题材。</div>'; return; }
+    if (!top.length) { box.innerHTML = '<div class="empty">暂无符合条件的题材，后续有变化时显示。</div>'; return; }
     box.innerHTML = `<ol class="home-anomaly-list">${top.map((item) => `<li><a class="home-preview-link" href="/secondwave" aria-label="查看${esc(item.name)}"><b>${esc(item.name)}</b><strong>${esc(Math.round(item.score))}</strong><small>${esc(item.band)} · 今日 ${pct(item.chg)} · 量能为高峰的 ${Math.round(item.water * 100)}%</small></a></li>`).join("")}</ol>`;
   } catch (error) {
     $("#sw-home-pill").textContent = "—";

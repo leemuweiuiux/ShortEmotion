@@ -32,6 +32,25 @@
 }
 .watch-signal:last-child { border-bottom-color: transparent; }
 .watch-signals > .watch-empty { grid-area: 1 / 1 / -1 / -1; align-self: center; margin: 0; }
+.watch-signals.is-empty { display: block; min-height: 150px; }
+.watch-empty > strong { display: block; color: var(--ink); font-weight: 600; }
+.watch-empty p { margin: 8px 0; line-height: 1.6; }
+.watch-empty > small { display: block; font-size: 11px; line-height: 1.6; }
+.watch-empty-action { margin-top: 5px; padding: 7px 14px; border: 1px solid var(--border); border-radius: 0; background: var(--panel); color: var(--ink); font: inherit; cursor: pointer; }
+.watch-clock { display: flex; align-items: flex-start; justify-content: center; gap: 8px; margin: 15px auto 12px; }
+.watch-clock-unit { display: grid; gap: 5px; }
+.watch-clock-unit > small { font-size: 10px; color: var(--muted); }
+.watch-clock-pair { display: flex; gap: 3px; }
+.watch-clock-colon { color: var(--muted); font-size: 25px; line-height: 44px; }
+.watch-digit { position: relative; width: 29px; height: 44px; border: 1px solid var(--border); border-radius: 4px; background: var(--panel); color: var(--ink); font: 600 29px/42px Manrope, sans-serif; font-variant-numeric: tabular-nums; perspective: 180px; }
+.watch-digit::after { content: ''; position: absolute; z-index: 3; inset: 50% 0 auto; height: 1px; background: var(--border); }
+.watch-digit-value, .watch-digit-top, .watch-digit-bottom { position: absolute; inset: 0; background: var(--panel); border-radius: inherit; }
+.watch-digit-top, .watch-digit-bottom { display: none; backface-visibility: hidden; }
+.is-flipping .watch-digit-top { display: block; clip-path: inset(0 0 50%); animation: watch-flip-top .5s ease-in both; }
+.is-flipping .watch-digit-bottom { display: block; clip-path: inset(50% 0 0); animation: watch-flip-bottom .5s ease-out both; }
+@keyframes watch-flip-top { 0% { transform: rotateX(0); } 50%, 100% { transform: rotateX(-90deg); } }
+@keyframes watch-flip-bottom { 0%, 50% { transform: rotateX(90deg); } 100% { transform: rotateX(0); } }
+@media (prefers-reduced-motion: reduce) { .is-flipping .watch-digit-top, .is-flipping .watch-digit-bottom { animation: none; display: none; } }
 .watch-signal strong { overflow-wrap: anywhere; }
 .watch-signal small, .watch-table small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
 .watch-signal > :last-child { text-align: right; }

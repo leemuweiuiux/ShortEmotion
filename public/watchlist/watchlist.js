@@ -2,6 +2,7 @@ import { loadImageExporter } from "/shared/export-loader.js?v=1";
 import { exportHeader, exportFooter, prepareExportAssets, renderImage, shareOrDownload, showGallery, closeGallery, withTimeout } from "/shared/export-image.js?v=2";
 import { toast } from "/shared/nav-account.js?v=4";
 import { renderAsof } from "/shared/local-time.js?v=2";
+import { mountForecastEmpty } from "/watchlist/forecast-empty.js?v=1";
 
 const $ = (id) => document.getElementById(id);
 const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (char) =>
@@ -20,6 +21,9 @@ let managing = false;
 let busy = false;
 let syncing = false;
 let exporting = false;
+let stopCountdown = () => {};
+let loaded = false;
+let waitingForForecast = false;
 
 async function request(body) {
   const response = await fetch(endpoint, body ? {
@@ -35,7 +39,7 @@ function signalRow(signal, direction) {
   const label = direction === "up" ? "看涨" : "看跌";
   const color = direction === "up" ? "watch-up" : "watch-down";
   const pick = signal?.pick;
-  if (!pick) return `<div class="watch-signal"><strong class="${color}">${label}</strong><span>${signal ? "无明确信号" : "暂无记录"}</span><span>—</span><span>—</span></div>`;
+  if (!pick) return `<div class="watch-signal"><strong class="${color}">${label}</strong><span>${signal ? "无明确信号" : "暂无记录"}<small>${signal ? "本次未筛出符合条件的公司" : "当日预测尚未生成"}</small></span><span>—</span><span>—</span></div>`;
   const status = { beat: "BEAT · 命中", miss: "MISS · 未命中", pending: "待结算",
     unavailable: "无法结算", "awaiting-data": "行情待补" }[signal.status] || "—";
   return `<div class="watch-signal">
@@ -62,11 +66,13 @@ function sourceText(day) {
 }
 
 function renderForecast() {
+  stopCountdown();
   const days = forecastDays();
   if (!days.some(({ day }) => day === selected)) selected = days[0]?.day || "";
   $("watch-days").innerHTML = days.map(({ day }) =>
     `<button type="button" data-day="${escape(day)}" aria-pressed="${day === selected}">${escape(day.slice(5).replace("-", "/"))}</button>`
   ).join("");
+  $("watch-days").hidden = !days.length;
   const current = days.find(({ day }) => day === selected);
   const focus = $("watch-focus");
   focus.hidden = !current?.attention;
@@ -74,8 +80,15 @@ function renderForecast() {
   const source = $("watch-source");
   source.textContent = sourceText(current);
   source.hidden = !source.textContent;
-  $("watch-signals").innerHTML = current ? signalRow(current.up, "up") + signalRow(current.down, "down")
-    : '<p class="watch-empty">交易日历暂未就绪</p>';
+  const signals = $("watch-signals");
+  const ready = current?.up || current?.down;
+  waitingForForecast = Boolean(state.stocks.length) && !days.some(day => day.up || day.down);
+  signals.classList.toggle("is-empty", !ready);
+  if (ready) signals.innerHTML = signalRow(current.up, "up") + signalRow(current.down, "down");
+  else stopCountdown = mountForecastEmpty(signals, {
+    hasStocks: Boolean(state.stocks.length),
+    historical: days.some(day => day.up || day.down)
+  });
 }
 
 function renderPool() {
@@ -94,7 +107,7 @@ function renderPool() {
   if (!updated && state.tradingDay) dateLabel.textContent += " · 股票行情待更新";
   $("watch-hint").hidden = !state.stocks.length;
   table.innerHTML = state.stocks.map((stock) => stockRow(stock)).join("")
-    || `<tr><td class="watch-empty" colspan="${managing ? 4 : 3}">股票池为空，可添加最多 10 只 A 股。</td></tr>`;
+    || `<tr><td class="watch-empty" colspan="${managing ? 4 : 3}">还没有关注的公司，点击「管理」添加，最多 10 只。</td></tr>`;
 }
 
 function stockRow(stock, forExport = false) {
@@ -239,21 +252,38 @@ document.addEventListener("click", (event) => { if (!event.target.closest(".watc
 document.addEventListener("keydown", (event) => { if (event.key === "Escape") { closeMenu(); closeGallery(); } });
 
 async function load() {
+  if (syncing || busy) return;
   syncing = true;
   updateExportButton();
   try {
     state = await request();
+    loaded = true;
     renderForecast();
     renderPool();
-    $("watch-status").textContent = state.needsRefresh ? "新加入的股票将在下一次收盘行情更新后显示。" : "";
+    $("watch-status").textContent = state.needsRefresh ? "关注已保存，行情将在晚间更新后显示。" : "";
   } catch (error) {
     $("watch-status").textContent = error.message;
-    if (!state.days.length) $("watch-signals").innerHTML = '<p class="watch-empty">预测暂未就绪，请稍后重试。</p>';
+    if (!loaded) {
+      stopCountdown();
+      $("watch-signals").classList.add("is-empty");
+      $("watch-signals").innerHTML = '<div class="watch-empty"><strong>预测暂时无法读取</strong><p>请重试，已保存的关注不会丢失。</p><button type="button" class="watch-empty-action" data-retry>重新加载</button></div>';
+      $("watch-date").textContent = "行情暂时无法读取";
+      table.innerHTML = '<tr><td colspan="3" class="watch-empty">暂时无法读取关注列表，请重新加载。</td></tr>';
+    }
   } finally {
     syncing = false;
     updateExportButton();
   }
 }
+
+$("watch-signals").addEventListener("click", event => {
+  if (event.target.closest('[data-retry]')) void load();
+  if (event.target.closest('[data-add-stock]')) {
+    managing = true;
+    renderPool();
+    $("watch-query").focus();
+  }
+});
 
 $("watch-days").addEventListener("click", (event) => {
   const button = event.target.closest("[data-day]");
@@ -276,6 +306,7 @@ async function mutate(body) {
   try {
     await request(body);
     if (body.action === "add") $("watch-query").value = "";
+    busy = false;
     await load();
   } catch (error) {
     $("watch-status").textContent = error.message;
@@ -294,3 +325,10 @@ table.addEventListener("click", (event) => {
   if (button) void mutate({ action: "remove", code: button.dataset.remove });
 });
 void load();
+// Waiting is a normal state: refresh quietly, without starting a calculation.
+setInterval(() => {
+  if (!document.hidden && loaded && waitingForForecast) void load();
+}, 60_000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden && loaded) void load(); });
+addEventListener("pageshow", event => { if (event.persisted) void load(); });
+addEventListener("pagehide", () => stopCountdown());

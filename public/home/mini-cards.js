@@ -3,7 +3,7 @@
 import { requestJSON } from "/shared/request.js?v=1";
 import { etfflowRequest } from "/shared/etfflow-access.js?v=1";
 import { etfNumber } from "/shared/etf-overview.js?v=1";
-import { flowDataset, selectFlowLines } from "/shared/fund-flow.js?v=8";
+import { flowDataset, selectFlowLines } from "/shared/fund-flow.js?v=9";
 import { linkageCorrelationLabel } from "/shared/linkage-correlation.js?v=1";
 
 const $ = (id) => document.getElementById(id);

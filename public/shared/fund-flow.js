@@ -189,7 +189,7 @@ export function mountFundFlow(root, { compact = false, initialCode = '', onSelec
     const options = root.querySelector('.ff-options');
     if (options) options.innerHTML = lines.map((line) => `<label><input type="checkbox" value="${esc(line.code)}" ${selected.includes(line.code) ? 'checked' : ''}>${esc(line.name)}</label>`).join('');
     if (!hasValues) {
-      host.innerHTML = `<p class="empty">${!lines.length ? (period !== 'today' && data?.history ? '历史日数据补齐中，通过完整性校验后统一展示。' : '暂无该周期资金数据，采样后更新。') : metric === 'pct' ? '所选板块暂无占比数据，可切换金额或恢复默认。' : '所选板块暂无有效数据，可恢复默认。'}</p>`;
+      host.innerHTML = `<p class="empty">${!lines.length ? (period !== 'today' && data?.history ? '历史数据补齐中，完成后显示。' : '暂无该周期资金数据，交易时段更新后显示。') : metric === 'pct' ? '所选板块暂无占比数据，可切换金额或恢复默认。' : '所选板块暂无有效数据，可恢复默认。'}</p>`;
       return;
     }
     const width = Math.max(280, host.clientWidth || 560);
