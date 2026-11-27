@@ -101,3 +101,4 @@
 .watch-hit { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .watch-hit[data-status="beat"] { color: var(--ink); font-weight: 700; }
 .watch-hit b { font-weight: 600; }
+

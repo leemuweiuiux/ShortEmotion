@@ -332,3 +332,10 @@ setInterval(() => {
 document.addEventListener("visibilitychange", () => { if (!document.hidden && loaded) void load(); });
 addEventListener("pageshow", event => { if (event.persisted) void load(); });
 addEventListener("pagehide", () => stopCountdown());
+
+// 首页「与你相关」的「添加关注股票」直接打开添加框
+if (new URLSearchParams(location.search).has("manage")) {
+  managing = true;
+  renderPool();
+  $("watch-query").focus();
+}

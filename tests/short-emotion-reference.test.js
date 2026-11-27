@@ -59,7 +59,7 @@ describe("参考看板渲染与当前框架适配", () => {
     vm.runInNewContext(renderer + "\nrenderAnomalies();", {
       anomalyData: { items, summary: { total: items.length, minScore: 55 } }, anomalyFilter: filter, requestedTheme: null,
       $: node, $$: () => [], setText: () => {}, renderAsof: () => null, stockDetailsOpen: () => true,
-      escapeHtml: (s) => String(s), plain: (s, fallback) => s || fallback,
+      escapeHtml: (s) => String(s), stockAttrs: () => "", plain: (s, fallback) => s || fallback,
       formatPct: (n) => `${n}%`, signClass: () => "", ...context
     });
     return node("#anomaly-list").innerHTML;
