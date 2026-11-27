@@ -20,7 +20,9 @@ if (index.some(a => a.id === day)) { console.log('本期已生成，保留原文
 if (!dryRun && (!process.env.MORNING_REPORT_API_KEY || !process.env.MORNING_REPORT_MODEL || !process.env.MORNING_REPORT_BASE_URL)) throw new Error('请配置 MORNING_REPORT_API_KEY / MODEL / BASE_URL');
 const emotion = (await store.kvGet('emotion:latest'))?.value;
 const marketDay = String(emotion?.quoteTime || '').replace(/\D/g,'').slice(0,8);
-if (!marketDay || marketDay >= day || !/15:\d\d/.test(emotion.quoteTime || '')) throw new Error('缺少上一交易日收盘快照');
+// 备用定时晚到（GitHub 自带定时曾晚 5 小时以上，开盘后才跑）：行情已是今天，今天的早报不再生成，正常结束而不是报错
+if (marketDay === day) { console.log('已开盘，今日早报不再生成'); process.exit(0); }
+if (!marketDay || marketDay > day || !/15:\d\d/.test(emotion.quoteTime || '')) throw new Error('缺少上一交易日收盘快照');
 // On holidays there is no new close to cover; never recycle a previously covered session.
 // 只看早报：午间和晚报的 marketDate 是当天，不能让第二天的早报以为「这个交易日已经写过」。
 if (index.some(a => a.marketDate === marketDay && (!a.edition || a.edition === 'morning'))) { console.log('无新交易日，跳过'); process.exit(0); }

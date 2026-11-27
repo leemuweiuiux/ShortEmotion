@@ -1,6 +1,6 @@
 name: Morning report
 # 看点：早报（edition=morning）、午间看点（edition=noon）和晚报（edition=evening）。
-# 准点触发：Supabase Cron 北京时间周一至周五 06:50 调用 /api/cron?job=morning-report、11:40 调用 /api/cron?job=noon-report、16:05调用 /api/cron?job=evening-report
+# 准点触发：Supabase Cron 北京时间周一至周五 06:50 调用 /api/cron?job=morning-report（07:10、07:30、08:40 准点备援，2026-11-27）、11:40 调用 /api/cron?job=noon-report、16:05调用 /api/cron?job=evening-report
 # （经 GitHub API 手动运行，带 edition 参数）。下面自带的 schedule 留作备用；每期只生成一次，重复触发会直接跳过。
 on:
   push:
