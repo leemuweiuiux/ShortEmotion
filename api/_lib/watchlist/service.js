@@ -1,7 +1,5 @@
 import { authConfig, requireSession } from "../session.js";
 import { InputError, StockNotFoundError, resolveStock as resolveWind } from "../technical-analysis/engine.js";
-import { getStore } from "../short-emotion/store.js";
-import { relatedOf } from "./related.js";
 
 /** Resolve a code or full name through Wind; only an exact A-share match is accepted. */
 async function resolveStock(query) {
@@ -33,36 +31,6 @@ const fail = (message, statusCode) => Object.assign(new Error(message), { status
 const codePattern = /^(?:6\d{5}\.SH|[03]\d{5}\.SZ|[489]\d{5}\.BJ)$/;
 const userFilter = (id) => "eq." + id;
 
-// 个股所属概念（首页「与你相关」对照题材异动与二波用）：先看站内概念缓存，没有才向 Wind 取一次，存进关注列表那一行，之后不再取。
-const CONCEPT_FILL_LIMIT = 4;
-async function cachedConcepts(store) {
-  const entries = (await store.kvGet("cache:concepts").catch(() => null))?.value?.entries || {};
-  return (code) => Array.isArray(entries[code]?.value) ? entries[code].value : null;
-}
-async function conceptsFor(code, fromCache) {
-  const cached = fromCache(code);
-  if (cached) return cached;
-  const { fetchStockConcepts } = await import("../short-emotion/engine.js");
-  return fetchStockConcepts(code);
-}
-
-/** 补齐缺题材的关注股（旧数据 concepts 为 null）；没有 concepts 栏位时（迁移未上）直接跳过。 */
-async function fillConcepts(read, id, stocks, store) {
-  const missing = stocks.filter((stock) => "concepts" in stock && stock.concepts == null).slice(0, CONCEPT_FILL_LIMIT);
-  if (!missing.length) return stocks;
-  const fromCache = await cachedConcepts(store);
-  await Promise.all(missing.map(async (stock) => {
-    try {
-      const concepts = await conceptsFor(stock.code, fromCache);
-      await read(tables.stocks, { user_id: userFilter(id), code: "eq." + stock.code }, { method: "PATCH", body: { concepts } });
-      stock.concepts = concepts;
-    } catch (error) {
-      console.error("[watchlist] concepts", stock.code, error.message);
-    }
-  }));
-  return stocks;
-}
-
 export function enabledOn(host) {
   if (["lfjmwl.com", "www.lfjmwl.com", "stockmarketshortemotion.vercel.app"].includes(host)) return true;
   return (host === "exp.lfjmwl.com" && process.env.VERCEL_ENV !== "production") ||
@@ -83,14 +51,13 @@ function db(config, token) {
   };
 }
 
-async function readUser(read, id, store = null) {
+async function readUser(read, id) {
   const user_id = userFilter(id);
   const [stocks, forecasts, outcomes] = await Promise.all([
     read(tables.stocks, { user_id, order: "slot.asc" }),
     read(tables.forecasts, { user_id, order: "source_day.desc", limit: String(FORECAST_READ_LIMIT) }),
     read(tables.outcomes, { user_id, order: "source_day.desc", limit: String(FORECAST_READ_LIMIT * DIRECTIONS.length) })
   ]);
-  if (store) await fillConcepts(read, id, stocks, store);
   // Shared closing quotes let a stock added after the daily run show up before the next forecast.
   const list = stocks.map(({ code }) => '"' + code + '"').join(",");
   const cached = stocks.length ? await read(tables.market, { select: "code,quote", code: "in.(" + list + ")" })
@@ -127,7 +94,7 @@ export function scheduledDashboard({ stocks, forecasts, outcomes, cached = [] })
   }
   const dates = [...new Set([...market, ...signals.keys()])].sort().slice(-FORECAST_DAYS);
   return {
-    stocks: stocks.map(({ code, name, concepts }) => ({ ...quotes.get(code), code, name, concepts: concepts ?? null })),
+    stocks: stocks.map(({ code, name }) => ({ ...quotes.get(code), code, name })),
     days: dates.map((day) => signals.get(day) ?? { day }),
     tradingDay,
     needsRefresh: stocks.some(({ code }) => !quotes.has(code))
@@ -156,27 +123,6 @@ async function updatePool(read, id, body) {
     if (error.statusCode === 409) throw fail("关注列表已变更，请刷新后再试", 409);
     throw error;
   }
-  // 题材另外写：取不到或 concepts 栏位尚未上线都不影响加入，之后打开关注页再补
-  try {
-    const concepts = await conceptsFor(code, await cachedConcepts(getStore("cn")));
-    await read(tables.stocks, { user_id, code: "eq." + code }, { method: "PATCH", body: { concepts } });
-  } catch (error) {
-    console.error("[watchlist] concepts", code, error.message);
-  }
-}
-
-/** 首页「与你相关」：关注股票 × 涨停情绪 / 题材异动 / 题材二波快照，任一快照缺失时其余照常。 */
-async function relatedView(data, store) {
-  const [board, anomalies, secondWave] = await Promise.all([
-    import("../limitup/service.js").then(({ readLimitUp }) => readLimitUp(store, "full")).catch(() => null),
-    store.kvGet("anomalies:latest").then((entry) => entry?.value || null).catch(() => null),
-    import("../second-wave/handler.js").then(({ readSecondWave }) => readSecondWave()).catch(() => null)
-  ]);
-  return {
-    ...relatedOf({ stocks: data.stocks, board, anomalies, secondWave, tradingDay: data.tradingDay }),
-    tradingDay: data.tradingDay,
-    asOf: board?.quoteTime || board?.capturedAt || null
-  };
 }
 
 export async function watchlistHandler(req, res) {
@@ -201,10 +147,7 @@ export async function watchlistHandler(req, res) {
       await updatePool(read, session.user.id, body);
       return res.status(200).json({ ok: true });
     }
-    const store = getStore("cn");
-    const data = scheduledDashboard(await readUser(read, session.user.id, store));
-    if (req.query?.view === "related") return res.status(200).json(await relatedView(data, store));
-    return res.status(200).json(data);
+    return res.status(200).json(scheduledDashboard(await readUser(read, session.user.id)));
   } catch (error) {
     const status = error instanceof SyntaxError ? 400 : error.statusCode || 503;
     if (status >= 500) console.error("[watchlist]", error.message);

@@ -1108,11 +1108,6 @@ async function enrichLimitStocks(day, stocks) {
   });
   return stocks.map((x) => ({ ...x, concepts: conceptMembershipCache.get(`${day}:${x.code}`) || [] }));
 }
-/** 关注页题材集中度（2026-11-27）：单只股票的所属概念，与涨停/异动同口径过滤；只在关注列表缺题材时取一次。 */
-export async function fetchStockConcepts(code) {
-  return conceptsOf(await windCall("analytics_data", "get_financial_data", { question: `${code}所属概念板块` }, 12_000));
-}
-export { conceptNamesFromValue };
 function constituentRows(payload, expectedDay = null) {
   return tables(payload).flatMap(objects).map((row) => {
     const findNumber = (...names) => {
