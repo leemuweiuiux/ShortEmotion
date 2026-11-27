@@ -59,6 +59,28 @@ export function shouldKeepPrevious(previous, board) {
   return snapshotCompleteness(previous) > snapshotCompleteness(board);
 }
 
+/**
+ * 补跑某个历史交易日（2026-11-27）：只改写该日的 limitup:day:<day>；该日正好是最新快照的交易日时一并更新 latest。
+ * 同日更早一轮（即已存的该日快照）拿到的封板时间与概念照常沿用；新结果不如已存快照完整就不覆盖。
+ */
+export async function backfillLimitUpDay(store, day) {
+  await importCache(store, day);
+  const stored = (await store.kvGet(LIMITUP_KEYS.day(day)).catch(() => null))?.value || null;
+  const board = await loadLimitUpBoard(day, {
+    loadStoredDay: async (storedDay) => (await store.kvGet(LIMITUP_KEYS.day(storedDay)).catch(() => null))?.value || null,
+    previousBoard: stored,
+    historical: true
+  });
+  const entries = exportNewsReviewCache(day);
+  if (Object.keys(entries).length) await store.kvSet(LIMITUP_KEYS.newsCache(day), { day, version: 3, entries }).catch(() => {});
+  if (board.degraded || board.tradingDate !== day) return { day, written: false, reason: "未返回该日涨停列表", board };
+  if (stored && snapshotCompleteness(stored) > snapshotCompleteness(board)) return { day, written: false, reason: "补跑结果不如已存快照完整", board };
+  await store.kvSet(LIMITUP_KEYS.day(day), board);
+  const latest = (await store.kvGet(LIMITUP_KEYS.latest).catch(() => null))?.value;
+  if (latest?.tradingDate === day) await store.kvSet(LIMITUP_KEYS.latest, board);
+  return { day, written: true, latest: latest?.tradingDate === day, board };
+}
+
 /** 收盘明细、晋级、封板时间都齐全（16:35 备援据此决定还要不要再取一次）。 */
 export async function limitupFullyComplete(store, day) {
   const latest = (await store.kvGet(LIMITUP_KEYS.latest).catch(() => null))?.value;

@@ -1,4 +1,5 @@
 import { loadMarketLimitCounts } from "../short-emotion/market-limit-counts.js";
+import { fetchMainBoardByPrefix } from "../short-emotion/limit-split.js";
 import { loadStockProfileText } from "../short-emotion/persistent-cache.js";
 // 涨停情绪 · 计算层（/limitup）
 //
@@ -56,9 +57,9 @@ const SECTORS = [
 const eventQuestion = (day, phrase) => `筛选${day}涨停的${phrase}并返回Wind代码、证券简称、首次封板时间、所属概念板块`;
 
 // 单个板块：空表要重试（措辞偶发未命中），但北交所涨停为 0 是常态，因此只在「全部板块为空」时判失败
-async function fetchSectorRows(day, sector) {
+async function fetchSectorRows(day, sector, { attempts = SECTOR_ATTEMPTS } = {}) {
   let lastError = null;
-  for (let attempt = 1; attempt <= SECTOR_ATTEMPTS; attempt += 1) {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       const payload = await windCall("stock_data", "search_stocks", { question: eventQuestion(day, sector.phrase) });
       const rows = tables(payload).flatMap(objects);
@@ -67,12 +68,13 @@ async function fetchSectorRows(day, sector) {
     } catch (error) {
       lastError = `第${attempt}次: ${String(error?.message || error)}`;
     }
-    if (attempt < SECTOR_ATTEMPTS) await waitFor(attempt * SEARCH_RETRY_GAP_MS);
+    if (attempt < attempts) await waitFor(attempt * SEARCH_RETRY_GAP_MS);
   }
   return { rows: [], capped: false, error: `${sector.key} ${lastError}` };
 }
 
-// 主板一次查也会撞 100 行（个股按概念拆成多行，11/04 主板触顶），触顶时再拆沪市/深市主板取并集
+// 主板一次查也会撞 100 行（11/04 主板触顶），触顶时再拆沪市/深市主板取并集；
+// 沪市/深市主板仍撞顶（11/27 主板 308 家）再按代码前缀逐层拆（见 short-emotion/limit-split.js）
 const MAIN_SPLITS = [
   { key: "沪市主板", phrase: "上海证券交易所主板A股", accept: (code) => /^60\d{4}\.SH$/.test(code) },
   { key: "深市主板", phrase: "深圳证券交易所主板A股", accept: (code) => /^00\d{4}\.SZ$/.test(code) }
@@ -83,9 +85,14 @@ async function fetchLimitEventRows(day) {
   const rows = results.flatMap((result) => result.rows);
   const cappedSectors = SECTORS.filter((_, index) => results[index].capped).map((sector) => sector.key);
   if (cappedSectors.includes("主板")) {
-    const parts = await Promise.all(MAIN_SPLITS.map((split) => fetchSectorRows(day, split)));
-    parts.forEach((part, index) => rows.push(...part.rows.filter((row) => MAIN_SPLITS[index].accept(String(row["Wind代码"] || "").toUpperCase()))));
-    if (parts.every((part) => part.rows.length && !part.capped)) cappedSectors.splice(cappedSectors.indexOf("主板"), 1);
+    const parts = await Promise.all(MAIN_SPLITS.map(async (split) => {
+      const part = await fetchSectorRows(day, split);
+      if (!part.capped) return { rows: part.rows.filter((row) => split.accept(String(row["Wind代码"] || "").toUpperCase())), complete: part.rows.length > 0 };
+      const byPrefix = await fetchMainBoardByPrefix(split.key, (phrase, options) => fetchSectorRows(day, { key: split.key, phrase }, options));
+      return { rows: [...part.rows.filter((row) => split.accept(String(row["Wind代码"] || "").toUpperCase())), ...byPrefix.rows], complete: byPrefix.complete };
+    }));
+    parts.forEach((part) => rows.push(...part.rows));
+    if (parts.every((part) => part.complete)) cappedSectors.splice(cappedSectors.indexOf("主板"), 1);
   }
   if (!rows.length) {
     const detail = results.map((result) => result.error).filter(Boolean).join(" / ");
@@ -121,6 +128,31 @@ export function detailMatches(returned, total, { intraday = false } = {}) {
   return intraday && returned > total && returned - total <= Math.max(3, Math.round(total * 0.1));
 }
 
+/**
+ * 家数核对（2026-11-27）：全市场汇总家数偶发返回错值（11/25 从 09:32 到收盘一直是 96 / 7，
+ * 而事件表与「收盘价=涨停价」名单都是 58 家、跌停明细 49 家），按汇总判明细不全会把正确的明细藏掉。
+ * 但明细也会两套一起少回（11/05 型故障），所以「明细少于汇总」只在有汇总出错的证据时才改判：
+ *   - summaryContradicted：同一句返回的跌停汇总明显少于完整的跌停明细（跌停明细按当日状态列过滤，不会多报）；
+ *   - 或明细多于汇总（收盘后）：两套明细一致且都多出来，说明汇总偏旧。
+ * 两套明细都未撞顶、彼此一致时才考虑改判。返回核对后的家数，不需要改判时返回 null。
+ */
+export function reconcileLimitCount({ reported, eventCodes, eventComplete, listCodes, listComplete, intraday = false, summaryContradicted = false }) {
+  if (!Number.isFinite(reported) || !eventComplete || !listComplete || !eventCodes?.size || !listCodes?.size) return null;
+  const union = new Set([...eventCodes, ...listCodes]);
+  const differ = [...union].filter((code) => !(eventCodes.has(code) && listCodes.has(code))).length;
+  const agree = differ <= detailTolerance(union.size) || (intraday && differ <= Math.max(3, Math.round(union.size * 0.1)));
+  if (!agree || detailMatches(union.size, reported, { intraday })) return null;
+  if (union.size < reported && !summaryContradicted) return null;
+  return union.size;
+}
+
+/** 跌停明细完整且比跌停汇总多出容差以上：汇总这一句不可信。 */
+export function limitDownContradicts(reportedDown, downResult) {
+  if (!Number.isFinite(reportedDown) || !downResult?.complete) return false;
+  const detail = downResult.rows?.length || 0;
+  return detail - reportedDown > detailTolerance(Math.max(detail, reportedDown));
+}
+
 async function lookupSealTimes(day, codes) {
   const found = new Map();
   const batches = [];
@@ -154,6 +186,7 @@ async function backfillLimitStocks(day, knownCodes, { latest = false } = {}) {
   const seal = missing.length ? await lookupSealTimes(day, missing) : new Map();
   return {
     rows: missing.map((code) => ({ "Wind代码": code, "证券简称": list.names.get(code), "涨跌停时间": null, "所属概念板块": "", sealClock: seal.get(code) || null })),
+    codes: list.codes,
     complete: list.complete,
     errors: list.errors || []
   };
@@ -1236,7 +1269,7 @@ export function snapshotDayMismatch(quoteTime, expectedDay) {
  * 历史日只能用「收盘价等于涨停价」取名单，涨停多的日子 Wind 会少回（11/04 实际 123 家只回 100 家，
  * 按板块拆分也没补回来）；而前一天收盘时的快照已经把明细补齐过，直接并进昨日名单。
  */
-export async function loadLimitUpBoard(day = localDate(), { loadStoredDay = null, previousBoard = null } = {}) {
+export async function loadLimitUpBoard(day = localDate(), { loadStoredDay = null, previousBoard = null, historical = false } = {}) {
   const errors = [];
   const [eventResult, historyResult] = await Promise.all([
     fetchLimitEventRows(day),
@@ -1257,8 +1290,13 @@ export async function loadLimitUpBoard(day = localDate(), { loadStoredDay = null
 
   // 盘前构建时本地日期已是新交易日，但行情还停在上一交易日收盘：
   // 资讯检索、断板解释、跌停取数都必须用「行情日期」，否则当天数据一条都取不到。
-  const quoteTime = eventResult.rows.map((row) => row["交易时间"]).filter(Boolean).sort().at(-1) || null;
-  const dataDay = quoteDayOf(quoteTime) || day;
+  // 补跑历史交易日（historical）：行情时间列会是最新行情时刻，交易日以传入的 day 为准
+  const quoteTime = historical ? `${day.slice(0, 4)}-${day.slice(4, 6)}-${day.slice(6, 8)}T15:00:00+08:00`
+    : eventResult.rows.map((row) => row["交易时间"]).filter(Boolean).sort().at(-1) || null;
+  const dataDay = historical ? day : quoteDayOf(quoteTime) || day;
+  // 跌停明细提前开始取：家数核对要用它判断汇总是否可信，后面照常复用同一份结果
+  const downPromise = fetchLimitDownRows(dataDay);
+  downPromise.catch(() => {}); // 先挂上处理，避免等待其它取数期间被当成未处理的拒绝
   const baseTradingDate = historyResult.dates?.[0] || await previousTradingDate(day).catch(() => null);
   let [marketCounts, previousMarketCounts] = await Promise.all([
     loadMarketLimitCounts(dataDay),
@@ -1275,19 +1313,35 @@ export async function loadLimitUpBoard(day = localDate(), { loadStoredDay = null
     if (Number.isFinite(again?.limitUp)) marketCounts = { ...again, errors: marketCounts.errors };
   }
 
-  // 明细与全市场家数对不上：补代码（与家数同口径含北交所、含 ST），封板时间尽力补
+  // 明细与全市场家数对不上：补代码（与家数同口径含北交所、含 ST），封板时间尽力补；
+  // 同时拿「收盘价/最新价=涨停价」名单与事件表互相核对家数（reconcileLimitCount）
   const eventCount = rawByCode.size;
+  const eventCodes = new Set(rawByCode.keys());
   let backfilled = 0;
-  if (Number.isFinite(marketCounts.limitUp) && rawByCode.size < marketCounts.limitUp && !detailMatches(rawByCode.size, marketCounts.limitUp)) {
-    const minute = String(quoteTime || "").match(/T(\d{2}):(\d{2})/);
-    const intraday = dataDay === day && minute && Number(minute[1]) * 60 + Number(minute[2]) < 15 * 60;
-    const backfill = await backfillLimitStocks(dataDay, new Set(rawByCode.keys()), { latest: Boolean(intraday) });
+  let countCheck = null;
+  if (Number.isFinite(marketCounts.limitUp) && !detailMatches(rawByCode.size, marketCounts.limitUp, { intraday: liveSession })) {
+    const backfill = await backfillLimitStocks(dataDay, eventCodes, { latest: liveSession });
     for (const row of backfill.rows) {
       if (rawByCode.has(row["Wind代码"])) continue;
       rawByCode.set(row["Wind代码"], row);
       backfilled += 1;
     }
     if (backfill.errors.length) errors.push(...backfill.errors.map((message) => `涨停明细补齐: ${message}`));
+    const downForCheck = await downPromise.catch(() => null);
+    // 事后补跑时事件表常只回几行（11/25 补跑只回 7 家，当天盘中回过 58 家）：同日更早一轮快照的名单也算事件表一方
+    const earlierCodes = previousBoard?.tradingDate === dataDay && !(previousBoard.dataQuality?.cappedSectors || []).length
+      ? [...(previousBoard.stocks || []).map((stock) => String(stock.code || "").toUpperCase()), ...(previousBoard.stCodes || [])]
+      : [];
+    const reconciled = reconcileLimitCount({
+      reported: marketCounts.limitUp, eventCodes: new Set([...eventCodes, ...earlierCodes].filter(Boolean)), eventComplete: eventResult.complete,
+      listCodes: backfill.codes, listComplete: backfill.complete && !backfill.errors.length, intraday: liveSession,
+      summaryContradicted: limitDownContradicts(marketCounts.limitDown, downForCheck)
+    });
+    if (reconciled != null) {
+      countCheck = { source: "detail", reportedLimitUp: marketCounts.limitUp, reportedLimitDown: marketCounts.limitDown, limitUp: reconciled };
+      errors.push(`全市场涨停家数汇总为 ${marketCounts.limitUp} 家，与两套明细（${reconciled} 家）不一致，已按明细计`);
+      marketCounts = { ...marketCounts, limitUp: reconciled };
+    }
   }
 
   const allStocks = [...rawByCode.values()].map((row) => {
@@ -1346,6 +1400,10 @@ export async function loadLimitUpBoard(day = localDate(), { loadStoredDay = null
       for (const code of [...nonSt, ...stCodes]) sets[0].add(code);
       storedYesterdayCount = storedCount;
       storedYesterdayOk = true;
+      // 上一交易日的快照已按明细核对过家数（countCheck）：以快照为准，不再用重取的汇总（汇总可能仍是错值）
+      if (stored?.dataQuality?.countCheck?.source === "detail" && previousMarketCounts) {
+        previousMarketCounts = { ...previousMarketCounts, limitUp: stored.summary.limitUpCount, limitDown: stored.summary.limitDownCount ?? previousMarketCounts.limitDown };
+      }
     }
   }
   const yesterdaySize = Math.max(sets[0]?.size || 0, storedYesterdayCount);
@@ -1421,7 +1479,7 @@ export async function loadLimitUpBoard(day = localDate(), { loadStoredDay = null
   // 同时补一次上一交易日的跌停家数，给「跌停扩散 / 收敛」提供环比。
   // 顺带取昨日涨停股今日溢价（赚钱效应）与竞价溢价，三者互不依赖，并行发出。
   const [downResult, previousDownCount, premium] = await Promise.all([
-    fetchLimitDownRows(dataDay),
+    downPromise,
     fetchLimitDownCount(baseTradingDate),
     !quality.yesterdayComplete ? null : fetchPremium({
       baseDay: baseTradingDate,
@@ -1604,6 +1662,11 @@ export async function loadLimitUpBoard(day = localDate(), { loadStoredDay = null
   const firstSealCount = !quality.sealComplete ? null
     : stocks.filter((stock) => clockMinutes(stock.sealTime) != null && clockMinutes(stock.sealTime) < 600).length;
 
+  // 涨停汇总已判为错值（countCheck）时，同一句返回的跌停汇总也不可信：跌停明细完整就以明细为准
+  if (countCheck && downResult.complete && rawDownStocks.length) {
+    countCheck.limitDown = rawDownStocks.length;
+    marketCounts = { ...marketCounts, limitDown: rawDownStocks.length };
+  }
   if (marketCounts.limitDown != null && marketCounts.limitDown !== rawDownStocks.length) {
     errors.push(`跌停明细仅返回 ${rawDownStocks.length} 家，全市场共 ${marketCounts.limitDown} 家；明细待补齐`);
   }
@@ -1689,6 +1752,8 @@ export async function loadLimitUpBoard(day = localDate(), { loadStoredDay = null
         ambiguousConcepts: stocks.filter(stock => stock.concepts?.some(name => familyCandidates(name).length > 1)).length
       },
       limitDownComplete: Boolean(downResult.complete),
+      // 家数核对：汇总家数与两套明细不一致、已按明细计时记下原汇总
+      countCheck,
       // 门槛结果：页面据此把对应模块显示为「数据待补齐」
       detail: quality.detail,
       detailComplete: quality.detailComplete,

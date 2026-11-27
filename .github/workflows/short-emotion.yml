@@ -30,7 +30,12 @@ on:
         options:
           - short-emotion
           - sectorflow-history
+          - limitup-backfill
         default: short-emotion
+      days:
+        description: "limitup-backfill 要补跑的交易日（逗号分隔，如 20261125,20261126）"
+        type: string
+        default: ""
       force:
         description: "忽略时间窗口，立即刷新全部数据"
         type: boolean
@@ -83,8 +88,16 @@ jobs:
             git archive FETCH_HEAD | tar -x -C "$DATA_DIR"
             git rev-parse 'FETCH_HEAD^{tree}' > "$RUNNER_TEMP/previous-tree"
           fi
+      - name: Backfill limit-up days
+        if: steps.guard.outputs.skip != 'true' && inputs.target == 'limitup-backfill'
+        run: node scripts/limitup/backfill.mjs --days="$BACKFILL_DAYS"
+        env:
+          BACKFILL_DAYS: ${{ inputs.days }}
+          WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
+          SHORT_EMOTION_STORE: file
+          SHORT_EMOTION_DATA_DIR: ${{ env.DATA_DIR }}
       - name: Refresh snapshot
-        if: steps.guard.outputs.skip != 'true'
+        if: steps.guard.outputs.skip != 'true' && inputs.target != 'limitup-backfill'
         run: node scripts/short-emotion/refresh.mjs ${{ (inputs.target == 'sectorflow-history' || github.event.schedule == '17,47 9-10 * * 1-5') && '--history-only' || '' }} ${{ (github.event_name == 'workflow_dispatch' && inputs.force) && '--force' || '' }} --market=${{ (github.event_name == 'workflow_dispatch' && inputs.market) || 'all' }}
         env:
           WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
