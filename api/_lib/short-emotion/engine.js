@@ -10,6 +10,7 @@
 //     can be exported/imported so cron runs on cold instances don't refetch them.
 import { callWindTool } from "./wind-client.js";
 import { conceptCache, loadStockProfileText, closeLimitListCache, marketKlineCache } from "./persistent-cache.js";
+import { fetchMainBoardByPrefix } from "./limit-split.js";
 import { loadMarketLimitCounts } from "./market-limit-counts.js";
 
 const cacheTtlMs = 60_000;
@@ -846,7 +847,8 @@ const limitListQuestion = (date, phrase, { latest = false } = {}) => latest
 
 async function queryLimitList(date, phrase, options = {}) {
   let lastError = null;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  const attempts = options.attempts ?? 3;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
       const payload = await windCall("stock_data", "search_stocks", { question: limitListQuestion(date, phrase, options) });
       const rows = tables(payload).flatMap(objects);
@@ -855,7 +857,7 @@ async function queryLimitList(date, phrase, options = {}) {
     } catch (error) {
       lastError = String(error?.message || error);
     }
-    if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+    if (attempt < attempts - 1) await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
   }
   return { rows: [], capped: false, error: lastError };
 }
@@ -887,9 +889,18 @@ export async function fetchLimitList(date, { latest = false, includeBj = false, 
     const bySplit = new Map(parts.map(({ split, result }) => [split.key, result]));
     for (const { split, result } of parts) add(result.rows, split.accept);
     const main = bySplit.get("主板"), sh = bySplit.get("沪市主板"), sz = bySplit.get("深市主板");
-    // 主板：整段未触顶即完整；否则沪深两段都要拿到且都未触顶
-    const mainComplete = (main.rows.length && !main.capped)
-      || (sh.rows.length && !sh.capped && sz.rows.length && !sz.capped);
+    // 沪市/深市主板仍撞顶（11/27 主板 308 家）：按代码前缀逐层拆，拆完未撞顶即该段完整
+    const partComplete = async (key, result) => {
+      if (result.rows.length && !result.capped) return true;
+      if (!result.capped) return false;
+      const byPrefix = await fetchMainBoardByPrefix(key, (phrase, options) => queryLimitList(date, phrase, { latest, ...options }));
+      add(byPrefix.rows, (code) => code.endsWith(key === "沪市主板" ? ".SH" : ".SZ"));
+      return byPrefix.complete;
+    };
+    const mainUncapped = Boolean(main.rows.length && !main.capped);
+    const [shOk, szOk] = mainUncapped ? [true, true] : await Promise.all([partComplete("沪市主板", sh), partComplete("深市主板", sz)]);
+    // 主板：整段未触顶即完整；否则沪深两段（必要时按前缀拆完）都要完整
+    const mainComplete = mainUncapped || (shOk && szOk);
     if (!mainComplete) capped.push("主板");
     // 创业板/科创板：空表在极端冷清日可能是真 0，但聚合已触顶说明市场涨停很多，空表按失败处理
     const others = ["创业板", "科创板"].filter((key) => bySplit.get(key).capped || !bySplit.get(key).rows.length);
