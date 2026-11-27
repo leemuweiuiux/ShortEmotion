@@ -76,6 +76,8 @@
     {"source": "/terms/", "destination": "/terms/index.html"},
     {"source": "/privacy", "destination": "/privacy/index.html"},
     {"source": "/privacy/", "destination": "/privacy/index.html"},
+    {"source": "/refund", "destination": "/refund/index.html"},
+    {"source": "/refund/", "destination": "/refund/index.html"},
     {"source": "/about/", "destination": "/about/index.html"},
     {"source": "/login", "destination": "/login/index.html"},
     {"source": "/login/", "destination": "/login/index.html"},
