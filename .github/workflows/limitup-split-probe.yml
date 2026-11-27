@@ -1,0 +1,20 @@
+name: Limitup split probe
+# 一次性探针：只打印，不写数据分支。
+on:
+  push:
+    branches: ['probe/limitup-split']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: node scripts/probe/limitup-split.mjs 20261127
+        env:
+          WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
