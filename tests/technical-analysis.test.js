@@ -6,7 +6,7 @@ process.env.WIND_MOCK = "1";
 const engine = await import("../api/_lib/technical-analysis/engine.js");
 const wind = await import("../api/_lib/short-emotion/wind-client.js");
 const session = await import("../api/_lib/session.js");
-const { default: api, analysisConfigured, isAnalysisCurrent } = await import("../api/technical-analysis.js");
+const { default: api, analysisConfigured, isAnalysisCurrent, isPreOpen, isTradingHours, lastCloseAt, latestCloseAt } = await import("../api/technical-analysis.js");
 
 // 固定默认模拟时间在收盘后：避免 CI 在北京时间 09:30 刚开盘时分钟数据不足
 // 触发预期内的日线降级，导致原本验证完整分析的测试受运行时间影响。
@@ -315,6 +315,7 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
   });
 
   it("分析成功扣 10 分，流水记下股票；同一支股票再分析一次照扣", async () => {
+    vi.setSystemTime(new Date("2026-10-20T14:00:00+08:00")); // 盘中：「更新数据」才会重新取数
     const first = await call({ body: { q: "603936" } });
     expect(first.statusCode).toBe(200);
     expect(first.body).toMatchObject({ ok: true, charged: 10, balance: 40 });
@@ -354,6 +355,7 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
   });
 
   it("分析成功后存进分析记录；最近分析同一支股票只留最新一次；按记录打开不扣分", async () => {
+    vi.setSystemTime(new Date("2026-10-20T14:00:00+08:00")); // 盘中：「更新数据」才会重新取数
     const first = await call({ body: { q: "603936" } });
     expect(first.body.historyId).toBe(1);
     await call({ body: { q: "300986" } });
@@ -414,6 +416,7 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
   });
 
   it("A 支付查询，B 支付更新，A 免费看到 B 的最新结果，再更新需付费", async () => {
+    vi.setSystemTime(new Date("2026-10-20T14:00:00+08:00")); // 盘中：「更新数据」才会重新取数
     const first = await call({ body: { q: "603936" } });
     expect(first.body.charged).toBe(10);
     const cookieB = `${session.ACCESS_COOKIE}=${TOKEN_B}; ${session.REFRESH_COOKIE}=rt`;
@@ -436,6 +439,7 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
   });
 
   it("已经有查看权时，余额为 0 仍可免费查看，但不能更新", async () => {
+    vi.setSystemTime(new Date("2026-10-20T14:00:00+08:00")); // 盘中：「更新数据」才会重新取数
     await call({ body: { q: "603936" } });
     account.balance = 0;
     const viewed = await call({ body: { q: "603936" } });
@@ -460,6 +464,62 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
     expect(today.body).toMatchObject({ viewed: true, charged: 0, balance: balance - 10 });
     expect(wind.windCallStats().total).toBe(0);
     expect((await call({ method: "GET", query: { action: "result", code: "603936.SH" } })).body.needsRefresh).toBe(false);
+  });
+
+  it("9:15–9:30 开盘前沿用上一交易日收盘后的报告（含重新分析），不调用 Wind；9:30 后恢复更新", async () => {
+    await call({ body: { q: "603936" } }); // 周二 16:00 收盘后生成
+    const balance = account.balance;
+    vi.setSystemTime(new Date("2026-10-21T09:20:00+08:00"));
+    expect((await call({ method: "GET", query: { action: "result", code: "603936.SH" } })).body.needsRefresh).toBe(false);
+    wind.resetWindCallStats();
+    for (const body of [{ q: "603936" }, { q: "603936", refresh: true }]) {
+      const res = await call({ body });
+      expect(res.body).toMatchObject({ viewed: true, offHours: true, charged: 0, balance });
+    }
+    expect(wind.windCallStats().total).toBe(0);
+    sharedResults.get("603936.SH").updatedAt = "2026-10-20T06:00:00Z"; // 周二 14:00 的盘中报告不算收盘数据
+    expect((await call({ body: { q: "603936" } })).body.offHours).toBeUndefined();
+    vi.setSystemTime(new Date("2026-10-21T09:31:00+08:00"));
+    sharedResults.get("603936.SH").updatedAt = "2026-10-20T08:00:00Z";
+    const opened = await call({ body: { q: "603936" } });
+    expect(opened.body.offHours).toBeUndefined();
+    expect(opened.body.viewed).toBeUndefined();
+  });
+
+  it("收盘后当天的盘中快照算过期、改取收盘版；周末沿用周五收盘后的报告（含重新分析）", async () => {
+    vi.setSystemTime(new Date("2026-10-23T10:30:00+08:00")); // 周五盘中
+    await call({ body: { q: "603936" } });
+    vi.setSystemTime(new Date("2026-10-23T15:45:00+08:00"));
+    expect((await call({ method: "GET", query: { action: "result", code: "603936.SH" } })).body.needsRefresh).toBe(true);
+    wind.resetWindCallStats();
+    const closed = await call({ body: { q: "603936" } });
+    expect(closed.body.viewed).toBeUndefined();
+    expect(wind.windCallStats().total).toBeGreaterThan(0);
+    const balance = account.balance;
+    vi.setSystemTime(new Date("2026-10-24T11:00:00+08:00")); // 周六
+    expect((await call({ method: "GET", query: { action: "result", code: "603936.SH" } })).body.needsRefresh).toBe(false);
+    wind.resetWindCallStats();
+    for (const body of [{ q: "603936" }, { q: "603936", refresh: true }]) {
+      expect((await call({ body })).body).toMatchObject({ viewed: true, offHours: true, charged: 0, balance });
+    }
+    expect(wind.windCallStats().total).toBe(0);
+    sharedResults.get("603936.SH").result.partial = true; // 部分结果在非交易时段仍允许重算
+    expect((await call({ body: { q: "603936", refresh: true } })).body.offHours).toBeUndefined();
+  });
+
+  it("开盘前时段与上一收盘时间按北京时间、跳过周末", () => {
+    expect(isPreOpen(new Date("2026-10-21T09:14:59+08:00"))).toBe(false);
+    expect(isPreOpen(new Date("2026-10-21T09:15:00+08:00"))).toBe(true);
+    expect(isPreOpen(new Date("2026-10-21T09:29:59+08:00"))).toBe(true);
+    expect(isPreOpen(new Date("2026-10-21T09:30:00+08:00"))).toBe(false);
+    expect(isPreOpen(new Date("2026-10-24T09:20:00+08:00"))).toBe(false); // 周六
+    expect(lastCloseAt(new Date("2026-10-26T09:20:00+08:00")).toISOString()).toBe("2026-10-23T07:00:00.000Z"); // 周一 → 上周五 15:00
+    expect(latestCloseAt(new Date("2026-10-21T15:00:00+08:00")).toISOString()).toBe("2026-10-21T07:00:00.000Z"); // 周三收盘后 → 当天 15:00
+    expect(latestCloseAt(new Date("2026-10-21T14:59:00+08:00")).toISOString()).toBe("2026-10-20T07:00:00.000Z");
+    expect(latestCloseAt(new Date("2026-10-25T20:00:00+08:00")).toISOString()).toBe("2026-10-23T07:00:00.000Z"); // 周日 → 周五
+    expect(isTradingHours(new Date("2026-10-21T09:29:59+08:00"))).toBe(false);
+    expect(isTradingHours(new Date("2026-10-21T12:00:00+08:00"))).toBe(true); // 午休仍按盘中
+    expect(isTradingHours(new Date("2026-10-21T15:00:00+08:00"))).toBe(false);
   });
 
   it("跨日自动更新失败退款，旧报告仍可读且仍标为过期", async () => {
@@ -527,11 +587,14 @@ describe("个股技术分析接口：每次扣 10 积分", () => {
   });
 });
 
-// Midnight is based on Beijing time, independent of the server's UTC date.
-it("分析新鲜度按北京时间跨日；非法或缺失更新时间视为过期", () => {
-  const now = new Date("2026-11-03T16:01:00Z");
-  expect(isAnalysisCurrent({ updatedAt: "2026-11-03T16:00:00Z" }, now)).toBe(true);
-  expect(isAnalysisCurrent({ updatedAt: "2026-11-03T15:59:59Z" }, now)).toBe(false);
+// 按北京时间：盘中看当天开盘后生成，非交易时段看最近一次收盘后生成。
+it("分析新鲜度按北京时间与交易时段；非法或缺失更新时间视为过期", () => {
+  const now = new Date("2026-11-03T16:01:00Z"); // 周三 00:01，非交易时段
+  expect(isAnalysisCurrent({ updatedAt: "2026-11-03T07:00:00Z" }, now)).toBe(true); // 周二 15:00 收盘后
+  expect(isAnalysisCurrent({ updatedAt: "2026-11-03T06:59:59Z" }, now)).toBe(false); // 周二盘中
+  const session = new Date("2026-11-04T02:00:00Z"); // 周三 10:00 盘中
+  expect(isAnalysisCurrent({ updatedAt: "2026-11-04T01:30:00Z" }, session)).toBe(true);
+  expect(isAnalysisCurrent({ updatedAt: "2026-11-04T01:00:00Z" }, session)).toBe(false); // 开盘前生成的是昨收数据
   expect(isAnalysisCurrent({ updatedAt: "bad" }, now)).toBe(false);
   expect(isAnalysisCurrent({}, now)).toBe(false);
 });

@@ -46,14 +46,50 @@ function isRefresh(req) {
   return body?.refresh === true;
 }
 
-// Report-generation day, not the trading day: weekends must not repeatedly charge
-// for a freshly generated report using the latest available close.
+// 北京时间 9:15–9:30（集合竞价到开盘前）：2026-11-25 这段时间 Wind 实时行情连续 10 秒无回应，超时时给出专门提示。
+const beijingParts = value => Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Shanghai', weekday: 'short',
+  year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(value).map(p => [p.type, p.value]));
+const isWeekend = p => p.weekday === 'Sat' || p.weekday === 'Sun';
+const minutesOf = p => Number(p.hour) * 60 + Number(p.minute);
+const beijingAt = (p, time) => new Date(`${p.year}-${p.month}-${p.day}T${time}:00+08:00`);
+export function isPreOpen(now = new Date()) {
+  const p = beijingParts(now);
+  return !isWeekend(p) && minutesOf(p) >= 9 * 60 + 15 && minutesOf(p) < 9 * 60 + 30;
+}
+// 交易时段 9:30–15:00（含午休）。不识别节假日。
+export function isTradingHours(now = new Date()) {
+  const p = beijingParts(now);
+  return !isWeekend(p) && minutesOf(p) >= 9 * 60 + 30 && minutesOf(p) < 15 * 60;
+}
+// 上一个工作日 15:00。不识别节假日：长假后只会少沿用（改走正常取数），不会把收盘前的盘中报告当成收盘数据。
+export function lastCloseAt(now = new Date()) {
+  const p = beijingParts(now);
+  const day = new Date(Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day)));
+  do day.setUTCDate(day.getUTCDate() - 1); while ([0, 6].includes(day.getUTCDay()));
+  return new Date(`${day.toISOString().slice(0, 10)}T15:00:00+08:00`);
+}
+// 最近一次收盘：工作日 15:00 之后是当天 15:00，否则是上一个工作日 15:00。
+export function latestCloseAt(now = new Date()) {
+  const p = beijingParts(now);
+  return !isWeekend(p) && minutesOf(p) >= 15 * 60 ? beijingAt(p, '15:00') : lastCloseAt(now);
+}
+
+// 报告新旧（2026-11-26）：
+// · 盘中（9:30–15:00）：当天开盘后生成的才算最新；
+// · 非交易时段（收盘后、开盘前、周末）：最近一次收盘之后生成的算最新，直接沿用、不调用 Wind、不占当日次数；
+//   当天的盘中快照到收盘后算过期，改取收盘版。
 export function isAnalysisCurrent(record, now = new Date()) {
   const stamp = new Date(record?.updatedAt);
   if (!record?.updatedAt || !Number.isFinite(stamp.getTime())) return false;
-  const day = value => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(value);
-  return day(stamp) === day(now);
+  const since = isTradingHours(now) ? beijingAt(beijingParts(now), '09:30') : latestCloseAt(now);
+  return stamp >= since;
 }
+// 非交易时段连「重新分析」也沿用最近收盘报告；部分结果允许重算（9:15–9:30 Wind 无回应，仍沿用）。
+export function isOffHoursReusable(record, now = new Date()) {
+  return Boolean(record?.result) && !isTradingHours(now) && isAnalysisCurrent(record, now)
+    && (!record.result.partial || isPreOpen(now));
+}
+const PRE_OPEN_TIMEOUT = "开盘前（9:15–9:30）行情暂停更新，请 9:30 后再试";
 
 function send(res, status, payload) {
   res.setHeader("Cache-Control", "no-store");
@@ -150,9 +186,10 @@ async function runAnalysis(req, { session, config, needsPoints }) {
     if (needsPoints) {
       const shared = await historyShared(config, session.accessToken, q);
       fallback = shared?.result ? { data: shared.result, analyzedAt: shared.updatedAt } : null;
-      if (!isRefresh(req) && shared?.result && isAnalysisCurrent(shared)) {
+      const offHoursReuse = isOffHoursReusable(shared);
+      if (shared?.result && ((!isRefresh(req) && isAnalysisCurrent(shared)) || offHoursReuse)) {
         const status = await pointsStatus(config, session.accessToken);
-        return result(200, { ok: true, viewed: true, data: shared.result, partial: Boolean(shared.result.partial), analyzedAt: shared.updatedAt,
+        return result(200, { ok: true, viewed: true, ...(offHoursReuse ? { offHours: true } : {}), data: shared.result, partial: Boolean(shared.result.partial), analyzedAt: shared.updatedAt,
           charged: 0, balance: status.balance, unlimited: Boolean(status.unlimited),
           recent: await historyRecent(config, session.accessToken).catch(() => null) });
       }
@@ -231,7 +268,8 @@ async function runAnalysis(req, { session, config, needsPoints }) {
     else if (!error?.statusCode) console.error("technical-analysis failed", error);
     const status = error?.statusCode || 502;
     const actionable = ["timeout", "rate_limit", "quota_exhausted", "upstream_auth"].includes(error?.code);
-    const message = status >= 500 && !error?.statusCode && !actionable ? "分析失败，请稍后再试" : error.message;
+    const message = error?.code === "timeout" && isPreOpen(new Date(started)) ? PRE_OPEN_TIMEOUT
+      : status >= 500 && !error?.statusCode && !actionable ? "分析失败，请稍后再试" : error.message;
     return result(status, {
       error: charged?.refunded ? `${message}（${Number.isFinite(Number(charged.balance)) ? `已退回积分，剩余 ${charged.balance} 积分` : "已退回积分"}）` : message,
       code: error?.code || "analysis_failed",

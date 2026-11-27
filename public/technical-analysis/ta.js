@@ -134,7 +134,7 @@ async function analyze(query, refresh = false) {
     setUrl({ q: current.code || q });
     if (payload.recent) renderRecent($("#ta-recent"), payload.recent, (row) => openHistory(row.code, true));
     if (config.free && !payload.viewed && Number.isFinite(Number(config.used))) { config.used = Number(config.used) + 1; renderHint(); }
-    toast(payload.charged > 0 && Number.isFinite(Number(payload.balance)) ? `已完成分析，剩余 ${payload.balance} 积分` : payload.viewed ? "已显示最新结果" : "分析完成");
+    toast(payload.charged > 0 && Number.isFinite(Number(payload.balance)) ? `已完成分析，剩余 ${payload.balance} 积分` : payload.offHours ? "非交易时段，已显示最近收盘的分析" : payload.viewed ? "已显示最新结果" : "分析完成");
   } catch (error) {
     toast(error.message, true);
   } finally {
