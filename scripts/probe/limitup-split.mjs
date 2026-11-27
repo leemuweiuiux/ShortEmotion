@@ -3,19 +3,15 @@ import { callWindTool } from "../../api/_lib/short-emotion/wind-client.js";
 const day = process.argv[2] || "20261127";
 const event = (x) => `筛选${day}涨停的${x}并返回Wind代码、证券简称、首次封板时间、所属概念板块`;
 const close = (x) => `筛选${day}收盘价等于当日涨停价的${x}`;
-const parts = {
-  sh: "上海证券交易所主板A股", sz: "深圳证券交易所主板A股"
-};
-const caps = [["lt50", "总市值小于50亿元的"], ["50to100", "总市值大于等于50亿元且小于100亿元的"], ["ge100", "总市值大于等于100亿元的"]];
-const questions = [];
-for (const [ex, phrase] of Object.entries(parts)) {
-  for (const [ck, cp] of caps) {
-    questions.push([`event-${ex}-${ck}`, event(cp + phrase)]);
-    questions.push([`close-${ex}-${ck}`, close(cp + phrase)]);
-  }
-}
-questions.push(["event-prefix603", event("代码以603开头的上海证券交易所主板A股")]);
-questions.push(["event-prefix002", event("代码以002开头的深圳证券交易所主板A股")]);
+const questions = [
+  ["event-p0020", event("代码以0020开头的深圳证券交易所主板A股")],
+  ["event-p0026", event("代码以0026开头的深圳证券交易所主板A股")],
+  ["event-range", event("代码在002000至002499之间的深圳证券交易所主板A股")],
+  ["event-sw", event("申万一级行业为机械设备的深圳证券交易所主板A股")],
+  ["event-seal", event("首次封板时间早于13:00:00的深圳证券交易所主板A股")],
+  ["close-p002", close("代码以002开头的深圳证券交易所主板A股")],
+  ["close-p0020", close("代码以0020开头的深圳证券交易所主板A股")],
+];
 const union = { event: new Set(), close: new Set() };
 for (const [key, question] of questions) {
   try {
@@ -29,8 +25,13 @@ for (const [key, question] of questions) {
     const cols = tables[0]?.columns?.map((c) => c.name) || [];
     const capCol = cols.find((c) => /总市值/.test(c));
     const capVals = capCol ? rows.map((r) => Number(r[capCol])).filter(Number.isFinite) : [];
-    const bad = codes.filter((c) => key.includes("-sh-") ? !/^60\d{4}\.SH$/.test(c) : key.includes("-sz-") ? !/^00\d{4}\.SZ$/.test(c) : false);
-    if (!key.includes("prefix")) codes.forEach((c) => union[key.split("-")[0]].add(c));
+    const pre = key.match(/p(\d+)$/)?.[1];
+    const bad = codes.filter((c) => pre ? !c.startsWith(pre) : key === "event-range" ? !(c >= "002000" && c <= "002499") : !/^00\d{4}\.SZ$/.test(c));
+    const statusCol = cols.find((c) => /涨跌停状态/.test(c));
+    const sealCol = cols.find((c) => /涨跌停时间/.test(c));
+    const seals = sealCol ? rows.map((r) => String(r[sealCol] || "").match(/\d{2}:\d{2}/)?.[0]).filter(Boolean).sort() : [];
+    console.log(JSON.stringify({ key, statusCol, statusVals: statusCol ? [...new Set(rows.map((r) => r[statusCol]))] : null, sealRange: seals.length ? [seals[0], seals.at(-1)] : null }));
+    
     console.log(JSON.stringify({ key, bytes: Buffer.byteLength(text), rows: rows.length, unique: codes.length, offExchange: bad.length, cols, capRange: capVals.length ? [Math.min(...capVals), Math.max(...capVals)] : null, prefixes: [...new Set(codes.map((c) => c.slice(0, 3)))].join(",") }));
   } catch (error) {
     console.log(JSON.stringify({ key, error: String(error?.message || error).slice(0, 200) }));
