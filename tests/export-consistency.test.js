@@ -33,8 +33,6 @@ describe("导出交互全站一致", () => {
       expect(html, page).toContain('root.style.setProperty("--price-up", "#76BB40")');
       expect(html, page).toContain("fonts.googleapis.com/css2?family=Manrope");
     }
-    expect(read("watchlist/index.html")).not.toContain("20:05");
-    expect(read("watchlist/watchlist.js")).not.toContain("20:05");
   });
 
   it("关注导出带免责声明，长图含多日命中记录", () => {

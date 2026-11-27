@@ -32,7 +32,7 @@ const MARKETS = {
     breadthTitle: "市场广度",
     anomalyTitle: "当日题材异动",
     anomalyDesc: "相似分支先归并为父题材，再按涨停、批量拉升与消息催化筛选高价值方向。",
-    emptyThemes: "暂未取得A股概念排名。",
+    emptyThemes: "概念排名暂未更新，交易时段再来看看。",
     // 盘中曲线：09:30–11:30、13:00–15:00（午休压缩掉，11:30 与 13:00 在同一位置）
     sessions: [[570, 690], [780, 900]],
     slotsWide: [[570, "09:30"], [630, "10:30"], [690, "11:30｜13:00"], [840, "14:00"], [900, "15:00"]],
@@ -278,7 +278,7 @@ function renderAnomalies() {
   renderAsof($("#anomaly-time"), { at: anomalyData?.storedAt || anomalyData?.items?.[0]?.tradeTime });
   const viewState = items.length ? "" : `<div class="anomaly-view-state"><b>${filterLabels[anomalyFilter]}</b><span>0 个题材</span></div>`;
   if (!items.length) {
-    $("#anomaly-list").innerHTML = `${viewState}<div class="anomaly-empty">当前筛选条件下没有识别到题材异动。</div>`;
+    $("#anomaly-list").innerHTML = `${viewState}<div class="anomaly-empty">暂无符合条件的异动，可切换筛选。</div>`;
     return;
   }
   const labels = { limit: "涨停点火", batch: "批量拉升", news: "消息催化" };
@@ -287,7 +287,7 @@ function renderAnomalies() {
     const roleBadge = stock.roleLabel ? `<i class="role-badge ${stock.role === "龙头" ? "leader" : stock.role === "中军" ? "mid" : stock.role === "领涨" ? "lead" : ""}">${escapeHtml(stock.roleLabel)}</i>` : "";
     const quote = Number.isFinite(Number(stock.changePct)) ? formatPct(stock.changePct) : (role === "ignition" || stock.markLimit) ? "涨停" : "—";
     return `<div class="role-stock"><span>${roleBadge}<b>${escapeHtml(stock.name)}</b><small>${escapeHtml(stock.code)}</small></span><span class="role-stock-metric"><em class="${signClass(stock.changePct)}">${quote}</em>${streakBadge}</span>${Number.isFinite(Number(stock.candidateScore)) ? `<i>候选分 ${stock.candidateScore}</i>` : ""}</div>`;
-  }).join("") : '<div class="role-empty">暂无有效标的</div>';
+  }).join("") : '<div class="role-empty">暂无符合条件的公司</div>';
   $("#anomaly-list").innerHTML = viewState + items.map((item, index) => {
     const activeScore = item.tabScores?.[anomalyFilter] ?? item.score;
     const visibleSignals = anomalyFilter === "all" ? item.signals : [anomalyFilter];
@@ -429,7 +429,7 @@ function renderDailyTimeline() {
   const versionOf = (item) => Number(item.scoreVersion || 1);
   setText("#history-count", `近 ${history.length} 个交易日均值`);
   if (history.length < 2) {
-    $("#timeline-chart").innerHTML = `<div class="empty">\u5df2\u6c89\u6dc0${history.length}\u4e2a\u65e5\u7ebf\u70b9\uff1b\u6bcf\u65e5\u6309\u5f53\u5929 n \u4e2a\u76d8\u4e2d\u5feb\u7167\u7b49\u6743\u5e73\u5747\uff0c\u540e\u7eed\u81ea\u52a8\u7d2f\u8ba1\u3002</div>`;
+    $("#timeline-chart").innerHTML = `<div class="empty">${history.length ? "已记录 1 个交易日，再积累一天即可显示走势。" : "每日情绪走势将在积累两个交易日后显示。"}</div>`;
     return;
   }
   const { width, height } = chartSize();
@@ -485,7 +485,7 @@ function renderTimeline() {
   const latestLabel = history.at(-1)?.timeLabel;
   setText("#history-count", `${history.length} 个当日快照${latestLabel ? ` · 截至 ${latestLabel}` : ""}`);
   if (history.length < 2) {
-    $("#timeline-chart").innerHTML = '<div class="empty">交易时段定时生成快照，至少两个快照后形成盘中曲线。</div>';
+    $("#timeline-chart").innerHTML = '<div class="empty">盘中记录积累到两次后，会显示走势。</div>';
     return;
   }
   const { width, height } = chartSize();
@@ -590,8 +590,8 @@ function renderGlobalLinkage() {
   const note = $("#gl-note");
   if (!shown.length) {
     root.innerHTML = `<div class="empty">${globalLinkage?.pending
-      ? "全球联动快照暂未生成"
-      : "全球联动数据暂不可用"}</div>`;
+      ? "联动数据准备中，更新后显示"
+      : "联动数据暂不可用，请稍后刷新"}</div>`;
     $("#gl-summary").innerHTML = "";
     if (note) note.textContent = globalLinkage?.pending ? "" : glNoteText();
     return;
@@ -733,7 +733,7 @@ async function loadNews() {
     const payload = await api("news");
     const items = payload.items || [];
     renderAsof($("#news-asof"), { at: payload.asOf }, { fallback: "等待快照" });
-    $("#news-list").innerHTML = items.length ? items.slice(0, 5).map((item) => `<article class="news-item"><b>${escapeHtml(plain(item.title, "市场消息"))}</b><span>${escapeHtml(item.date || "")}${Number(item.relevance) > 0 ? ` · 相关度 ${Number(item.relevance).toFixed(2)}` : ""}</span><p>${escapeHtml(String(item.content || "").slice(0, 170))}${String(item.content || "").length > 170 ? "…" : ""}</p></article>`).join("") : '<div class="empty">暂无新闻快照。</div>';
+    $("#news-list").innerHTML = items.length ? items.slice(0, 5).map((item) => `<article class="news-item"><b>${escapeHtml(plain(item.title, "市场消息"))}</b><span>${escapeHtml(item.date || "")}${Number(item.relevance) > 0 ? ` · 相关度 ${Number(item.relevance).toFixed(2)}` : ""}</span><p>${escapeHtml(String(item.content || "").slice(0, 170))}${String(item.content || "").length > 170 ? "…" : ""}</p></article>`).join("") : '<div class="empty">暂无相关消息，更新后会在这里显示。</div>';
   } catch (error) {
     $("#news-list").innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`;
     toast(error.message, true);
