@@ -19,6 +19,9 @@ export function mergeWindUsage(saved, stats, at) {
   usage.nearLimit += stats.nearLimit?.length || 0;
   usage.bytesByTool = { ...usage.bytesByTool };
   for (const [tool, bytes] of Object.entries(stats.bytesByTool || {})) usage.bytesByTool[tool] = (usage.bytesByTool[tool] || 0) + bytes;
+  // 当日返回量最大的 10 次调用（跨轮合并）
+  usage.topCalls = [...(usage.topCalls || []), ...(stats.topCalls || []).map((call) => ({ ...call, at }))]
+    .sort((a, b) => b.bytes - a.bytes).slice(0, 10);
   usage.updatedAt = at;
   return usage;
 }
@@ -27,7 +30,8 @@ import { duePlan, needsCloseCatchUp, scheduleSummary, scheduleFor, MARKETS } fro
 import { getApiKeys, isMockMode } from "./wind-client.js";
 import { CONCEPT_CODES_KEY, mergeConceptCodes } from "../sectorflow/concepts.js";
 import { refreshSectorFlow, sectorflowNeedsClose, SECTORFLOW_KEYS } from "../sectorflow/service.js";
-import { refreshLimitUp, limitupHasClose, LIMITUP_KEYS } from "../limitup/service.js";
+import { selectMomentumPool } from "../sectorflow/boards.js";
+import { refreshLimitUp, limitupHasClose, limitupFullyComplete, LIMITUP_KEYS } from "../limitup/service.js";
 
 const MARKET_CONFIG = {
   cn: { engine: cnEngine },
@@ -160,7 +164,13 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
       result.skipped.push("emotion/anomalies: 收盘后只更新新闻（当日已有 15:00 收盘快照）");
     }
     // 涨停情绪看自己的快照：已有当日收盘快照才跳过（短线情绪补过收盘、涨停没补上时仍会取一次）
-    if (jobs.limitup && await limitupHasClose(store, plan.day).catch(() => false)) {
+    // 16:35 备援：明细、晋级、封板时间全部齐全才跳过；否则再取一次，结果不如已存的就不覆盖（shouldKeepPrevious）
+    if (plan.closeBackup) {
+      if (jobs.limitup && await limitupFullyComplete(store, plan.day).catch(() => false)) {
+        jobs.limitup = false;
+        result.skipped.push("limitup: 收盘明细已齐全，备援不再取数");
+      }
+    } else if (jobs.limitup && await limitupHasClose(store, plan.day).catch(() => false)) {
       jobs.limitup = false;
       result.skipped.push("limitup: 当日已有 15:00 收盘快照");
     }
@@ -227,6 +237,15 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
   if (jobs.anomalies && !marketLive && (result.mode === "scheduled" || inAuction)) {
     result.skipped.push("anomalies: 当日行情未就绪，跳过以免覆盖为旧数据");
   } else if (jobs.anomalies) {
+    // 5 分钟动能的固定参数池：板块资金收集的概念代码 + 当日题材温度前十（emotion:latest）
+    if (engine.setThemeMomentumPool) {
+      const [conceptCodes, latestForPool] = await Promise.all([
+        store.kvGet(CONCEPT_CODES_KEY).catch(() => null),
+        store.kvGet(KEY.emotion).catch(() => null)
+      ]);
+      const todayThemes = quoteDayOf(latestForPool?.value) === plan.day ? (latestForPool.value.themes || []).map((t) => t.code).filter(Boolean) : [];
+      engine.setThemeMomentumPool(selectMomentumPool(conceptCodes?.value, plan.day, { extraCodes: todayThemes }));
+    }
     tasks.push(loadThemeAnomalies().then(async (output) => {
       // A fully failed run (nothing returned) must not wipe the last good radar.
       if (!output.items.length && output.partial && await store.kvGet(KEY.anomalies)) {
@@ -255,6 +274,20 @@ export async function runScheduledRefresh({ force = false, now = new Date(), mar
     }).catch((error) => { result.errors.push(`news: ${errorText(error)}`); }));
   }
   await Promise.all(tasks);
+
+  // 日频数据（2026-11-13）：15:35 最终更新后主取当日收盘涨停名单与含当日日 K；次日 09:02 盘前备援（缓存齐全时不调用 Wind）
+  const dailyPrefetch = market === "cn" && !force && engine.prefetchDailyClose
+    && (plan.finalRefresh || (jobs.news && plan.minute < SCHEDULE.sessionStart));
+  if (dailyPrefetch) {
+    try {
+      const daily = await engine.prefetchDailyClose(plan.day, { now });
+      result.daily = { phase: plan.finalRefresh ? "primary" : "backup", ...daily };
+      result.ran.push(plan.finalRefresh ? "daily-close" : "daily-warmup");
+      daily.errors.slice(0, 3).forEach((message) => result.errors.push(`daily: ${message}`));
+    } catch (error) {
+      result.errors.push(`daily: ${errorText(error)}`);
+    }
+  }
 
   // 板块资金：顺手记下本次看到的概念指数代码（不多调用 Wind），失败不影响短线情绪
   const concepts = engine.takeSeenConcepts?.() || [];

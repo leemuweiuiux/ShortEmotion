@@ -1,3 +1,4 @@
+import { showUnlockSuccess } from "/shared/unlock-toast.js?v=1";
 // 涨停情绪（/limitup）— 页面脚本
 // 整页须解锁（10 积分，12 小时内有效）：未解锁只显示 4 个免费数字与解锁卡片，接口也不返回明细。
 // 数据来自 /api/limitup（只读定时任务写入的快照）；「刷新」沿用短线情绪（/api/short-emotion action=refresh，扣 5 积分），
@@ -428,7 +429,7 @@ function renderHeader() {
   const closed = /[T\s](1[5-9]|2\d):\d{2}/.test(String(current.quoteTime || ""));
   const info = renderAsof($("#connection"), { at: current.storedAt || current.quoteTime, closed, partial: degraded }, { fallback: "未返回更新时间", plain: true });
   $("#connection-dot").className = `status-dot${info?.live && !degraded ? " ok" : ""}`;
-  const until = !current.locked && !current.unlimited && current.unlockUntil ? `已解锁至 ${untilLabel(current.unlockUntil)}` : "";
+  const until = !current.locked && !current.unlimited && current.unlockUntil ? `有效至 ${untilLabel(current.unlockUntil)}` : "";
   setText("#quote-time", current.locked ? "未解锁" : until);
 }
 
@@ -501,7 +502,7 @@ async function unlock(event) {
       return;
     }
     if (!response.ok) throw new Error(payload.error || "解锁失败，请稍后再试");
-    if (payload.charged) toast(Number.isFinite(Number(payload.balance)) ? `已解锁，剩余 ${payload.balance} 积分` : "已解锁");
+    showUnlockSuccess(toast, "limitup", payload);
     await load({ fresh: true });
   } catch (error) {
     toast(error.message, true);

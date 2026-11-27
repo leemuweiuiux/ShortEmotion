@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { describe, it, expect, beforeEach } from "vitest";
 import { getStore } from "../api/_lib/short-emotion/store.js";
 import { INDEX, articleKey } from "../api/_lib/morning-report/service.js";
-import { renderNews, snapshotFor, snapshotSentence, SITE, PAGE_SIZE } from "../api/_lib/news/render.js";
+import { renderNews, toHant, snapshotFor, snapshotSentence, SITE, PAGE_SIZE } from "../api/_lib/news/render.js";
 import handler from "../api/news.js";
 
 const root = resolve(__dirname, "..");
@@ -67,10 +67,11 @@ describe("每日看点：文章页", () => {
     expect(html).not.toMatch(/noindex/);
   });
 
-  it("canonical、上一篇 / 下一篇", async () => {
+  it("canonical、简繁互链、上一篇 / 下一篇", async () => {
     const html = (await page({ id: "20261030" })).body;
     expect(html).toContain(`<link rel="canonical" href="${SITE}/news/20261030">`);
-    expect(html).not.toContain("zh-hant");
+    expect(html).toContain(`hreflang="zh-Hant" href="${SITE}/zh-hant/news/20261030"`);
+    expect(html).toContain(`hreflang="x-default" href="${SITE}/news/20261030"`);
     expect(html).toContain('<a rel="prev" href="/news/20261029-evening">');
     expect(html).toContain('<a rel="next" href="/news/20261030-noon">');
     // 早报：marketDate 是上一交易日，取当天收盘
@@ -94,12 +95,15 @@ describe("每日看点：文章页", () => {
     expect(crumbs.itemListElement.map((i) => i.name)).toEqual(["Market Emotion", "每日看点", news.headline]);
   });
 
-  it("旧语言查询仍返回简体页面", async () => {
+  it("繁体：/zh-hant/news/<id> 全页转换，网址与语言标记对应", async () => {
     const html = (await page({ id: "20261030-noon", lang: "hant" })).body;
-    expect(html).toContain('<html lang="zh-CN">');
-    expect(html).toContain(`<link rel="canonical" href="${SITE}/news/20261030-noon">`);
-    expect(html).toContain("每日看点");
-    expect(html).not.toContain("zh-hant");
+    expect(html).toContain('<html lang="zh-Hant">');
+    expect(html).toContain(`<link rel="canonical" href="${SITE}/zh-hant/news/20261030-noon">`);
+    expect(html).toContain("每日看點");
+    expect(html).toContain("情緒分");
+    expect(html).not.toContain("每日看点");
+    expect(jsonLd(html)[0].inLanguage).toBe("zh-Hant");
+    expect(toHant("退出登录，软件")).toBe("登出，軟體"); // 与站内繁体切换同一套用语
   });
 
   it("还没发布、不存在、格式不对：404 且不收录", async () => {
@@ -120,7 +124,7 @@ describe("每日看点：列表、站点地图、RSS", () => {
     expect(links).toEqual(["/news/20261030-noon", "/news/20261030", "/news/20261029-evening"]);
     expect(html).toContain(`<link rel="canonical" href="${SITE}/news">`);
     expect(jsonLd(html)[0]).toMatchObject({ "@type": "CollectionPage", mainEntity: { "@type": "ItemList" } });
-    expect((await page({ lang: "hant" })).body).toContain('href="/news/20261030"');
+    expect((await page({ lang: "hant" })).body).toContain('href="/zh-hant/news/20261030"');
   });
 
   it(`列表每页 ${PAGE_SIZE} 篇，翻页可被抓取`, async () => {
@@ -134,28 +138,28 @@ describe("每日看点：列表、站点地图、RSS", () => {
     expect([...second.matchAll(/class="mr-card"/g)]).toHaveLength(3);
   });
 
-  it("站点地图：介绍页、列表与每篇简体文章", async () => {
+  it("站点地图：介绍页、列表与每篇文章的简繁两版，互相标注语言", async () => {
     const out = await page({ view: "sitemap" });
     expect(out.type).toMatch(/xml/);
     expect(out.body).toContain(`<loc>${SITE}/about</loc>`);
     expect(out.body).toContain(`<loc>${SITE}/news/20261030-noon</loc>`);
-    expect(out.body).not.toContain("zh-hant");
+    expect(out.body).toContain(`<loc>${SITE}/zh-hant/news/20261030-noon</loc>`);
+    expect(out.body).toContain(`hreflang="zh-Hant" href="${SITE}/zh-hant/news/20261030"`);
     expect(out.body).not.toContain("20261031");
   });
 
-  it("RSS：简体最新文章与 self 链接", async () => {
+  it("RSS：最新文章与 self 链接；繁体版转换", async () => {
     const out = await page({ view: "rss" });
     expect(out.type).toMatch(/rss/);
     expect(out.body).toContain(`<atom:link href="${SITE}/news/feed.xml" rel="self"`);
     expect(out.body).toContain(`<guid isPermaLink="true">${SITE}/news/20261030-noon</guid>`);
-    expect((await page({ view: "rss", lang: "hant" })).body).toContain("每日看点");
+    expect((await page({ view: "rss", lang: "hant" })).body).toContain("每日看點");
   });
 
   it("介绍页用的最新几篇（JSON）", async () => {
     const { items } = JSON.parse((await page({ view: "latest", limit: "2" })).body);
     expect(items.map((i) => i.id)).toEqual(["20261030-noon", "20261030"]);
-    expect(items[0].url).toBe("/news/20261030-noon");
-    expect(items[0]).not.toHaveProperty("hantUrl");
+    expect(items[0]).toMatchObject({ url: "/news/20261030-noon", hantUrl: "/zh-hant/news/20261030-noon" });
   });
 
   it("当日情绪：一句可引用的结论", async () => {
@@ -171,10 +175,10 @@ describe("接口与部署", () => {
     expect(res.statusCode).toBe(405);
   });
 
-  it("vercel.json：/news、/sitemap.xml、RSS 改写到 api/news（RSS 在 /news/:id 之前）", () => {
+  it("vercel.json：/news、/zh-hant/news、/sitemap.xml、RSS 改写到 api/news（RSS 在 /news/:id 之前）", () => {
     const vercel = JSON.parse(readFileSync(resolve(root, "vercel.json"), "utf8"));
     const rules = vercel.rewrites.map((r) => `${r.source} -> ${r.destination}`);
-    for (const rule of ["/sitemap.xml -> /api/news?view=sitemap", "/news -> /api/news", "/news/:id -> /api/news?id=:id", "/news/feed.xml -> /api/news?view=rss"]) {
+    for (const rule of ["/sitemap.xml -> /api/news?view=sitemap", "/news -> /api/news", "/news/:id -> /api/news?id=:id", "/zh-hant/news/:id -> /api/news?lang=hant&id=:id", "/news/feed.xml -> /api/news?view=rss"]) {
       expect(rules).toContain(rule);
     }
     expect(rules.indexOf("/news/feed.xml -> /api/news?view=rss")).toBeLessThan(rules.indexOf("/news/:id -> /api/news?id=:id"));
@@ -194,7 +198,7 @@ describe("接口与部署", () => {
     expect(html).toContain('<meta property="og:image" content="https://www.lfjmwl.com/about/img/pulse-light.webp">');
     const data = JSON.parse(html.match(/<script type="application\/ld\+json">(.*?)<\/script>/)[1]);
     expect(data.map((d) => d["@type"])).toEqual(["Organization", "WebSite"]);
-    expect(html).toContain('href="/news"');
+    expect(html).toContain('href="/news" data-hans-href="/news" data-hant-href="/zh-hant/news"');
   });
 });
 
@@ -213,12 +217,6 @@ describe("页面守门：公开的看点与样式", () => {
     expect((await visit("/kandian/article?id=20261030-noon")).headers.get("location")).toBe("/news/20261030-noon");
     expect((await visit("/kandian/article?id=bad")).headers.get("location")).toBe("/login?next=%2Fkandian%2Farticle%3Fid%3Dbad");
     expect((await visit("/kandian")).headers.get("location")).toBe("/login?next=%2Fkandian");
-  });
-
-  it("旧繁体新闻永久重定向，保留查询参数", async () => {
-    const out = await visit("/zh-hant/news/20261030-noon?ref=old");
-    expect(out.status).toBe(308);
-    expect(out.headers.get("location")).toBe("https://www.lfjmwl.com/news/20261030-noon?ref=old");
   });
 
   it("需登录目录下的样式与脚本不拦（公开页要用 /kandian/reports.css）", async () => {

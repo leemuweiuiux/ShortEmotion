@@ -9,7 +9,7 @@
 // A股（cn）：交易时段每 30 分钟一次，午休不跑。
 //   - 情绪指标 + 题材异动：09:30–11:30、13:00–15:00 每 30 分钟（共 10 次；11:30 为上午收盘，15:00 为全天收盘）
 //   - 涨停情绪（/limitup，api/_lib/limitup）：与情绪指标同节奏；资讯复核结果按天存档，同一只股票当天只查一次资讯
-//   - 新闻：每小时整点（09:00 盘前、10:00、11:00、13:00、14:00、15:00）
+//   - 新闻：09:00 盘前，之后与情绪同节奏每 30 分钟（与题材异动共用同一次调用）
 //   - 同一个 30 分钟时段只调用一次 Wind；按任务实际开始的时间归入时段。
 //   - 收盘补抓（closes）：GitHub 定时任务常晚 20–40 分钟，原定 11:30 / 15:00 的那次会落到窗口外而被跳过。
 //     所以窗口外的定时任务还要看一眼：当天还没有收盘时点的快照，就补抓一次（拿到后不再调用 Wind）。
@@ -21,7 +21,8 @@ export const SCHEDULES = {
       emotion: { everyMinutes: 30, windows: [[9 * 60 + 30, 11 * 60 + 30], [13 * 60, 15 * 60]] },
       anomalies: { everyMinutes: 30, windows: [[9 * 60 + 30, 11 * 60 + 30], [13 * 60, 15 * 60]] },
       limitup: { everyMinutes: 30, windows: [[9 * 60 + 30, 11 * 60 + 30], [13 * 60, 15 * 60]] },
-      news: { everyMinutes: 60, windows: [[9 * 60, 11 * 60 + 30], [13 * 60, 15 * 60]] }
+      // 消息 2026-11-13 改为每 30 分钟：与题材异动共用同一次调用，不增加调用数
+      news: { everyMinutes: 30, windows: [[9 * 60, 11 * 60 + 30], [13 * 60, 15 * 60]] }
     },
     // 收盘补抓：在 [at, until) 之间的定时任务，若当日快照的行情时间早于 at，就跑一次 jobs。
     closes: [
@@ -33,11 +34,14 @@ export const SCHEDULES = {
     // 最后一次更新后清理：保留最近 60 个交易日的盘中快照
     cleanupAt: 15 * 60,
     finalRefreshAt: 15 * 60 + 35,
-    finalRefreshUntil: 17 * 60,
+    finalRefreshUntil: 16 * 60 + 30,
+    // 日频备援（2026-11-13）：16:35 再取一次涨停收盘明细，只在比 15:35 的结果更完整时覆盖
+    closeBackupAt: 16 * 60 + 30,
+    closeBackupUntil: 17 * 60 + 30,
     historyTradingDays: 60,
     // 晚于这个时间仍拿不到当日行情，就判定今天休市，当天不再调用 Wind
     holidayCheckAfter: 10 * 60,
-    summary: "交易日 09:30–11:30、13:00–15:00 每 30 分钟定时更新，15:35 盘后最终更新"
+    summary: "交易日 09:30–11:30、13:00–15:00 每 30 分钟定时更新，15:35 盘后最终更新，16:35 收盘明细备援"
   }
 };
 
@@ -80,6 +84,9 @@ export function duePlan(date = new Date(), market = "cn") {
   const finalRefresh = clock.isWeekday && clock.minute >= schedule.finalRefreshAt && clock.minute < schedule.finalRefreshUntil;
   if (finalRefresh) return { ...clock, slot: schedule.finalRefreshAt, finalRefresh: true,
     jobs: { emotion: true, anomalies: true, limitup: true, news: true, cleanup: true }, anyDue: true, close: null };
+  const closeBackup = clock.isWeekday && schedule.closeBackupAt != null && clock.minute >= schedule.closeBackupAt && clock.minute < schedule.closeBackupUntil;
+  if (closeBackup) return { ...clock, slot: schedule.closeBackupAt, closeBackup: true,
+    jobs: { emotion: false, anomalies: false, limitup: true, news: false, cleanup: false }, anyDue: true, close: null };
   const jobs = {};
   for (const [name, rule] of Object.entries(schedule.jobs)) {
     jobs[name] = clock.isWeekday && inWindows(clock.slot, rule.windows) && clock.slot % rule.everyMinutes === 0;

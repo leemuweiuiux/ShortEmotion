@@ -53,7 +53,6 @@ if (nav && !$('.global-header-space',nav)) {
     const links=document.createElement('div');links.className='wide-nav-links';
     links.setAttribute('role','navigation');links.setAttribute('aria-label','主要功能');
     for (const [href,label,children] of sections) {
-      if (href === "/watchlist" && !["exp.lfjmwl.com", "localhost", "127.0.0.1"].includes(location.hostname)) continue;
       const link=document.createElement('a');link.href=href;link.textContent=label;
       if(path===href||children.includes(path))link.setAttribute('aria-current','page');links.append(link);
     }
@@ -61,6 +60,8 @@ if (nav && !$('.global-header-space',nav)) {
   }
   const extra=$('.subnav-save, .mr-share',nav);
   if(extra){extra.classList.add('global-header-extra');space.after(extra);}
+  const lang=$('.lang-toggle',nav);
+  if(lang){lang.classList.add('global-header-lang');}
   const signin=document.createElement('a');signin.id='global-signin';signin.className='global-header-signin';signin.href='/account/signin';
   signin.innerHTML=iconCheck()+'<span>签到</span>';
   let points=$('#nav-points',nav);

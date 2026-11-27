@@ -69,7 +69,7 @@ function fill(profile) {
   candidate = null;
   renderNickname();
   setText($("#email"), profile.email || "—");
-  const fallback = "+86";
+  const fallback = document.documentElement.dataset.lang === "hant" ? "+886" : "+86";
   const code = profile.phoneCountryCode || fallback;
   if (![...countrySelect.options].some((option) => option.value === code)) countrySelect.add(new Option(code, code));
   countrySelect.value = code;

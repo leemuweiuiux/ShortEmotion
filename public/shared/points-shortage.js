@@ -1,6 +1,6 @@
 // 积分不足面板（首页、短线情绪、涨停情绪共用）：说明还差多少，并给出三条获取积分的路：每日签到、邀请好友、兑换码。
 // 代替原来的「积分不足，每日签到可得 +5 积分」轻提示。样式自带（各页样式表不同），颜色跟随页面的深浅色。
-import { convert } from "/shared/lang.js?v=21";
+import { convert } from "/shared/lang.js?v=20";
 
 const STYLE_ID = "points-shortage-style";
 const CSS = `

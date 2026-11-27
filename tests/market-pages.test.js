@@ -46,6 +46,10 @@ describe("每日市场数据", () => {
   it("介绍页近期数据与站点地图", async () => {
     const { items } = JSON.parse((await recentJson(store)).body);
     expect(items[0]).toMatchObject({ date: "2026-11-19", score: 35, phase: "退潮", limitUp: 28, limitDown: 83, closed: true });
-    expect(await sitemapUrls(store)).toEqual(["/market", "/market/2026-11-19", "/market/2026-11-18"]);
+    expect(await sitemapUrls(store)).toEqual(["/market", "/market/2026-11-19", "/market/2026-11-18", "/zh-hant/market", "/zh-hant/market/2026-11-19", "/zh-hant/market/2026-11-18"]);
+    const hant = await dayPage(store, { date: "2026-11-19", lang: "hant" });
+    expect(hant.body).toContain('<html lang="zh-Hant">');
+    expect(hant.body).toContain("情緒");
+    expect(hant.body).toContain('href="https://www.lfjmwl.com/zh-hant/market/2026-11-19"');
   });
 });

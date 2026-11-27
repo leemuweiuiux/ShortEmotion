@@ -1,7 +1,7 @@
 import { DATA_RAW_BASE, githubToken } from "../short-emotion/github.js";
 import { requireSession } from "../session.js";
 
-const dataBranch = "qdii-thermo"; // 2026-11-17 起美股 QDII 温度计（全部基金家族），与主站旧格式的 qdii-data 分开
+const dataBranch = "qdii-thermo"; // 2026-11-17 起美股 QDII 温度计（全部基金家族）；主站与 Exp 共用
 const snapshotUrl = `${DATA_RAW_BASE}/${dataBranch}/snapshot.json`;
 const repoPath = new URL(DATA_RAW_BASE).pathname;
 const apiUrl = `https://api.github.com/repos${repoPath}/contents/snapshot.json?ref=${dataBranch}`;
@@ -35,7 +35,7 @@ export default async function qdii(req, res) {
     res.setHeader("Allow", "GET");
     return res.status(405).json({ error: "方法不支持" });
   }
-  if (!["exp.lfjmwl.com", "localhost", "127.0.0.1"].includes(String(req.headers.host || "").split(":")[0])) {
+  if (!["lfjmwl.com", "www.lfjmwl.com", "stockmarketshortemotion.vercel.app", "exp.lfjmwl.com", "localhost", "127.0.0.1"].includes(String(req.headers.host || "").split(":")[0])) {
     return res.status(404).json({ error: "接口不存在" });
   }
   try {

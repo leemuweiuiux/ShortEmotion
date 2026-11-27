@@ -8,7 +8,7 @@ import { duePlan } from "../api/_lib/short-emotion/schedule.js";
 
 const root = resolve(import.meta.dirname, "..");
 // 准点定时分散在几个迁移文件里（短线情绪与早报、午间看点），合起来看
-const migration = ["20261023033000_cron_dispatch.sql", "20261023070000_noon_report_cron.sql", "20261023073220_evening_report_cron.sql", "20261105115544_short_emotion_final_close.sql"]
+const migration = ["20261023033000_cron_dispatch.sql", "20261023070000_noon_report_cron.sql", "20261023073220_evening_report_cron.sql", "20261105115544_short_emotion_final_close.sql", "20261113030000_daily_primary_backup_cron.sql", "20261116080000_qdii_daily_cron.sql", "20261119100000_second_wave_cron.sql"]
   .map((name) => readFileSync(resolve(root, "supabase/migrations", name), "utf8")).join("\n");
 const SECRET = "test-cron-secret";
 
@@ -180,7 +180,7 @@ describe("Supabase 准点定时表", () => {
   });
 
   it("短线情绪：北京时间工作日 09:02、09:32–11:32、13:02–15:02 每 30 分钟", () => {
-    const daily = ["09:02", "09:32", "10:02", "10:32", "11:02", "11:32", "13:02", "13:32", "14:02", "14:32", "15:02", "15:35"];
+    const daily = ["09:02", "09:32", "10:02", "10:32", "11:02", "11:32", "13:02", "13:32", "14:02", "14:32", "15:02", "15:35", "16:35"];
     expect(triggersFor("short-emotion")).toEqual(WEEKDAYS.flatMap((day) => daily.map((time) => `${day} ${time}`)).sort());
   });
 
@@ -193,7 +193,7 @@ describe("Supabase 准点定时表", () => {
     }
     for (let slot = 0; slot < 1440; slot += 30) {
       const plan = duePlan(new Date(monday + (slot + 2) * 60_000));
-      if (!plan.anyDue || plan.finalRefresh) continue;
+      if (!plan.anyDue || plan.finalRefresh || plan.closeBackup) continue;
       const label = `${String(Math.floor(slot / 60)).padStart(2, "0")}:${String(slot % 60 + 2).padStart(2, "0")}`;
       expect(triggered.has(label), label).toBe(true);
     }
@@ -209,6 +209,29 @@ describe("Supabase 准点定时表", () => {
 
   it("晚报：北京时间周一至周五16:05", () => {
     expect(triggersFor("evening-report")).toEqual(WEEKDAYS.map(day => `${day} 16:05`).sort());
+  });
+
+  it("日频主取与备援：资金历史 17:20/18:20、ETF 21:00 与次日 08:30、全球联动 08:10/08:40", () => {
+    expect(triggersFor("sectorflow-history")).toEqual(WEEKDAYS.flatMap((day) => [`${day} 17:20`, `${day} 18:20`]).sort());
+    expect(triggersFor("etf-flow-primary")).toEqual(WEEKDAYS.map((day) => `${day} 21:00`).sort());
+    expect(triggersFor("etf-flow-backup")).toEqual(["Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => `${day} 08:30`).sort());
+    expect(triggersFor("global-linkage")).toEqual(WEEKDAYS.map((day) => `${day} 08:10`).sort());
+    expect(triggersFor("global-linkage-backup")).toEqual(WEEKDAYS.map((day) => `${day} 08:40`).sort());
+  });
+
+  it("QDII 限额：北京时间周一至周六 08:20 主取、09:00 备援", () => {
+    const days = [...WEEKDAYS, "Sat"];
+    expect(triggersFor("qdii-primary")).toEqual(days.map((day) => `${day} 08:20`).sort());
+    expect(triggersFor("qdii-backup")).toEqual(days.map((day) => `${day} 09:00`).sort());
+    expect(SCHEDULED_JOBS["qdii-backup"]).toEqual({ workflow: "qdii.yml", inputs: { slot: "backup" } });
+  });
+
+  it("题材二波：北京时间周一至周五 16:10 主取、18:10 备援，定时与手动运行取 main 的脚本", () => {
+    expect(triggersFor("second-wave-primary")).toEqual(WEEKDAYS.map((day) => `${day} 16:10`).sort());
+    expect(triggersFor("second-wave-backup")).toEqual(WEEKDAYS.map((day) => `${day} 18:10`).sort());
+    expect(SCHEDULED_JOBS["second-wave-backup"]).toEqual({ workflow: "second-wave-exp.yml", inputs: { slot: "backup" } });
+    const workflow = readFileSync(resolve(root, ".github/workflows/second-wave-exp.yml"), "utf8");
+    expect(workflow).toContain("ref: ${{ github.event_name == 'push' && github.ref_name || 'main' }}");
   });
 
   it("调用正式网址的 /api/cron，密钥从 Vault 读取、不写进仓库", () => {

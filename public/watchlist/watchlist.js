@@ -1,8 +1,8 @@
 import { loadImageExporter } from "/shared/export-loader.js?v=1";
 import { exportHeader, exportFooter, prepareExportAssets, renderImage, shareOrDownload, showGallery, closeGallery, withTimeout } from "/shared/export-image.js?v=2";
 import { toast } from "/shared/nav-account.js?v=4";
-import { renderAsof } from "/shared/local-time.js?v=2";
 import { mountForecastEmpty } from "/watchlist/forecast-empty.js?v=1";
+import { renderAsof } from "/shared/local-time.js?v=2";
 
 const $ = (id) => document.getElementById(id);
 const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (char) =>
