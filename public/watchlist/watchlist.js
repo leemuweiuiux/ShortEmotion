@@ -251,24 +251,6 @@ $("watch-export").addEventListener("click", (event) => {
 document.addEventListener("click", (event) => { if (!event.target.closest(".watch-share-wrap")) closeMenu(); });
 document.addEventListener("keydown", (event) => { if (event.key === "Escape") { closeMenu(); closeGallery(); } });
 
-// 题材集中度（2026-11-27）：后端按个股所属概念规则计算，这里只负责显示
-const EXPOSURE_LEVEL = { high: "集中", some: "有重叠", low: "分散", few: "" };
-function renderExposure() {
-  const exposure = state.exposure;
-  const section = $("watch-exposure");
-  section.hidden = !exposure || !state.stocks.length;
-  if (section.hidden) return;
-  const level = $("watch-exposure-level");
-  level.textContent = EXPOSURE_LEVEL[exposure.level] || "";
-  level.className = `watch-exposure-level is-${exposure.level}`;
-  const missing = exposure.missing ? `（${exposure.missing} 只题材读取中，下次打开再补）` : "";
-  $("watch-exposure-text").textContent = exposure.text + missing;
-  $("watch-exposure-groups").innerHTML = (exposure.clusters || []).map((group) => `<li>
-    <strong>${group.concepts.map(escape).join(" · ")}</strong>
-    <span>${group.stocks.map((stock) => escape(stock.name)).join("、")}</span>
-    <em>${group.stocks.length} 只</em></li>`).join("");
-}
-
 async function load() {
   if (syncing || busy) return;
   syncing = true;
@@ -278,7 +260,6 @@ async function load() {
     loaded = true;
     renderForecast();
     renderPool();
-    renderExposure();
     $("watch-status").textContent = state.needsRefresh ? "关注已保存，行情将在晚间更新后显示。" : "";
   } catch (error) {
     $("watch-status").textContent = error.message;
