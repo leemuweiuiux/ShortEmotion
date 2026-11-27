@@ -1328,8 +1328,12 @@ export async function loadLimitUpBoard(day = localDate(), { loadStoredDay = null
     }
     if (backfill.errors.length) errors.push(...backfill.errors.map((message) => `涨停明细补齐: ${message}`));
     const downForCheck = await downPromise.catch(() => null);
+    // 事后补跑时事件表常只回几行（11/25 补跑只回 7 家，当天盘中回过 58 家）：同日更早一轮快照的名单也算事件表一方
+    const earlierCodes = previousBoard?.tradingDate === dataDay && !(previousBoard.dataQuality?.cappedSectors || []).length
+      ? [...(previousBoard.stocks || []).map((stock) => String(stock.code || "").toUpperCase()), ...(previousBoard.stCodes || [])]
+      : [];
     const reconciled = reconcileLimitCount({
-      reported: marketCounts.limitUp, eventCodes, eventComplete: eventResult.complete,
+      reported: marketCounts.limitUp, eventCodes: new Set([...eventCodes, ...earlierCodes].filter(Boolean)), eventComplete: eventResult.complete,
       listCodes: backfill.codes, listComplete: backfill.complete && !backfill.errors.length, intraday: liveSession,
       summaryContradicted: limitDownContradicts(marketCounts.limitDown, downForCheck)
     });
