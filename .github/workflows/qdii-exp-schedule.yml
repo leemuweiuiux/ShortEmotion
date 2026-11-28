@@ -1,0 +1,15 @@
+name: QDII preview daily schedule
+
+on:
+  schedule:
+    - cron: '20 0 * * *' # 08:20 Asia/Shanghai
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  preview-data:
+    uses: leemuweiuiux/ShortEmotion/.github/workflows/qdii-exp.yml@exp
+    secrets:
+      WIND_API_KEY: ${{ secrets.WIND_API_KEY }}
